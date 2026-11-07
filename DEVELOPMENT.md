@@ -126,6 +126,16 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo run --quiet -p vtest-cli --locked -- doctor
 ```
 
+CI also runs a **self-verify** workflow (`.github/workflows/self-verify.yml`):
+`vtest run --all` and `vtest verify` on this repository. Because a full run
+measures every Test under `cargo llvm-cov` one at a time and takes hours, it runs
+nightly on `develop` and on demand (Actions → Self-verify → Run workflow), not on
+every push or pull request. The job's result is
+`vtest verify`'s exit code, so it is red while verification reports non-PASS
+results. It is informational and not a required check. The job summary shows
+the verification state, and the run and verify JSON, Evidence and logs are kept
+as the `self-verify` artifact. Evidence is never committed.
+
 If coverage tooling is not already installed, run:
 
 ```bash

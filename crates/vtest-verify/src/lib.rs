@@ -22,8 +22,9 @@ use std::{
 
 use serde::Serialize;
 use vtest_model::{
-    ContentHash, DiagnosticLabel, DocumentFile, EvidenceRecord, ManagedTestLink, SectionNode,
-    SentenceNode, TargetRef, TestEntity, VerificationCheck, VerificationState, VoRecord,
+    ContentHash, Diagnostic, DiagnosticLabel, DocumentFile, EvidenceRecord, ManagedTestLink,
+    SectionNode, SentenceNode, TargetRef, TestEntity, VerificationCheck, VerificationState,
+    VoRecord,
 };
 use vtest_scan::ScanResult;
 use vtest_store::{
@@ -128,9 +129,40 @@ pub struct RequestedScope {
     pub items: Vec<VerificationCheck>,
     /// 0 or 1 entries — `EntityScope`'s own axis is exclusive (DS-1104), but
     /// DES-548 names this field in the plural and requires an empty list
-    /// when no entity axis was requested, so this always holds the current
-    /// entity's id as a one-element list rather than an `Option`.
-    pub entities: Vec<String>,
+    /// when no entity axis was requested (DS-953), so this always holds the
+    /// current entity as a one-element list rather than an `Option`. Each
+    /// entry is `{ "kind": "doc" | "vo" | "test", "id": ... }` (DS-952).
+    pub entities: Vec<RequestedEntity>,
+}
+
+/// DS-952: one requested entity of the entity axis.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct RequestedEntity {
+    pub kind: EntityKind,
+    pub id: String,
+}
+
+/// DS-952: the `kind` domain of a requested entity.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum EntityKind {
+    Doc,
+    Vo,
+    Test,
+}
+
+impl From<&EntityScope> for RequestedEntity {
+    fn from(scope: &EntityScope) -> Self {
+        let kind = match scope {
+            EntityScope::Doc(_) => EntityKind::Doc,
+            EntityScope::Vo(_) => EntityKind::Vo,
+            EntityScope::Test(_) => EntityKind::Test,
+        };
+        Self {
+            kind,
+            id: scope.id().to_owned(),
+        }
+    }
 }
 
 /// One check's result at one evaluation point.
@@ -145,6 +177,13 @@ pub struct CheckOutcome {
     pub labels: Vec<DiagnosticLabel>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub basis: Vec<String>,
+    /// Structured diagnostics this evaluation raised (for example
+    /// E-SCAN-010 for an Evidence record DS-476 excludes). They are not
+    /// part of the tree's JSON shape: `verify_project` folds them into
+    /// [`VerifyOutcome::diagnostics`], so the shared verify operation returns
+    /// them in the envelope's `diagnostics`, next to the scan's.
+    #[serde(skip)]
+    pub diagnostics: Vec<Diagnostic>,
 }
 
 impl CheckOutcome {
@@ -159,7 +198,13 @@ impl CheckOutcome {
             state,
             labels,
             basis,
+            diagnostics: Vec::new(),
         }
+    }
+
+    fn with_diagnostic(mut self, diagnostic: Diagnostic) -> Self {
+        self.diagnostics.push(diagnostic);
+        self
     }
 
     fn pass(check: VerificationCheck, basis: impl Into<String>) -> Self {
@@ -233,6 +278,13 @@ pub struct VerifyOutcome {
     /// すべてPASSならOK、それ以外ならNGとする」。SPEC-333「利用者向け簡易出力は
     /// `OK` / `NG`の二値とする」。検証状態とは別軸の field である。
     pub ok: bool,
+    /// Diagnostics raised while reading verification inputs (an unusable
+    /// Evidence record: E-SCAN-010, or a store I/O failure: E-INTERNAL-001)
+    /// and by the checks (E-SCAN-010 for a record DS-476 excludes, such as an
+    /// aggregate that contradicts its per-target entries), duplicates removed.
+    /// The CLI/MCP envelope carries them next to the scan diagnostics.
+    #[serde(skip)]
+    pub diagnostics: Vec<vtest_model::Diagnostic>,
 }
 
 impl VerifyOutcome {
@@ -319,6 +371,13 @@ pub fn representative(states: impl IntoIterator<Item = VerificationState>) -> Ve
 struct EvidenceContext<'a> {
     root: std::path::PathBuf,
     latest_by_test: BTreeMap<String, EvidenceRecord>,
+    /// Evidence records that could not be read or did not pass the schema
+    /// (E-SCAN-010), kept so a broken *latest* record is never skipped in
+    /// favour of an older valid one (DS-673/DS-674/DS-1365/DS-1366).
+    invalid: Vec<InvalidEvidence>,
+    /// Diagnostics for `invalid` (E-SCAN-010 for a schema/id violation,
+    /// E-INTERNAL-001 for a store I/O failure, DS-1676/DS-1689).
+    diagnostics: Vec<vtest_model::Diagnostic>,
     head_commit: Option<String>,
     registry: &'a vtest_adapter_api::AdapterRegistry,
     /// adapter id → DS-617 `assertion_macros`（`config.yaml` の
@@ -335,25 +394,88 @@ impl<'a> EvidenceContext<'a> {
         registry: &'a vtest_adapter_api::AdapterRegistry,
     ) -> Self {
         let mut latest_by_test: BTreeMap<String, EvidenceRecord> = BTreeMap::new();
-        if let Ok(entries) = std::fs::read_dir(layout.evidence_dir()) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.extension().and_then(|ext| ext.to_str()) != Some("yaml") {
-                    continue;
-                }
-                let Ok(record) = read_evidence(&path) else {
-                    continue;
-                };
-                let test_id = record.test_id.as_str().to_owned();
-                // Evidence record ids are ULIDs (DES-032), which sort
-                // lexicographically in creation-time order, so the greatest
-                // `id` string among a Test's records is the latest one.
-                match latest_by_test.get(&test_id) {
-                    Some(existing) if existing.id >= record.id => {}
-                    _ => {
-                        latest_by_test.insert(test_id, record);
+        let mut invalid = Vec::new();
+        let mut diagnostics = Vec::new();
+        let evidence_dir = layout.evidence_dir();
+        match std::fs::read_dir(&evidence_dir) {
+            Ok(entries) => {
+                for entry in entries {
+                    let path = match entry {
+                        Ok(entry) => entry.path(),
+                        Err(error) => {
+                            // An unlistable entry may be any Test's latest record.
+                            invalid.push(InvalidEvidence {
+                                id: None,
+                                test_id: None,
+                                reason: format!("Evidence directory entry unreadable: {error}"),
+                            });
+                            diagnostics.push(vtest_model::Diagnostic::error(
+                                "E-INTERNAL-001",
+                                format!(
+                                    "Evidence directory {} could not be listed completely: {error}",
+                                    evidence_dir.display()
+                                ),
+                            ));
+                            continue;
+                        }
+                    };
+                    if path.extension().and_then(|ext| ext.to_str()) != Some("yaml") {
+                        continue;
+                    }
+                    match read_evidence(&path) {
+                        Ok(record) => {
+                            let test_id = record.test_id.as_str().to_owned();
+                            // Evidence record ids are ULIDs (DES-032), which sort
+                            // lexicographically in creation-time order, so the
+                            // greatest `id` string among a Test's records is the
+                            // latest one.
+                            match latest_by_test.get(&test_id) {
+                                Some(existing) if existing.id >= record.id => {}
+                                _ => {
+                                    latest_by_test.insert(test_id, record);
+                                }
+                            }
+                        }
+                        Err(error) => {
+                            let (code, reason) = match &error {
+                                vtest_store::StoreError::Io { .. } => {
+                                    ("E-INTERNAL-001", format!("could not be read: {error}"))
+                                }
+                                _ => ("E-SCAN-010", format!("is not a valid record: {error}")),
+                            };
+                            let id = path
+                                .file_stem()
+                                .and_then(|stem| stem.to_str())
+                                .map(str::to_owned);
+                            invalid.push(InvalidEvidence {
+                                id,
+                                test_id: std::fs::read_to_string(&path)
+                                    .ok()
+                                    .and_then(|text| declared_test_id(&text)),
+                                reason: format!("Evidence {} {reason}", path.display()),
+                            });
+                            diagnostics.push(vtest_model::Diagnostic::error(
+                                code,
+                                format!("Evidence {} {reason}", path.display()),
+                            ));
+                        }
                     }
                 }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                invalid.push(InvalidEvidence {
+                    id: None,
+                    test_id: None,
+                    reason: format!("Evidence directory unreadable: {error}"),
+                });
+                diagnostics.push(vtest_model::Diagnostic::error(
+                    "E-INTERNAL-001",
+                    format!(
+                        "Evidence directory {} could not be read: {error}",
+                        evidence_dir.display()
+                    ),
+                ));
             }
         }
         let assertion_macros = vtest_store::load_config(root)
@@ -368,11 +490,68 @@ impl<'a> EvidenceContext<'a> {
         Self {
             root: root.to_owned(),
             latest_by_test,
+            invalid,
+            diagnostics,
             head_commit: git_head_commit(root),
             registry,
             assertion_macros,
         }
     }
+}
+
+/// An Evidence record that could not be used (DS-1679). `id` is the file
+/// name's ULID; `None` (with `test_id: None`) means the record could not even
+/// be listed, so it may be any Test's latest record.
+#[derive(Clone, Debug)]
+struct InvalidEvidence {
+    id: Option<String>,
+    test_id: Option<String>,
+    reason: String,
+}
+
+impl EvidenceContext<'_> {
+    /// DS-673/DS-674/DS-1365: the latest Evidence of a Test is the newest
+    /// record *file*, valid or not. When an invalid record is newer than the
+    /// newest valid one (or its Test cannot be told and it may be), that
+    /// invalid record is the latest and no older valid record stands in.
+    fn invalid_latest(&self, test_id: &str) -> Option<&InvalidEvidence> {
+        let valid_id = self
+            .latest_by_test
+            .get(test_id)
+            .map(|record| record.id.as_str());
+        self.invalid
+            .iter()
+            .filter(|invalid| {
+                invalid
+                    .test_id
+                    .as_deref()
+                    .is_none_or(|declared| declared == test_id)
+            })
+            .filter(|invalid| match (&invalid.id, valid_id) {
+                (None, _) | (_, None) => true,
+                (Some(id), Some(valid)) => id.as_str() > valid,
+            })
+            .max_by(|a, b| a.id.cmp(&b.id))
+    }
+}
+
+/// The `test_id` a broken Evidence file declares, so a record that fails the
+/// schema (an unknown field, an id that differs from its file name, ...) can
+/// still be attributed to its Test. The file is parsed as YAML and the value
+/// is used only when it is a string that is a well-formed Test ID; anything
+/// else — YAML that does not parse, a duplicated key, `test_id: null`, a
+/// number, an empty or whitespace-bearing string — returns `None`, which
+/// `invalid_latest` attributes to every Test (fail-closed). Reading the line
+/// textually would turn `test_id: null` into the Test ID `"null"`, which
+/// matches no real Test, and an older valid PASS would stand in again.
+fn declared_test_id(text: &str) -> Option<String> {
+    let value: yaml_serde::Value = yaml_serde::from_str(text).ok()?;
+    let declared = value.get("test_id")?.as_str()?;
+    let well_formed = !declared.is_empty()
+        && declared
+            .chars()
+            .all(|c| !c.is_whitespace() && !c.is_control());
+    well_formed.then(|| declared.to_owned())
 }
 
 fn git_head_commit(root: &Path) -> Option<String> {
@@ -461,17 +640,14 @@ pub fn verify_project(
             .chain(tree.iter().map(|node| node.state)),
     );
 
-    VerifyOutcome {
+    let mut outcome = VerifyOutcome {
         scope: ScopeReport {
             requested: RequestedScope {
                 items: ALL_CHECKS
                     .into_iter()
                     .filter(|check| selected.contains(check))
                     .collect(),
-                entities: entity_scope
-                    .iter()
-                    .map(|entity| entity.id().to_owned())
-                    .collect(),
+                entities: entity_scope.iter().map(RequestedEntity::from).collect(),
             },
             limited,
             entity: entity_scope,
@@ -482,7 +658,23 @@ pub fn verify_project(
         unevaluated,
         state,
         ok: state == VerificationState::Pass,
+        diagnostics: Vec::new(),
+    };
+    // The diagnostics raised while reading Evidence, then those the checks
+    // raised (E-SCAN-010 for a record DS-476 excludes, such as an aggregate
+    // that contradicts its per-target entries), in check order with
+    // duplicates removed: one Evidence record can be reached from more than
+    // one VO.
+    let mut diagnostics = evidence.diagnostics.clone();
+    for check in outcome.all_outcomes() {
+        for diagnostic in &check.diagnostics {
+            if !diagnostics.contains(diagnostic) {
+                diagnostics.push(diagnostic.clone());
+            }
+        }
     }
+    outcome.diagnostics = diagnostics;
+    outcome
 }
 
 fn contains_test_node(node: &TreeNode) -> bool {
@@ -1029,30 +1221,46 @@ fn evaluate_target_binding(
     // ない」ではない — 後者は DS-1678 が MISMATCH を NO_EVIDENCE へ倒す
     // 理由づけとして明示的に禁じているため、ここでは使わない。
     //
-    // 両方欠落したときの優先順は正本沈黙（本 PR の brief）: DS-1582
-    // （runner欠落=NOT_EXECUTED）とDS-1581（coverage欠落=NOT_CHECKED）の
-    // どちらを先に判定するかを正本は決めていない。runner 欠落を先に
-    // 判定するのを導出として採る — runner が無ければそもそも実行され
-    // 得ず、coverage 単体の欠落（実行はできるが計測できない）より強い
-    // 欠落だと判断した。
+    // 両方欠落した場合: DS-847「診断ラベルは順位に用いず併記する」。
+    // DS-1582（runner欠落=NOT_EXECUTED）と DS-1581（coverage欠落=
+    // NOT_CHECKED）はどちらも他方の欠落を除外条件にしていないので、両方に
+    // 当たれば両方のラベルを併記する（どちらかを優先しない）。状態はどちら
+    // でも `NO_EVIDENCE` で変わらない。
     let adapter_id = test.execution.adapter.as_str();
+    let mut labels = Vec::new();
+    let mut basis = Vec::new();
     if evidence.registry.test_runner(adapter_id).is_none() {
+        labels.push(DiagnosticLabel::NotExecuted);
+        basis.push(format!(
+            "adapter {adapter_id:?} has no Test Runner capability (DS-925/DS-1582)"
+        ));
+    }
+    if evidence.registry.coverage(adapter_id).is_none() {
+        labels.push(DiagnosticLabel::NotChecked);
+        basis.push(format!(
+            "adapter {adapter_id:?} has no Coverage capability (DS-925/DS-1581)"
+        ));
+    }
+    if !labels.is_empty() {
+        return CheckOutcome::new(
+            VerificationCheck::TargetBinding,
+            VerificationState::NoEvidence,
+            labels,
+            basis,
+        );
+    }
+
+    // DS-1365/DS-1679: an invalid latest record is not replaced by an older
+    // valid one; the Test has no usable Evidence.
+    if let Some(invalid) = evidence.invalid_latest(test.id.as_str()) {
         return CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::NoEvidence,
             vec![DiagnosticLabel::NotExecuted],
             vec![format!(
-                "adapter {adapter_id:?} has no Test Runner capability (DS-925/DS-1582)"
-            )],
-        );
-    }
-    if evidence.registry.coverage(adapter_id).is_none() {
-        return CheckOutcome::new(
-            VerificationCheck::TargetBinding,
-            VerificationState::NoEvidence,
-            vec![DiagnosticLabel::NotChecked],
-            vec![format!(
-                "adapter {adapter_id:?} has no Coverage capability (DS-925/DS-1581)"
+                "the latest Evidence is not usable and older Evidence is not used in its \
+                 place (DS-1365/DS-1679): {}",
+                invalid.reason
             )],
         );
     }
@@ -1078,14 +1286,104 @@ fn evaluate_target_binding(
     }
 
     // DS-830/831/832: the Evidence is valid.
-    dynamic_result_from_evidence(record)
+    dynamic_result_from_evidence(record, &canonical_target_locators(test, scan))
+}
+
+/// DS-1412: the resolved canonical Locator of every declared target, in the
+/// `<adapter>::<value>` spelling the Evidence writer records target entries
+/// under. Only called after `evidence_validity_failure` confirmed every
+/// declared target resolves.
+fn canonical_target_locators(test: &TestEntity, scan: &ScanResult) -> Vec<String> {
+    test.targets
+        .iter()
+        .filter_map(|target| match target {
+            TargetRef::Locator(locator) => scan
+                .sources
+                .iter()
+                .find(|source| &source.locator == locator)
+                .map(|source| format!("{}::{}", source.locator.adapter, source.locator.value)),
+            _ => None,
+        })
+        .collect()
+}
+
+/// DS-1411/DS-1412/DES-188/DES-189/DS-1404/DS-1405: the per-target entries of
+/// a `checked: true` measurement, validated against the current canonical
+/// target set. Returns the entries to judge, or a reason the record cannot
+/// be used (DS-1679: such Evidence is not used as a result).
+fn validated_target_entries(
+    coverage: &vtest_model::TargetCoverage,
+    expected: &[String],
+    adapter: &str,
+) -> Result<Vec<vtest_model::TargetCoverageTarget>, String> {
+    use vtest_model::TargetCoverageResult as R;
+    let mut entries = coverage.targets.clone();
+    // DES-203: the singular compatibility form (aggregate result/count, no
+    // target entries) is read as one entry only for a `rust-cargo` Test that
+    // declares exactly one target.
+    if entries.is_empty() && expected.len() == 1 && adapter == "rust-cargo" {
+        let result = coverage.result.unwrap_or(R::Unknown);
+        entries.push(vtest_model::TargetCoverageTarget {
+            target: expected[0].clone(),
+            result,
+            count: if result == R::Unknown {
+                None
+            } else {
+                coverage.count
+            },
+        });
+    }
+    let mut seen = BTreeSet::new();
+    for entry in &entries {
+        if !seen.insert(entry.target.as_str()) {
+            return Err(format!(
+                "target_coverage lists target {} more than once (DS-1411)",
+                entry.target
+            ));
+        }
+        let consistent = match entry.result {
+            R::Pass => entry.count.is_some_and(|count| count > 0),
+            R::Fail => entry.count == Some(0),
+            R::Unknown => entry.count.is_none(),
+        };
+        if !consistent {
+            return Err(format!(
+                "target_coverage entry {} has result {:?} with count {:?}, which \
+             DS-1404/DS-1405/DES-189 do not allow",
+                entry.target, entry.result, entry.count
+            ));
+        }
+    }
+    let expected_set: BTreeSet<&str> = expected.iter().map(String::as_str).collect();
+    if seen != expected_set {
+        let missing: Vec<_> = expected_set.difference(&seen).copied().collect();
+        let extra: Vec<_> = seen.difference(&expected_set).copied().collect();
+        return Err(format!(
+            "target_coverage entries do not match the declared canonical targets \
+             (missing: [{}], extra: [{}]) (DS-1411)",
+            missing.join(", "),
+            extra.join(", ")
+        ));
+    }
+    // DS-476/DES-187: the aggregate must equal the fail-closed aggregate of
+    // every entry, not merely agree on whether it is PASS — an aggregate of
+    // UNKNOWN over a FAIL entry is a contradiction too.
+    let aggregate = R::aggregate(entries.iter().map(|entry| &entry.result));
+    if coverage.result != Some(aggregate) {
+        return Err(format!(
+            "target_coverage aggregate result {:?} contradicts its per-target entries, \
+             whose aggregate is {aggregate:?} (DS-476/DES-187)",
+            coverage.result
+        ));
+    }
+    Ok(entries)
 }
 
 /// DS-830/831/832: judgment applied once an Evidence record is confirmed
 /// valid (DS-818). Kept as its own function so it is unit-testable without
 /// first achieving end-to-end validity (see `evaluate_target_binding`'s
 /// doc comment on why that path is not reachable yet in this crate).
-fn dynamic_result_from_evidence(record: &EvidenceRecord) -> CheckOutcome {
+fn dynamic_result_from_evidence(record: &EvidenceRecord, expected: &[String]) -> CheckOutcome {
     // DS-830: the runner itself reported failure.
     if record.result == vtest_model::TestResult::Fail {
         return CheckOutcome::new(
@@ -1109,41 +1407,69 @@ fn dynamic_result_from_evidence(record: &EvidenceRecord) -> CheckOutcome {
             vec!["target reachability was not measured (DS-832)".to_owned()],
         );
     }
-    // DS-832: a measured-but-zero count -> FAIL (NOT_EXECUTED), independent
-    // of the aggregate `result` value, since `count == 0` is the concrete
-    // observation that the declared target was never reached.
-    if coverage.count == Some(0) {
-        return CheckOutcome::new(
-            VerificationCheck::TargetBinding,
-            VerificationState::Fail,
-            vec![DiagnosticLabel::NotExecuted],
-            vec!["measured target coverage count is 0 (DS-832)".to_owned()],
-        );
+    // DS-1411/DS-1679: entries that are missing, duplicated, inconsistent, or
+    // not the current canonical target set make the record unusable as a
+    // result; `target_binding` is then NO_EVIDENCE (NOT_EXECUTED), never a
+    // PASS taken from the aggregate alone.
+    let entries = match validated_target_entries(coverage, expected, record.adapter.as_str()) {
+        Ok(entries) => entries,
+        Err(reason) => {
+            let message = format!("Evidence {} is not used: {reason}", record.id);
+            return CheckOutcome::new(
+                VerificationCheck::TargetBinding,
+                VerificationState::NoEvidence,
+                vec![DiagnosticLabel::NotExecuted],
+                vec![format!("{message} (E-SCAN-010, DS-1679)")],
+            )
+            .with_diagnostic(Diagnostic::error("E-SCAN-010", message));
+        }
+    };
+    // DS-1410/DS-832: judged per target. A target with count 0 is FAIL
+    // (NOT_EXECUTED); a target the measurement could not identify is
+    // UNKNOWN; the Test is PASS only when every declared target is PASS.
+    let mut states = Vec::new();
+    let mut labels = Vec::new();
+    let mut basis = Vec::new();
+    for entry in &entries {
+        match entry.result {
+            vtest_model::TargetCoverageResult::Pass => {}
+            vtest_model::TargetCoverageResult::Fail => {
+                states.push(VerificationState::Fail);
+                if !labels.contains(&DiagnosticLabel::NotExecuted) {
+                    labels.push(DiagnosticLabel::NotExecuted);
+                }
+                basis.push(format!(
+                    "measured target coverage count is 0 for {} (DS-832)",
+                    entry.target
+                ));
+            }
+            vtest_model::TargetCoverageResult::Unknown => {
+                states.push(VerificationState::Unknown);
+                basis.push(format!(
+                    "measured coverage could not identify the declared target function {} \
+             (DS-832)",
+                    entry.target
+                ));
+            }
+        }
     }
-    match coverage.result {
-        Some(vtest_model::TargetCoverageResult::Pass) => CheckOutcome::new(
+    if states.is_empty() {
+        return CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::Pass,
             Vec::new(),
-            vec!["all declared targets reached §7.3 coverage (DS-831)".to_owned()],
-        ),
-        Some(vtest_model::TargetCoverageResult::Fail) => CheckOutcome::new(
-            VerificationCheck::TargetBinding,
-            VerificationState::Fail,
-            vec![DiagnosticLabel::NotExecuted],
-            vec!["measured target coverage count is 0 (DS-832)".to_owned()],
-        ),
-        // DS-832「関数不見当はUNKNOWNとする」: the adapter's coverage
-        // measurement could not identify the declared target function.
-        Some(vtest_model::TargetCoverageResult::Unknown) | None => CheckOutcome::new(
-            VerificationCheck::TargetBinding,
-            VerificationState::Unknown,
-            Vec::new(),
-            vec!["measured coverage could not identify the declared target \
-                  function (DS-832)"
-                .to_owned()],
-        ),
+            vec![format!(
+                "all {} declared target(s) reached §7.3 coverage (DS-831)",
+                entries.len()
+            )],
+        );
     }
+    CheckOutcome::new(
+        VerificationCheck::TargetBinding,
+        representative(states),
+        labels,
+        basis,
+    )
 }
 
 /// DS-605「`oracle_presence`はDA-001 / DA-003 / DA-004 / DA-005 / DA-006の
@@ -1389,7 +1715,7 @@ fn build_tree(
             .iter()
             .filter(|(id, record)| {
                 selection.vos.contains(*id)
-                    && record.parent.is_none()
+                    && is_selection_root(record, selection)
                     && record
                         .derives_from
                         .iter()
@@ -1418,10 +1744,9 @@ fn build_tree(
         if built_roots.contains(id) {
             continue;
         }
-        if vos
-            .get(id)
-            .is_some_and(|record| record.parent.is_some() && !vo_parent_cycle_root(vos, id))
-        {
+        if vos.get(id).is_some_and(|record| {
+            !is_selection_root(record, selection) && !vo_parent_cycle_root(vos, id)
+        }) {
             continue;
         }
         roots.push(build_vo_node(
@@ -1458,6 +1783,16 @@ fn build_tree(
     }
 
     roots
+}
+
+/// DS-1104/DS-840: a selected VO whose parent is outside the selection
+/// (or absent) roots its own subtree. Otherwise a scope naming a child VO,
+/// or a Test covering one, would drop the VO and its Tests from the tree.
+fn is_selection_root(record: &VoRecord, selection: &EntitySelection) -> bool {
+    record
+        .parent
+        .as_ref()
+        .is_none_or(|parent| !selection.vos.contains(parent.as_str()))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2050,6 +2385,7 @@ mod tests {
     /// outcome are the observable substitute.
     /// @vtest.id TEST-VERIFY-SHARED-VO-PROJECTED-IDENTICALLY
     /// @vtest.covers VO-VERIFY-DOC-AGGREGATES-DOWNSTREAM-VO-SUBTREE
+    /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
     /// @vtest.intent 複数documentから導出される同一VOを各DOC部分木へ同一状態で投影し、各部分木でfail-closedに集約することを確認する
     #[test]
     fn shared_vo_is_projected_identically_under_both_documents() {
@@ -2093,6 +2429,7 @@ mod tests {
     /// the E-SCAN-008 mapping visible in the affected tree node.
     /// @vtest.id TEST-VERIFY-VO-PARENT-CYCLE-MISMATCH
     /// @vtest.covers VO-VERIFY-E-SCAN-008-CHAIN-INTEGRITY-MISMATCH
+    /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
     /// @vtest.intent VO parent循環をE-SCAN-008のbasis付きchain_integrity MISMATCHへ写像することを確認する
     #[test]
     fn vo_parent_cycle_is_chain_integrity_mismatch_with_e_scan_008_basis() {
@@ -2118,6 +2455,7 @@ mod tests {
     /// recursing forever; reaching this assertion is the termination proof.
     /// @vtest.id TEST-VERIFY-VO-PARENT-CYCLE-TERMINATES
     /// @vtest.covers VO-VERIFY-VO-PARENT-CYCLE-IS-MISMATCH
+    /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
     /// @vtest.intent VO parent循環の検証が停止し、MISMATCHを表現できる結果木を返すことを確認する
     #[test]
     fn verify_terminates_for_vo_parent_cycle_fixture() {
@@ -2138,6 +2476,7 @@ mod tests {
     /// five states. Nothing else appears in a result.
     /// @vtest.id TEST-VERIFY-EXACTLY-FOUR-CHECKS
     /// @vtest.covers VO-VERIFY-EXACTLY-FOUR-CHECKS
+    /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
     /// @vtest.intent A verification result contains exactly the four canonical checks and nothing else.
     #[test]
     fn a_result_holds_exactly_the_four_canonical_checks() {
@@ -2158,6 +2497,7 @@ mod tests {
     /// below assert explicitly rather than leave implied.
     /// @vtest.id TEST-VERIFY-COMPLETE-CHAIN-STRUCTURAL-PASS
     /// @vtest.covers VO-VERIFY-COMPLETE-BIDIRECTIONAL-CHAIN, VO-VERIFY-ORPHAN-DETECTION-ROOT-REACHABILITY
+    /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
     /// @vtest.intent A complete, bidirectional declaration chain passes both chain_integrity and orphan_detection.
     #[test]
     fn a_complete_declaration_chain_passes_both_structural_checks() {
@@ -2182,11 +2522,12 @@ mod tests {
     /// questions (SPEC-054) and must not damage each other.
     /// @vtest.id TEST-VERIFY-TESTID-COLLISION-CHAIN-INTEGRITY-MISMATCH
     /// @vtest.covers VO-VERIFY-TESTID-COLLISION-CHAIN-INTEGRITY-MISMATCH
+    /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
     /// @vtest.intent E-SCAN-002 (Test ID collision) makes chain_integrity MISMATCH without affecting orphan_detection.
     #[test]
     fn only_chain_integrity_breaks_on_a_test_id_collision() {
         let (root, mut scan) = complete_project("collision");
-        scan.diagnostics.push(Diagnostic::error(
+        scan.diagnostics.push(vtest_model::Diagnostic::error(
             "E-SCAN-002",
             "duplicate Test ID TEST-ONE",
         ));
@@ -2205,6 +2546,7 @@ mod tests {
     /// inconsistency, `chain_integrity = MISMATCH`.
     /// @vtest.id TEST-VERIFY-NO-COVERS-CHAIN-INTEGRITY-MISMATCH
     /// @vtest.covers VO-VERIFY-NO-COVERS-CHAIN-INTEGRITY-MISMATCH
+    /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
     /// @vtest.intent A Test declaring no covers makes chain_integrity MISMATCH without affecting orphan_detection.
     #[test]
     fn only_chain_integrity_breaks_on_a_test_without_covers() {
@@ -2237,6 +2579,7 @@ mod tests {
     /// here or nowhere.
     /// @vtest.id TEST-VERIFY-UNCOVERED-LEAF-VO-CHAIN-INTEGRITY-MISMATCH
     /// @vtest.covers VO-VERIFY-UNCOVERED-LEAF-VO-CHAIN-INTEGRITY-MISMATCH
+    /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
     /// @vtest.intent A leaf VO with no covering Test makes chain_integrity MISMATCH without affecting orphan_detection.
     #[test]
     fn only_chain_integrity_breaks_on_a_leaf_vo_with_no_covering_test() {
@@ -2263,6 +2606,7 @@ mod tests {
     /// `#[test]` may only be reported as a warning.
     /// @vtest.id TEST-VERIFY-UNMANAGED-DISCOVERED-TEST-MISSING
     /// @vtest.covers VO-VERIFY-UNMANAGED-DISCOVERED-TEST-MISSING
+    /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
     /// @vtest.intent An unmanaged discovered Test is chain_integrity MISMATCH with diagnostic label MISSING.
     #[test]
     fn an_unmanaged_discovered_test_is_mismatch_with_the_missing_label() {
@@ -2294,11 +2638,12 @@ mod tests {
     /// MISMATCH`, and it must not spill into `chain_integrity`.
     /// @vtest.id TEST-VERIFY-ORPHANED-DOCUMENT-NODE-MISMATCH
     /// @vtest.covers VO-VERIFY-ORPHANED-DOCUMENT-NODE-MISMATCH
+    /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
     /// @vtest.intent An orphaned document node makes orphan_detection MISMATCH without affecting chain_integrity.
     #[test]
     fn only_orphan_detection_breaks_on_an_orphaned_document_node() {
         let (root, mut scan) = complete_project("orphan");
-        scan.diagnostics.push(Diagnostic::error(
+        scan.diagnostics.push(vtest_model::Diagnostic::error(
             "E-SCAN-016",
             "document node SPEC-999 is orphaned",
         ));
@@ -2324,6 +2669,7 @@ mod tests {
     /// label in a separate field.
     /// @vtest.id TEST-VERIFY-TARGET-BINDING-NOT-EXECUTED-VS-NOT-CHECKED
     /// @vtest.covers VO-VERIFY-NO-TARGET-NOT-CHECKED, VO-VERIFY-ABSENT-EVIDENCE-NOT-EXECUTED
+    /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
     /// @vtest.intent target_binding is NO_EVIDENCE in both the no-target and the no-Evidence cases, distinguished only by diagnostic label.
     #[test]
     fn target_binding_distinguishes_its_two_causes_by_diagnostic_label() {
@@ -2360,14 +2706,18 @@ mod tests {
     /// `NO_EVIDENCE` / `NOT_EXECUTED`.
     /// @vtest.id TEST-VERIFY-UNRESOLVABLE-TARGET-MISMATCH
     /// @vtest.covers VO-VERIFY-UNRESOLVABLE-TARGET-MISMATCH
+    /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
     /// @vtest.intent An unresolvable declared target is target_binding MISMATCH, never folded to NO_EVIDENCE.
     #[test]
     fn an_unresolvable_target_is_mismatch_not_no_evidence() {
         let (root, mut scan) = complete_project("unresolvable-target");
         let at = scan.tests[0].location.clone();
         scan.diagnostics.push(
-            Diagnostic::error("E-SCAN-004", "target `src/lib.rs::gone` cannot be resolved")
-                .with_location(at),
+            vtest_model::Diagnostic::error(
+                "E-SCAN-004",
+                "target `src/lib.rs::gone` cannot be resolved",
+            )
+            .with_location(at),
         );
         let outcome = outcome_for(&root, &scan);
         assert_eq!(
@@ -2384,7 +2734,8 @@ mod tests {
         let (root, mut scan) = complete_project("ambiguous-target");
         let at = scan.tests[0].location.clone();
         scan.diagnostics.push(
-            Diagnostic::error("E-SCAN-011", "target matches multiple candidates").with_location(at),
+            vtest_model::Diagnostic::error("E-SCAN-011", "target matches multiple candidates")
+                .with_location(at),
         );
         let outcome = outcome_for(&root, &scan);
         assert_eq!(
@@ -2404,6 +2755,7 @@ mod tests {
     /// this mapping is exercised only by this constructed fixture.
     /// @vtest.id TEST-VERIFY-MULTIPLE-MANAGEMENT-LINK-MISMATCH
     /// @vtest.covers VO-VERIFY-MULTIPLE-MANAGEMENT-LINK-MISMATCH
+    /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
     /// @vtest.intent ManagedTestLink::Multiple maps to chain_integrity MISMATCH without collateral damage to the other three checks.
     #[test]
     fn a_multiple_management_declaration_is_chain_integrity_mismatch() {
@@ -2445,6 +2797,7 @@ mod tests {
     /// NOT_CHECKED instead.
     /// @vtest.id TEST-VERIFY-CONFIG-FULL-SCOPE-NOT-ITEM-KNOB
     /// @vtest.covers VO-VERIFY-CONFIG-FULL-SCOPE-NOT-ITEM-KNOB
+    /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
     /// @vtest.intent A config.yaml verify.full_scope subset never narrows which checks run or converts the run into a limited scope.
     #[test]
     fn a_config_full_scope_subset_never_narrows_the_checks_that_run() {
@@ -2483,6 +2836,7 @@ mod tests {
     /// `PASS`, never `UNKNOWN`.
     /// @vtest.id TEST-VERIFY-ORACLE-PRESENCE-NO-DA-NOT-PASS-NOT-UNKNOWN
     /// @vtest.covers VO-VERIFY-ORACLE-PRESENCE-NO-DA-NOT-PASS-NOT-UNKNOWN
+    /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
     /// @vtest.intent With no DA static analysis available, oracle_presence is NO_EVIDENCE(NOT_CHECKED), never PASS, never UNKNOWN.
     #[test]
     fn oracle_presence_is_never_pass_and_never_unknown_without_da_analysis() {
@@ -2596,15 +2950,15 @@ mod tests {
         );
     }
 
-    /// 正本沈黙の導出（本PR）: runner・coverage の両方が欠落したときの
-    /// 優先順は正典に明文が無い。「Evidence が存在し得ない」ことを理由に
-    /// NOT_EXECUTED（DS-1582側）を採用する。
-    /// @vtest.id TEST-VERIFY-TARGET-BINDING-BOTH-CAPABILITIES-MISSING-PREFERS-NOT-EXECUTED
+    /// DS-847「診断ラベルは順位に用いず併記する」: runner・coverage の両方が
+    /// 欠落したら、DS-1582（NOT_EXECUTED）と DS-1581（NOT_CHECKED）の両方を
+    /// 併記する。状態は NO_EVIDENCE のまま。
+    /// @vtest.id TEST-VERIFY-TARGET-BINDING-BOTH-CAPABILITIES-MISSING-LISTS-BOTH-LABELS
     /// @vtest.covers VO-VERIFY-TARGET-BINDING-BOTH-CAPABILITIES-MISSING
     /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_target_binding
-    /// @vtest.intent When an adapter declares neither Test Runner nor Coverage capability, target_binding is NO_EVIDENCE(NOT_EXECUTED) (this PR's derivation for the canon's silent priority between DS-1581 and DS-1582).
+    /// @vtest.intent When an adapter declares neither Test Runner nor Coverage capability, target_binding is NO_EVIDENCE with both NOT_EXECUTED and NOT_CHECKED labels, neither ranked over the other.
     #[test]
-    fn target_binding_prefers_not_executed_when_both_capabilities_are_missing() {
+    fn target_binding_lists_both_labels_when_both_capabilities_are_missing() {
         let (root, scan) = complete_project("target-binding-neither-capability");
         let registry = partial_capability_registry(false, false);
         let outcome = outcome_for_with_registry(&root, &scan, &registry);
@@ -2614,7 +2968,7 @@ mod tests {
         );
         assert_eq!(
             labels_of(&outcome, VerificationCheck::TargetBinding),
-            vec![DiagnosticLabel::NotExecuted]
+            vec![DiagnosticLabel::NotExecuted, DiagnosticLabel::NotChecked]
         );
     }
 
@@ -2627,6 +2981,7 @@ mod tests {
     /// never silently dropped from the result.
     /// @vtest.id TEST-VERIFY-OUT-OF-ITEM-SCOPE-NOT-CHECKED
     /// @vtest.covers VO-VERIFY-OUT-OF-ITEM-SCOPE-NOT-CHECKED
+    /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
     /// @vtest.intent A check outside the requested --items scope stays NO_EVIDENCE(NOT_CHECKED) and never becomes PASS.
     #[test]
     fn a_check_outside_the_item_scope_is_no_evidence_not_checked() {
@@ -2665,6 +3020,7 @@ mod tests {
     /// chain, so limiting the entity axis must not shrink them into a PASS.
     /// @vtest.id TEST-VERIFY-ENTITY-SCOPE-STRUCTURAL-CHECKS-WHOLE-CHAIN
     /// @vtest.covers VO-VERIFY-ENTITY-SCOPE-STRUCTURAL-CHECKS-WHOLE-CHAIN
+    /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
     /// @vtest.intent Limiting the entity axis must not shrink chain_integrity/orphan_detection into a whole-chain-hiding PASS.
     #[test]
     fn an_entity_scope_does_not_shrink_the_structural_checks() {
@@ -2692,6 +3048,97 @@ mod tests {
         assert!(outcome.scope.limited);
     }
 
+    fn collect_ids(nodes: &[TreeNode], out: &mut BTreeSet<String>) {
+        for node in nodes {
+            out.insert(node.id.clone());
+            collect_ids(&node.children, out);
+        }
+    }
+
+    fn find_node<'a>(nodes: &'a [TreeNode], id: &str) -> Option<&'a TreeNode> {
+        nodes.iter().find_map(|node| {
+            if node.id == id {
+                Some(node)
+            } else {
+                find_node(&node.children, id)
+            }
+        })
+    }
+
+    /// DS-1104: `--vo` / `--test` select an entity subtree. A selected VO
+    /// whose parent is outside the selection roots that subtree, so the VO,
+    /// its descendants and their Tests stay in the tree, and nothing outside
+    /// the selection is mixed in.
+    /// @vtest.id TEST-VERIFY-ENTITY-SCOPE-SUBTREE-ROOT
+    /// @vtest.covers VO-VERIFY-ENTITY-SCOPE-SUBTREE-ROOT
+    /// @vtest.target crates/vtest-verify/src/lib.rs::build_tree
+    /// @vtest.intent scoping to a child VO, grandchild VO or leaf Test keeps exactly that subtree
+    #[test]
+    fn scoping_to_a_vo_with_a_parent_keeps_its_subtree() {
+        let root = temp_root("child-vo-scope");
+        let layout = init_project(&root, "fixture").expect("init");
+        write_document_file(&layout, "fixture", &document_file()).expect("doc");
+        for (id, parent) in [
+            ("VO-PARENT", None),
+            ("VO-CHILD", Some("VO-PARENT")),
+            ("VO-GRAND", Some("VO-CHILD")),
+            ("VO-OTHER", None),
+        ] {
+            write_vo_record(&layout, &vo(id, parent)).expect("vo");
+        }
+        let scan = scan_result(
+            vec![
+                test_entity("TEST-PARENT", &["VO-PARENT"], 1),
+                test_entity("TEST-CHILD", &["VO-CHILD"], 1),
+                test_entity("TEST-GRAND", &["VO-GRAND"], 1),
+                test_entity("TEST-OTHER", &["VO-OTHER"], 1),
+            ],
+            Vec::new(),
+        );
+        let cases = [
+            (
+                EntityScope::Vo("VO-CHILD".to_owned()),
+                vec!["VO-CHILD", "VO-GRAND", "TEST-CHILD", "TEST-GRAND"],
+            ),
+            (
+                EntityScope::Vo("VO-GRAND".to_owned()),
+                vec!["VO-GRAND", "TEST-GRAND"],
+            ),
+            (
+                EntityScope::Test("TEST-GRAND".to_owned()),
+                vec!["VO-GRAND", "TEST-GRAND"],
+            ),
+        ];
+        for (scope, expected) in cases {
+            let outcome = verify_project(&root, &scan, None, Some(scope.clone()), &test_registry());
+            let mut ids = BTreeSet::new();
+            collect_ids(&outcome.tree, &mut ids);
+            for id in &expected {
+                assert!(ids.contains(*id), "{scope:?}: {id} missing from {ids:?}");
+            }
+            for id in ["VO-PARENT", "VO-OTHER", "TEST-PARENT", "TEST-OTHER"] {
+                assert!(!ids.contains(id), "{scope:?}: {id} leaked into {ids:?}");
+            }
+            let first = find_node(&outcome.tree, expected[0]).expect("scoped VO present");
+            let test_id = expected[expected.len() - 1];
+            assert!(
+                find_node(&first.children, test_id).is_some()
+                    || find_node(&outcome.tree, test_id).is_some(),
+                "{scope:?}: {test_id} missing"
+            );
+        }
+        let outcome = verify_project(
+            &root,
+            &scan,
+            None,
+            Some(EntityScope::Vo("VO-CHILD".to_owned())),
+            &test_registry(),
+        );
+        let child = find_node(&outcome.tree, "VO-CHILD").expect("VO-CHILD present");
+        assert!(find_node(&child.children, "VO-GRAND").is_some());
+        assert!(find_node(&child.children, "TEST-CHILD").is_some());
+    }
+
     // -----------------------------------------------------------------
     // Aggregation
     // -----------------------------------------------------------------
@@ -2700,6 +3147,7 @@ mod tests {
     /// yields `PASS`.
     /// @vtest.id TEST-VERIFY-REPRESENTATIVE-STATE-PRIORITY
     /// @vtest.covers VO-VERIFY-REPRESENTATIVE-STATE-ORDER, VO-VERIFY-PARENT-NONPASS-WHEN-CHILD-NONPASS
+    /// @vtest.target crates/vtest-verify/src/lib.rs::representative
     /// @vtest.intent Representative-state selection follows FAIL > MISMATCH > NO_EVIDENCE > UNKNOWN, and any non-PASS child makes the parent non-PASS.
     #[test]
     fn representative_selection_follows_the_canonical_priority() {
@@ -2718,6 +3166,7 @@ mod tests {
     /// fold to `PASS` — that is the precise shape of a false PASS.
     /// @vtest.id TEST-VERIFY-EMPTY-AGGREGATION-NOT-PASS
     /// @vtest.covers VO-VERIFY-EMPTY-AGGREGATION-NOT-PASS
+    /// @vtest.target crates/vtest-verify/src/lib.rs::node_from_children
     /// @vtest.intent An aggregation point with no child and no evaluated check does not fold to PASS.
     #[test]
     fn an_empty_aggregation_point_is_not_pass() {
@@ -2735,6 +3184,7 @@ mod tests {
     /// 対応する非 `PASS` 値として表示する」、DS-253。
     /// @vtest.id TEST-VERIFY-EMPTY-REPOSITORY-NOT-OK
     /// @vtest.covers VO-VERIFY-NO-RESULT-NOT-PASS, VO-VERIFY-INCOMPLETE-NOT-OVERALL-OK, VO-VERIFY-FOUR-CHECKS-ONLY
+    /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
     /// @vtest.intent A repository with no VO and no Test never reports complete-verification OK.
     #[test]
     fn an_empty_repository_is_not_a_complete_verification_ok() {
@@ -2762,6 +3212,7 @@ mod tests {
     /// DS-789: identical evaluation inputs must produce an identical result.
     /// @vtest.id TEST-VERIFY-DETERMINISTIC-RESULT
     /// @vtest.covers VO-VERIFY-DETERMINISTIC-RESULT
+    /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
     /// @vtest.intent Identical evaluation inputs produce an identical serialised verification result.
     #[test]
     fn verification_is_deterministic() {
@@ -2773,6 +3224,7 @@ mod tests {
 
     /// REQ-092 / SPEC-373: state and diagnostic label are separate fields.
     /// A label must never be serialised in the state position.
+    // No @vtest.target: this test checks the derived serialization of `CheckOutcome`; the constructor it calls is fixture setup, not the subject, so no target is declared (issue #82).
     /// @vtest.id TEST-VERIFY-STATE-LABEL-SEPARATE-FIELDS
     /// @vtest.covers VO-VERIFY-STATE-LABEL-SEPARATE-FIELDS
     /// @vtest.intent State and diagnostic label are serialised into separate fields; a label never appears in the state position.
@@ -2867,6 +3319,7 @@ mod tests {
     /// fails validity is `NO_EVIDENCE` / `STALE`, never reused as `PASS`.
     /// @vtest.id TEST-VERIFY-EVIDENCE-ADAPTER-MISMATCH-STALE
     /// @vtest.covers VO-VERIFY-EVIDENCE-ADAPTER-MISMATCH-STALE
+    /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
     /// @vtest.intent An Evidence record whose adapter mismatches the current Test's adapter is NO_EVIDENCE(STALE).
     #[test]
     fn stale_evidence_with_a_mismatched_adapter_is_no_evidence_stale() {
@@ -2898,6 +3351,7 @@ mod tests {
     /// never resolve to a match; this exercises that path directly.
     /// @vtest.id TEST-VERIFY-EVIDENCE-TARGET-SET-MISMATCH-STALE
     /// @vtest.covers VO-VERIFY-EVIDENCE-TARGET-SET-MISMATCH-STALE
+    /// @vtest.target crates/vtest-verify/src/lib.rs::verify_project
     /// @vtest.intent An Evidence record whose target set no longer resolves to the current canonical set is NO_EVIDENCE(STALE).
     #[test]
     fn stale_evidence_with_an_unresolvable_target_set_is_no_evidence_stale() {
@@ -2939,6 +3393,7 @@ mod tests {
     /// isolate the DS-822 branch specifically.
     /// @vtest.id TEST-VERIFY-INCOMPLETE-EXECUTION-STATE-UNKNOWN
     /// @vtest.covers VO-VERIFY-INCOMPLETE-EXECUTION-STATE-UNKNOWN, VO-EXEC-STATE-INCOMPLETE-NOT-VALID-PASS-EVIDENCE
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evidence_validity_failure
     /// @vtest.intent An Evidence record with execution_state.complete false is UNKNOWN, never STALE and never PASS.
     #[test]
     fn incomplete_execution_state_is_unknown_not_stale_or_pass() {
@@ -2971,6 +3426,8 @@ mod tests {
         let evidence = EvidenceContext {
             root: temp_root("tb-incomplete-execution-state"),
             latest_by_test: BTreeMap::new(),
+            invalid: Vec::new(),
+            diagnostics: Vec::new(),
             head_commit: Some("deadbeef".to_owned()),
             registry: &registry,
             assertion_macros: BTreeMap::new(),
@@ -2988,6 +3445,7 @@ mod tests {
     /// says `complete: false`.
     /// @vtest.id TEST-VERIFY-CURRENT-RECONSTRUCTION-FAILURE-UNKNOWN
     /// @vtest.covers VO-VERIFY-INCOMPLETE-EXECUTION-STATE-UNKNOWN
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evidence_validity_failure
     /// @vtest.intent Even a recorded complete=true Execution State is UNKNOWN when this crate's own current-side reconstruction cannot confirm it.
     #[test]
     fn a_recorded_complete_state_still_falls_to_unknown_if_current_reconstruction_fails() {
@@ -3027,6 +3485,8 @@ mod tests {
             // DS-820 passes and does not mask this branch).
             root: temp_root("tb-current-reconstruction-fails").join("does-not-exist"),
             latest_by_test: BTreeMap::new(),
+            invalid: Vec::new(),
+            diagnostics: Vec::new(),
             head_commit: Some("deadbeef".to_owned()),
             registry: &registry,
             assertion_macros: BTreeMap::new(),
@@ -3047,6 +3507,7 @@ mod tests {
     /// branch specifically.
     /// @vtest.id TEST-VERIFY-EXECUTION-STATE-HASH-MISMATCH-STALE
     /// @vtest.covers VO-VERIFY-EXECUTION-STATE-HASH-MISMATCH-STALE
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evidence_validity_failure
     /// @vtest.intent A present but mismatched execution_state.hash is NO_EVIDENCE(STALE), isolated from the DS-822 UNKNOWN branch.
     #[test]
     fn a_present_but_mismatched_execution_state_hash_is_no_evidence_stale() {
@@ -3132,6 +3593,8 @@ mod tests {
         let evidence = EvidenceContext {
             root: root.clone(),
             latest_by_test: BTreeMap::new(),
+            invalid: Vec::new(),
+            diagnostics: Vec::new(),
             head_commit: Some(head_commit),
             registry: &registry,
             assertion_macros: BTreeMap::new(),
@@ -3143,26 +3606,155 @@ mod tests {
         assert_eq!(outcome.labels, vec![DiagnosticLabel::Stale]);
     }
 
+    /// A Test plus a scan whose single target resolves, so that
+    /// `evidence_validity_failure` passes the DS-819 subject/target checks and
+    /// reaches the revision (DS-820) and Execution State (DS-821) checks.
+    fn evidence_fixture_past_subject_checks(
+        commit: Option<&str>,
+    ) -> (TestEntity, ScanResult, EvidenceRecord) {
+        let test = test_entity("TEST-ONE", &["VO-ONE"], 1);
+        let target_hash = ContentHash::from_text("TEST-ONE::target0");
+        let scan = ScanResult {
+            summary: vtest_model::ScanSummary {
+                files: 1,
+                tests: 1,
+                sources: 1,
+            },
+            discovered: Vec::new(),
+            tests: vec![test.clone()],
+            sources: vec![vtest_model::SourceFunction {
+                locator: vtest_model::Locator {
+                    adapter: AdapterId::new("rust-cargo"),
+                    value: "src/lib.rs::target0".to_owned(),
+                },
+                src_id: None,
+                location: location("SRC-target0"),
+                content_hash: target_hash.clone(),
+            }],
+            diagnostics: Vec::new(),
+        };
+        let mut record = sample_evidence("TEST-ONE", "rust-cargo", commit);
+        record.hashes.test_fn = test.content_hash.clone();
+        record.hashes.target_fn = target_hash.clone();
+        record.hashes.target_fns = vec![target_hash];
+        (test, scan, record)
+    }
+
+    /// 計画 v0.2 §9.1「revision commit missing」「current HEAD differs from
+    /// Evidence」: the plan's `evidence_validity STALE` is now
+    /// `target_binding` NO_EVIDENCE(STALE) (DS-820; `evidence_validity` was
+    /// folded into hash binding, SPEC-325).
+    /// @vtest.id TEST-VERIFY-EVIDENCE-REVISION-ABSENT-OR-DIFFERENT-STALE
+    /// @vtest.covers VO-VERIFY-EVIDENCE-REVISION-MISMATCH-STALE
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evidence_validity_failure
+    /// @vtest.intent An Evidence record with no revision commit, or one that differs from the current HEAD, is NO_EVIDENCE(STALE) even when its subject and targets match.
+    /// @vtest.case revision commit missing
+    /// @vtest.case current HEAD differs from the recorded commit
+    /// @vtest.case current HEAD unknown
+    #[test]
+    fn evidence_with_an_absent_or_different_revision_is_no_evidence_stale() {
+        let registry = test_registry();
+        let head = "1111111111111111111111111111111111111111";
+        let context = |current: Option<&str>| EvidenceContext {
+            root: temp_root("tb-revision"),
+            latest_by_test: BTreeMap::new(),
+            invalid: Vec::new(),
+            diagnostics: Vec::new(),
+            head_commit: current.map(str::to_owned),
+            registry: &registry,
+            assertion_macros: BTreeMap::new(),
+        };
+        // revision commit missing
+        let (test, scan, record) = evidence_fixture_past_subject_checks(None);
+        let missing = evidence_validity_failure(&test, &record, &scan, &context(Some(head)));
+        let missing = missing.expect("a revision that is not the current HEAD must not validate");
+        assert_eq!(missing.state, VerificationState::NoEvidence);
+        assert_eq!(missing.labels, vec![DiagnosticLabel::Stale]);
+        assert!(missing.basis.iter().any(|basis| basis.contains("DS-820")));
+
+        // current HEAD differs from the recorded commit
+        let (test, scan, record) =
+            evidence_fixture_past_subject_checks(Some("2222222222222222222222222222222222222222"));
+        let differs = evidence_validity_failure(&test, &record, &scan, &context(Some(head)));
+        let differs = differs.expect("a revision that is not the current HEAD must not validate");
+        assert_eq!(differs.state, VerificationState::NoEvidence);
+        assert_eq!(differs.labels, vec![DiagnosticLabel::Stale]);
+        assert!(differs.basis.iter().any(|basis| basis.contains("DS-820")));
+
+        // current HEAD unknown
+        let (test, scan, record) = evidence_fixture_past_subject_checks(Some(head));
+        let unknown_head = evidence_validity_failure(&test, &record, &scan, &context(None));
+        let unknown_head =
+            unknown_head.expect("a revision that is not the current HEAD must not validate");
+        assert_eq!(unknown_head.state, VerificationState::NoEvidence);
+        assert_eq!(unknown_head.labels, vec![DiagnosticLabel::Stale]);
+        assert!(unknown_head
+            .basis
+            .iter()
+            .any(|basis| basis.contains("DS-820")));
+    }
+
+    /// 計画 v0.2 §9.1「Evidence without Execution State subject」: the record
+    /// still reads, and DS-821's "record が欠落" branch makes it
+    /// NO_EVIDENCE(STALE), not the DS-822 UNKNOWN of an incomplete snapshot.
+    /// @vtest.id TEST-VERIFY-EVIDENCE-EXECUTION-STATE-ABSENT-STALE
+    /// @vtest.covers VO-VERIFY-EXECUTION-STATE-HASH-MISMATCH-STALE
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evidence_validity_failure
+    /// @vtest.intent An Evidence record that carries no execution_state block is NO_EVIDENCE(STALE), never UNKNOWN or PASS.
+    #[test]
+    fn evidence_without_an_execution_state_record_is_no_evidence_stale() {
+        let registry = test_registry();
+        let head = "1111111111111111111111111111111111111111";
+        let (test, scan, mut record) = evidence_fixture_past_subject_checks(Some(head));
+        // What `vtest-store::read_evidence` yields for an absent block.
+        record.execution_state = vtest_model::ExecutionState {
+            schema: String::new(),
+            complete: false,
+            hash: None,
+        };
+        let evidence = EvidenceContext {
+            root: temp_root("tb-execution-state-absent"),
+            latest_by_test: BTreeMap::new(),
+            invalid: Vec::new(),
+            diagnostics: Vec::new(),
+            head_commit: Some(head.to_owned()),
+            registry: &registry,
+            assertion_macros: BTreeMap::new(),
+        };
+        let outcome = evidence_validity_failure(&test, &record, &scan, &evidence)
+            .expect("Evidence without an Execution State record must not validate");
+        assert_eq!(outcome.state, VerificationState::NoEvidence);
+        assert_eq!(outcome.labels, vec![DiagnosticLabel::Stale]);
+        assert!(
+            outcome.basis.iter().any(|basis| basis.contains("DS-821")),
+            "the STALE must come from the absent-record branch: {:?}",
+            outcome.basis
+        );
+    }
+
     /// DS-830/831/832, isolated from the (currently unreachable — see
     /// `evaluate_target_binding`'s doc comment) end-to-end validity path.
     /// @vtest.id TEST-VERIFY-DYNAMIC-RESULT-FROM-EVIDENCE
     /// @vtest.covers VO-VERIFY-EVIDENCE-RUNNER-FAIL, VO-VERIFY-EVIDENCE-PASS-TARGETS-REACHED, VO-VERIFY-EVIDENCE-PASS-TARGETS-UNREACHED
+    /// @vtest.target crates/vtest-verify/src/lib.rs::dynamic_result_from_evidence
     /// @vtest.intent Given valid Evidence, target_binding's dynamic result follows runner FAIL/PASS and target_coverage per DS-830/831/832.
     #[test]
     fn dynamic_result_from_evidence_covers_ds_830_831_832() {
         let mut record = sample_evidence("TEST-ONE", "rust-cargo", Some("deadbeef"));
+        // The singular compatibility form (DES-203): aggregate only.
+        let one_target = vec!["rust-cargo::src/lib.rs::target0".to_owned()];
 
         // DS-830: runner FAIL.
         record.result = vtest_model::TestResult::Fail;
         assert_eq!(
-            dynamic_result_from_evidence(&record).state,
+            dynamic_result_from_evidence(&record, &one_target).state,
             VerificationState::Fail
         );
 
         // DS-832: runner PASS, coverage not measured -> NO_EVIDENCE (NOT_CHECKED).
         record.result = vtest_model::TestResult::Pass;
         record.target_coverage.checked = false;
-        let outcome = dynamic_result_from_evidence(&record);
+        let outcome = dynamic_result_from_evidence(&record, &one_target);
         assert_eq!(outcome.state, VerificationState::NoEvidence);
         assert_eq!(outcome.labels, vec![DiagnosticLabel::NotChecked]);
 
@@ -3170,7 +3762,7 @@ mod tests {
         record.target_coverage.checked = true;
         record.target_coverage.result = Some(vtest_model::TargetCoverageResult::Fail);
         record.target_coverage.count = Some(0);
-        let outcome = dynamic_result_from_evidence(&record);
+        let outcome = dynamic_result_from_evidence(&record, &one_target);
         assert_eq!(outcome.state, VerificationState::Fail);
         assert_eq!(outcome.labels, vec![DiagnosticLabel::NotExecuted]);
 
@@ -3178,15 +3770,312 @@ mod tests {
         record.target_coverage.result = Some(vtest_model::TargetCoverageResult::Unknown);
         record.target_coverage.count = None;
         assert_eq!(
-            dynamic_result_from_evidence(&record).state,
+            dynamic_result_from_evidence(&record, &one_target).state,
             VerificationState::Unknown
         );
 
         // DS-831: measured and reached -> PASS.
         record.target_coverage.result = Some(vtest_model::TargetCoverageResult::Pass);
         record.target_coverage.count = Some(3);
-        let outcome = dynamic_result_from_evidence(&record);
+        let outcome = dynamic_result_from_evidence(&record, &one_target);
         assert_eq!(outcome.state, VerificationState::Pass);
         assert!(outcome.labels.is_empty());
+    }
+
+    fn coverage_entry(
+        target: &str,
+        result: vtest_model::TargetCoverageResult,
+        count: Option<u64>,
+    ) -> vtest_model::TargetCoverageTarget {
+        vtest_model::TargetCoverageTarget {
+            target: target.to_owned(),
+            result,
+            count,
+        }
+    }
+
+    fn measured(
+        aggregate: vtest_model::TargetCoverageResult,
+        entries: Vec<vtest_model::TargetCoverageTarget>,
+    ) -> EvidenceRecord {
+        let mut record = sample_evidence("TEST-ONE", "rust-cargo", Some("deadbeef"));
+        record.target_coverage = vtest_model::TargetCoverage {
+            checked: true,
+            method: Some("llvm-cov".to_owned()),
+            result: Some(aggregate),
+            count: entries
+                .iter()
+                .map(|entry| entry.count)
+                .collect::<Option<Vec<_>>>()
+                .and_then(|counts| counts.into_iter().min()),
+            targets: entries,
+        };
+        record
+    }
+
+    /// @vtest.id TEST-VERIFY-PER-TARGET-COVERAGE-JUDGMENT
+    /// @vtest.covers VO-VERIFY-EVIDENCE-PASS-TARGETS-REACHED, VO-VERIFY-EVIDENCE-PASS-TARGETS-UNREACHED
+    /// @vtest.target crates/vtest-verify/src/lib.rs::dynamic_result_from_evidence
+    /// @vtest.intent 複数targetのEvidenceで全件到達ならPASS、1件未到達ならFAIL、1件計測不能ならUNKNOWN、entry順序を入れ替えても同じ結果になることを確認する
+    #[test]
+    fn target_binding_is_judged_per_declared_target() {
+        use vtest_model::TargetCoverageResult as R;
+        let expected = vec![
+            "rust-cargo::src/lib.rs::double".to_owned(),
+            "rust-cargo::src/lib.rs::unused".to_owned(),
+        ];
+        let all_reached = measured(
+            R::Pass,
+            vec![
+                coverage_entry(&expected[0], R::Pass, Some(2)),
+                coverage_entry(&expected[1], R::Pass, Some(1)),
+            ],
+        );
+        assert_eq!(
+            dynamic_result_from_evidence(&all_reached, &expected).state,
+            VerificationState::Pass
+        );
+        let reordered = measured(
+            R::Pass,
+            vec![
+                coverage_entry(&expected[1], R::Pass, Some(1)),
+                coverage_entry(&expected[0], R::Pass, Some(2)),
+            ],
+        );
+        assert_eq!(
+            dynamic_result_from_evidence(&reordered, &expected).state,
+            VerificationState::Pass
+        );
+        let one_unreached = measured(
+            R::Fail,
+            vec![
+                coverage_entry(&expected[0], R::Pass, Some(2)),
+                coverage_entry(&expected[1], R::Fail, Some(0)),
+            ],
+        );
+        let outcome = dynamic_result_from_evidence(&one_unreached, &expected);
+        assert_eq!(outcome.state, VerificationState::Fail);
+        assert_eq!(outcome.labels, vec![DiagnosticLabel::NotExecuted]);
+        let one_unlocated = measured(
+            R::Unknown,
+            vec![
+                coverage_entry(&expected[0], R::Pass, Some(2)),
+                coverage_entry(&expected[1], R::Unknown, None),
+            ],
+        );
+        assert_eq!(
+            dynamic_result_from_evidence(&one_unlocated, &expected).state,
+            VerificationState::Unknown
+        );
+    }
+
+    /// @vtest.id TEST-VERIFY-TARGET-COVERAGE-ENTRY-SET-VALIDATED
+    /// @vtest.covers VO-VERIFY-EVIDENCE-PASS-TARGETS-UNREACHED
+    /// @vtest.target crates/vtest-verify/src/lib.rs::validated_target_entries
+    /// @vtest.intent target別entryの欠落・重複・余剰・aggregate矛盾・result/count矛盾のEvidenceをPASSに使わずNO_EVIDENCE(NOT_EXECUTED)とすることを確認する
+    #[test]
+    fn inconsistent_target_coverage_entries_are_not_used_as_pass() {
+        use vtest_model::TargetCoverageResult as R;
+        let expected = vec![
+            "rust-cargo::src/lib.rs::double".to_owned(),
+            "rust-cargo::src/lib.rs::unused".to_owned(),
+        ];
+        let cases = [
+            ("no entries for two targets", measured(R::Pass, Vec::new())),
+            (
+                "one entry missing",
+                measured(
+                    R::Pass,
+                    vec![coverage_entry(&expected[0], R::Pass, Some(1))],
+                ),
+            ),
+            (
+                "duplicate entry",
+                measured(
+                    R::Pass,
+                    vec![
+                        coverage_entry(&expected[0], R::Pass, Some(1)),
+                        coverage_entry(&expected[0], R::Pass, Some(1)),
+                    ],
+                ),
+            ),
+            (
+                "extra entry",
+                measured(
+                    R::Pass,
+                    vec![
+                        coverage_entry(&expected[0], R::Pass, Some(1)),
+                        coverage_entry(&expected[1], R::Pass, Some(1)),
+                        coverage_entry("rust-cargo::src/lib.rs::other", R::Pass, Some(1)),
+                    ],
+                ),
+            ),
+            (
+                "aggregate PASS over an unreached entry",
+                measured(
+                    R::Pass,
+                    vec![
+                        coverage_entry(&expected[0], R::Pass, Some(1)),
+                        coverage_entry(&expected[1], R::Fail, Some(0)),
+                    ],
+                ),
+            ),
+            (
+                "PASS entry with count 0",
+                measured(
+                    R::Pass,
+                    vec![
+                        coverage_entry(&expected[0], R::Pass, Some(0)),
+                        coverage_entry(&expected[1], R::Pass, Some(1)),
+                    ],
+                ),
+            ),
+        ];
+        for (name, record) in cases {
+            let outcome = dynamic_result_from_evidence(&record, &expected);
+            assert_eq!(outcome.state, VerificationState::NoEvidence, "{name}");
+            assert_eq!(outcome.labels, vec![DiagnosticLabel::NotExecuted], "{name}");
+        }
+        // The singular compatibility form is accepted only for one target.
+        let mut singular = measured(R::Pass, Vec::new());
+        singular.target_coverage.count = Some(1);
+        assert_eq!(
+            dynamic_result_from_evidence(&singular, &expected[..1]).state,
+            VerificationState::Pass
+        );
+    }
+
+    /// PR #131 review: an aggregate that is not PASS can still contradict its
+    /// entries. A FAIL entry (count 0) under an UNKNOWN aggregate, and an
+    /// all-PASS entry set under a FAIL aggregate, are both E-SCAN-010: the
+    /// Evidence is not used, and the structured diagnostic is carried on the
+    /// outcome so the verify operation can return it.
+    /// @vtest.id TEST-VERIFY-TARGET-COVERAGE-AGGREGATE-MISMATCH-E-SCAN-010
+    /// @vtest.covers VO-VERIFY-EVIDENCE-TARGET-ENTRY-CONTRADICTION-E-SCAN-010
+    /// @vtest.target crates/vtest-verify/src/lib.rs::dynamic_result_from_evidence
+    /// @vtest.intent aggregateがUNKNOWNでentryにFAIL、またはentryが全PASSでaggregateがFAILのEvidenceを、NO_EVIDENCE(NOT_EXECUTED)とし、構造化診断E-SCAN-010を返すことを確認する
+    #[test]
+    fn a_non_pass_aggregate_that_contradicts_its_entries_is_e_scan_010() {
+        use vtest_model::TargetCoverageResult as R;
+        let expected = vec![
+            "rust-cargo::src/lib.rs::double".to_owned(),
+            "rust-cargo::src/lib.rs::unused".to_owned(),
+        ];
+        let unknown_over_fail = measured(
+            R::Unknown,
+            vec![
+                coverage_entry(&expected[0], R::Pass, Some(1)),
+                coverage_entry(&expected[1], R::Fail, Some(0)),
+            ],
+        );
+        let outcome = dynamic_result_from_evidence(&unknown_over_fail, &expected);
+        assert_eq!(outcome.state, VerificationState::NoEvidence);
+        assert_eq!(outcome.labels, vec![DiagnosticLabel::NotExecuted]);
+        assert_eq!(outcome.diagnostics.len(), 1);
+        assert_eq!(outcome.diagnostics[0].code, "E-SCAN-010");
+        assert_eq!(
+            outcome.diagnostics[0].severity,
+            vtest_model::DiagnosticSeverity::Error
+        );
+
+        let fail_over_all_pass = measured(
+            R::Fail,
+            vec![
+                coverage_entry(&expected[0], R::Pass, Some(1)),
+                coverage_entry(&expected[1], R::Pass, Some(2)),
+            ],
+        );
+        let outcome = dynamic_result_from_evidence(&fail_over_all_pass, &expected);
+        assert_eq!(outcome.state, VerificationState::NoEvidence);
+        assert_eq!(outcome.diagnostics[0].code, "E-SCAN-010");
+
+        // The consistent form is still judged per target and raises nothing.
+        let consistent = measured(
+            R::Fail,
+            vec![
+                coverage_entry(&expected[0], R::Pass, Some(1)),
+                coverage_entry(&expected[1], R::Fail, Some(0)),
+            ],
+        );
+        let outcome = dynamic_result_from_evidence(&consistent, &expected);
+        assert_eq!(outcome.state, VerificationState::Fail);
+        assert!(outcome.diagnostics.is_empty());
+    }
+
+    /// @vtest.id TEST-VERIFY-INVALID-LATEST-EVIDENCE-SELECTION
+    /// @vtest.covers VO-VERIFY-STALE-TEST-SUBJECT-HASH-NOT-REUSED
+    /// @vtest.target crates/vtest-verify/src/lib.rs::EvidenceContext::invalid_latest
+    /// @vtest.intent 有効な最新より新しい不正Evidence、Testを読めない不正Evidenceを最新として扱い、有効な最新より古い不正Evidenceは無視することを確認する
+    #[test]
+    fn an_invalid_record_newer_than_the_valid_latest_is_the_latest() {
+        let registry = test_registry();
+        let mut valid = sample_evidence("TEST-ONE", "rust-cargo", Some("deadbeef"));
+        valid.id = "01HZZZZZZZZZZZZZZZZZZZZZZZ".to_owned();
+        let context = |invalid: Vec<InvalidEvidence>| EvidenceContext {
+            root: std::path::PathBuf::new(),
+            latest_by_test: BTreeMap::from([("TEST-ONE".to_owned(), valid.clone())]),
+            invalid,
+            diagnostics: Vec::new(),
+            head_commit: None,
+            registry: &registry,
+            assertion_macros: BTreeMap::new(),
+        };
+        let broken = |id: Option<&str>, test: Option<&str>| InvalidEvidence {
+            id: id.map(str::to_owned),
+            test_id: test.map(str::to_owned),
+            reason: "broken".to_owned(),
+        };
+        let newer = context(vec![broken(
+            Some("01JZZZZZZZZZZZZZZZZZZZZZZZ"),
+            Some("TEST-ONE"),
+        )]);
+        assert!(newer.invalid_latest("TEST-ONE").is_some());
+        assert!(
+            newer.invalid_latest("TEST-TWO").is_none(),
+            "another Test's record"
+        );
+        let older = context(vec![broken(
+            Some("01AZZZZZZZZZZZZZZZZZZZZZZZ"),
+            Some("TEST-ONE"),
+        )]);
+        assert!(older.invalid_latest("TEST-ONE").is_none());
+        let other = context(vec![broken(
+            Some("01JZZZZZZZZZZZZZZZZZZZZZZZ"),
+            Some("TEST-TWO"),
+        )]);
+        assert!(other.invalid_latest("TEST-ONE").is_none());
+        let unattributed = context(vec![broken(Some("01JZZZZZZZZZZZZZZZZZZZZZZZ"), None)]);
+        assert!(unattributed.invalid_latest("TEST-ONE").is_some());
+        let unlisted = context(vec![broken(None, None)]);
+        assert!(unlisted.invalid_latest("TEST-ONE").is_some());
+        assert_eq!(
+            declared_test_id("id: X\ntest_id: 'TEST-ONE'\n").as_deref(),
+            Some("TEST-ONE")
+        );
+        assert_eq!(declared_test_id("{{{ not yaml").as_deref(), None);
+        // PR #132 review: a value that is not a well-formed Test ID string
+        // cannot attribute the record, so it is attributed to every Test.
+        assert_eq!(declared_test_id("id: X\ntest_id: null\n").as_deref(), None);
+        assert_eq!(declared_test_id("id: X\ntest_id: ~\n").as_deref(), None);
+        assert_eq!(declared_test_id("id: X\ntest_id: 12\n").as_deref(), None);
+        assert_eq!(declared_test_id("id: X\ntest_id: ''\n").as_deref(), None);
+        assert_eq!(declared_test_id("id: X\ntest_id: 'A B'\n").as_deref(), None);
+        assert_eq!(
+            declared_test_id("id: X\ntest_id: [TEST-ONE]\n").as_deref(),
+            None
+        );
+        assert_eq!(
+            declared_test_id("test_id: TEST-ONE\ntest_id: TEST-TWO\n").as_deref(),
+            None
+        );
+        assert_eq!(
+            declared_test_id("id: X\ntest_id: TEST-ONE\nunexpected: true\n").as_deref(),
+            Some("TEST-ONE")
+        );
+        let null_test = context(vec![broken(
+            Some("01JZZZZZZZZZZZZZZZZZZZZZZZ"),
+            declared_test_id("id: X\ntest_id: null\nunexpected: true\n").as_deref(),
+        )]);
+        assert!(null_test.invalid_latest("TEST-ONE").is_some());
     }
 }

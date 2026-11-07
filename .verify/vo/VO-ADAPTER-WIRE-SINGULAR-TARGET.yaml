@@ -1,0 +1,11 @@
+id: VO-ADAPTER-WIRE-SINGULAR-TARGET
+parent: null
+derives_from:
+  - doc: DS-1674
+claim: 'Test JSON writerは`targets` listを常に出力し、targetが1件の場合だけ同値の単数互換field`target`を追加できる。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T00:00:00+09:00
+updated: 2026-11-03T00:00:00+09:00

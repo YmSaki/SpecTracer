@@ -70,6 +70,19 @@ impl StoreError {
             _ => None,
         }
     }
+
+    /// DS-929 / DS-930 / DS-1689: classify a `load_config` failure. A
+    /// rejected configuration (missing `.verify/`, unrecognized version,
+    /// malformed YAML, invalid values) is the operation rejection
+    /// E-CONFIG-001 (exit 2). A filesystem failure while reading it is an
+    /// internal error and has no E-CONFIG code: callers report
+    /// `E-INTERNAL-001` (exit 3) for `None`.
+    pub fn config_load_code(&self) -> Option<&'static str> {
+        match self {
+            Self::Io { .. } => None,
+            _ => Some("E-CONFIG-001"),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -131,6 +144,11 @@ impl VerifyLayout {
         self.verify_dir().join("approvals")
     }
 
+    /// The predecessor `.verify/audits/` location. Nothing reads or writes
+    /// it any more (issue #23, BD-150: no canonical directory holds
+    /// deterministic-analysis results). It stays only so tests can assert
+    /// that `init_project` never creates it (DS-985's generation list has
+    /// no `audits/`).
     pub fn audits_dir(&self) -> PathBuf {
         self.verify_dir().join("audits")
     }

@@ -1,0 +1,11 @@
+id: VO-ADAPTER-WIRE-CODEC-DERIVES-EXECUTION
+parent: null
+derives_from:
+  - doc: DS-1578
+claim: '`execution`を欠くTest入力は、`rust-cargo` codecが完全で相互整合するRust互換fieldからだけdescriptorを導出する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T00:00:00+09:00
+updated: 2026-11-03T00:00:00+09:00

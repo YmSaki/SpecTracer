@@ -297,7 +297,7 @@ fn rescan_if_changed(root: &Path, state: &mut MtimeRescan) -> Option<Value> {
         Ok(snapshot) => snapshot,
         Err(error) => {
             return Some(failure_envelope(
-                "E-CORE-001",
+                vtest_model::INTERNAL_ERROR_CODE,
                 format!("cannot inspect project mtimes: {error}"),
             ))
         }
@@ -746,7 +746,7 @@ fn approval_get_tool(root: &Path, args: &Value) -> Value {
                     })).collect::<Vec<_>>(),
                     "effective_state": effective,
                 }),
-                &[],
+                &result.diagnostics,
             )
         }
         Err(error) => approval_error_envelope(&error),
@@ -917,7 +917,9 @@ fn doc_view_json(view: &vtest_store::doc_registry::DocView) -> Value {
 
 fn record_error_envelope(error: &vtest_store::StoreError) -> Value {
     failure_envelope(
-        error.record_read_code().unwrap_or("E-CORE-001"),
+        error
+            .record_read_code()
+            .unwrap_or(vtest_model::INTERNAL_ERROR_CODE),
         error.to_string(),
     )
 }
@@ -952,7 +954,7 @@ fn run_tool(root: &Path, args: &Value) -> Value {
     // same `ops::run::run` the CLI calls the resolved scan and target.
     let config = vtest_store::load_config(root);
     if let Err(error) = config {
-        return failure_envelope("E-CONFIG-001", error.to_string());
+        return vtest_cli::config_error_result(&error).1;
     }
     let registry = match resolve_registry() {
         Ok(registry) => registry,
@@ -961,17 +963,14 @@ fn run_tool(root: &Path, args: &Value) -> Value {
     let scan = match vtest_scan::scan_project(root, &registry) {
         Ok(scan) => scan,
         Err(error) => {
-            let code = error.code().unwrap_or("E-CORE-001");
+            let code = error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE);
             return failure_envelope(code, error.to_string());
         }
     };
     let layout = vtest_store::VerifyLayout::new(root);
-    let target = if let Some(vo_id) = vo {
-        ops::run::RunTarget::Vo(vo_id)
-    } else if all {
-        ops::run::RunTarget::All
-    } else {
-        ops::run::RunTarget::Test(test_ids)
+    let target = match ops::run::RunTarget::from_axes(test_ids, vo, all) {
+        Ok(target) => target,
+        Err(error) => return failure_envelope("E-OP-001", error.to_string()),
     };
     match ops::run::run(root, &layout, &scan, &target, fast, &registry) {
         Ok(result) => {
@@ -984,7 +983,9 @@ fn run_tool(root: &Path, args: &Value) -> Value {
             success_envelope(!has_errors, data, &result.diagnostics)
         }
         Err(
-            error @ (ops::run::RunOpError::UnknownTestId(_) | ops::run::RunOpError::UnknownVoId(_)),
+            error @ (ops::run::RunOpError::UnknownTestId(_)
+            | ops::run::RunOpError::UnknownVoId(_)
+            | ops::run::RunOpError::ConflictingTargets(_)),
         ) => failure_envelope("E-OP-001", error.to_string()),
         Err(ref error @ ops::run::RunOpError::Execution(ref inner)) => {
             // DS-745/DS-923 (E-ADAPTER-003) — mirrors the CLI's `run_run`
@@ -992,7 +993,7 @@ fn run_tool(root: &Path, args: &Value) -> Value {
             // same code for the same input (DS-1563).
             match inner.code() {
                 Some(code) => failure_envelope(code, error.to_string()),
-                None => failure_envelope("E-CORE-001", error.to_string()),
+                None => failure_envelope(vtest_model::INTERNAL_ERROR_CODE, error.to_string()),
             }
         }
         Err(ops::run::RunOpError::Store(error)) => record_error_envelope(&error),
@@ -1022,11 +1023,16 @@ fn verify_tool(root: &Path, args: &Value) -> Value {
         Err(envelope) => return envelope,
     };
     match ops::verify::execute(root, &items, doc, vo, test, gate, summary, &registry) {
-        Ok((exit, data, diagnostics)) => success_envelope(exit == ExitCode::Ok, data, &diagnostics),
+        Ok((exit, data, diagnostics)) => {
+            ops::verify::scoped_envelope(exit == ExitCode::Ok, &data, &diagnostics)
+        }
         Err(ops::verify::VerifyOpError::Usage { code, message }) => failure_envelope(code, message),
         Err(ops::verify::VerifyOpError::Scan(error)) => {
-            let code = error.code().unwrap_or("E-CORE-001");
+            let code = error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE);
             failure_envelope(code, error.to_string())
+        }
+        Err(ops::verify::VerifyOpError::Internal { message }) => {
+            failure_envelope(vtest_model::INTERNAL_ERROR_CODE, message)
         }
     }
 }
@@ -1103,6 +1109,33 @@ mod tests {
         root
     }
 
+    /// @vtest.id TEST-MCP-CONFIG-IO-INTERNAL
+    /// @vtest.covers VO-INTERNAL-ERROR-CODE-CLI-MCP
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent an unreadable config.yaml is an E-INTERNAL-001 tool error with no data from the scan, verify and run_tests tools
+    #[test]
+    fn unreadable_config_is_an_internal_tool_error() {
+        for (tool, args) in [
+            ("scan", json!({})),
+            ("verify", json!({})),
+            ("run_tests", json!({"all": true})),
+        ] {
+            let root = temp_root(&format!("config-io-{tool}"));
+            vtest_store::init_project(&root, "config-io").unwrap();
+            let config = root.join(".verify/config.yaml");
+            std::fs::remove_file(&config).unwrap();
+            std::fs::create_dir(&config).unwrap();
+            let result = tool_result(dispatch_tool(&root, tool, &args));
+            assert_eq!(result["isError"], true, "{tool}");
+            let envelope = &result["structuredContent"];
+            assert_eq!(envelope["data"], Value::Null, "{tool}");
+            assert_eq!(
+                envelope["diagnostics"][0]["code"], "E-INTERNAL-001",
+                "{tool}: {envelope}"
+            );
+        }
+    }
+
     /// @vtest.id TEST-MCP-RECORD-ERROR-CODES
     /// @vtest.covers VO-SCAN-RECORD-INTEGRITY-E-SCAN-010
     /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
@@ -1169,16 +1202,20 @@ mod tests {
                 let ok = exit == ExitCode::Ok;
                 (
                     exit,
-                    json!({"ok": ok, "data": data, "diagnostics": diagnostics}),
+                    vtest_cli::ops::verify::scoped_envelope(ok, &data, &diagnostics),
                 )
             }
             Err(vtest_cli::ops::verify::VerifyOpError::Usage { code, message }) => {
                 (ExitCode::Usage, failure_envelope(code, message))
             }
             Err(vtest_cli::ops::verify::VerifyOpError::Scan(error)) => {
-                let code = error.code().unwrap_or("E-CORE-001");
+                let code = error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE);
                 (ExitCode::Usage, failure_envelope(code, error.to_string()))
             }
+            Err(vtest_cli::ops::verify::VerifyOpError::Internal { message }) => (
+                ExitCode::Internal,
+                failure_envelope(vtest_model::INTERNAL_ERROR_CODE, message),
+            ),
         }
     }
 
@@ -1210,6 +1247,77 @@ mod tests {
             Some(&Value::Bool(cli_exit == ExitCode::Ok)),
             "MCP `ok` must agree with the CLI exit code's OK/NG meaning"
         );
+        // DS-943/1214: the MCP verify result carries the top-level scope.
+        assert_eq!(
+            mcp_envelope["scope"]["requested"]["entities"],
+            json!([]),
+            "{mcp_envelope}"
+        );
+        assert_eq!(mcp_envelope["scope"]["unverified_outside_scope"], false);
+    }
+
+    /// DS-744/DS-1563: `run_tests` rejects any combination of the
+    /// mutually exclusive `test` / `vo` / `all` target axes with E-OP-001
+    /// before launching anything, exactly as the CLI's clap
+    /// `conflicts_with` rules do, and still accepts each axis alone.
+    /// @vtest.id TEST-MCP-RUN-TESTS-EXCLUSIVE-AXES
+    /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE, VO-RUN-UNRESOLVED-SELECTOR-REJECTED
+    /// @vtest.target crates/vtest-cli/src/ops/run.rs::RunTarget::from_axes
+    /// @vtest.intent run_tests rejects test/vo/all combinations with E-OP-001 and writes no Evidence
+    #[test]
+    fn run_tests_rejects_combined_target_axes() {
+        let root = temp_root("run-tests-exclusive");
+        let init = vtest_cli::run(vtest_cli::Cli {
+            project: root.clone(),
+            format: vtest_cli::OutputFormat::Json,
+            quiet: true,
+            command: vtest_cli::Command::Init { name: None },
+        });
+        assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
+        for args in [
+            json!({"test": ["DOES-NOT-EXIST"], "all": true, "fast": true}),
+            json!({"test": ["DOES-NOT-EXIST"], "vo": "VO-X", "fast": true}),
+            json!({"vo": "VO-X", "all": true, "fast": true}),
+            json!({"test": ["DOES-NOT-EXIST"], "vo": "VO-X", "all": true, "fast": true}),
+        ] {
+            let result = tools_call_result(
+                &root,
+                &json!({"name": "run_tests", "arguments": args}),
+                &mut MtimeRescan::default(),
+            );
+            assert_eq!(result["isError"], true, "{args}: {result}");
+            assert_eq!(
+                result["structuredContent"]["diagnostics"][0]["code"], "E-OP-001",
+                "{args}: {result}"
+            );
+        }
+        let evidence_dir = root.join(".verify").join("evidence");
+        let written = std::fs::read_dir(&evidence_dir).map_or(0, |entries| {
+            entries
+                .flatten()
+                .filter(|entry| {
+                    entry.path().extension().and_then(|value| value.to_str()) == Some("yaml")
+                })
+                .count()
+        });
+        assert_eq!(written, 0, "a rejected run must not write Evidence");
+
+        let alone = tools_call_result(
+            &root,
+            &json!({"name": "run_tests", "arguments": {"all": true, "fast": true}}),
+            &mut MtimeRescan::default(),
+        );
+        assert_ne!(alone["isError"], true, "{alone}");
+        let unknown = tools_call_result(
+            &root,
+            &json!({"name": "run_tests", "arguments": {"test": ["DOES-NOT-EXIST"], "fast": true}}),
+            &mut MtimeRescan::default(),
+        );
+        assert_eq!(
+            unknown["structuredContent"]["diagnostics"][0]["code"], "E-OP-001",
+            "a lone unknown test id is still rejected, not ignored: {unknown}"
+        );
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     /// @vtest.id TEST-MCP-SCAN-MATCHES-CLI

@@ -1,0 +1,11 @@
+id: VO-VERIFY-EVIDENCE-TARGET-ENTRY-CONTRADICTION-E-SCAN-010
+parent: null
+derives_from:
+  - doc: DS-476
+claim: 'schema違反、target entryの欠落・重複・余剰、またはaggregate resultとtarget別結果の矛盾はE-SCAN-010として扱い、そのEvidenceを有効な結果に使用しない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00

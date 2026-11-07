@@ -40,6 +40,7 @@ use vtest_model::{
 
 pub mod coverage;
 pub mod oracle_presence;
+pub mod wire_codec;
 
 pub use coverage::RustCargoCoverageAdapter;
 pub use oracle_presence::RustCargoStaticAnalysisAdapter;
@@ -136,11 +137,15 @@ impl TestRunnerAdapter for RustCargoTestRunner {
             })
             .collect();
         let invocation = serde_json::json!({"program": command.program, "args": args, "working_root": "workspace-root", "env": command.env});
-        Some(execution_state::snapshot(
+        // DES-369: bind the environment the command will actually inherit
+        // (the process environment overlaid with the command's own `env`).
+        let environment = execution_state::Environment::current().with_overlay(&command.env);
+        Some(execution_state::snapshot_in(
             root,
             head_revision,
             runner_kind,
             invocation,
+            environment,
         ))
     }
 
@@ -400,6 +405,7 @@ impl Adapter for RustCargoAdapter {
             languages: vec!["rust".to_owned()],
             capabilities: vec![
                 Capability::SourceDiscovery,
+                Capability::TestWireCodec,
                 Capability::StaticAnalysis,
                 Capability::TestRunner,
                 Capability::Coverage,
@@ -410,6 +416,10 @@ impl Adapter for RustCargoAdapter {
 
     fn as_source_discovery(&self) -> Option<&dyn SourceDiscoveryAdapter> {
         Some(self)
+    }
+
+    fn as_test_wire_codec(&self) -> Option<&dyn vtest_adapter_api::TestWireCodec> {
+        Some(&wire_codec::RustCargoWireCodec)
     }
 
     fn as_static_analysis(&self) -> Option<&dyn StaticAnalysisAdapter> {
@@ -868,8 +878,8 @@ impl<'a> Scanner<'a> {
         path: &Path,
     ) -> Result<(), DiscoveryError> {
         let location = make_location(relative, item_path, span, source, line_offsets);
-        // 詳細設計 v0.1 のどの診断コード表にも `E-CORE-001` は存在せず、コード
-        // 自体を実装が発明することは禁止（PM 裁定・pr3-decisions.md 裁定2）。
+        // adapter が自前の診断コードを発明することは禁止（PM 裁定・
+        // pr3-decisions.md 裁定2）。
         // byte range の out-of-bounds は「壊れた発見結果を診断として黙って
         // 通す」ことになり fail-open なので、診断を出さず discovery 全体の
         // 失敗（`DiscoveryError`。core はこれを `ScanError::Discovery` へ
@@ -2280,6 +2290,10 @@ mod nested { struct NestedStruct; fn nested_fn() {} }
     /// pr3-decisions.md Owner裁定2「架空locatorを作らない」: 構文解析できな
     /// い宣言値は、捏造した代替値ではなく宣言値そのものを opaque `value` と
     /// して運ぶ。
+    /// @vtest.id TEST-ADAPTER-RUST-DECLARED-LOCATOR-UNPARSEABLE-VERBATIM
+    /// @vtest.covers VO-ADAPTER-RUST-DECLARED-LOCATOR-NORMALIZED
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::locator_from_declared_value
+    /// @vtest.intent an unparseable declared value becomes a rust-cargo Locator carrying the declared value verbatim
     #[test]
     fn locator_from_declared_value_passes_through_an_unparseable_value_verbatim() {
         let locator = locator_from_declared_value("this is not a locator");

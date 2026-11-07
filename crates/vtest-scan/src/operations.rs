@@ -10,7 +10,7 @@ use vtest_adapter_api::{AdapterRegistry, AdapterScanConfig};
 use vtest_adapter_rust::RustLocator;
 use vtest_model::{
     test_subject_hash, ContentHash, Diagnostic, SourceLocation, TargetCoverageResult, TargetRef,
-    TestEntity, TestRecord, TestResult, VerificationState,
+    TestEntity, TestRecord, TestResult, VerificationState, INTERNAL_ERROR_CODE,
 };
 use vtest_store::{
     load_config, load_form_schema, read_entity_ids, read_evidence, read_record_ids, write_atomic,
@@ -51,6 +51,15 @@ pub struct TestMutationResult {
     pub rendered: String,
 }
 
+/// DS-929/DS-930: a rejected config is E-CONFIG-001; an unreadable one is
+/// an internal error (`E-INTERNAL-001`).
+fn config_load_diagnostic(error: vtest_store::StoreError) -> Diagnostic {
+    Diagnostic::error(
+        error.config_load_code().unwrap_or(INTERNAL_ERROR_CODE),
+        error.to_string(),
+    )
+}
+
 pub fn create_test(
     root: &Path,
     form_kind: &str,
@@ -60,7 +69,10 @@ pub fn create_test(
     registry: &AdapterRegistry,
 ) -> Result<TestMutationResult, Diagnostic> {
     let scan = crate::scan_project(root, registry).map_err(|error| {
-        Diagnostic::error(error.code().unwrap_or("E-CORE-001"), error.to_string())
+        Diagnostic::error(
+            error.code().unwrap_or(INTERNAL_ERROR_CODE),
+            error.to_string(),
+        )
     })?;
     let layout = VerifyLayout::new(root);
     let schema = load_form_schema(&layout, form_kind)
@@ -71,7 +83,7 @@ pub fn create_test(
     validate_rust_file(root, &file)?;
     let path = root.join(Path::new(&file));
     let original = fs::read_to_string(&path)
-        .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+        .map_err(|error| Diagnostic::error(INTERNAL_ERROR_CODE, error.to_string()))?;
     let rendered = render_form_template(&schema, &answers, &test_id)?;
     syn::parse_str::<syn::ItemFn>(&rendered).map_err(|error| {
         Diagnostic::error(
@@ -109,7 +121,7 @@ pub fn create_test(
 
     let before_hashes = test_hashes(&scan);
     write_atomic(&path, &prospective)
-        .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+        .map_err(|error| Diagnostic::error(INTERNAL_ERROR_CODE, error.to_string()))?;
     let verified = verify_create(root, &test_id, &answers, &before_hashes, registry);
     if let Err(diagnostic) = verified {
         rollback(&path, &original, diagnostic)?;
@@ -180,7 +192,10 @@ pub fn edit_test(
         ));
     }
     let scan = crate::scan_project(root, registry).map_err(|error| {
-        Diagnostic::error(error.code().unwrap_or("E-CORE-001"), error.to_string())
+        Diagnostic::error(
+            error.code().unwrap_or(INTERNAL_ERROR_CODE),
+            error.to_string(),
+        )
     })?;
     // Owner裁定1（pr3-decisions.md）「後段が代表1件を推測選択してはならない」:
     // `test_id` が衝突していれば、どれを編集対象にするかをここで黙って
@@ -220,7 +235,7 @@ pub fn edit_test(
 
     let path = root.join(Path::new(current.location.path.as_str()));
     let original = fs::read_to_string(&path)
-        .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+        .map_err(|error| Diagnostic::error(INTERNAL_ERROR_CODE, error.to_string()))?;
     // 別紙A §15.1「スキャン結果が古い可能性があるため、編集直前に対象
     // ファイルのみ再パースし、Test ID の位置を再確認する。再確認で
     // 見つからない場合はE-OP-002。」— `rescan_current_test` が対象
@@ -323,7 +338,7 @@ pub fn edit_test(
     }
     let before_hashes = test_hashes(&scan);
     let latest = fs::read_to_string(&path)
-        .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+        .map_err(|error| Diagnostic::error(INTERNAL_ERROR_CODE, error.to_string()))?;
     if latest != original {
         return Err(Diagnostic::error(
             "E-OP-002",
@@ -331,7 +346,7 @@ pub fn edit_test(
         ));
     }
     write_atomic(&path, &prospective)
-        .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+        .map_err(|error| Diagnostic::error(INTERNAL_ERROR_CODE, error.to_string()))?;
     let verified = verify_edit(root, test_id, &desired, &before_hashes, registry);
     if let Err(diagnostic) = verified {
         rollback(&path, &original, diagnostic)?;
@@ -374,8 +389,7 @@ fn rescan_current_test(
     test_id: &str,
     registry: &AdapterRegistry,
 ) -> Result<Option<CurrentTestRescan>, Diagnostic> {
-    let config =
-        load_config(root).map_err(|error| Diagnostic::error("E-CONFIG-001", error.to_string()))?;
+    let config = load_config(root).map_err(config_load_diagnostic)?;
     // Defensive only: `current` (the caller's already-scanned entity) came
     // from a `scan_project` that already resolved `location.adapter` against
     // this same registry (fail-closed `ScanError::UnknownAdapterId`/
@@ -617,7 +631,10 @@ fn validate_desired_test(
         ));
     }
     let entity_ids = read_entity_ids(root).map_err(|error| {
-        Diagnostic::error("E-CORE-001", format!("could not read entity IDs: {error}"))
+        Diagnostic::error(
+            INTERNAL_ERROR_CODE,
+            format!("could not read entity IDs: {error}"),
+        )
     })?;
     for id in &desired.covers {
         // vtest_store::read_entity_ids returns [doc, vo] (canonical 2-slot
@@ -1005,12 +1022,12 @@ pub fn show_test(root: &Path, scan: &ScanResult, id: &str) -> Result<TestView, D
     let layout = VerifyLayout::new(root);
     let mut evidence = Vec::new();
     let evidence_ids = read_record_ids(&layout.evidence_dir())
-        .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+        .map_err(|error| Diagnostic::error(INTERNAL_ERROR_CODE, error.to_string()))?;
     for record_id in evidence_ids {
         let path = layout.evidence_dir().join(format!("{record_id}.yaml"));
         let record = read_evidence(&path).map_err(|error| {
             Diagnostic::error(
-                error.record_read_code().unwrap_or("E-CORE-001"),
+                error.record_read_code().unwrap_or(INTERNAL_ERROR_CODE),
                 error.to_string(),
             )
         })?;
@@ -1134,7 +1151,10 @@ fn validate_form_answers_for(
         ));
     }
     let entity_ids = read_entity_ids(root).map_err(|error| {
-        Diagnostic::error("E-CORE-001", format!("could not read entity IDs: {error}"))
+        Diagnostic::error(
+            INTERNAL_ERROR_CODE,
+            format!("could not read entity IDs: {error}"),
+        )
     })?;
     for field in &schema.fields {
         let value = supplied.answers.get(&field.name);
@@ -1474,7 +1494,7 @@ fn verify_other_test_hashes(
 fn rollback(path: &Path, original: &str, diagnostic: Diagnostic) -> Result<(), Diagnostic> {
     write_atomic(path, original).map_err(|error| {
         Diagnostic::error(
-            "E-CORE-001",
+            INTERNAL_ERROR_CODE,
             format!(
                 "operation failed and rollback of `{}` also failed: {error}; original error: {}",
                 path.display(),
@@ -1635,8 +1655,7 @@ fn validate_rust_file(root: &Path, relative: &str) -> Result<(), Diagnostic> {
             format!("Rust file does not exist: `{relative}`"),
         ));
     }
-    let config =
-        load_config(root).map_err(|error| Diagnostic::error("E-CONFIG-001", error.to_string()))?;
+    let config = load_config(root).map_err(config_load_diagnostic)?;
     // レビュー round 2 項目【F】: `adapters: []` の拒否メッセージ自体には
     // 仕様上の対応コードが無い（本冊:158「無効なadapter設定」は非空
     // adapters list内の各entryの妥当性を指す並列項目であり、「listが
@@ -1658,9 +1677,9 @@ fn validate_rust_file(root: &Path, relative: &str) -> Result<(), Diagnostic> {
         ));
     }
     let canonical_root = fs::canonicalize(root)
-        .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+        .map_err(|error| Diagnostic::error(INTERNAL_ERROR_CODE, error.to_string()))?;
     let canonical_path = fs::canonicalize(&path)
-        .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))?;
+        .map_err(|error| Diagnostic::error(INTERNAL_ERROR_CODE, error.to_string()))?;
     if !canonical_path.starts_with(&canonical_root) {
         return Err(Diagnostic::error(
             "E-OP-001",
@@ -1680,8 +1699,7 @@ fn validate_enum_variant(root: &Path, value: &str) -> Result<(), Diagnostic> {
     {
         return Ok(());
     }
-    let config =
-        load_config(root).map_err(|error| Diagnostic::error("E-CONFIG-001", error.to_string()))?;
+    let config = load_config(root).map_err(config_load_diagnostic)?;
     // レビュー round 2 項目【F】: `validate_rust_file` と同じ理由（上記の
     // doc comment を参照）。ここは `enum-variant-exists` 候補検証の一部
     // であり、この関数の他の全ての拒否と同じくE-OP-001（本冊:1641、
@@ -2297,9 +2315,8 @@ fn adds() { assert_eq!(2, 1 + 1); }
 
         let mut set = BTreeMap::new();
         set.insert("intent".to_owned(), FormValue::Scalar("changed".to_owned()));
-        let result = edit_test(&root, "TEST-ADD", None, &set, None, false, &test_registry());
-
-        let error = result.expect_err("editing a Test ID that no longer exists must fail");
+        let error = edit_test(&root, "TEST-ADD", None, &set, None, false, &test_registry())
+            .expect_err("editing a Test ID that no longer exists must fail");
         assert_eq!(error.code, "E-OP-002");
         let after = fs::read_to_string(root.join("tests/calc.rs")).unwrap();
         assert_eq!(
@@ -2371,6 +2388,10 @@ fn adds() { assert_eq!(2, 1 + 1); }
     // マッチアームより前に行っており、削除されたのは接頭辞検査（基本:130
     // により復活させてはならない）だけだった。この test は共通判定が
     // "vo-ref-list" を対象に含んでいることを固定する回帰テスト。
+    /// @vtest.id TEST-SCAN-VO-REF-LIST-REJECTS-SCALAR
+    /// @vtest.covers VO-SCAN-FORM-COVERS-VO-REF-LIST
+    /// @vtest.target crates/vtest-scan/src/operations.rs::validate_value_shape
+    /// @vtest.intent a covers field typed vo-ref-list rejects a scalar value
     #[test]
     fn vo_ref_list_field_rejects_a_scalar() {
         let field = field("covers", "vo-ref-list");

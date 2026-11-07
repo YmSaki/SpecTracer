@@ -1086,21 +1086,33 @@ mod tests {
     /// @vtest.intent verifies cases order is significant (declaration order), unlike covers/targets/related (本冊:85 "順序に意味があるcasesは宣言順とする")
     #[test]
     fn test_subject_hash_cases_order_is_significant() {
-        let hash_of = |cases: Vec<String>| {
+        let record_with = |cases: Vec<String>| {
             let mut record = base_test_record();
             record.cases = cases;
+            record
+        };
+        let forward_record = record_with(vec!["case-a".to_string(), "case-b".to_string()]);
+        let reversed_record = record_with(vec!["case-b".to_string(), "case-a".to_string()]);
+        let adapter = AdapterId::new("rust-cargo");
+        let (location, execution) = (base_test_location(), base_test_execution());
+
+        let forward = test_subject_hash(
+            &adapter,
+            &forward_record,
+            &location,
+            &execution,
+            base_test_construct(),
+        );
+        assert_ne!(
+            forward,
             test_subject_hash(
-                &AdapterId::new("rust-cargo"),
-                &record,
-                &base_test_location(),
-                &base_test_execution(),
+                &adapter,
+                &reversed_record,
+                &location,
+                &execution,
                 base_test_construct(),
             )
-        };
-
-        let forward = hash_of(vec!["case-a".to_string(), "case-b".to_string()]);
-        let reversed = hash_of(vec!["case-b".to_string(), "case-a".to_string()]);
-        assert_ne!(forward, reversed);
+        );
     }
 
     /// @vtest.id TEST-MODEL-TEST-SUBJECT-HASH-COVERS-TARGETS-RELATED-ARE-ORDER-INDEPENDENT-SETS
@@ -1592,6 +1604,7 @@ mod tests {
 
     // ---- VO subject hash ----
 
+    // No @vtest.target: this test checks the serde shape of the `VoRecord` type itself; no function is under test, so no target is declared (DS-1664 keeps target_binding NO_EVIDENCE / NOT_CHECKED; issue #82).
     /// @vtest.id TEST-MODEL-VO-RECORD-HAS-NO-STATUS-OR-COVERS-FIELD
     /// @vtest.covers VO-MODEL-VO-SUBJECT-HASH
     /// @vtest.intent verifies the canonical VoRecord this function reads structurally excludes `status`/`covers` (DES-094 "VOの読取り互換field `status` を正典ではないため含めない"; DES-096 "`covers` の増減をTest側subjectで捕捉するため含めない"; DS-405 confirms `status` is a read-compat-only field the canonical writer never persists)

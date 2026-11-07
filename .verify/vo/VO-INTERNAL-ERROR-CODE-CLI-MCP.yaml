@@ -1,0 +1,11 @@
+id: VO-INTERNAL-ERROR-CODE-CLI-MCP
+parent: null
+derives_from:
+  - doc: DS-1690
+claim: "入力不正・操作拒否ではない内部エラーが発生した場合、CLIはerrorの診断コード`E-INTERNAL-001`と終了コード3を返し、MCPは`code: \"E-INTERNAL-001\"`を含むツールエラーを返す。内部エラー自体を検証状態として返さない。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T12:00:00+09:00
+updated: 2026-11-03T12:00:00+09:00
