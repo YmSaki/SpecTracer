@@ -1,0 +1,11 @@
+id: VO-CLI-VO-EDIT-APPROVED-WARNS
+parent: null
+derives_from:
+  - doc: DS-1048
+claim: "`vo edit` は実効承認が `approved` の VO に対して警告を出す（編集自体は許可し、承認はハッシュ不一致で自動失効する）。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T12:00:00+09:00
+updated: 2026-11-03T12:00:00+09:00

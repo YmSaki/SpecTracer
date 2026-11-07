@@ -1,0 +1,11 @@
+id: VO-RUN-UNRESOLVED-TARGET-NO-EVIDENCE
+parent: null
+derives_from:
+  - doc: DS-1382
+claim: 1件でも対象なしまたは曖昧ならEvidenceを生成しない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T00:00:00+09:00
+updated: 2026-11-03T00:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-AUDIT-STATIC-RULE-VERDICTS
+parent: null
+derives_from:
+  - doc: SPEC-387
+claim: "`vtest audit static` は決定論的な静的解析を要求時に起動し、rule 別 verdict（`FAIL` / `UNKNOWN` / 違反なし）と根拠 span を stdout と `cache/` へ出力する。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T12:00:00+09:00
+updated: 2026-11-03T12:00:00+09:00

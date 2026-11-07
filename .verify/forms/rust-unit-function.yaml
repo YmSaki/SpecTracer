@@ -1,4 +1,5 @@
 kind: rust-unit-function
+adapter: rust-cargo
 title: Rust function unit test
 fields:
   - name: target

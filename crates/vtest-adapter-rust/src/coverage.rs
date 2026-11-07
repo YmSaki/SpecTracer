@@ -116,12 +116,166 @@ fn locator_parts(locator: &Locator) -> (&str, &str) {
         .unwrap_or((locator.value.as_str(), ""))
 }
 
+/// How a target Locator is matched against llvm-cov's function records.
+enum TargetMatch {
+    /// The Locator resolved to one source construct in the measured file:
+    /// a function record matches when its name ends with the construct's
+    /// own name and the innermost discovered construct that contains the
+    /// record's first region (line and column) is this one. This keeps
+    /// cfg branches, same-named trait impl methods and same-named functions
+    /// of other modules apart even when they share a line, and even though
+    /// their Locators (`f[cfg(unix)]`, `<Widget as A>::f`) are not LLVM
+    /// symbol names (#35, DS-510).
+    Span {
+        name: String,
+        construct: ResolvedConstruct,
+    },
+    /// The measured file cannot be read (e.g. coverage output from another
+    /// machine): the plain item path is compared with the symbol name. A
+    /// disambiguated Locator is never matched this way, so it stays
+    /// UNKNOWN rather than borrowing another branch's count.
+    ItemPath(String),
+}
+
+/// The byte range of the target's source construct, the byte ranges of
+/// every other construct discovered in the same file, and the byte offset
+/// at which each line starts (to place llvm-cov's 1-based line/column).
+struct ResolvedConstruct {
+    range: (u64, u64),
+    others: Vec<(u64, u64)>,
+    line_starts: Vec<u64>,
+}
+
+impl ResolvedConstruct {
+    /// Whether a function record starting at `(line, column)` belongs to
+    /// this construct: the position lies in its range and in no smaller
+    /// other construct inside it (e.g. a nested `fn` or another `mod`'s
+    /// function on the same line).
+    fn owns(&self, (line, column): (u64, u64)) -> bool {
+        let Some(line_start) = usize::try_from(line)
+            .ok()
+            .and_then(|line| line.checked_sub(1))
+            .and_then(|index| self.line_starts.get(index))
+        else {
+            return false;
+        };
+        let offset = line_start + column.saturating_sub(1);
+        let contains = |(start, end): (u64, u64)| start <= offset && offset < end;
+        contains(self.range)
+            && !self.others.iter().any(|&other| {
+                contains(other)
+                    && self.range.0 <= other.0
+                    && other.1 <= self.range.1
+                    && other != self.range
+            })
+    }
+}
+
+/// The function name an item path ends with: `f` for `m::Widget::f`,
+/// `<Widget as A>::f`, `<W as A<[u8; 1]>>::f` or `f[cfg(unix)]`. Only the
+/// `[cfg(...)]` suffix that disambiguation appends is removed; square
+/// brackets of type syntax are kept.
+fn construct_name(item_path: &str) -> &str {
+    let base = match item_path.rfind("[cfg(") {
+        Some(index) if item_path.ends_with(']') => &item_path[..index],
+        _ => item_path,
+    };
+    base.rsplit("::").next().unwrap_or(base)
+}
+
+fn is_disambiguated(item_path: &str) -> bool {
+    item_path.contains('[') || item_path.contains('<')
+}
+
+/// Resolves `target` to the one source construct the `rust-cargo` scanner
+/// gives that Locator, using the project root implied by an absolute
+/// llvm-cov filename that ends with the Locator's path.
+fn resolve_target(data: &[serde_json::Value], target: &Locator) -> Option<ResolvedConstruct> {
+    let (target_path, _) = locator_parts(target);
+    let suffix = target_path.replace('\\', "/");
+    let filenames = data
+        .iter()
+        .filter_map(|item| item.get("functions")?.as_array())
+        .flatten()
+        .filter_map(|function| function.get("filenames")?.as_array())
+        .flatten()
+        .filter_map(serde_json::Value::as_str);
+    for filename in filenames {
+        let normalized = filename.replace('\\', "/");
+        let Some(root) = normalized.strip_suffix(&suffix) else {
+            continue;
+        };
+        if !root.ends_with('/') || !Path::new(root).is_absolute() {
+            continue;
+        }
+        let root = Path::new(root);
+        let file = root.join(target_path);
+        let Ok(text) = std::fs::read_to_string(&file) else {
+            continue;
+        };
+        let mut scanner = crate::Scanner::new(root, "");
+        if scanner.scan_file(&file).is_err() {
+            continue;
+        }
+        let outcome = scanner.finish(1);
+        let mut found = outcome
+            .sources
+            .iter()
+            .filter(|source| source.locator.value == target.value);
+        let (Some(source), None) = (found.next(), found.next()) else {
+            return None;
+        };
+        let range_of = |range: &vtest_model::SourceRange| (range.start, range.end);
+        let others = outcome
+            .sources
+            .iter()
+            .filter(|other| other.locator.value != target.value)
+            .map(|other| range_of(&other.location.byte_range))
+            .collect();
+        let line_starts = std::iter::once(0)
+            .chain(
+                text.bytes()
+                    .enumerate()
+                    .filter(|&(_, byte)| byte == b'\n')
+                    .map(|(index, _)| index as u64 + 1),
+            )
+            .collect();
+        return Some(ResolvedConstruct {
+            range: range_of(&source.location.byte_range),
+            others,
+            line_starts,
+        });
+    }
+    None
+}
+
+/// The earliest `(line, column)` among a function record's regions.
+fn function_start(function: &serde_json::Value) -> Option<(u64, u64)> {
+    function
+        .get("regions")?
+        .as_array()?
+        .iter()
+        .filter_map(|region| {
+            let region = region.as_array()?;
+            Some((region.first()?.as_u64()?, region.get(1)?.as_u64()?))
+        })
+        .min()
+}
+
 fn llvm_cov_function_count(output: &str, target: &Locator) -> Option<u64> {
     let value = serde_json::from_str::<serde_json::Value>(output).ok()?;
     let data = value.get("data")?.as_array()?;
     let mut total = 0_u64;
     let mut matched = false;
     let (target_path, target_item_path) = locator_parts(target);
+    let rule = match resolve_target(data, target) {
+        Some(construct) => TargetMatch::Span {
+            name: construct_name(target_item_path).to_owned(),
+            construct,
+        },
+        None if is_disambiguated(target_item_path) => return None,
+        None => TargetMatch::ItemPath(target_item_path.to_owned()),
+    };
     for item in data {
         let Some(functions) = item.get("functions").and_then(serde_json::Value::as_array) else {
             continue;
@@ -130,9 +284,17 @@ fn llvm_cov_function_count(output: &str, target: &Locator) -> Option<u64> {
             let Some(name) = function.get("name").and_then(serde_json::Value::as_str) else {
                 continue;
             };
-            if !llvm_name_matches(name, target_item_path)
-                || !llvm_filenames_match(function, target_path)
-            {
+            let name_matches = match &rule {
+                TargetMatch::Span {
+                    name: own,
+                    construct,
+                } => {
+                    llvm_name_matches(name, own)
+                        && function_start(function).is_some_and(|start| construct.owns(start))
+                }
+                TargetMatch::ItemPath(item_path) => llvm_name_matches(name, item_path),
+            };
+            if !name_matches || !llvm_filenames_match(function, target_path) {
                 continue;
             }
             let function_count = function
@@ -401,5 +563,249 @@ mod tests {
             "cargo-llvm-cov is unavailable; target_coverage is NOT_CHECKED"
         );
         std::fs::remove_dir_all(&missing_root).expect("remove fixture root");
+    }
+
+    /// Runs real `cargo llvm-cov --lib --json` in `root` (a fixture crate)
+    /// with the outer cargo-llvm-cov environment removed, and returns the
+    /// path of the JSON it wrote.
+    fn run_real_llvm_cov(root: &std::path::Path) -> std::path::PathBuf {
+        let output_path = root.join("coverage.json");
+        let mut command = Command::new("cargo");
+        command.current_dir(root).args([
+            "llvm-cov",
+            "--lib",
+            "--json",
+            "--output-path",
+            output_path.to_str().expect("utf-8 path"),
+        ]);
+        for variable in [
+            "RUSTC_WRAPPER",
+            "LLVM_PROFILE_FILE",
+            "CARGO_LLVM_COV",
+            "CARGO_LLVM_COV_TARGET_DIR",
+            "RUSTFLAGS",
+            "CARGO_ENCODED_RUSTFLAGS",
+            "CARGO_INCREMENTAL",
+            "CARGO_TARGET_DIR",
+            "CARGO_LLVM_COV_SHOW_ENV",
+        ] {
+            command.env_remove(variable);
+        }
+        let status = command.output().expect("run cargo llvm-cov");
+        assert!(
+            status.status.success(),
+            "{}",
+            String::from_utf8_lossy(&status.stderr)
+        );
+
+        output_path
+    }
+
+    /// Discovered Locators of `src/lib.rs` in the fixture crate `root`.
+    fn discovered_locators(root: &std::path::Path) -> Vec<String> {
+        use vtest_adapter_api::SourceDiscoveryAdapter;
+        crate::RustCargoAdapter::new()
+            .discover(
+                root,
+                "demo",
+                &vtest_adapter_api::AdapterScanConfig {
+                    include_paths: vec![std::path::PathBuf::from("src")],
+                },
+            )
+            .expect("discover")
+            .sources
+            .into_iter()
+            .map(|source| source.locator.value)
+            .collect()
+    }
+
+    /// #139 review: two constructs on one line are told apart by the column
+    /// of their LLVM region, so an uncalled one never borrows the called
+    /// one's count — for trait impls, for same-named functions of two
+    /// modules, and for exclusive cfg branches. A trait impl whose type
+    /// argument has square brackets (`T<[u8; 1]>`) is still measured.
+    /// @vtest.id TEST-ADAPTER-RUST-COVERAGE-SAME-LINE-AND-TYPE-SYNTAX-LOCATORS
+    /// @vtest.covers VO-ADAPTER-RUST-COVERAGE-DISAMBIGUATED-LOCATORS
+    /// @vtest.target crates/vtest-adapter-rust/src/coverage.rs::RustCargoCoverageAdapter::measure
+    /// @vtest.target crates/vtest-adapter-rust/src/coverage.rs::llvm_cov_function_count
+    /// @vtest.intent 同じ行に並ぶ別trait・別module・別cfgの関数と、配列型を型引数に持つtrait実装の各Locatorが、自分のconstructのcountだけで判定されることを実cargo-llvm-covで確認する
+    #[test]
+    fn real_llvm_cov_keeps_same_line_constructs_and_type_syntax_apart() {
+        let root = std::env::temp_dir().join(format!(
+            "vtest-adapter-rust-coverage-same-line-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("src")).expect("create src");
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[workspace]\n",
+        )
+        .expect("write manifest");
+        std::fs::write(
+            root.join("src/lib.rs"),
+            "pub struct W;\n\
+pub trait A { fn f(&self) -> i32; }\n\
+pub trait B { fn f(&self) -> i32; }\n\
+pub trait T<X> { fn h(&self) -> i32; }\n\
+impl A for W { fn f(&self) -> i32 { 1 } } impl B for W { fn f(&self) -> i32 { 2 } }\n\
+pub mod a { pub fn f() -> i32 { 1 } } pub mod b { pub fn f() -> i32 { 2 } }\n\
+#[cfg(unix)] pub fn g() -> i32 { 3 } #[cfg(not(unix))] pub fn g() -> i32 { 4 }\n\
+impl T<[u8; 1]> for W { fn h(&self) -> i32 { 5 } }\n\
+impl T<[u8; 2]> for W { fn h(&self) -> i32 { 6 } }\n\
+#[cfg(test)]\nmod tests {\n    #[test]\n    fn calls_one_of_each() {\n        \
+let w = super::W;\n        \
+assert!(super::A::f(&w) + super::a::f() + super::g() + <super::W as super::T<[u8; 1]>>::h(&w) > 0);\n    }\n}\n",
+        )
+        .expect("write lib.rs");
+
+        let output_path = run_real_llvm_cov(&root);
+
+        let (own_cfg, other_cfg) = if cfg!(unix) {
+            ("g[cfg(unix)]", "g[cfg(not(unix))]")
+        } else {
+            ("g[cfg(not(unix))]", "g[cfg(unix)]")
+        };
+        let item_paths = [
+            "<W as A>::f",
+            "<W as B>::f",
+            "a::f",
+            "b::f",
+            own_cfg,
+            other_cfg,
+            "<W as T<[u8;1]>>::h",
+            "<W as T<[u8;2]>>::h",
+        ];
+        let targets: Vec<_> = item_paths
+            .iter()
+            .map(|item_path| rust_locator("src/lib.rs", item_path))
+            .collect();
+        let discovered = discovered_locators(&root);
+        for target in &targets {
+            assert!(
+                discovered.contains(&target.value),
+                "{} is not a discovered Locator: {discovered:?}",
+                target.value
+            );
+        }
+
+        let measured = RustCargoCoverageAdapter::new().measure(&output_path, &targets);
+        let results: Vec<_> = measured
+            .iter()
+            .map(|measurement| (measurement.result, measurement.count.map(|count| count > 0)))
+            .collect();
+        assert_eq!(
+            results,
+            [
+                (TargetCoverageResult::Pass, Some(true)),
+                (TargetCoverageResult::Fail, Some(false)),
+                (TargetCoverageResult::Pass, Some(true)),
+                (TargetCoverageResult::Fail, Some(false)),
+                (TargetCoverageResult::Pass, Some(true)),
+                (TargetCoverageResult::Unknown, None),
+                (TargetCoverageResult::Pass, Some(true)),
+                (TargetCoverageResult::Fail, Some(false)),
+            ],
+            "{measured:?}"
+        );
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// #35 / DS-510: a disambiguated Locator (`<Widget as A>::f`,
+    /// `g[cfg(unix)]`) is not an LLVM symbol name. Measured with real
+    /// cargo-llvm-cov, each Locator gets the count of its own source
+    /// construct: the called trait impl PASSes and the same-named uncalled
+    /// one FAILs, the compiled cfg branch PASSes and the branch that is not
+    /// compiled stays UNKNOWN instead of borrowing the other's count.
+    /// @vtest.id TEST-ADAPTER-RUST-COVERAGE-DISAMBIGUATED-LOCATORS
+    /// @vtest.covers VO-ADAPTER-RUST-COVERAGE-DISAMBIGUATED-LOCATORS
+    /// @vtest.target crates/vtest-adapter-rust/src/coverage.rs::RustCargoCoverageAdapter::measure
+    /// @vtest.target crates/vtest-adapter-rust/src/coverage.rs::llvm_cov_function_count
+    /// @vtest.intent 実cargo-llvm-covで、同名trait実装とcfg分岐の各Locatorが自分のconstructのcountだけで判定されることを確認する
+    #[test]
+    fn real_llvm_cov_measures_trait_impl_and_cfg_locators_separately() {
+        let root = std::env::temp_dir().join(format!(
+            "vtest-adapter-rust-coverage-disambiguated-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("src")).expect("create src");
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[workspace]\n",
+        )
+        .expect("write manifest");
+        std::fs::write(
+            root.join("src/lib.rs"),
+            "pub struct Widget;\n\
+pub trait A {\n    fn f(&self) -> i32;\n}\n\
+pub trait B {\n    fn f(&self) -> i32;\n}\n\
+impl A for Widget {\n    fn f(&self) -> i32 {\n        1\n    }\n}\n\
+impl B for Widget {\n    fn f(&self) -> i32 {\n        2\n    }\n}\n\
+#[cfg(unix)]\npub fn g() -> i32 {\n    3\n}\n\
+#[cfg(not(unix))]\npub fn g() -> i32 {\n    4\n}\n\
+#[cfg(test)]\nmod tests {\n    #[test]\n    fn calls_a_and_g() {\n        \
+assert_eq!(super::A::f(&super::Widget) + super::g(), if cfg!(unix) { 4 } else { 5 });\n    }\n}\n",
+        )
+        .expect("write lib.rs");
+
+        let output_path = run_real_llvm_cov(&root);
+
+        let locator = |item_path: &str| rust_locator("src/lib.rs", item_path);
+        let (own_cfg, other_cfg) = if cfg!(unix) {
+            ("g[cfg(unix)]", "g[cfg(not(unix))]")
+        } else {
+            ("g[cfg(not(unix))]", "g[cfg(unix)]")
+        };
+        let targets = vec![
+            locator("<Widget as A>::f"),
+            locator("<Widget as B>::f"),
+            locator(own_cfg),
+            locator(other_cfg),
+        ];
+        // The Locators are the ones discovery itself produces.
+        use vtest_adapter_api::SourceDiscoveryAdapter;
+        let outcome = crate::RustCargoAdapter::new()
+            .discover(
+                &root,
+                "demo",
+                &vtest_adapter_api::AdapterScanConfig {
+                    include_paths: vec![std::path::PathBuf::from("src")],
+                },
+            )
+            .expect("discover");
+        for target in &targets {
+            assert!(
+                outcome
+                    .sources
+                    .iter()
+                    .any(|source| source.locator.value == target.value),
+                "{} is not a discovered Locator",
+                target.value
+            );
+        }
+
+        let measured = RustCargoCoverageAdapter::new().measure(&output_path, &targets);
+        let results: Vec<_> = measured
+            .iter()
+            .map(|measurement| (measurement.result, measurement.count.map(|count| count > 0)))
+            .collect();
+        assert_eq!(
+            results,
+            [
+                (TargetCoverageResult::Pass, Some(true)),
+                (TargetCoverageResult::Fail, Some(false)),
+                (TargetCoverageResult::Pass, Some(true)),
+                (TargetCoverageResult::Unknown, None),
+            ],
+            "{measured:?}"
+        );
+
+        // Without the source file the disambiguated Locators cannot be tied
+        // to one construct, so they are UNKNOWN, never another one's count.
+        std::fs::remove_file(root.join("src/lib.rs")).expect("remove lib.rs");
+        let measured = RustCargoCoverageAdapter::new().measure(&output_path, &targets[..1]);
+        assert_eq!(measured[0].result, TargetCoverageResult::Unknown);
+        std::fs::remove_dir_all(&root).ok();
     }
 }
