@@ -1252,15 +1252,16 @@ end
             assert!(outcome.tests[0].construct_text.starts_with("def test_f"));
         }
         // Without one it is a heredoc, which needs its terminator line.
-        let unterminated = discover_text(
-            &Ruby,
-            "fixture.rb",
-            &format!("x = a <<b\n{declare}def test_f\n  assert true\nend\n"),
-            "demo",
-        );
-        assert_eq!(unterminated.diagnostics.len(), 1);
-        assert_eq!(unterminated.diagnostics[0].code.as_str(), "E-SCAN-001");
-        assert!(unterminated.tests.is_empty());
+        for source in [
+            format!("x = a <<b\n{declare}def test_f\n  assert true\nend\n"),
+            format!("assert_equal <<text, actual\n{declare}def fake\n  1\nend\n"),
+        ] {
+            let unterminated = discover_text(&Ruby, "fixture.rb", &source, "demo");
+            assert_eq!(unterminated.diagnostics.len(), 1, "{source:?}");
+            assert_eq!(unterminated.diagnostics[0].code.as_str(), "E-SCAN-001");
+            assert!(unterminated.tests.is_empty(), "{source:?}");
+            assert!(unterminated.sources.is_empty(), "{source:?}");
+        }
 
         for source in [
             format!("{declare}def f\n  assert_equal %q!unterminated\n  tail\nend\n"),
