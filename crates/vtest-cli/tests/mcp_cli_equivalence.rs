@@ -248,3 +248,35 @@ fn approval_create_gives_the_same_result_over_cli_and_the_mcp_transport() {
         fs::remove_dir_all(mcp_root).ok();
     }
 }
+
+/// @vtest.id TEST-MCP-TRANSPORT-UNDEFINED-GATE-MATCHES-CLI
+/// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE, VO-VERIFY-UNDEFINED-GATE-CANDIDATES
+/// @vtest.target crates/vtest-mcp/src/lib.rs::tools_call_result
+/// @vtest.intent 無関係なTestに未解決target(E-SCAN-004)がある状態で未知gateを指定すると、CLIのverify --gateと実際のvtest mcp stdioのtools/callのverifyが、同じE-CONFIG-002のenvelopeと定義済みgate名のcandidatesを返すことを確認する
+#[test]
+fn an_undefined_gate_gives_the_same_candidates_over_cli_and_the_mcp_transport() {
+    let root = fixture("undefined-gate", "R-001");
+    add_unresolved_target_test(&root);
+    let mut config = vtest_store::load_config(&root).unwrap();
+    for name in ["release", "beta"] {
+        config.gates.push(vtest_store::GateConfig {
+            name: name.to_owned(),
+            require: vtest_store::GateRequirement {
+                verification: "PASS".to_owned(),
+                approvals: Vec::new(),
+            },
+        });
+    }
+    fs::write(root.join(".verify/config.yaml"), config.to_yaml()).unwrap();
+
+    let cli = cli(&root, &["verify", "--gate", "Release"]);
+    let mcp = mcp(&root, "verify", json!({"gate": "Release"}));
+    assert_eq!(cli, mcp, "CLI JSON and MCP must be identical");
+    assert_eq!(cli["ok"], false);
+    assert_eq!(cli["data"], Value::Null);
+    assert_eq!(codes(&cli), vec![json!("E-CONFIG-002")]);
+    assert_eq!(
+        cli["diagnostics"][0]["candidates"],
+        json!(["release", "beta"])
+    );
+}
