@@ -13,6 +13,10 @@ framework-neutral adapters.
   or TestNG method. Its annotations (`@Test`, `@ParameterizedTest`,
   `@Timeout(...)`) are part of the Test construct. Javadoc (`/** ... */`) and
   line comments both work.
+- **Where a construct ends**: after the `{}` body of a type, method, or
+  constructor, or at its `;`. Brackets in annotations and parameter lists
+  (`@Tag(values = {"a"})`) and a field's initializer (`= {1, 2}`) are not a
+  body.
 - **Limits**: the package is not part of the locator, because the path
   already identifies the file. Overloaded methods share a locator; use
   `@vtest.src-id` to target one of them.
