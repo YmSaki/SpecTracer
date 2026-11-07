@@ -876,3 +876,277 @@ fn list_doc_keeps_downstream_vos() {
     let (code, envelope) = vtest(&root, &["vo", "list", "--doc", "NOPE"]);
     assert_eq!((code, code_of(&envelope)), (2, "E-OP-001"));
 }
+
+/// Calls one MCP tool through the real `vtest mcp` stdio server
+/// (initialize, then `tools/call`), so the transport's pre-dispatch checks
+/// run exactly as for an MCP client. Returns the tool result.
+fn mcp_call(root: &Path, name: &str, arguments: Value) -> Value {
+    use std::io::{BufRead, Write};
+    let mut child = Command::new(env!("CARGO_BIN_EXE_vtest"))
+        .arg("--project")
+        .arg(root)
+        .arg("mcp")
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    {
+        let mut stdin = child.stdin.take().unwrap();
+        for request in [
+            serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+            serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": name, "arguments": arguments}
+            }),
+        ] {
+            writeln!(stdin, "{request}").unwrap();
+        }
+    }
+    let output = child.wait_with_output().unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let responses: Vec<Value> = output
+        .stdout
+        .as_slice()
+        .lines()
+        .map(|line| serde_json::from_str(&line.unwrap()).unwrap())
+        .collect();
+    assert_eq!(responses.len(), 2, "{responses:?}");
+    responses[1]["result"].clone()
+}
+
+/// @vtest.id TEST-MCP-VO-UPSERT-REPAIRS-BROKEN-REFERENCES
+/// @vtest.covers VO-MCP-VO-UPSERT-COMBINATIONS-OMITTED-KEEPS
+/// @vtest.target crates/vtest-mcp/src/lib.rs::tools_call_result
+/// @vtest.intent 実際のvtest mcp stdioのtools/callで、未作成VOをcoversするTestがある状態(E-SCAN-003)のvo_upsert作成と、derives_fromが存在しないdocumentを指す状態(E-SCAN-012)のvo_upsert修正が、同じ初期状態のCLI vo add / vo editと同じく成功することを確認する
+#[test]
+fn mcp_vo_upsert_repairs_the_scan_errors_it_is_meant_to_fix() {
+    // E-SCAN-003: a Test covers VO-X before VO-X exists.
+    let dangling_cover = |name: &str| {
+        let root = fixture(name);
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub fn target() {}\n\n#[cfg(test)]\nmod tests {\n    \
+             /// @vtest.id TEST-X\n    /// @vtest.covers VO-X\n    \
+             /// @vtest.target src/lib.rs::target\n    /// @vtest.intent fixture\n    \
+             #[test]\n    fn covers_vo_x() {\n        super::target();\n    }\n}\n",
+        )
+        .unwrap();
+        let (_, scan) = vtest(&root, &["scan"]);
+        assert!(
+            scan["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|diagnostic| diagnostic["code"] == "E-SCAN-003"),
+            "fixture must start with E-SCAN-003: {scan}"
+        );
+        root
+    };
+    let cli = dangling_cover("repair-cover-cli");
+    let (code, envelope) = vtest(
+        &cli,
+        &[
+            "vo",
+            "add",
+            "--id",
+            "VO-X",
+            "--claim",
+            "c",
+            "--derives-from",
+            "R-001",
+        ],
+    );
+    assert_eq!(code, 0, "{envelope}");
+    let mcp = dangling_cover("repair-cover-mcp");
+    let result = mcp_call(
+        &mcp,
+        "vo_upsert",
+        serde_json::json!({"id": "VO-X", "claim": "c", "derives_from": [{"doc": "R-001"}]}),
+    );
+    assert_ne!(result["isError"], true, "{result}");
+    assert_eq!(result["structuredContent"]["data"]["created"], true);
+    assert_eq!(vo_files(&mcp), vo_files(&cli));
+
+    // E-SCAN-012: VO-X derives from R-999, which does not exist.
+    let dangling_derives = |name: &str| {
+        let root = fixture(name);
+        add_basic(&root, "VO-X", "R-001");
+        let path = root.join(".verify/vo/VO-X.yaml");
+        let text = fs::read_to_string(&path).unwrap();
+        fs::write(&path, text.replace("R-001", "R-999")).unwrap();
+        let (_, scan) = vtest(&root, &["scan"]);
+        assert!(
+            scan["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|diagnostic| diagnostic["code"] == "E-SCAN-012"),
+            "fixture must start with E-SCAN-012: {scan}"
+        );
+        root
+    };
+    let cli = dangling_derives("repair-derives-cli");
+    let (code, envelope) = vtest(&cli, &["vo", "edit", "VO-X", "--derives-from", "R-001"]);
+    assert_eq!(code, 0, "{envelope}");
+    let mcp = dangling_derives("repair-derives-mcp");
+    let result = mcp_call(
+        &mcp,
+        "vo_upsert",
+        serde_json::json!({"id": "VO-X", "derives_from": [{"doc": "R-001"}]}),
+    );
+    assert_ne!(result["isError"], true, "{result}");
+    let (_, shown) = vtest(&mcp, &["vo", "show", "VO-X"]);
+    assert_eq!(
+        shown["data"]["record"]["derives_from"][0]["doc"], "R-001",
+        "{shown}"
+    );
+    let (_, scan) = vtest(&mcp, &["scan"]);
+    assert!(
+        !scan["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|diagnostic| diagnostic["code"] == "E-SCAN-012"),
+        "the repair removed E-SCAN-012: {scan}"
+    );
+}
+
+/// @vtest.id TEST-MCP-VO-APPROVE-SAME-REJECTION-AS-APPROVAL-CREATE
+/// @vtest.covers VO-MCP-VO-APPROVE-ALIAS, VO-CLI-VO-APPROVE-ALIAS
+/// @vtest.target crates/vtest-mcp/src/lib.rs::tools_call_result
+/// @vtest.intent 別のTestに未解決targetがある(E-SCAN-004)状態と、承認対象VOのderives_fromが存在しないdocumentを指す状態のそれぞれで、CLIのvo approve / approval create と、実際のvtest mcp stdioのtools/callのvo_approve / approval_createが、同じ成否・同じ診断コード・同じ承認記録の作成有無になることを確認する
+#[test]
+fn approving_a_vo_gives_the_same_result_over_cli_and_mcp() {
+    let approval_count = |root: &Path| {
+        fs::read_dir(root.join(".verify/approvals"))
+            .map(|entries| {
+                entries
+                    .filter_map(Result::ok)
+                    .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "yaml"))
+                    .count()
+            })
+            .unwrap_or(0)
+    };
+    let codes = |envelope: &Value| -> Vec<Value> {
+        envelope["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|diagnostic| diagnostic["code"].clone())
+            .collect()
+    };
+    // An unrelated Test whose target does not resolve (E-SCAN-004).
+    let unrelated_scan_error = |root: &Path| {
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub fn target() {}\n\n#[cfg(test)]\nmod tests {\n    \
+             /// @vtest.id TEST-X\n    /// @vtest.covers VO-X\n    \
+             /// @vtest.target src/lib.rs::missing\n    /// @vtest.intent fixture\n    \
+             #[test]\n    fn targets_nothing() {\n        super::target();\n    }\n}\n",
+        )
+        .unwrap();
+    };
+    // The approved VO itself derives from a document that does not exist.
+    let dangling_subject = |root: &Path| {
+        let path = root.join(".verify/vo/VO-X.yaml");
+        let text = fs::read_to_string(&path).unwrap();
+        fs::write(&path, text.replace("R-001", "R-999")).unwrap();
+    };
+    type BreakProject<'a> = &'a dyn Fn(&Path);
+    let cases: [(&str, BreakProject, bool); 2] = [
+        ("unrelated", &unrelated_scan_error, true),
+        ("dangling", &dangling_subject, false),
+    ];
+    for (name, break_project, accepted) in cases {
+        let prepare = |surface: &str| {
+            let root = fixture(&format!("approve-{name}-{surface}"));
+            add_basic(&root, "VO-X", "R-001");
+            break_project(&root);
+            root
+        };
+        let approver = serde_json::json!({"kind": "agent", "id": "bot", "model": "m"});
+        let cli_args = [
+            "--state",
+            "approved",
+            "--approver-kind",
+            "agent",
+            "--approver-id",
+            "bot",
+            "--model",
+            "m",
+        ];
+
+        let mut outcomes = Vec::new();
+        let root = prepare("cli-vo");
+        let (_, envelope) = vtest(&root, &[&["vo", "approve", "VO-X"][..], &cli_args].concat());
+        outcomes.push(("cli vo approve", envelope, approval_count(&root)));
+        let root = prepare("cli-approval");
+        let (_, envelope) = vtest(
+            &root,
+            &[
+                &[
+                    "approval",
+                    "create",
+                    "--subject-type",
+                    "vo",
+                    "--subject-id",
+                    "VO-X",
+                ][..],
+                &cli_args,
+            ]
+            .concat(),
+        );
+        outcomes.push(("cli approval create", envelope, approval_count(&root)));
+        let root = prepare("mcp-vo");
+        let result = mcp_call(
+            &root,
+            "vo_approve",
+            serde_json::json!({"id": "VO-X", "state": "approved", "approver": approver}),
+        );
+        outcomes.push((
+            "mcp vo_approve",
+            result["structuredContent"].clone(),
+            approval_count(&root),
+        ));
+        let root = prepare("mcp-approval");
+        let result = mcp_call(
+            &root,
+            "approval_create",
+            serde_json::json!({
+                "subject": {"type": "vo", "id": "VO-X"},
+                "state": "approved",
+                "approver": approver
+            }),
+        );
+        outcomes.push((
+            "mcp approval_create",
+            result["structuredContent"].clone(),
+            approval_count(&root),
+        ));
+
+        for (surface, envelope, records) in &outcomes {
+            assert_eq!(
+                envelope["ok"],
+                Value::Bool(accepted),
+                "{name} / {surface}: {envelope}"
+            );
+            assert_eq!(
+                *records,
+                usize::from(accepted),
+                "{name} / {surface}: approval records"
+            );
+            assert_eq!(
+                codes(envelope),
+                codes(&outcomes[0].1),
+                "{name} / {surface} vs cli vo approve"
+            );
+        }
+    }
+}
