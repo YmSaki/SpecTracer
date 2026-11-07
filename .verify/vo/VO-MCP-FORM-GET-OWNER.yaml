@@ -1,0 +1,11 @@
+id: VO-MCP-FORM-GET-OWNER
+parent: null
+derives_from:
+  - doc: DS-1205
+claim: '`form_get` は大局的に一意な `kind` を入力とし、owner adapter を明示した Form Schema（§14）を出力する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00

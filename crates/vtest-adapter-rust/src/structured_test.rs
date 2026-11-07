@@ -5,10 +5,136 @@
 use std::ops::Range;
 
 use syn::spanned::Spanned;
-use vtest_adapter_api::StructuredTestAdapter;
+use vtest_adapter_api::{BuiltInForm, StructuredTestAdapter};
 
 #[derive(Debug, Default)]
 pub struct RustStructuredTest;
+
+/// 別紙A §14.1: the built-in `rust-unit-function` Form (BD-248).
+pub const RUST_UNIT_FUNCTION_FORM: &str = r#"kind: rust-unit-function
+adapter: rust-cargo
+title: Rust function unit test
+fields:
+  - name: target
+    question: Target source symbol?
+    type: symbol
+    required: true
+    validate: [symbol-exists]
+  - name: covers
+    question: Verification objectives?
+    type: vo-ref-list
+    required: true
+    validate: [vo-exists]
+  - name: behavior
+    question: Behavior under test?
+    type: string
+    required: true
+  - name: test_kind
+    question: Test kind?
+    type: enum
+    options: [normal, error, boundary, regression]
+    required: true
+  - name: input
+    question: Input conditions?
+    type: string
+    required: true
+  - name: expect
+    question: Expected result?
+    type: string
+    required: true
+    validate: [enum-variant-exists]
+  - name: fn_name
+    question: Test function name?
+    type: ident
+    required: true
+    validate: [unique-fn-name]
+  - name: file
+    question: Destination Rust file?
+    type: path
+    required: false
+    validate: [rust-file]
+template: |
+  /// @vtest.id {test_id}
+  /// @vtest.covers {covers}
+  /// @vtest.target {target}
+  /// @vtest.intent {behavior}
+  /// @vtest.input {input}
+  /// @vtest.expect {expect}
+  /// @vtest.kind unit-{test_kind}
+  #[test]
+  fn {fn_name}() {
+      todo!("implement test body")
+  }
+"#;
+
+/// 別紙A §14.3: the built-in `rust-integration` Form (DS-1241).
+pub const RUST_INTEGRATION_FORM: &str = r#"kind: rust-integration
+adapter: rust-cargo
+title: Rust integration test
+fields:
+  - name: targets
+    question: Target source symbols?
+    type: symbol-list
+    required: true
+    validate: [symbols-exist]
+  - name: covers
+    question: Verification objectives?
+    type: vo-ref-list
+    required: true
+    validate: [vo-exists]
+  - name: behavior
+    question: Behavior under test?
+    type: string
+    required: true
+  - name: test_kind
+    question: Test kind?
+    type: enum
+    options: [normal, error, boundary, regression]
+    required: true
+  - name: input
+    question: Input conditions?
+    type: string
+    required: true
+  - name: expect
+    question: Expected result?
+    type: string
+    required: true
+    validate: [enum-variant-exists]
+  - name: fn_name
+    question: Test function name?
+    type: ident
+    required: true
+    validate: [unique-fn-name]
+  - name: file
+    question: Destination Rust file?
+    type: path
+    required: true
+    validate: [rust-file]
+template: |
+  /// @vtest.id {test_id}
+  /// @vtest.covers {covers}
+  /// @vtest.target {targets}
+  /// @vtest.intent {behavior}
+  /// @vtest.input {input}
+  /// @vtest.expect {expect}
+  /// @vtest.kind unit-{test_kind}
+  #[test]
+  fn {fn_name}() {
+      todo!("implement test body")
+  }
+"#;
+
+/// DES-373: the built-in Form kinds `rust-cargo` owns.
+pub const BUILT_IN_FORMS: &[BuiltInForm] = &[
+    BuiltInForm {
+        kind: "rust-unit-function",
+        schema: RUST_UNIT_FUNCTION_FORM,
+    },
+    BuiltInForm {
+        kind: "rust-integration",
+        schema: RUST_INTEGRATION_FORM,
+    },
+];
 
 /// Byte offset of a `proc_macro2` line (1-based) / column (0-based,
 /// counted in characters) pair.
@@ -38,6 +164,10 @@ fn collect_enum_variants(items: &[syn::Item], type_name: &str, variants: &mut Ve
 }
 
 impl StructuredTestAdapter for RustStructuredTest {
+    fn built_in_forms(&self) -> &'static [BuiltInForm] {
+        BUILT_IN_FORMS
+    }
+
     fn check_test_construct(&self, text: &str) -> Result<(), String> {
         syn::parse_str::<syn::ItemFn>(text)
             .map(|_| ())
@@ -108,5 +238,47 @@ mod tests {
             Some(vec!["A".to_owned(), "B".to_owned(), "C".to_owned()])
         );
         assert_eq!(rust.enum_variants("enum {", "Kind"), None);
+    }
+
+    /// @vtest.id TEST-STORE-FORM-RUST-UNIT-FUNCTION-SCHEMA-SHAPE-001
+    /// @vtest.covers VO-STORE-FORM-RUST-UNIT-FUNCTION-SCHEMA-SHAPE
+    /// @vtest.target crates/vtest-adapter-rust/src/structured_test.rs::RUST_UNIT_FUNCTION_FORM
+    /// @vtest.intent 組込Form `rust-unit-function` がkind/8 field/`@vtest.target {target}` templateを持つことを検証する。
+    #[test]
+    fn built_in_unit_form_parses() {
+        let form = vtest_store::parse_form_schema(RUST_UNIT_FUNCTION_FORM).unwrap();
+        assert_eq!(form.kind, "rust-unit-function");
+        assert_eq!(form.adapter.as_deref(), Some("rust-cargo"));
+        assert_eq!(form.fields.len(), 8);
+        assert!(form.template.contains("@vtest.target {target}"));
+    }
+
+    /// @vtest.id TEST-STORE-FORM-RUST-INTEGRATION-KIND-LINE-MATCHES-UNIT-001
+    /// @vtest.covers VO-STORE-FORM-RUST-INTEGRATION-KIND-LINE-MATCHES-UNIT
+    /// @vtest.target crates/vtest-adapter-rust/src/structured_test.rs::RUST_INTEGRATION_FORM
+    /// @vtest.intent `rust-integration`のtemplateが`@vtest.kind`行で`rust-unit-function`と一致し`integration-`を生成しないことを検証する。
+    /// 別紙A §14.3「§14.1との差分はこの2点であり、他は同一」（`target`→
+    /// `targets`必須化と`file`のrequired化の2点のみ）。`rust-integration`の
+    /// templateが出力する`@vtest.kind`行は`rust-unit-function`と同一の
+    /// `unit-{test_kind}`でなければならず、`integration-{test_kind}`を
+    /// 生成してはならない（pr3-decisions.md Owner裁定3）。
+    #[test]
+    fn built_in_integration_form_kind_line_matches_the_unit_form() {
+        let unit = vtest_store::parse_form_schema(RUST_UNIT_FUNCTION_FORM).unwrap();
+        let integration = vtest_store::parse_form_schema(RUST_INTEGRATION_FORM).unwrap();
+        assert_eq!(integration.kind, "rust-integration");
+        let kind_line = |template: &str| {
+            template
+                .lines()
+                .find(|line| line.contains("@vtest.kind"))
+                .unwrap()
+                .trim()
+                .to_owned()
+        };
+        assert_eq!(kind_line(&unit.template), kind_line(&integration.template));
+        assert!(integration
+            .template
+            .contains("@vtest.kind unit-{test_kind}"));
+        assert!(!integration.template.contains("@vtest.kind integration-"));
     }
 }

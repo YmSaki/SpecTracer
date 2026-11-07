@@ -24,11 +24,12 @@
 //!
 //! `test_create` / `test_edit` (DS-1206 / DS-1207) call the same
 //! `vtest_cli::ops::test_op` functions as `vtest test create` / `vtest test
-//! edit` (#85).
+//! edit` (#85). `form_get` (DS-1205) resolves a kind through the Form
+//! registry to its schema and owner adapter (#109).
 //!
 //! The remaining canonical tools this slice does not implement
 //! (`vo_list`/`vo_get`/`vo_upsert`/`vo_expand`/`vo_approve`, `test_query`/
-//! `test_get`, `form_get`, `audit_static`/
+//! `test_get`, `audit_static`/
 //! `audit_bundle`/`audit_submit`, `report`) have no corresponding CLI
 //! subcommand to mirror in this slice — building the underlying `ops::*`
 //! for them is out of this task's declared scope, not an invented
@@ -82,6 +83,7 @@ const TOOL_NAMES: &[&str] = &[
     "doc_get",
     "test_create",
     "test_edit",
+    "form_get",
 ];
 
 #[derive(Default)]
@@ -478,6 +480,7 @@ fn tool_input_schema(name: &str) -> Value {
             }),
             vec!["form", "answers"],
         ),
+        "form_get" => (json!({"kind": {"type": "string"}}), vec!["kind"]),
         "test_edit" => (
             json!({
                 "id": {"type": "string"},
@@ -520,6 +523,7 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
         "doc_get" => &["id", "tree", "roots"],
         "test_create" => &["form", "answers", "id", "dry_run"],
         "test_edit" => &["id", "answers", "set", "body", "dry_run"],
+        "form_get" => &["kind"],
         _ => &[],
     };
     if let Some(key) = args.keys().find(|key| !allowed.contains(&key.as_str())) {
@@ -571,6 +575,7 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
             optional_nonempty_string(args, "id")?;
             optional_bool(args, "dry_run")
         }
+        "form_get" => optional_nonempty_string(args, "kind").map(|_| ()),
         "test_edit" => {
             optional_nonempty_string(args, "id")?;
             if let Some(body) = args.get("body") {
@@ -656,6 +661,11 @@ fn dispatch_tool(root: &Path, name: &str, args: &Value) -> Value {
         "doc_get" => doc_show_tool(root, args),
         "test_create" => test_create_tool(root, args),
         "test_edit" => test_edit_tool(root, args),
+        "form_get" => match (string_arg(args, "kind"), resolve_registry()) {
+            (None, _) => failure_envelope("E-OP-001", "form_get requires kind"),
+            (Some(kind), Ok(registry)) => ops::form::get(root, &registry, kind).1,
+            (Some(_), Err(envelope)) => envelope,
+        },
         _ => failure_envelope("E-OP-001", format!("unknown MCP tool `{name}`")),
     }
 }
@@ -1669,6 +1679,98 @@ mod tests {
             fs::read_to_string(root.join("tests/calc.rs")).unwrap(),
             broken.replace("@vtest.covers VO-MISSING", "@vtest.covers VO-MCP-APPROVAL")
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// @vtest.id TEST-MCP-FORM-GET-OWNER
+    /// @vtest.covers VO-MCP-FORM-GET-OWNER, VO-MCP-TOOL-CLI-EQUIVALENCE
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent MCP form_get returns the built-in Form Schema with its owner adapter, the same envelope as ops::form::get, and rejects an unknown kind with E-OP-001
+    #[test]
+    fn mcp_form_get_returns_the_schema_with_its_owner() {
+        let root = temp_root("form-get");
+        fixture_vo_project(&root);
+        let registry = vtest_cli::adapters::builtin_registry().expect("builtin registry");
+
+        let envelope = dispatch_tool(&root, "form_get", &json!({"kind": "rust-unit-function"}));
+        assert_eq!(envelope["ok"], true, "{envelope}");
+        assert_eq!(envelope["data"]["kind"], "rust-unit-function");
+        assert_eq!(envelope["data"]["adapter"], "rust-cargo");
+        assert_eq!(envelope["data"]["schema"]["fields"][0]["name"], "target");
+        assert_eq!(
+            envelope,
+            ops::form::get(&root, &registry, "rust-unit-function").1
+        );
+
+        let unknown = dispatch_tool(&root, "form_get", &json!({"kind": "rust-unit"}));
+        assert_eq!(unknown["ok"], false);
+        assert!(unknown["data"].is_null());
+        assert_eq!(unknown["diagnostics"][0]["code"], "E-OP-001");
+    }
+
+    /// @vtest.id TEST-MCP-FORM-GET-IGNORES-UNRELATED-SCAN-ERROR
+    /// @vtest.covers VO-MCP-FORM-GET-OWNER, VO-MCP-TOOL-CLI-EQUIVALENCE
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::tools_call_result
+    /// @vtest.intent a tools/call form_get returns the same Form Schema as ops::form::get while another Test has a scan error (E-SCAN-003, E-SCAN-004), and an unknown kind still reaches E-OP-001 instead of the scan diagnostic
+    #[test]
+    fn mcp_tools_call_form_get_ignores_an_unrelated_scan_error() {
+        let root = temp_root("form-get-broken");
+        structured_test_fixture(&root);
+        let registry = vtest_cli::adapters::builtin_registry().expect("builtin registry");
+        let mut rescan = MtimeRescan::default();
+        let mut call = |kind: &str| {
+            tools_call_result(
+                &root,
+                &json!({"name": "form_get", "arguments": {"kind": kind}}),
+                &mut rescan,
+            )["structuredContent"]
+                .clone()
+        };
+        let healthy = call("rust-unit-function");
+        assert_eq!(healthy["ok"], true, "{healthy}");
+
+        for (field, broken) in [
+            (
+                "covers",
+                "/// @vtest.covers VO-MISSING\n/// @vtest.target src/lib.rs::add\n",
+            ),
+            (
+                "target",
+                "/// @vtest.covers VO-MCP-APPROVAL\n/// @vtest.target src/lib.rs::missing\n",
+            ),
+        ] {
+            fs::write(
+                root.join("tests/calc.rs"),
+                format!(
+                    "/// @vtest.id TEST-OTHER\n{broken}/// @vtest.intent unrelated\n\
+                     #[test]\nfn other() {{}}\n"
+                ),
+            )
+            .unwrap();
+            let (_, scan) = ops::scan::execute(&root, &registry);
+            assert_eq!(
+                scan["ok"], false,
+                "the {field} fixture must be broken: {scan}"
+            );
+            let before = fs::read(root.join("tests/calc.rs")).unwrap();
+
+            let envelope = call("rust-unit-function");
+            assert_eq!(envelope, healthy, "{field}: {envelope}");
+            assert_eq!(
+                envelope,
+                ops::form::get(&root, &registry, "rust-unit-function").1
+            );
+            let unknown = call("rust-unit");
+            assert_eq!(unknown["ok"], false);
+            assert_eq!(
+                unknown["diagnostics"][0]["code"], "E-OP-001",
+                "{field}: {unknown}"
+            );
+            assert_eq!(fs::read(root.join("tests/calc.rs")).unwrap(), before);
+        }
+
+        fs::write(root.join("tests/calc.rs"), "").unwrap();
+        assert_eq!(call("rust-unit-function"), healthy);
         fs::remove_dir_all(root).unwrap();
     }
 
