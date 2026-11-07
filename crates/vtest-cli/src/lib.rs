@@ -723,7 +723,12 @@ fn judgment_error_exit(
         other => match other.code() {
             Some(code) => usage_failure(format, quiet, code, &other.to_string()),
             None => {
-                emit_failure(format, quiet, "E-CORE-001", &other.to_string());
+                emit_failure(
+                    format,
+                    quiet,
+                    vtest_model::INTERNAL_ERROR_CODE,
+                    &other.to_string(),
+                );
                 ExitCode::Internal
             }
         },
@@ -744,12 +749,7 @@ fn scanned_project(
 > {
     let root = resolve_root(project, format, quiet)?;
     if let Err(error) = load_config(&root) {
-        return Err(usage_failure(
-            format,
-            quiet,
-            "E-CONFIG-001",
-            &error.to_string(),
-        ));
+        return Err(config_error_exit(&error, format, quiet));
     }
     let registry = resolve_registry(format, quiet)?;
     let scan =

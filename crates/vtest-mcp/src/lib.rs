@@ -705,17 +705,23 @@ fn scanned(
     root: &Path,
 ) -> Result<(vtest_scan::ScanResult, vtest_adapter_api::AdapterRegistry), Value> {
     if let Err(error) = vtest_store::load_config(root) {
-        return Err(failure_envelope("E-CONFIG-001", error.to_string()));
+        return Err(vtest_cli::config_error_result(&error).1);
     }
     let registry = resolve_registry()?;
     let scan = vtest_scan::scan_project(root, &registry).map_err(|error| {
-        failure_envelope(error.code().unwrap_or("E-CORE-001"), error.to_string())
+        failure_envelope(
+            error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE),
+            error.to_string(),
+        )
     })?;
     Ok((scan, registry))
 }
 
 fn judgment_failure(error: &ops::judgment::JudgmentOpError) -> Value {
-    failure_envelope(error.code().unwrap_or("E-CORE-001"), error.to_string())
+    failure_envelope(
+        error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE),
+        error.to_string(),
+    )
 }
 
 /// DS-1210: the same `ops::judgment::bundle` `vtest audit bundle` calls.
