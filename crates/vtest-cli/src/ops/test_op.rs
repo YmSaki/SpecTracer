@@ -101,8 +101,12 @@ fn failure(diagnostic: Diagnostic) -> (ExitCode, serde_json::Value) {
 
 /// A whole-hunk diff of the one changed range: every replaced line as `-`,
 /// every new line as `+`. The change is always a single Test's range, so one
-/// hunk describes it exactly.
+/// hunk describes it exactly. An unchanged range (`changed: false`, a
+/// re-applied desired state) has no diff at all (DS-1554).
 fn unified_diff(file: &str, before: &str, after: &str) -> String {
+    if before == after {
+        return String::new();
+    }
     let mut diff = format!("--- a/{file}\n+++ b/{file}\n");
     for line in before.lines() {
         diff.push('-');

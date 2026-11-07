@@ -246,6 +246,10 @@ fn edit_set_changes_only_the_named_field_and_is_idempotent() {
     assert_eq!(second.status.code(), Some(0), "{second_envelope}");
     assert_eq!(second_envelope["data"]["changed"], false);
     assert_eq!(
+        second_envelope["data"]["diff"], "",
+        "an unchanged re-apply has no diff: {second_envelope}"
+    );
+    assert_eq!(
         fs::read_to_string(root.join("tests/calc.rs")).unwrap(),
         after
     );
@@ -296,6 +300,156 @@ fn rejected_operations_exit_two_and_write_nothing() {
     assert_eq!(
         fs::read_to_string(root.join("tests/calc.rs")).unwrap(),
         CALC
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+/// Writes `tests/calc.rs` (or `src/lib.rs` for in-module Tests) for the
+/// edit-only fixtures below and returns the written text.
+fn write_source(root: &Path, relative: &str, text: &str) -> String {
+    fs::write(root.join(relative), text).unwrap();
+    text.to_owned()
+}
+
+fn edit(root: &Path, args: &[&str]) -> serde_json::Value {
+    let output = vtest(root, args);
+    let envelope = envelope(&output);
+    assert_eq!(output.status.code(), Some(0), "{envelope}");
+    envelope
+}
+
+/// @vtest.id TEST-CLI-TEST-EDIT-IN-MODULE-TEST
+/// @vtest.covers VO-TEST-OP-EDIT-SET-NAMED-FIELDS
+/// @vtest.target crates/vtest-cli/src/ops/test_op.rs::edit
+/// @vtest.intent test edit --set on a Test inside `#[cfg(test)] mod tests` changes only the named field, and a fn_name rename keeps the Test in its module
+#[test]
+fn edit_set_works_on_a_test_inside_a_module() {
+    let root = fixture("in-module");
+    let before = write_source(
+        &root,
+        "src/lib.rs",
+        "pub fn add(a: u32, b: u32) -> u32 {\n    a + b\n}\n\n\
+         #[cfg(test)]\n\
+         mod tests {\n\
+         \x20   use super::*;\n\n\
+         \x20   /// @vtest.id TEST-NESTED\n\
+         \x20   /// @vtest.covers VO-OP-ADD\n\
+         \x20   /// @vtest.target src/lib.rs::add\n\
+         \x20   /// @vtest.intent original intent\n\
+         \x20   #[test]\n\
+         \x20   fn adds() {\n\
+         \x20       assert_eq!(add(1, 2), 3);\n\
+         \x20   }\n\
+         }\n",
+    );
+
+    edit(
+        &root,
+        &["test", "edit", "TEST-NESTED", "--set", "intent=new intent"],
+    );
+    let after = fs::read_to_string(root.join("src/lib.rs")).unwrap();
+    assert_eq!(
+        after,
+        before.replace("@vtest.intent original intent", "@vtest.intent new intent")
+    );
+
+    edit(
+        &root,
+        &["test", "edit", "TEST-NESTED", "--set", "fn_name=adds_two"],
+    );
+    let renamed = fs::read_to_string(root.join("src/lib.rs")).unwrap();
+    assert_eq!(renamed, after.replace("fn adds()", "fn adds_two()"));
+    fs::remove_dir_all(root).unwrap();
+}
+
+/// @vtest.id TEST-CLI-TEST-EDIT-SRC-ID-TARGET
+/// @vtest.covers VO-TEST-OP-EDIT-SET-NAMED-FIELDS
+/// @vtest.target crates/vtest-cli/src/ops/test_op.rs::edit
+/// @vtest.intent test edit --set on a Test whose target is a permanent SRC ID keeps the SRC-ADD spelling and changes only the named field, and an undeclared SRC ID is E-OP-001 with no write
+#[test]
+fn edit_set_keeps_a_permanent_src_id_target() {
+    let root = fixture("src-id");
+    fs::write(
+        root.join("src/lib.rs"),
+        "/// @vtest.src-id SRC-ADD\npub fn add(a: u32, b: u32) -> u32 {\n    a + b\n}\n",
+    )
+    .unwrap();
+    let before = write_source(
+        &root,
+        "tests/calc.rs",
+        "use ops_fixture::add;\n\n\
+         /// @vtest.id TEST-FLAT\n\
+         /// @vtest.covers VO-OP-ADD\n\
+         /// @vtest.target SRC-ADD\n\
+         /// @vtest.intent original intent\n\
+         #[test]\n\
+         fn adds() {\n\
+         \x20   assert_eq!(add(1, 2), 3);\n\
+         }\n",
+    );
+
+    edit(
+        &root,
+        &["test", "edit", "TEST-FLAT", "--set", "intent=new intent"],
+    );
+    let after = fs::read_to_string(root.join("tests/calc.rs")).unwrap();
+    assert_eq!(
+        after,
+        before.replace("@vtest.intent original intent", "@vtest.intent new intent")
+    );
+
+    let output = vtest(
+        &root,
+        &["test", "edit", "TEST-FLAT", "--set", "target=SRC-ADDD"],
+    );
+    let rejected = envelope(&output);
+    assert_eq!(output.status.code(), Some(2), "{rejected}");
+    assert_eq!(rejected["diagnostics"][0]["code"], "E-OP-001");
+    assert!(
+        rejected["diagnostics"][0]["candidates"]
+            .as_array()
+            .is_some_and(|candidates| candidates.iter().any(|c| c == "SRC-ADD")),
+        "{rejected}"
+    );
+    assert_eq!(
+        fs::read_to_string(root.join("tests/calc.rs")).unwrap(),
+        after
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+/// @vtest.id TEST-CLI-TEST-EDIT-BODY-NON-ASCII-LINE
+/// @vtest.covers VO-TEST-OP-EDIT-BODY-FILE
+/// @vtest.target crates/vtest-cli/src/ops/test_op.rs::edit
+/// @vtest.intent test edit --body-file replaces the whole body of a one-line Test whose line holds a Japanese literal, leaving its metadata and the rest of the file unchanged
+#[test]
+fn edit_body_file_replaces_a_one_line_body_with_non_ascii_text() {
+    let root = fixture("body-utf8");
+    let before = write_source(
+        &root,
+        "tests/calc.rs",
+        "use ops_fixture::add;\n\n\
+         /// @vtest.id TEST-FLAT\n\
+         /// @vtest.covers VO-OP-ADD\n\
+         /// @vtest.target src/lib.rs::add\n\
+         /// @vtest.intent original intent\n\
+         #[test]\n\
+         fn adds() { assert_eq!(\"値\", \"値\"); }\n\n\
+         // 後続の行\n",
+    );
+    fs::write(root.join("body.rs"), "{ assert_eq!(add(1, 2), 3); }\n").unwrap();
+
+    let edited = edit(
+        &root,
+        &["test", "edit", "TEST-FLAT", "--body-file", "body.rs"],
+    );
+    assert_eq!(edited["data"]["changed"], true, "{edited}");
+    assert_eq!(
+        fs::read_to_string(root.join("tests/calc.rs")).unwrap(),
+        before.replace(
+            "{ assert_eq!(\"値\", \"値\"); }",
+            "{ assert_eq!(add(1, 2), 3); }"
+        )
     );
     fs::remove_dir_all(root).unwrap();
 }

@@ -530,13 +530,29 @@ struct DesiredTest {
     kind: Option<String>,
     cases: Vec<String>,
     related: Vec<String>,
+    /// The test function's own identifier: what `fn_name` answers and
+    /// `--set fn_name=` name, and what a rename replaces.
     fn_name: String,
+    /// The module path in front of `fn_name` in the execution selector
+    /// (`tests::` for a Test inside `mod tests`, empty at file level). An
+    /// edit never moves a Test between modules, so it is kept as is.
+    module_prefix: String,
     file: String,
+}
+
+/// Splits an execution selector (`tests::adds`) into its module prefix
+/// (`tests::`) and the function identifier (`adds`).
+fn split_selector(selector: &str) -> (String, String) {
+    match selector.rsplit_once("::") {
+        Some((module, name)) => (format!("{module}::"), name.to_owned()),
+        None => (String::new(), selector.to_owned()),
+    }
 }
 
 impl DesiredTest {
     fn from_current(test: &TestEntity) -> Self {
         let targets = test.targets.iter().map(target_string).collect();
+        let (module_prefix, fn_name) = split_selector(&test.execution.selector);
         Self {
             id: test.id.as_str().to_owned(),
             covers: test
@@ -555,9 +571,15 @@ impl DesiredTest {
                 .iter()
                 .map(|id| id.as_str().to_owned())
                 .collect(),
-            fn_name: test.execution.selector.clone(),
+            fn_name,
+            module_prefix,
             file: test.location.path.as_str().to_owned(),
         }
+    }
+
+    /// The execution selector this desired state yields.
+    fn selector(&self) -> String {
+        format!("{}{}", self.module_prefix, self.fn_name)
     }
 
     fn apply_complete_answers(
@@ -724,6 +746,40 @@ fn validate_desired_test(
     // `suite_for` into `ExecutionDescriptor.suite`, which `TestDraft`'s
     // `execution` field carries — unrelated to this cardinality question.
     for target in &desired.targets {
+        // DS-505/DS-511: `SRC-` names a permanent SRC ID (the same split the
+        // rust-cargo discovery makes for `@vtest.target`). It is resolved
+        // through the scanned SRC index and written back with its declared
+        // spelling, never rewritten to a locator.
+        if target.starts_with("SRC-") {
+            let declared = scan
+                .sources
+                .iter()
+                .filter(|source| {
+                    source
+                        .src_id
+                        .as_ref()
+                        .is_some_and(|id| id.as_str() == target)
+                })
+                .count();
+            if declared != 1 {
+                let known = scan
+                    .sources
+                    .iter()
+                    .filter_map(|source| source.src_id.as_ref())
+                    .map(|id| id.as_str().to_owned())
+                    .collect::<Vec<_>>();
+                let reason = if declared == 0 {
+                    "is not declared by any Source Target"
+                } else {
+                    "is declared by more than one Source Target"
+                };
+                return Err(
+                    Diagnostic::error("E-OP-001", format!("SRC ID `{target}` {reason}"))
+                        .with_candidates(id_candidates(&known, target)),
+                );
+            }
+            continue;
+        }
         let Some(locator) = RustLocator::parse(target).map(|parsed| parsed.to_locator()) else {
             return Err(Diagnostic::error(
                 "E-OP-001",
@@ -748,17 +804,18 @@ fn validate_desired_test(
             format!("`{}` is not a Rust identifier", desired.fn_name),
         ));
     }
+    let desired_selector = desired.selector();
     if scan.sources.iter().any(|source| {
         source.location.path.as_str() == desired.file
             && RustLocator::parse(&source.locator.value)
-                .is_some_and(|parsed| parsed.item_path == desired.fn_name)
+                .is_some_and(|parsed| parsed.item_path == desired_selector)
             && !same_construct(&source.location, &current.location)
     }) {
         return Err(Diagnostic::error(
             "E-OP-001",
             format!(
                 "function `{}` already exists in `{}`",
-                desired.fn_name, desired.file
+                desired_selector, desired.file
             ),
         ));
     }
@@ -814,8 +871,9 @@ fn render_edited_test(
         ));
     }
     let mut function = tail.join("\n");
-    if desired.fn_name != current.execution.selector {
-        let from = format!("fn {}", current.execution.selector);
+    let (_, current_fn_name) = split_selector(&current.execution.selector);
+    if desired.fn_name != current_fn_name {
+        let from = format!("fn {current_fn_name}");
         let to = format!("fn {}", desired.fn_name);
         if !function.contains(&from) {
             return Err(Diagnostic::error(
@@ -959,7 +1017,7 @@ fn test_matches_desired(test: &TestEntity, desired: &DesiredTest) -> bool {
                 .iter()
                 .map(String::as_str)
                 .collect::<Vec<_>>()
-        && test.execution.selector == desired.fn_name
+        && test.execution.selector == desired.selector()
         && test.location.path.as_str() == desired.file
 }
 

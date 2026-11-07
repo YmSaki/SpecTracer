@@ -286,7 +286,11 @@ fn tools_call_result(root: &Path, params: &Value, mtime_rescan: &mut MtimeRescan
     // freshness check is needed before dispatch. It is kept only to expose
     // an explicit `scan` no-op fast path for a caller that wants a single
     // freshness probe without paying for a `verify`/`run`.
-    if name != "scan" {
+    // `test_create` / `test_edit` are exempt as well: they scan and validate
+    // the project themselves, and a scan error is often exactly what the
+    // edit repairs (a `covers` naming a missing VO, E-SCAN-003). Gating them
+    // here would refuse a repair the CLI performs (DS-1563).
+    if !matches!(name, "scan" | "test_create" | "test_edit") {
         if let Some(scan) = rescan_if_changed(root, mtime_rescan) {
             return tool_result(scan);
         }
@@ -1569,6 +1573,63 @@ mod tests {
         );
         assert_eq!(mcp_edit, cli_edit);
         assert_eq!(mcp_edit["data"]["changed"], true, "{mcp_edit}");
+    }
+
+    /// @vtest.id TEST-MCP-TEST-EDIT-REPAIRS-SCAN-ERROR
+    /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE, VO-TEST-OP-EDIT-SET-NAMED-FIELDS
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::tools_call_result
+    /// @vtest.intent a tools/call test_edit that repairs a covers naming a missing VO (E-SCAN-003) reaches the edit like the CLI does, returns the CLI envelope, and fixes the file
+    #[test]
+    fn mcp_tools_call_test_edit_repairs_a_scan_error_like_the_cli() {
+        let root = temp_root("test-edit-repair");
+        structured_test_fixture(&root);
+        let broken = "use mcp_fixture::add;\n\n\
+                      /// @vtest.id TEST-FLAT\n\
+                      /// @vtest.covers VO-MISSING\n\
+                      /// @vtest.target src/lib.rs::add\n\
+                      /// @vtest.intent original intent\n\
+                      #[test]\n\
+                      fn adds() {\n    assert_eq!(add(1, 2), 3);\n}\n";
+        fs::write(root.join("tests/calc.rs"), broken).unwrap();
+        let (_, scan) = ops::scan::execute(
+            &root,
+            &vtest_cli::adapters::builtin_registry().expect("builtin registry"),
+        );
+        assert_eq!(scan["ok"], false, "the fixture must start broken: {scan}");
+
+        let registry = vtest_cli::adapters::builtin_registry().expect("builtin registry");
+        let set = std::collections::BTreeMap::from([(
+            "covers".to_owned(),
+            vtest_store::FormValue::List(vec!["VO-MCP-APPROVAL".to_owned()]),
+        )]);
+        let (_, cli_dry_run) =
+            ops::test_op::edit(&root, &registry, "TEST-FLAT", None, &set, None, true);
+        let call = |dry_run: bool| {
+            tools_call_result(
+                &root,
+                &json!({"name": "test_edit", "arguments": {
+                    "id": "TEST-FLAT",
+                    "set": {"covers": ["VO-MCP-APPROVAL"]},
+                    "dry_run": dry_run
+                }}),
+                &mut MtimeRescan::default(),
+            )
+        };
+        let mcp_dry_run = call(true);
+        assert_eq!(mcp_dry_run["structuredContent"], cli_dry_run);
+        assert_eq!(cli_dry_run["ok"], true, "{cli_dry_run}");
+        assert_eq!(
+            fs::read_to_string(root.join("tests/calc.rs")).unwrap(),
+            broken
+        );
+
+        let written = call(false);
+        assert_eq!(written["structuredContent"]["ok"], true, "{written}");
+        assert_eq!(
+            fs::read_to_string(root.join("tests/calc.rs")).unwrap(),
+            broken.replace("@vtest.covers VO-MISSING", "@vtest.covers VO-MCP-APPROVAL")
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 
     fn fixture_vo_project(root: &Path) {
