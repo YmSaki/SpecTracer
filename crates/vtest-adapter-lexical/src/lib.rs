@@ -52,6 +52,7 @@
 
 pub mod annotation;
 pub mod go;
+pub mod java;
 pub mod shared;
 
 use std::{
