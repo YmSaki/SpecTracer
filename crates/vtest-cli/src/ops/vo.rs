@@ -324,6 +324,24 @@ fn require_valid_id(id: &str) -> Result<(), VoOpError> {
     }
 }
 
+/// A new VO id must not differ from an existing one only in ASCII case.
+/// On a case-insensitive file system (macOS, Windows) `vo-x.yaml` and
+/// `VO-X.yaml` are one file, so creating `vo-x` would overwrite `VO-X`.
+/// Rejected for every file system, so the result does not depend on where
+/// the project lives.
+fn reject_case_variant(vos: &BTreeMap<String, VoRecord>, id: &str) -> Result<(), VoOpError> {
+    match vos
+        .keys()
+        .find(|existing| existing.as_str() != id && existing.eq_ignore_ascii_case(id))
+    {
+        Some(existing) => Err(VoOpError::Usage(format!(
+            "VO id {id} differs from the existing VO {existing} only in case and would share \
+             its record file on a case-insensitive file system; nothing was written"
+        ))),
+        None => Ok(()),
+    }
+}
+
 /// `vo add` (DS-1021): creates a new VO record. Rejects an existing id, a
 /// missing `--derives-from` or `--claim`, and invalid `combinations`
 /// (E-SCAN-017) without writing anything (DS-1039/DS-1318).
@@ -335,6 +353,7 @@ pub fn add(layout: &VerifyLayout, args: VoArgs) -> Result<VoWriteResult, VoOpErr
             "VO {id} already exists; use `vo edit` to change it"
         )));
     }
+    reject_case_variant(&vos, &id)?;
     let combinations = match args.combinations {
         CombinationsUpdate::Replace(entries) => entries,
         CombinationsUpdate::Keep | CombinationsUpdate::Clear => Vec::new(),
@@ -715,6 +734,7 @@ pub fn expand(layout: &VerifyLayout, id: &str, dry_run: bool) -> Result<ExpandRe
                 "child VO {child_id} already exists; nothing was generated"
             )));
         }
+        reject_case_variant(&vos, &child_id)?;
         let label = tuple
             .iter()
             .map(|(dimension, partition)| format!("{dimension}={partition}"))

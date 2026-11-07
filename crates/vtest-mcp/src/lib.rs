@@ -1665,7 +1665,7 @@ mod tests {
     /// @vtest.id TEST-MCP-VO-ID-PATH-TRAVERSAL-REJECTED
     /// @vtest.covers VO-STORE-VO-ID-IS-ITS-FILE-NAME
     /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
-    /// @vtest.intent MCPのvo_upsert/vo_expandで..や区切り文字を含むVO IDをE-OP-001で拒否し、.verify/config.yamlを含め何も書き換えないことを確認する
+    /// @vtest.intent MCPのvo_upsert/vo_expandで..や区切り文字を含むVO IDをE-OP-001で拒否し、vo_get/vo_approveも失敗して、.verify/config.yamlや承認記録を含め何も書き換えないことを確認する
     #[test]
     fn vo_tools_reject_ids_that_are_not_a_file_name() {
         let root = vo_fixture("vo-id-traversal");
@@ -1686,7 +1686,31 @@ mod tests {
                 expand["diagnostics"][0]["code"], "E-OP-001",
                 "{id}: {expand}"
             );
+            // vo_get / vo_approve resolve the id against the existing VOs,
+            // so it is unknown: both fail and vo_approve writes no record.
+            let get = dispatch_tool(&root, "vo_get", &json!({"id": id}));
+            assert_eq!(get["ok"], false, "{id}: {get}");
+            let approve = dispatch_tool(
+                &root,
+                "vo_approve",
+                &json!({
+                    "id": id,
+                    "state": "approved",
+                    "approver": {"kind": "agent", "id": "bot", "model": "m"}
+                }),
+            );
+            assert_eq!(approve["ok"], false, "{id}: {approve}");
         }
+        let approvals = root.join(".verify").join("approvals");
+        let records = std::fs::read_dir(&approvals)
+            .map(|entries| {
+                entries
+                    .filter_map(Result::ok)
+                    .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "yaml"))
+                    .count()
+            })
+            .unwrap_or(0);
+        assert_eq!(records, 0, "no approval record was written");
         assert_eq!(std::fs::read(&config).unwrap(), before, "config untouched");
         let listed = dispatch_tool(&root, "vo_list", &json!({}));
         assert_eq!(listed["data"]["vos"], json!([]), "{listed}");

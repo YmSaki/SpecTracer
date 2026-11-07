@@ -490,7 +490,7 @@ fn snapshot_tree(root: &Path) -> Vec<(PathBuf, Vec<u8>)> {
 /// @vtest.id TEST-CLI-VO-ID-PATH-TRAVERSAL-REJECTED
 /// @vtest.covers VO-STORE-VO-ID-IS-ITS-FILE-NAME
 /// @vtest.target crates/vtest-cli/src/ops/vo.rs::add
-/// @vtest.intent vo add/edit/expandで..・区切り文字・絶対パスを含むVO IDや子IDを E-OP-001 / exit 2 で拒否し、既存config・VO・外部ファイルの内容が一切変わらないことを確認する
+/// @vtest.intent vo add/edit/expandで..・区切り文字・絶対パスを含むVO IDや子IDを E-OP-001 / exit 2 で拒否し、vo show/approveも失敗して、既存config・VO・承認・外部ファイルの内容が一切変わらないことを確認する
 #[test]
 fn vo_ids_that_are_not_a_file_name_are_rejected_without_writing() {
     let root = fixture("id-traversal");
@@ -551,6 +551,29 @@ fn vo_ids_that_are_not_a_file_name_are_rejected_without_writing() {
                 "{args:?}: {envelope}"
             );
         }
+        // The read-only and approval paths resolve the id against the VOs
+        // that exist, so such an id is simply unknown; they fail and write
+        // nothing (no approval record either).
+        for args in [
+            vec!["vo", "show", id],
+            vec![
+                "vo",
+                "approve",
+                id,
+                "--state",
+                "approved",
+                "--approver-kind",
+                "human",
+                "--approver-id",
+                "alice",
+                "--basis",
+                "review",
+            ],
+        ] {
+            let (code, envelope) = vtest(&root, &args);
+            assert_ne!(code, 0, "{args:?}: {envelope}");
+            assert_eq!(envelope["ok"], false, "{args:?}: {envelope}");
+        }
     }
     // A partition value that would put a child outside `.verify/vo/`.
     let (code, envelope) = vtest(&root, &["vo", "expand", "VO-AXIS"]);
@@ -567,6 +590,72 @@ fn vo_ids_that_are_not_a_file_name_are_rejected_without_writing() {
     );
     assert!(!root.parent().unwrap().join("escape.yaml").exists());
     fs::remove_file(&outside).ok();
+}
+
+/// @vtest.id TEST-CLI-VO-ID-CASE-VARIANT-REJECTED
+/// @vtest.covers VO-STORE-VO-ID-IS-ITS-FILE-NAME
+/// @vtest.target crates/vtest-cli/src/ops/vo.rs::add
+/// @vtest.intent 既存VOと大文字小文字だけが違うIDのvo addと、そうした子IDを生むvo expandをE-OP-001 / exit 2で拒否し、大文字小文字を区別しないファイルシステムでも既存VOのファイルを上書きしないことを確認する
+#[test]
+fn vo_ids_that_differ_only_in_case_are_rejected_without_writing() {
+    let root = fixture("id-case");
+    add_basic(&root, "VO-KEEP", "R-001");
+    add_basic(&root, "VO-AXIS-IN", "R-001");
+    let (code, envelope) = vtest(
+        &root,
+        &[
+            "vo",
+            "add",
+            "--id",
+            "VO-AXIS",
+            "--claim",
+            "c",
+            "--derives-from",
+            "R-001",
+            "--dimension",
+            "where=in,out",
+            "--policy",
+            "independent-axes",
+        ],
+    );
+    assert_eq!(code, 0, "{envelope}");
+    // `VO-AXIS-IN` exists, so its exact id is the existing-child check;
+    // rename it to a case variant to reach the case check instead.
+    let vo_dir = root.join(".verify/vo");
+    let text = fs::read_to_string(vo_dir.join("VO-AXIS-IN.yaml")).unwrap();
+    fs::remove_file(vo_dir.join("VO-AXIS-IN.yaml")).unwrap();
+    fs::write(
+        vo_dir.join("VO-Axis-in.yaml"),
+        text.replace("VO-AXIS-IN", "VO-Axis-in"),
+    )
+    .unwrap();
+    let before = snapshot_tree(&root);
+
+    for args in [
+        vec![
+            "vo",
+            "add",
+            "--id",
+            "vo-keep",
+            "--claim",
+            "overwrite",
+            "--derives-from",
+            "ROOT-001",
+        ],
+        vec!["vo", "expand", "VO-AXIS"],
+    ] {
+        let (code, envelope) = vtest(&root, &args);
+        assert_eq!(
+            (code, code_of(&envelope)),
+            (2, "E-OP-001"),
+            "{args:?}: {envelope}"
+        );
+    }
+    assert_eq!(
+        snapshot_tree(&root),
+        before,
+        "nothing under the project changed"
+    );
 }
 
 /// @vtest.id TEST-CLI-VO-APPROVE-IS-APPROVAL-CREATE
