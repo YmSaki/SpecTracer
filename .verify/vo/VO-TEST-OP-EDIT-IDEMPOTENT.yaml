@@ -1,0 +1,11 @@
+id: VO-TEST-OP-EDIT-IDEMPOTENT
+parent: null
+derives_from:
+  - doc: DS-1554
+claim: '同じdesired stateの再適用は冪等になる。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00

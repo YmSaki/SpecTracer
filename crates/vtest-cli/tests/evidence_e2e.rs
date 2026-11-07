@@ -755,3 +755,209 @@ fn an_invalid_latest_evidence_record_does_not_fall_back_to_an_older_pass() {
     }
     fs::remove_dir_all(&root).ok();
 }
+
+const RUN_TARGET_TEST_BODY: &str = "/// @vtest.id TEST-RUN-NONE\n\
+     /// @vtest.covers VO-E2E-DOUBLE\n\
+     /// @vtest.intent declares no target\n\
+     #[test]\n\
+     fn no_target() {\n    assert_eq!(vtest_e2e_fixture::double(1), 2);\n}\n\
+     /// @vtest.id TEST-RUN-ONE\n\
+     /// @vtest.covers VO-E2E-DOUBLE\n\
+     /// @vtest.target src/lib.rs::double\n\
+     /// @vtest.intent declares one resolvable target\n\
+     #[test]\n\
+     fn one_target() {\n    assert_eq!(vtest_e2e_fixture::double(2), 4);\n}\n\
+     /// @vtest.id TEST-RUN-TWO\n\
+     /// @vtest.covers VO-E2E-DOUBLE\n\
+     /// @vtest.target src/lib.rs::double\n\
+     /// @vtest.target src/lib.rs::triple\n\
+     /// @vtest.intent declares two resolvable targets\n\
+     #[test]\n\
+     fn two_targets() {\n    assert_eq!(vtest_e2e_fixture::triple(vtest_e2e_fixture::double(1)), 6);\n}\n\
+     /// @vtest.id TEST-RUN-MISSING\n\
+     /// @vtest.covers VO-E2E-DOUBLE\n\
+     /// @vtest.target src/lib.rs::double\n\
+     /// @vtest.target src/lib.rs::missing\n\
+     /// @vtest.intent declares one unresolvable target\n\
+     #[test]\n\
+     fn missing_target() {\n    assert_eq!(vtest_e2e_fixture::double(3), 6);\n}\n\
+     /// @vtest.id TEST-RUN-AMBIGUOUS\n\
+     /// @vtest.covers VO-E2E-DOUBLE\n\
+     /// @vtest.target src/lib.rs::double\n\
+     /// @vtest.target src/lib.rs::duplicate\n\
+     /// @vtest.intent declares one target matching two Source Targets\n\
+     #[test]\n\
+     fn ambiguous_target() {\n    assert_eq!(vtest_e2e_fixture::double(4), 8);\n}\n\
+     /// @vtest.id TEST-RUN-SRC-ID\n\
+     /// @vtest.covers VO-E2E-DOUBLE\n\
+     /// @vtest.target src/lib.rs::double\n\
+     /// @vtest.target SRC-E2E-TRIPLE\n\
+     /// @vtest.intent declares a Locator target and a resolvable SRC ID target\n\
+     #[test]\n\
+     fn src_id_target() {\n    assert_eq!(vtest_e2e_fixture::triple(vtest_e2e_fixture::double(2)), 12);\n}\n\
+     /// @vtest.id TEST-RUN-SRC-ID-MISSING\n\
+     /// @vtest.covers VO-E2E-DOUBLE\n\
+     /// @vtest.target src/lib.rs::double\n\
+     /// @vtest.target SRC-E2E-MISSING\n\
+     /// @vtest.intent declares an unresolvable SRC ID target\n\
+     #[test]\n\
+     fn src_id_missing_target() {\n    assert_eq!(vtest_e2e_fixture::double(5), 10);\n}\n\
+     /// @vtest.id TEST-RUN-SRC-ID-COLLISION\n\
+     /// @vtest.covers VO-E2E-DOUBLE\n\
+     /// @vtest.target src/lib.rs::double\n\
+     /// @vtest.target SRC-E2E-SHARED\n\
+     /// @vtest.intent declares a SRC ID that two Source Targets declare\n\
+     #[test]\n\
+     fn src_id_collision_target() {\n    assert_eq!(vtest_e2e_fixture::double(6), 12);\n}\n";
+
+/// The fixture's `src/lib.rs` for the unresolved-target run: `duplicate`
+/// has two cfg-gated definitions (one Locator, two Source Targets),
+/// `triple` declares a permanent SRC ID, and `quad`/`quint` both declare
+/// the same SRC ID (E-SCAN-011).
+const RUN_TARGET_LIB: &str = "pub fn double(x: i32) -> i32 { x * 2 }\n\
+     /// @vtest.src-id SRC-E2E-TRIPLE\n\
+     pub fn triple(x: i32) -> i32 { x * 3 }\n\
+     #[cfg(unix)]\n\
+     pub fn duplicate() {}\n\
+     #[cfg(not(unix))]\n\
+     pub fn duplicate() {}\n\
+     /// @vtest.src-id SRC-E2E-SHARED\n\
+     pub fn quad(x: i32) -> i32 { x * 4 }\n\
+     /// @vtest.src-id SRC-E2E-SHARED\n\
+     pub fn quint(x: i32) -> i32 { x * 5 }\n";
+
+/// DS-1374/DS-1382 (#127): `vtest run` never writes Evidence for a Test
+/// with a declared target that resolves to no Source Target. That Test is
+/// skipped with E-SCAN-004 and the run reports errors, while Tests with
+/// zero, one or several resolvable targets still run and get Evidence.
+/// @vtest.id TEST-RUN-UNRESOLVED-TARGET-NO-EVIDENCE
+/// @vtest.covers VO-RUN-UNRESOLVED-TARGET-NO-EVIDENCE
+/// @vtest.target crates/vtest-cli/src/ops/run.rs::run
+/// @vtest.intent run skips a Test with an unresolved target with E-SCAN-004 and still runs the resolvable ones
+#[test]
+fn run_writes_no_evidence_for_a_test_with_an_unresolved_target() {
+    let root = temp_root("run-unresolved-target");
+    build_fixture_project_with_test_body(&root, RUN_TARGET_TEST_BODY);
+    fs::write(root.join("src").join("lib.rs"), RUN_TARGET_LIB)
+        .expect("add the run-target Source Targets");
+    git(&root, &["add", "."]);
+    git(&root, &["commit", "-q", "-m", "add triple"]);
+
+    let scan = scan_project(&root, &registry()).expect("scan the fixture project");
+    let layout = vtest_store::VerifyLayout::new(&root);
+    clear_outer_coverage_environment();
+    let result = vtest_cli::ops::run::run(
+        &root,
+        &layout,
+        &scan,
+        &vtest_cli::ops::run::RunTarget::All,
+        true,
+        &registry(),
+    )
+    .expect("run completes");
+
+    let run_ids: std::collections::BTreeSet<String> = result
+        .evidence
+        .iter()
+        .map(|record| record.test_id.as_str().to_owned())
+        .collect();
+    assert_eq!(
+        run_ids,
+        [
+            "TEST-RUN-NONE",
+            "TEST-RUN-ONE",
+            "TEST-RUN-SRC-ID",
+            "TEST-RUN-TWO"
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
+        "{:?}",
+        result.diagnostics
+    );
+    assert!(result.has_errors());
+    let unresolved: Vec<_> = result
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code == "E-SCAN-004")
+        .collect();
+    // One error per failing target, on the Test that declared it: a
+    // missing Locator, a Locator matching two Source Targets, a missing
+    // SRC ID, and a SRC ID two Source Targets declare (E-SCAN-011, not
+    // re-labelled E-SCAN-004).
+    let skipped = |code: &str, test: &str, spelling: &str| {
+        result
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                diagnostic.code == code
+                    && diagnostic.message.contains(&format!("test `{test}`"))
+                    && diagnostic.message.contains(spelling)
+                    && diagnostic.message.contains("no Evidence is written")
+            })
+            .count()
+    };
+    assert_eq!(unresolved.len(), 3, "{:?}", result.diagnostics);
+    assert_eq!(
+        skipped("E-SCAN-004", "TEST-RUN-MISSING", "src/lib.rs::missing"),
+        1
+    );
+    assert_eq!(
+        skipped("E-SCAN-004", "TEST-RUN-AMBIGUOUS", "src/lib.rs::duplicate"),
+        1
+    );
+    assert_eq!(
+        skipped("E-SCAN-004", "TEST-RUN-SRC-ID-MISSING", "SRC-E2E-MISSING"),
+        1
+    );
+    assert_eq!(
+        skipped("E-SCAN-011", "TEST-RUN-SRC-ID-COLLISION", "SRC-E2E-SHARED"),
+        1
+    );
+
+    // A resolvable SRC ID target is recorded next to the Locator target,
+    // not dropped from the Evidence.
+    let src_id_evidence = result
+        .evidence
+        .iter()
+        .find(|record| record.test_id.as_str() == "TEST-RUN-SRC-ID")
+        .expect("TEST-RUN-SRC-ID Evidence");
+    assert_eq!(
+        src_id_evidence.hashes.target_fns.len(),
+        2,
+        "{src_id_evidence:?}"
+    );
+
+    let written = fs::read_dir(layout.evidence_dir())
+        .expect("evidence dir")
+        .flatten()
+        .filter_map(|entry| fs::read_to_string(entry.path()).ok())
+        .filter(|text| {
+            [
+                "TEST-RUN-MISSING",
+                "TEST-RUN-AMBIGUOUS",
+                "TEST-RUN-SRC-ID-MISSING",
+                "TEST-RUN-SRC-ID-COLLISION",
+            ]
+            .iter()
+            .any(|id| text.contains(id))
+        })
+        .count();
+    assert_eq!(
+        written, 0,
+        "no Evidence may be written for a Test with an unresolved target"
+    );
+
+    let exit = vtest_cli::run(vtest_cli::Cli {
+        project: root.clone(),
+        format: vtest_cli::OutputFormat::Json,
+        quiet: true,
+        command: vtest_cli::Command::Run {
+            test: vec!["TEST-RUN-MISSING".to_owned()],
+            vo: None,
+            all: false,
+            fast: true,
+        },
+    });
+    assert_eq!(exit, vtest_model::ExitCode::VerificationFailed);
+}
