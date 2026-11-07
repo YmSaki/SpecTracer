@@ -51,6 +51,7 @@
 //! reported as Missing with `E-SCAN-001`, never as a fragment.
 
 pub mod annotation;
+pub mod c;
 pub mod csharp;
 pub mod java;
 pub mod php;
