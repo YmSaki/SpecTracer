@@ -10,17 +10,10 @@ use vtest_adapter_api::StructuredTestAdapter;
 #[derive(Debug, Default)]
 pub struct RustStructuredTest;
 
-/// Byte offset of a `proc_macro2` line (1-based) / column (0-based) pair.
+/// Byte offset of a `proc_macro2` line (1-based) / column (0-based,
+/// counted in characters) pair.
 fn source_offset(source: &str, line: usize, column: usize) -> Option<usize> {
-    let mut offset = 0;
-    for (index, current) in source.split_inclusive('\n').enumerate() {
-        if index + 1 == line {
-            let body = current.strip_suffix('\n').unwrap_or(current);
-            return (column <= body.len()).then_some(offset + column);
-        }
-        offset += current.len();
-    }
-    None
+    crate::line_column_byte_offset(source, &crate::line_offsets(source), line, column)
 }
 
 fn collect_enum_variants(items: &[syn::Item], type_name: &str, variants: &mut Vec<String>) {

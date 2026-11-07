@@ -22,9 +22,13 @@
 //! stay CLI-only (`vtest-cli`'s own subcommands) and are not exposed as MCP
 //! tools here (previously they were, wrongly; removed this review round).
 //!
-//! The remaining 14 canonical tools this slice does not implement
+//! `test_create` / `test_edit` (DS-1206 / DS-1207) call the same
+//! `vtest_cli::ops::test_op` functions as `vtest test create` / `vtest test
+//! edit` (#85).
+//!
+//! The remaining canonical tools this slice does not implement
 //! (`vo_list`/`vo_get`/`vo_upsert`/`vo_expand`/`vo_approve`, `test_query`/
-//! `test_get`/`test_create`/`test_edit`, `form_get`, `audit_static`/
+//! `test_get`, `form_get`, `audit_static`/
 //! `audit_bundle`/`audit_submit`, `report`) have no corresponding CLI
 //! subcommand to mirror in this slice — building the underlying `ops::*`
 //! for them is out of this task's declared scope, not an invented
@@ -76,6 +80,8 @@ const TOOL_NAMES: &[&str] = &[
     "doc_upsert",
     "doc_list",
     "doc_get",
+    "test_create",
+    "test_edit",
 ];
 
 #[derive(Default)]
@@ -280,7 +286,11 @@ fn tools_call_result(root: &Path, params: &Value, mtime_rescan: &mut MtimeRescan
     // freshness check is needed before dispatch. It is kept only to expose
     // an explicit `scan` no-op fast path for a caller that wants a single
     // freshness probe without paying for a `verify`/`run`.
-    if name != "scan" {
+    // `test_create` / `test_edit` are exempt as well: they scan and validate
+    // the project themselves, and a scan error is often exactly what the
+    // edit repairs (a `covers` naming a missing VO, E-SCAN-003). Gating them
+    // here would refuse a repair the CLI performs (DS-1563).
+    if !matches!(name, "scan" | "test_create" | "test_edit") {
         if let Some(scan) = rescan_if_changed(root, mtime_rescan) {
             return tool_result(scan);
         }
@@ -462,6 +472,31 @@ fn tool_input_schema(name: &str) -> Value {
             }),
             vec!["id"],
         ),
+        "test_create" => (
+            json!({
+                "form": {"type": "string"},
+                "answers": {"type": "object"},
+                "id": {"type": "string"},
+                "dry_run": {"type": "boolean"}
+            }),
+            vec!["form", "answers"],
+        ),
+        "test_edit" => (
+            json!({
+                "id": {"type": "string"},
+                "answers": {
+                    "type": "object",
+                    "properties": {
+                        "form": {"type": "string"},
+                        "answers": {"type": "object"}
+                    }
+                },
+                "set": {"type": "object"},
+                "body": {"type": "string"},
+                "dry_run": {"type": "boolean"}
+            }),
+            vec!["id"],
+        ),
         _ => (json!({}), Vec::new()),
     };
     let mut schema = json!({
@@ -486,6 +521,8 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
         "doc_upsert" => &["id", "path", "derives_from", "root", "update"],
         "doc_list" => &["tree", "roots"],
         "doc_get" => &["id", "tree", "roots"],
+        "test_create" => &["form", "answers", "id", "dry_run"],
+        "test_edit" => &["id", "answers", "set", "body", "dry_run"],
         _ => &[],
     };
     if let Some(key) = args.keys().find(|key| !allowed.contains(&key.as_str())) {
@@ -529,6 +566,25 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
             optional_nonempty_string(args, "id")?;
             optional_bool(args, "tree")?;
             optional_bool(args, "roots")
+        }
+        // `answers` / `set` are objects; their shape is checked when they
+        // are converted to Form values (`ops::test_op::form_values_from_json`).
+        "test_create" => {
+            optional_nonempty_string(args, "form")?;
+            optional_nonempty_string(args, "id")?;
+            optional_bool(args, "dry_run")
+        }
+        "test_edit" => {
+            optional_nonempty_string(args, "id")?;
+            if let Some(body) = args.get("body") {
+                if !body.is_string() {
+                    return Err(failure_envelope(
+                        "E-OP-001",
+                        "argument `body` must be a string",
+                    ));
+                }
+            }
+            optional_bool(args, "dry_run")
         }
         _ => Ok(()),
     }
@@ -601,7 +657,89 @@ fn dispatch_tool(root: &Path, name: &str, args: &Value) -> Value {
         "doc_upsert" => doc_add_tool(root, args),
         "doc_list" => doc_list_tool(root, args),
         "doc_get" => doc_show_tool(root, args),
+        "test_create" => test_create_tool(root, args),
+        "test_edit" => test_edit_tool(root, args),
         _ => failure_envelope("E-OP-001", format!("unknown MCP tool `{name}`")),
+    }
+}
+
+/// DS-1206: `test_create`（`form`、`answers` object、`dry_run`）— the same
+/// operation `vtest test create` calls (`ops::test_op::create`).
+fn test_create_tool(root: &Path, args: &Value) -> Value {
+    let Some(form) = string_arg(args, "form") else {
+        return failure_envelope("E-OP-001", "test_create requires form");
+    };
+    let Some(answers) = args.get("answers") else {
+        return failure_envelope("E-OP-001", "test_create requires answers");
+    };
+    let answers = match ops::test_op::form_values_from_json(answers, "answers") {
+        Ok(answers) => vtest_store::FormAnswers {
+            form: form.to_owned(),
+            answers,
+        },
+        Err(diagnostic) => return ops::test_op::input_failure(diagnostic).1,
+    };
+    match resolve_registry() {
+        Ok(registry) => {
+            ops::test_op::create(
+                root,
+                &registry,
+                form,
+                &answers,
+                string_arg(args, "id"),
+                bool_arg(args, "dry_run"),
+            )
+            .1
+        }
+        Err(envelope) => envelope,
+    }
+}
+
+/// DS-1207: `test_edit`（`id`、`answers`（`{form, answers}`）または `set`、
+/// `body`、`dry_run`）— the same operation `vtest test edit` calls
+/// (`ops::test_op::edit`). `set` values are a string or an array of strings,
+/// like the answers file.
+fn test_edit_tool(root: &Path, args: &Value) -> Value {
+    let Some(id) = string_arg(args, "id") else {
+        return failure_envelope("E-OP-001", "test_edit requires id");
+    };
+    let answers = match args.get("answers") {
+        None => None,
+        Some(answers) => {
+            let Some(form) = answers.get("form").and_then(Value::as_str) else {
+                return failure_envelope("E-OP-001", "test_edit answers requires form");
+            };
+            let values = answers.get("answers").cloned().unwrap_or(Value::Null);
+            match ops::test_op::form_values_from_json(&values, "answers.answers") {
+                Ok(values) => Some(vtest_store::FormAnswers {
+                    form: form.to_owned(),
+                    answers: values,
+                }),
+                Err(diagnostic) => return ops::test_op::input_failure(diagnostic).1,
+            }
+        }
+    };
+    let set = match args.get("set") {
+        None => std::collections::BTreeMap::new(),
+        Some(set) => match ops::test_op::form_values_from_json(set, "set") {
+            Ok(set) => set,
+            Err(diagnostic) => return ops::test_op::input_failure(diagnostic).1,
+        },
+    };
+    match resolve_registry() {
+        Ok(registry) => {
+            ops::test_op::edit(
+                root,
+                &registry,
+                id,
+                answers.as_ref(),
+                &set,
+                string_arg(args, "body"),
+                bool_arg(args, "dry_run"),
+            )
+            .1
+        }
+        Err(envelope) => envelope,
     }
 }
 
@@ -1346,6 +1484,152 @@ mod tests {
             "MCP `scan` tool must return the same envelope as `ops::scan::execute`, \
              which the CLI's `run_scan` wrapper also calls"
         );
+    }
+
+    fn structured_test_fixture(root: &Path) {
+        fixture_vo_project(root);
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"mcp-fixture\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub fn add(a: u32, b: u32) -> u32 {\n    a + b\n}\n",
+        )
+        .unwrap();
+        fs::create_dir_all(root.join("tests")).unwrap();
+        fs::write(root.join("tests/calc.rs"), "").unwrap();
+    }
+
+    fn structured_test_answers() -> Value {
+        json!({
+            "target": "src/lib.rs::add",
+            "covers": ["VO-MCP-APPROVAL"],
+            "behavior": "add sums two numbers",
+            "test_kind": "normal",
+            "input": "one and two",
+            "expect": "three",
+            "fn_name": "add_sums_two_numbers",
+            "file": "tests/calc.rs"
+        })
+    }
+
+    /// @vtest.id TEST-MCP-TEST-CREATE-EDIT-MATCH-CLI
+    /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE, VO-TEST-OP-CREATE-OUTPUT, VO-TEST-OP-EDIT-OUTPUT
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent MCP test_create and test_edit return the same envelope as the ops::test_op functions the CLI test create / test edit call
+    #[test]
+    fn mcp_test_create_and_edit_match_the_cli_operations() {
+        let root = temp_root("test-create-edit");
+        structured_test_fixture(&root);
+        let registry = vtest_cli::adapters::builtin_registry().expect("builtin registry");
+        let answers = vtest_store::FormAnswers {
+            form: "rust-unit-function".to_owned(),
+            answers: ops::test_op::form_values_from_json(&structured_test_answers(), "answers")
+                .expect("fixture answers convert"),
+        };
+
+        let (_, cli_create) =
+            ops::test_op::create(&root, &registry, "rust-unit-function", &answers, None, true);
+        let mcp_create = dispatch_tool(
+            &root,
+            "test_create",
+            &json!({
+                "form": "rust-unit-function",
+                "answers": structured_test_answers(),
+                "dry_run": true
+            }),
+        );
+        assert_eq!(mcp_create, cli_create);
+        assert_eq!(mcp_create["ok"], true, "{mcp_create}");
+        assert_eq!(fs::read_to_string(root.join("tests/calc.rs")).unwrap(), "");
+
+        let (_, written) = ops::test_op::create(
+            &root,
+            &registry,
+            "rust-unit-function",
+            &answers,
+            None,
+            false,
+        );
+        let test_id = written["data"]["test_id"]
+            .as_str()
+            .expect("created Test ID");
+        let set = std::collections::BTreeMap::from([(
+            "intent".to_owned(),
+            vtest_store::FormValue::Scalar("add returns the sum".to_owned()),
+        )]);
+        let (_, cli_edit) = ops::test_op::edit(&root, &registry, test_id, None, &set, None, true);
+        let mcp_edit = dispatch_tool(
+            &root,
+            "test_edit",
+            &json!({
+                "id": test_id,
+                "set": {"intent": "add returns the sum"},
+                "dry_run": true
+            }),
+        );
+        assert_eq!(mcp_edit, cli_edit);
+        assert_eq!(mcp_edit["data"]["changed"], true, "{mcp_edit}");
+    }
+
+    /// @vtest.id TEST-MCP-TEST-EDIT-REPAIRS-SCAN-ERROR
+    /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE, VO-TEST-OP-EDIT-SET-NAMED-FIELDS
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::tools_call_result
+    /// @vtest.intent a tools/call test_edit that repairs a covers naming a missing VO (E-SCAN-003) reaches the edit like the CLI does, returns the CLI envelope, and fixes the file
+    #[test]
+    fn mcp_tools_call_test_edit_repairs_a_scan_error_like_the_cli() {
+        let root = temp_root("test-edit-repair");
+        structured_test_fixture(&root);
+        let broken = "use mcp_fixture::add;\n\n\
+                      /// @vtest.id TEST-FLAT\n\
+                      /// @vtest.covers VO-MISSING\n\
+                      /// @vtest.target src/lib.rs::add\n\
+                      /// @vtest.intent original intent\n\
+                      #[test]\n\
+                      fn adds() {\n    assert_eq!(add(1, 2), 3);\n}\n";
+        fs::write(root.join("tests/calc.rs"), broken).unwrap();
+        let (_, scan) = ops::scan::execute(
+            &root,
+            &vtest_cli::adapters::builtin_registry().expect("builtin registry"),
+        );
+        assert_eq!(scan["ok"], false, "the fixture must start broken: {scan}");
+
+        let registry = vtest_cli::adapters::builtin_registry().expect("builtin registry");
+        let set = std::collections::BTreeMap::from([(
+            "covers".to_owned(),
+            vtest_store::FormValue::List(vec!["VO-MCP-APPROVAL".to_owned()]),
+        )]);
+        let (_, cli_dry_run) =
+            ops::test_op::edit(&root, &registry, "TEST-FLAT", None, &set, None, true);
+        let call = |dry_run: bool| {
+            tools_call_result(
+                &root,
+                &json!({"name": "test_edit", "arguments": {
+                    "id": "TEST-FLAT",
+                    "set": {"covers": ["VO-MCP-APPROVAL"]},
+                    "dry_run": dry_run
+                }}),
+                &mut MtimeRescan::default(),
+            )
+        };
+        let mcp_dry_run = call(true);
+        assert_eq!(mcp_dry_run["structuredContent"], cli_dry_run);
+        assert_eq!(cli_dry_run["ok"], true, "{cli_dry_run}");
+        assert_eq!(
+            fs::read_to_string(root.join("tests/calc.rs")).unwrap(),
+            broken
+        );
+
+        let written = call(false);
+        assert_eq!(written["structuredContent"]["ok"], true, "{written}");
+        assert_eq!(
+            fs::read_to_string(root.join("tests/calc.rs")).unwrap(),
+            broken.replace("@vtest.covers VO-MISSING", "@vtest.covers VO-MCP-APPROVAL")
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 
     fn fixture_vo_project(root: &Path) {
