@@ -9,8 +9,11 @@ framework-neutral adapters.
   definitions. A decorated definition starts at its first decorator, and the
   body extends over every following line indented deeper. `class` bodies
   qualify methods: `src/calc.py::Calc::add`,
-  `src/calc.py::Calc::Inner::fetch`. Functions nested inside functions are
-  not Source Targets.
+  `src/calc.py::Calc::Inner::fetch`. A definition in a module- or
+  class-level `if`, `try`, `with`, `for`, `while`, or `match` belongs to
+  the enclosing scope, in every branch (conditions are not evaluated, so
+  two branches defining `f` give two `f` Sources). Functions nested inside
+  functions are not Source Targets.
 - **Tests**: any construct right after a `@vtest.` `#` comment, such as a
   pytest function (its `@pytest.mark...` decorators are part of the
   construct), a `unittest.TestCase` method, or a pytest class method.

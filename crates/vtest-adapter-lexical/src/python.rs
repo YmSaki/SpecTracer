@@ -297,6 +297,11 @@ fn logical_lines(source: &str, tokens: &[Tok]) -> Result<Vec<Line>, ExtractError
 
 /// Lines that continue the compound statement before them at the same
 /// indentation.
+/// Compound statements whose suites stay in the enclosing scope.
+const COMPOUND: &[&str] = &[
+    "if", "elif", "else", "try", "except", "finally", "with", "for", "while", "match", "case",
+];
+
 const CLAUSES: &[&str] = &["elif", "else", "except", "finally", "case"];
 
 struct Reader<'a> {
@@ -397,9 +402,38 @@ impl Reader<'_> {
                         scope.pop();
                     }
                 }
+                Some(word) if COMPOUND.contains(&word) => {
+                    self.suites(header, end, scope, output);
+                }
                 _ => {}
             }
             line = end;
+        }
+    }
+
+    /// Collects the definitions in the suites of the compound statement
+    /// `lines[header..end]` (`if`, `try`, `with`, ...), in the same scope:
+    /// a function defined under `if sys.platform == ...:` is still a
+    /// module (or class) member. The conditions are not evaluated, so every
+    /// branch counts. Clause headers (`else:`, `except E:`) at the
+    /// statement's own indentation separate the suites.
+    fn suites(
+        &self,
+        header: usize,
+        end: usize,
+        scope: &mut Vec<String>,
+        output: &mut Vec<Function>,
+    ) {
+        let indent = self.lines[header].indent;
+        let mut line = header + 1;
+        while line < end {
+            let stop = (line..end)
+                .find(|&i| self.lines[i].indent <= indent)
+                .unwrap_or(end);
+            if stop > line {
+                self.members(line, stop, scope, output);
+            }
+            line = stop + 1;
         }
     }
 
@@ -576,5 +610,37 @@ x = 1
         let broken = discover_text(&Python, "src/broken.py", "x = \"\"\"open\n", "demo");
         assert_eq!(broken.diagnostics.len(), 1);
         assert_eq!(broken.diagnostics[0].code.as_str(), "E-SCAN-001");
+    }
+    /// @vtest.id TEST-ADAPTER-PYTHON-DEFINITIONS-IN-COMPOUND-STATEMENTS
+    /// @vtest.covers VO-ADAPTER-LEXICAL-NORMALIZES-DECLARATION
+    /// @vtest.target crates/vtest-adapter-lexical/src/python.rs::Reader::suites
+    /// @vtest.intent verifies functions defined in every branch of module- or class-level if, try, with, and match statements are Source Targets in the enclosing scope with their SRC IDs, while functions defined inside a function body are not
+    #[test]
+    fn definitions_in_compound_statements() {
+        let source = "import sys\nif sys.platform == \"win32\":\n    # @vtest.src-id SRC-PY-WIN\n    def f():\n        return 1\nelif True:\n    def f():\n        return 2\nelse:\n    def g():\n        def inner():\n            pass\n        return 3\ntry:\n    from fast import h\nexcept ImportError:\n    def h():\n        return 4\nclass C:\n    if True:\n        def m(self):\n            return 5\n    with open(\"x\") as handle:\n        def n(self):\n            return 6\nmatch sys.argv:\n    case [_]:\n        def k():\n            return 7\n";
+        let outcome = discover_text(&Python, "src/m.py", source, "demo");
+        assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+        let sources = outcome
+            .sources
+            .iter()
+            .map(|source| source.locator.value.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            sources,
+            vec![
+                "src/m.py::f",
+                "src/m.py::f",
+                "src/m.py::g",
+                "src/m.py::h",
+                "src/m.py::C::m",
+                "src/m.py::C::n",
+                "src/m.py::k",
+            ]
+        );
+        assert_eq!(
+            outcome.sources[0].src_id.as_ref().map(|id| id.as_str()),
+            Some("SRC-PY-WIN")
+        );
+        assert_eq!(outcome.sources[1].src_id, None);
     }
 }
