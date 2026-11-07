@@ -37,6 +37,7 @@ pub fn builtin_registry() -> Result<AdapterRegistry, AdapterRegistrationError> {
     registry.register(Box::new(vtest_adapter_lexical::kotlin::adapter()))?;
     registry.register(Box::new(vtest_adapter_lexical::php::adapter()))?;
     registry.register(Box::new(vtest_adapter_lexical::python::adapter()))?;
+    registry.register(Box::new(vtest_adapter_lexical::ruby::adapter()))?;
     registry.register(Box::new(vtest_adapter_lexical::swift::adapter()))?;
     Ok(registry)
 }
