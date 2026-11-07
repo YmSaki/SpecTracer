@@ -80,6 +80,12 @@ impl LanguageProfile for JavaScript {
             partners: &partners,
             enclosing: &enclosing,
         };
+        if let Some(last) = reader.dangling_prefix() {
+            return Err(ExtractError::new(
+                tokens[last].start,
+                "the file ends before the declaration this prefix belongs to",
+            ));
+        }
         let mut functions = Vec::new();
         let mut class_bodies = HashSet::new();
         reader.statements(
@@ -509,6 +515,9 @@ enum Declares {
     Class(String, usize),
     Namespace(Vec<String>, usize),
     Function(String),
+    /// The declarators of a `const`/`let`/`var` statement whose values are
+    /// functions: each name, with its first and one-past-last token.
+    Bindings(Vec<(String, usize, usize)>),
     Other,
 }
 
@@ -520,8 +529,12 @@ struct Reader<'a> {
 }
 
 impl Reader<'_> {
+    /// The text of `tokens[index]`, or `""` past the last token (a file
+    /// may end in the middle of a declaration, such as a lone `export`).
     fn text(&self, index: usize) -> &str {
-        &self.source[self.tokens[index].start..self.tokens[index].end]
+        self.tokens
+            .get(index)
+            .map_or("", |token| &self.source[token.start..token.end])
     }
 
     fn kind(&self, index: usize) -> Option<Kind> {
@@ -540,6 +553,27 @@ impl Reader<'_> {
 
     fn touching(&self, a: usize, b: usize) -> bool {
         self.tokens[a].end == self.tokens[b].start
+    }
+
+    /// A declaration prefix (`export`, `default`, `declare`, `abstract`,
+    /// or a decorator) with nothing after it at the end of the file.
+    fn dangling_prefix(&self) -> Option<usize> {
+        let last = (0..self.tokens.len())
+            .rev()
+            .find(|&i| self.tokens[i].kind != Kind::Comment)?;
+        if self.kind(last) == Some(Kind::Word)
+            && matches!(
+                self.text(last),
+                "export" | "default" | "declare" | "abstract"
+            )
+            && !self.after_dot(last)
+        {
+            return Some(last);
+        }
+        (0..=last)
+            .rev()
+            .take_while(|&i| !matches!(self.kind(i), Some(Kind::Semi | Kind::Close('}'))))
+            .find(|&i| self.is(i, "@") && self.skip_decorators(i) >= self.tokens.len())
     }
 
     fn next_significant(&self, from: usize) -> Option<usize> {
@@ -865,6 +899,42 @@ impl Reader<'_> {
     }
 
     /// The first top-level `=` in `tokens[from..end]`.
+    /// The declarators of a variable statement whose first declarator starts
+    /// at `from`, split at top-level commas: `f = () => 1, g = () => 2`.
+    /// Commas inside a type annotation's `<...>` (`Map<K, V>`) or a generic
+    /// arrow's type parameters (`= <T, U>(x: T) => x`) do not split them.
+    /// Each is a token range, without the trailing `,` or `;`.
+    fn declarators(&self, from: usize, end: usize) -> Vec<(usize, usize)> {
+        let mut output = Vec::new();
+        let mut first = from;
+        let mut angles = 0usize;
+        let mut typed = true;
+        let mut index = from;
+        while index < end {
+            match self.tokens[index].kind {
+                Kind::Open(_) => index = self.partner(index),
+                Kind::Semi => break,
+                Kind::Op => match self.text(index) {
+                    "<" if typed || self.is(index.wrapping_sub(1), "=") => angles += 1,
+                    ">" | ">>" | ">>>" if angles > 0 => {
+                        angles = angles.saturating_sub(self.text(index).len());
+                    }
+                    "=" if angles == 0 => typed = false,
+                    "," if angles == 0 => {
+                        output.push((first, index));
+                        first = index + 1;
+                        typed = true;
+                    }
+                    _ => {}
+                },
+                _ => {}
+            }
+            index += 1;
+        }
+        output.push((first, index));
+        output
+    }
+
     fn initializer(&self, from: usize, end: usize) -> Option<usize> {
         let mut index = from;
         while index < end {
@@ -924,15 +994,24 @@ impl Reader<'_> {
                 }
             }
             "const" | "let" | "var" => {
-                let name = keyword + 1;
-                match self.initializer(name, end) {
-                    Some(equals)
-                        if self.kind(name) == Some(Kind::Word)
-                            && self.is_function_value(equals + 1, end) =>
-                    {
-                        Declares::Function(self.text(name).to_owned())
-                    }
-                    _ => Declares::Other,
+                let bindings = self
+                    .declarators(keyword + 1, end)
+                    .into_iter()
+                    .enumerate()
+                    .filter_map(|(n, (first, last))| {
+                        let equals = self.initializer(first, last)?;
+                        (self.kind(first) == Some(Kind::Word)
+                            && self.is_function_value(equals + 1, last))
+                        .then(|| {
+                            let from = if n == 0 { start } else { first };
+                            (self.text(first).to_owned(), from, last)
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                if bindings.is_empty() {
+                    Declares::Other
+                } else {
+                    Declares::Bindings(bindings)
                 }
             }
             _ => Declares::Other,
@@ -1051,6 +1130,17 @@ impl Reader<'_> {
                     start: self.tokens[start].start,
                     end: self.tokens[end - 1].end,
                 });
+            }
+            Declares::Bindings(bindings) => {
+                for (name, first, last) in bindings {
+                    let mut qualified = scope.clone();
+                    qualified.push(name);
+                    output.push(Function {
+                        name: qualified,
+                        start: self.tokens[first].start,
+                        end: self.tokens[last - 1].end,
+                    });
+                }
             }
             Declares::Other => {}
         }
@@ -1271,5 +1361,63 @@ describe("Calc", () => {
         );
         assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
         assert_eq!(locators(&outcome), vec!["fixture.js::C::f"]);
+    }
+    /// @vtest.id TEST-ADAPTER-JAVASCRIPT-DECLARATORS-AND-TRUNCATED-FILES
+    /// @vtest.covers VO-ADAPTER-LEXICAL-NORMALIZES-DECLARATION
+    /// @vtest.target crates/vtest-adapter-lexical/src/javascript.rs::Reader::declarators
+    /// @vtest.intent verifies each function-valued declarator of one variable statement is its own Source with its own range, and a file that ends inside a declaration is read without a panic
+    #[test]
+    fn declarators_and_truncated_files() {
+        let source = "// @vtest.src-id SRC-JS-F\nconst f = () => 1, n = 2, g = function () { return 2; };\nexport let h = <T, U>(x: T, y: U) => x, m: Map<string, number> = new Map(), k = async (a: number) => a;\n";
+        let outcome = discover_text(&JavaScript, "src/a.ts", source, "demo");
+        assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+        let ranges = outcome
+            .sources
+            .iter()
+            .map(|found| {
+                let range = &found.location.byte_range;
+                (
+                    found.locator.value.as_str(),
+                    &source[range.start as usize..range.end as usize],
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            ranges,
+            vec![
+                (
+                    "src/a.ts::f",
+                    "// @vtest.src-id SRC-JS-F\nconst f = () => 1"
+                ),
+                ("src/a.ts::g", "g = function () { return 2; }"),
+                ("src/a.ts::h", "export let h = <T, U>(x: T, y: U) => x"),
+                ("src/a.ts::k", "k = async (a: number) => a"),
+            ]
+        );
+        assert_eq!(
+            outcome.sources[0].src_id.as_ref().map(|id| id.as_str()),
+            Some("SRC-JS-F")
+        );
+        for (source, unreadable) in [
+            ("export", true),
+            ("export default", true),
+            ("declare", true),
+            ("export abstract", true),
+            ("@decorator", true),
+            ("@a.b(1)", true),
+            ("function f() {}\nexport", true),
+            ("", false),
+            ("// only a comment", false),
+            ("x.export", false),
+        ] {
+            let outcome = discover_text(&JavaScript, "src/t.ts", source, "demo");
+            assert_eq!(
+                outcome.diagnostics.len(),
+                usize::from(unreadable),
+                "{source:?}"
+            );
+        }
+        let after = discover_text(&JavaScript, "src/u.ts", "function u() {}\n", "demo");
+        assert_eq!(after.sources.len(), 1);
     }
 }
