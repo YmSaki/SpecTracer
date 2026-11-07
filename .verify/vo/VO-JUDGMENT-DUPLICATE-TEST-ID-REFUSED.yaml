@@ -1,0 +1,11 @@
+id: VO-JUDGMENT-DUPLICATE-TEST-ID-REFUSED
+parent: null
+derives_from:
+  - doc: DS-536
+claim: "E-SCAN-002はerrorであり、Test ID重複（identity collision）を意味する。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-07T21:00:00+09:00
+updated: 2026-11-07T21:00:00+09:00

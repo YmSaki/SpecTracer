@@ -214,11 +214,100 @@ fn resolve_target<'a>(
     }
 }
 
+/// DS-536: a judgment subject must be one Test. A Test id declared more
+/// than once (doctor's E-SCAN-002) names no single subject, so the
+/// operation is refused rather than picking one of the candidates.
 fn find_test<'a>(scan: &'a ScanResult, id: &str) -> Result<&'a TestEntity, JudgmentOpError> {
-    scan.tests
+    let matches: Vec<&TestEntity> = scan
+        .tests
         .iter()
-        .find(|test| test.id.as_str() == id)
-        .ok_or_else(|| JudgmentOpError::Usage(format!("no Test with id '{id}' exists")))
+        .filter(|test| test.id.as_str() == id)
+        .collect();
+    match matches.as_slice() {
+        [one] => Ok(one),
+        [] => Err(JudgmentOpError::Usage(format!(
+            "no Test with id '{id}' exists"
+        ))),
+        many => Err(duplicate_test_id(id, many)),
+    }
+}
+
+fn duplicate_test_id(id: &str, tests: &[&TestEntity]) -> JudgmentOpError {
+    let paths: Vec<&str> = tests
+        .iter()
+        .map(|test| test.location.path.as_str())
+        .collect();
+    JudgmentOpError::Unresolved {
+        code: "E-SCAN-002",
+        message: format!(
+            "Test id {id} is declared more than once ({}), so it names no single \
+             judgment material (DS-536)",
+            paths.join(", ")
+        ),
+    }
+}
+
+/// Every Test is listed once; a repeated id among the Tests handed to the
+/// judge would collapse in the binding, so it is refused (E-SCAN-002).
+fn unique_ids(tests: Vec<&TestEntity>) -> Result<Vec<&TestEntity>, JudgmentOpError> {
+    let mut by_id: BTreeMap<&str, Vec<&TestEntity>> = BTreeMap::new();
+    for test in &tests {
+        by_id.entry(test.id.as_str()).or_default().push(test);
+    }
+    if let Some((id, many)) = by_id.into_iter().find(|(_, group)| group.len() > 1) {
+        return Err(duplicate_test_id(id, &many));
+    }
+    Ok(tests)
+}
+
+/// The other Tests a Test-subject bundle hands to the judge as
+/// `related_tests`: those covering one of its VOs, or named in its
+/// `related`. The binding and the bundle both use this one set.
+fn related_tests<'a>(
+    scan: &'a ScanResult,
+    test: &TestEntity,
+) -> Result<Vec<&'a TestEntity>, JudgmentOpError> {
+    unique_ids(
+        scan.tests
+            .iter()
+            .filter(|other| other.id != test.id)
+            .filter(|other| {
+                other.covers.iter().any(|vo| test.covers.contains(vo))
+                    || test.related.contains(&other.id)
+            })
+            .collect(),
+    )
+}
+
+/// The Tests a VO-subject bundle hands to the judge: every Test covering it.
+fn covering_tests<'a>(
+    scan: &'a ScanResult,
+    vo: &str,
+) -> Result<Vec<&'a TestEntity>, JudgmentOpError> {
+    unique_ids(
+        scan.tests
+            .iter()
+            .filter(|test| test.covers.iter().any(|covered| covered.as_str() == vo))
+            .collect(),
+    )
+}
+
+/// Resolves every declared target of `test` and binds each one's content
+/// hash (DS-702: an unresolved target gives no bundle; DS-718: a changed or
+/// deleted target invalidates it).
+fn bind_targets(
+    scan: &ScanResult,
+    test: &TestEntity,
+    deps: &mut BTreeMap<(String, String), ContentHash>,
+) -> Result<(), JudgmentOpError> {
+    for target in &test.targets {
+        let source = resolve_target(scan, target)?;
+        deps.insert(
+            ("target".to_owned(), target_label(target)),
+            source.content_hash.clone(),
+        );
+    }
+    Ok(())
 }
 
 /// Computes the current binding for a subject. Used both when bundling and,
@@ -238,11 +327,13 @@ pub fn current_binding(
             for vo in &test.covers {
                 vo_closure(&vos, &index, vo.as_str(), &mut deps)?;
             }
-            for target in &test.targets {
-                let source = resolve_target(scan, target)?;
+            bind_targets(scan, test, &mut deps)?;
+            // `related_tests` is judgment material too: adding, removing or
+            // changing one invalidates the bundle (DS-718/DS-435).
+            for other in related_tests(scan, test)? {
                 deps.insert(
-                    ("target".to_owned(), target_label(target)),
-                    source.content_hash.clone(),
+                    ("test".to_owned(), other.id.as_str().to_owned()),
+                    test_material_hash(other),
                 );
             }
             test.content_hash.clone()
@@ -258,16 +349,15 @@ pub fn current_binding(
             // The bundle hands every covering Test to the judge as judgment
             // material (`related_tests`), so the binding carries that set
             // and each member's material hash: adding, removing or changing
-            // a covering Test invalidates the bundle (DS-718).
-            for test in scan
-                .tests
-                .iter()
-                .filter(|test| test.covers.iter().any(|vo| vo.as_str() == id))
-            {
+            // a covering Test invalidates the bundle (DS-718). Each covering
+            // Test's declared targets must resolve (DS-702) and are bound
+            // like a Test subject's.
+            for test in covering_tests(scan, id)? {
                 deps.insert(
                     ("test".to_owned(), test.id.as_str().to_owned()),
                     test_material_hash(test),
                 );
+                bind_targets(scan, test, &mut deps)?;
             }
             vtest_model::vo_subject_hash(vo)
         }
@@ -405,14 +495,8 @@ pub fn bundle(
                 .iter()
                 .map(|vo| vo.as_str().to_owned())
                 .collect();
-            let related: Vec<Value> = scan
-                .tests
-                .iter()
-                .filter(|other| other.id != test.id)
-                .filter(|other| {
-                    other.covers.iter().any(|vo| test.covers.contains(vo))
-                        || test.related.contains(&other.id)
-                })
+            let related: Vec<Value> = related_tests(scan, test)?
+                .into_iter()
                 .map(|other| json!({"id": other.id.as_str(), "intent": other.intent, "cases": other.cases}))
                 .collect();
             let mut targets = Vec::new();
@@ -456,10 +540,8 @@ pub fn bundle(
             (test_json(test), covered, related, targets, static_analysis)
         }
         Subject::Vo(id) => {
-            let covering: Vec<Value> = scan
-                .tests
-                .iter()
-                .filter(|test| test.covers.iter().any(|vo| vo.as_str() == id))
+            let covering: Vec<Value> = covering_tests(scan, id)?
+                .into_iter()
                 .map(test_json)
                 .collect();
             (
@@ -672,6 +754,13 @@ pub fn submit(
     // since the bundle was recorded.
     match current_binding(&layout, scan, &subject) {
         Ok(current) if current == recorded => {}
+        // DS-536: a duplicated Test id names no single subject; that is
+        // reported as itself, not as a stale bundle.
+        Err(
+            error @ JudgmentOpError::Unresolved {
+                code: "E-SCAN-002", ..
+            },
+        ) => return Err(error),
         Ok(_) | Err(JudgmentOpError::Usage(_)) | Err(JudgmentOpError::Unresolved { .. }) => {
             return Err(rejected(
                 "E-AUDIT-002",

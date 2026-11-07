@@ -427,3 +427,162 @@ fn bundle_of_kind(root: &Path, kind: &str) -> Value {
     assert_eq!(code, 0, "{envelope}");
     envelope["data"].clone()
 }
+
+const OTHER: &str = "\n/// @vtest.id TEST-OTHER\n\
+/// @vtest.covers VO-X\n\
+/// @vtest.target src/lib.rs::add\n\
+/// @vtest.intent adds again\n\
+#[test]\n\
+fn other() {\n    assert_eq!(judge_fixture::add(1, 1), 2);\n}\n";
+
+const THIRD: &str = "\n/// @vtest.id TEST-THIRD\n\
+/// @vtest.covers VO-X\n\
+/// @vtest.target src/lib.rs::add\n\
+/// @vtest.intent adds a third time\n\
+#[test]\n\
+fn third() {\n    assert_eq!(judge_fixture::add(0, 0), 0);\n}\n";
+
+fn bundle_count(root: &Path) -> usize {
+    fs::read_dir(root.join(".verify/cache/bundles"))
+        .map(|entries| entries.count())
+        .unwrap_or(0)
+}
+
+fn case_coverage_bundle(root: &Path) -> Value {
+    bundle_of_kind(root, "case-coverage")
+}
+
+fn case_coverage_submission(bundle: &Value) -> Value {
+    let mut submission = submission(bundle);
+    submission["judgment_kind"] = json!("case-coverage");
+    submission
+}
+
+/// @vtest.id TEST-JUDGMENT-TEST-SUBMIT-RELATED-TESTS-BOUND
+/// @vtest.covers VO-JUDGMENT-SUBMIT-STALE-HASH-E-AUDIT-002
+/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::submit
+/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::current_binding
+/// @vtest.intent a Test bundle binds the related Tests it hands the judge: changing, adding or removing a related Test after bundling makes the submission fail with E-AUDIT-002 and writes no record, while an unchanged one is accepted
+#[test]
+fn a_test_bundle_rejects_changed_added_or_removed_related_tests() {
+    let edits: [(&str, String); 3] = [
+        (
+            "changed",
+            format!(
+                "{TESTS}{}",
+                OTHER.replace("@vtest.intent adds again", "@vtest.intent sums again")
+            ),
+        ),
+        ("added", format!("{TESTS}{OTHER}{THIRD}")),
+        ("removed", TESTS.to_owned()),
+    ];
+    for (name, replacement) in edits {
+        let root = fixture(&format!("related-{name}"));
+        fs::write(root.join("tests/judge.rs"), format!("{TESTS}{OTHER}")).unwrap();
+        let bundle = case_coverage_bundle(&root);
+        let related: Vec<&str> = bundle["related_tests"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|test| test["id"].as_str())
+            .collect();
+        assert_eq!(related, ["TEST-OTHER"], "{name}: {bundle}");
+        let bound: Vec<&str> = bundle["dependencies"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|dep| dep["kind"] == "test")
+            .filter_map(|dep| dep["id"].as_str())
+            .collect();
+        assert_eq!(bound, ["TEST-OTHER"], "{name}: {bundle}");
+        fs::write(root.join("tests/judge.rs"), replacement).unwrap();
+        let (code, envelope) = submit(&root, &case_coverage_submission(&bundle));
+        assert_eq!(code, 2, "{name}: {envelope}");
+        assert_eq!(code_of(&envelope), "E-AUDIT-002", "{name}");
+        assert!(decision_files(&root).is_empty(), "{name}");
+    }
+
+    let root = fixture("related-unchanged");
+    fs::write(root.join("tests/judge.rs"), format!("{TESTS}{OTHER}")).unwrap();
+    let bundle = case_coverage_bundle(&root);
+    let (code, envelope) = submit(&root, &case_coverage_submission(&bundle));
+    assert_eq!(code, 0, "{envelope}");
+    assert_eq!(decision_files(&root).len(), 1);
+}
+
+/// @vtest.id TEST-JUDGMENT-DUPLICATE-TEST-ID-REFUSED
+/// @vtest.covers VO-JUDGMENT-DUPLICATE-TEST-ID-REFUSED
+/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::bundle
+/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::submit
+/// @vtest.intent a Test id declared in two files is refused with E-SCAN-002 by audit bundle (Test or VO subject) and by audit submit, and neither a bundle nor a judgment record is written
+#[test]
+fn a_duplicated_test_id_is_refused_with_e_scan_002() {
+    let duplicate = TESTS.replace("fn good()", "fn good_again()");
+
+    let root = fixture("duplicate-bundle");
+    fs::write(root.join("tests/again.rs"), &duplicate).unwrap();
+    for args in [
+        vec!["audit", "bundle", "--test", "TEST-GOOD"],
+        vec!["audit", "bundle", "--vo", "VO-X", "--kind", "case-coverage"],
+    ] {
+        let (code, envelope) = vtest(&root, &args);
+        assert_eq!(
+            (code, code_of(&envelope)),
+            (2, "E-SCAN-002"),
+            "{args:?}: {envelope}"
+        );
+    }
+    assert_eq!(bundle_count(&root), 0, "no bundle is generated");
+
+    let root = fixture("duplicate-submit");
+    let bundle = bundle(&root);
+    fs::write(root.join("tests/again.rs"), &duplicate).unwrap();
+    let (code, envelope) = submit(&root, &submission(&bundle));
+    assert_eq!((code, code_of(&envelope)), (2, "E-SCAN-002"), "{envelope}");
+    assert!(decision_files(&root).is_empty());
+}
+
+/// @vtest.id TEST-JUDGMENT-VO-COVERING-TEST-TARGETS-BOUND
+/// @vtest.covers VO-JUDGMENT-BUNDLE-UNRESOLVED-TARGET, VO-JUDGMENT-SUBMIT-STALE-HASH-E-AUDIT-002
+/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::bundle
+/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::current_binding
+/// @vtest.intent a VO bundle resolves every covering Test's declared target: an unresolved one gives E-SCAN-004 and no bundle, and changing or deleting the target after bundling makes the submission fail with E-AUDIT-002 and writes no record
+#[test]
+fn a_vo_bundle_resolves_and_binds_covering_test_targets() {
+    let root = fixture("vo-unresolved");
+    fs::write(
+        root.join("tests/judge.rs"),
+        TESTS.replace("src/lib.rs::add", "src/lib.rs::missing"),
+    )
+    .unwrap();
+    let (code, envelope) = vtest(
+        &root,
+        &["audit", "bundle", "--vo", "VO-X", "--kind", "case-coverage"],
+    );
+    assert_eq!((code, code_of(&envelope)), (2, "E-SCAN-004"), "{envelope}");
+    assert_eq!(bundle_count(&root), 0, "no bundle is generated");
+
+    for (name, source) in [
+        ("changed", "pub fn add(a: i32, b: i32) -> i32 { b + a }\n"),
+        ("deleted", "pub fn other() {}\n"),
+    ] {
+        let root = fixture(&format!("vo-target-{name}"));
+        let bundle = vo_bundle(&root);
+        assert!(
+            bundle["dependencies"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|dep| dep["kind"] == "target" && dep["id"] == "src/lib.rs::add"),
+            "{name}: {bundle}"
+        );
+        fs::write(root.join("src/lib.rs"), source).unwrap();
+        let (code, envelope) = submit(&root, &vo_submission(&bundle));
+        assert_eq!(
+            (code, code_of(&envelope)),
+            (2, "E-AUDIT-002"),
+            "{name}: {envelope}"
+        );
+        assert!(decision_files(&root).is_empty(), "{name}");
+    }
+}
