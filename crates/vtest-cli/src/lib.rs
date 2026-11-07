@@ -1373,8 +1373,27 @@ fn run_report(
             emit(format, quiet, &envelope, render_report_text);
             exit
         }
-        Err(ops::verify::VerifyOpError::Usage { code, message }) => {
-            usage_failure(format, quiet, code, &message)
+        // Same as `run_verify`: an undefined `--gate` lists the defined
+        // gate names, in `diagnostics[].candidates` for JSON (DS-1154).
+        Err(ops::verify::VerifyOpError::Usage {
+            code,
+            message,
+            candidates,
+        }) => {
+            if format == OutputFormat::Json {
+                if !quiet {
+                    let value = ops::verify::usage_envelope(code, &message, candidates.as_deref());
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&value).unwrap_or_else(|error| format!(
+                            "{{\"ok\":false,\"data\":null,\"diagnostics\":[\"{error}\"]}}"
+                        ))
+                    );
+                }
+                ExitCode::Usage
+            } else {
+                usage_failure(format, quiet, code, &message)
+            }
         }
         Err(ops::verify::VerifyOpError::Scan(error)) => scan_error_exit(&error, format, quiet),
         Err(ops::verify::VerifyOpError::Internal { message }) => {

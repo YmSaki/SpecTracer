@@ -261,6 +261,14 @@ fn mcp_report_over_stdio_matches_the_cli_when_the_scan_has_errors() {
             }
         }
     }
+
+    // An undefined gate is rejected with the same envelope, candidates
+    // included, as verify gives (DS-1154).
+    let (_, cli) = vtest(&root, &["report", "--gate", "no-such-gate"]);
+    let mcp = mcp_tool(&root, "report", serde_json::json!({"gate": "no-such-gate"}));
+    assert_eq!(cli["diagnostics"][0]["code"], "E-CONFIG-002", "{cli}");
+    assert!(cli["diagnostics"][0]["candidates"].is_array(), "{cli}");
+    assert_eq!(cli, mcp);
     fs::remove_dir_all(&root).ok();
 }
 

@@ -132,6 +132,7 @@ fn usage(message: String) -> VerifyOpError {
     VerifyOpError::Usage {
         code: "E-OP-001",
         message,
+        candidates: None,
     }
 }
 

@@ -1255,7 +1255,11 @@ fn report_tool(root: &Path, args: &Value) -> Value {
         &registry,
     ) {
         Ok((exit, data, diagnostics)) => success_envelope(exit == ExitCode::Ok, data, &diagnostics),
-        Err(ops::verify::VerifyOpError::Usage { code, message }) => failure_envelope(code, message),
+        Err(ops::verify::VerifyOpError::Usage {
+            code,
+            message,
+            candidates,
+        }) => failure_envelope_with_candidates(code, message, candidates.as_deref()),
         Err(ops::verify::VerifyOpError::Scan(error)) => {
             failure_envelope(error.code().unwrap_or("E-CORE-001"), error.to_string())
         }
