@@ -249,11 +249,31 @@ pub fn evaluate(
     };
     let layout = vtest_store::VerifyLayout::new(root);
     let vos = vtest_store::approval::read_all_vos(&layout).unwrap_or_default();
-    // A judgment store that does not read (E-SCAN-010) gives no effective
-    // judgment, so every case-coverage item stays (fail-closed).
-    let decisions = vtest_store::decisions::read_all_decisions(&layout).unwrap_or_default();
+    // The judgment records the pending section reads (DS-891). A store that
+    // cannot be read is never taken for an empty one: a filesystem failure
+    // is an internal error (DS-1689/DS-1690), and a record that breaks the
+    // schema is reported as E-SCAN-010 (DS-1676) with no judgment applied,
+    // so every case-coverage item stays.
+    let decisions = match vtest_store::decisions::read_all_decisions(&layout) {
+        Ok(records) => records,
+        Err(error) => match error.record_read_code() {
+            Some(code) => {
+                diagnostics.push(Diagnostic::error(
+                    code,
+                    format!("judgment records cannot be read for the pending section: {error}"),
+                ));
+                Vec::new()
+            }
+            None => {
+                return Err(VerifyOpError::Internal {
+                    message: format!("judgment records cannot be read: {error}"),
+                })
+            }
+        },
+    };
+    diagnostics.extend(vtest_store::decisions::kindless_record_warnings(&decisions));
     let mut data = data;
-    data.pending = super::pending::pending_items(
+    let (pending, pending_diagnostics) = super::pending::pending_items(
         &layout,
         &scan,
         &vos,
@@ -261,6 +281,8 @@ pub fn evaluate(
         &outcome,
         data.gate.as_ref(),
     );
+    data.pending = pending;
+    diagnostics.extend(pending_diagnostics);
 
     let exit = match &data.gate {
         Some(evaluation) if evaluation.satisfied => ExitCode::Ok,

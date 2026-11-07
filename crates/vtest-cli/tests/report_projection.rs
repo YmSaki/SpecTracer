@@ -675,22 +675,20 @@ fn verify_json_carries_the_pending_section() {
 /// Generates a case-coverage bundle for TEST-A and submits `decision`
 /// against it; returns the new judgment record id.
 fn judge_case_coverage(root: &Path, decision: &str, supersedes: &[&str]) -> String {
+    judge(root, "case-coverage", decision, supersedes)
+}
+
+/// Generates a `kind` bundle for TEST-A and submits `decision` against it.
+fn judge(root: &Path, kind: &str, decision: &str, supersedes: &[&str]) -> String {
     let (code, bundle) = vtest(
         root,
-        &[
-            "audit",
-            "bundle",
-            "--test",
-            "TEST-A",
-            "--kind",
-            "case-coverage",
-        ],
+        &["audit", "bundle", "--test", "TEST-A", "--kind", kind],
     );
     assert_eq!(code, 0, "{bundle}");
     let submission = serde_json::json!({
         "bundle_id": bundle["data"]["bundle_id"],
         "subject": "TEST-A",
-        "judgment_kind": "case-coverage",
+        "judgment_kind": kind,
         "decision": decision,
         "supersedes": supersedes,
         "actor": {"kind": "human", "id": "reviewer"}
@@ -814,5 +812,171 @@ fn rejected_deferred_or_conflicting_judgments_keep_the_item() {
     judge_case_coverage(&root, "accepted", &[&rejected]);
     let (_, report) = vtest(&root, &["report"]);
     assert!(case_coverage_item(&report).is_none(), "{report}");
+    fs::remove_dir_all(&root).ok();
+}
+
+/// Rewrites the `supersedes` of a stored judgment record, as an edit of
+/// the store after submission would.
+fn set_supersedes(root: &Path, id: &str, supersedes: &[&str]) {
+    let path = root.join(format!(".verify/decisions/{id}.yaml"));
+    let mut record =
+        vtest_store::decisions::DecisionRecord::from_yaml(&fs::read_to_string(&path).unwrap(), id)
+            .unwrap();
+    record.supersedes = supersedes.iter().map(|id| (*id).to_owned()).collect();
+    fs::write(&path, record.to_yaml().unwrap()).unwrap();
+}
+
+fn codes(envelope: &Value) -> Vec<String> {
+    envelope["diagnostics"]
+        .as_array()
+        .map(|diagnostics| {
+            diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic["code"].as_str().unwrap_or_default().to_owned())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Runs verify and report over the CLI and a real stdio MCP server and
+/// checks the four return the same envelope parts; returns the CLI report.
+fn report_on_all_paths(root: &Path) -> Value {
+    let mut cli_report = Value::Null;
+    for tool in ["verify", "report"] {
+        let (_, cli) = vtest(root, &[tool]);
+        let mcp = mcp_tool(root, tool, serde_json::json!({}));
+        for key in ["ok", "data", "diagnostics"] {
+            assert_eq!(cli[key], mcp[key], "{tool} {key}");
+        }
+        if tool == "report" {
+            cli_report = cli;
+        }
+    }
+    cli_report
+}
+
+/// PR #150 review: an `accepted` record whose `supersedes` is ill-formed
+/// on read — its target was removed, it names itself, or it names a record
+/// of another judgment_kind — does not contribute to the effective set and
+/// gives W-STORE-005, so the case-coverage item stays (DS-447/DS-556). The
+/// same holds for two records that supersede each other (DS-735).
+/// @vtest.id TEST-PENDING-ILL-FORMED-SUPERSEDES-KEEPS-CASE-COVERAGE
+/// @vtest.covers VO-JUDGMENT-ILL-FORMED-SUPERSEDES-W-STORE-005, VO-JUDGMENT-EFFECTIVE-SET-EXCLUDES-SUPERSEDED
+/// @vtest.target crates/vtest-store/src/decisions.rs::effective_judgment
+/// @vtest.intent supersedes先の削除・自己参照・別judgment_kindへの参照・循環を持つaccepted記録が実効集合へ寄与せず、CLI/MCPのverify/reportでcase-coverage項目が残りW-STORE-005が返ることを確認する
+#[test]
+fn an_accepted_judgment_with_broken_supersedes_does_not_hide_the_item() {
+    // The target of a valid supersedes was removed afterwards.
+    let root = fixture("judgment-removed-target");
+    let rejected = judge_case_coverage(&root, "rejected", &[]);
+    let accepted = judge_case_coverage(&root, "accepted", &[&rejected]);
+    fs::remove_file(root.join(format!(".verify/decisions/{rejected}.yaml"))).unwrap();
+    let report = report_on_all_paths(&root);
+    let item = case_coverage_item(&report).expect("a dangling supersedes hides nothing");
+    assert_eq!(item["basis"], serde_json::json!([accepted]), "{item}");
+    assert_eq!(codes(&report), vec!["W-STORE-005"], "{report}");
+    fs::remove_dir_all(&root).ok();
+
+    // Self reference, and a reference to a record of another kind.
+    for case in ["self", "other-kind"] {
+        let root = fixture(&format!("judgment-{case}"));
+        let accepted = judge_case_coverage(&root, "accepted", &[]);
+        let target = if case == "self" {
+            accepted.clone()
+        } else {
+            judge(&root, "test-semantic", "rejected", &[])
+        };
+        set_supersedes(&root, &accepted, &[&target]);
+        let report = report_on_all_paths(&root);
+        assert!(case_coverage_item(&report).is_some(), "{case}: {report}");
+        assert_eq!(codes(&report), vec!["W-STORE-005"], "{case}: {report}");
+        fs::remove_dir_all(&root).ok();
+    }
+
+    // Two accepted records that supersede each other empty E.
+    let root = fixture("judgment-cycle");
+    let first = judge_case_coverage(&root, "accepted", &[]);
+    let second = judge_case_coverage(&root, "accepted", &[&first]);
+    set_supersedes(&root, &first, &[&second]);
+    let report = report_on_all_paths(&root);
+    assert!(case_coverage_item(&report).is_some(), "{report}");
+    assert_eq!(
+        codes(&report),
+        vec!["W-STORE-005", "W-STORE-005"],
+        "{report}"
+    );
+    fs::remove_dir_all(&root).ok();
+}
+
+/// Valid judgments with differing decisions keep the item and give
+/// W-STORE-004 on every path (DS-725/DS-730).
+/// @vtest.id TEST-PENDING-CONFLICTING-JUDGMENTS-W-STORE-004
+/// @vtest.covers VO-JUDGMENT-CONFLICT-W-STORE-004, VO-JUDGMENT-CONFLICTING-VALUES-SELECT-NONE
+/// @vtest.target crates/vtest-store/src/decisions.rs::effective_judgment
+/// @vtest.intent 同一Testの有効なacceptedとrejectedが併存するとき、CLI/MCPのverify/reportでcase-coverage項目が残りW-STORE-004が返ることを確認する
+#[test]
+fn conflicting_judgments_report_w_store_004() {
+    let root = fixture("judgment-conflict-diagnostic");
+    judge_case_coverage(&root, "accepted", &[]);
+    judge_case_coverage(&root, "rejected", &[]);
+    let report = report_on_all_paths(&root);
+    assert!(case_coverage_item(&report).is_some(), "{report}");
+    assert_eq!(codes(&report), vec!["W-STORE-004"], "{report}");
+    fs::remove_dir_all(&root).ok();
+}
+
+/// A judgment store that cannot be read is never taken for an empty one.
+/// A filesystem failure is E-INTERNAL-001 (exit 3, an MCP tool error); a
+/// record with an undeclared field is E-SCAN-010 and no judgment applies.
+/// A compatible record without `judgment_kind` is history only: it gives
+/// W-STORE-003 and leaves the other records effective (DS-446/DS-1455).
+/// @vtest.id TEST-PENDING-JUDGMENT-STORE-READ-FAILURES
+/// @vtest.covers VO-PENDING-UNREADABLE-JUDGMENTS-INTERNAL-ERROR, VO-PENDING-JUDGMENT-SCHEMA-VIOLATION-E-SCAN-010, VO-JUDGMENT-KINDLESS-RECORD-W-STORE-003
+/// @vtest.target crates/vtest-cli/src/ops/verify.rs::evaluate
+/// @vtest.intent .verify/decisionsがファイルのときE-INTERNAL-001・exit 3、余剰fieldの記録でE-SCAN-010と項目の残存、judgment_kindを欠く互換記録でW-STORE-003を出しつつ他のaccepted記録は有効なままであることを、CLIと実MCPで確認する
+#[test]
+fn judgment_store_read_failures_are_reported_not_emptied() {
+    // I/O failure: the store directory is a regular file.
+    let root = fixture("judgment-store-io");
+    let _ = fs::remove_dir_all(root.join(".verify/decisions"));
+    fs::write(root.join(".verify/decisions"), "not a directory").unwrap();
+    for tool in ["verify", "report"] {
+        let (code, cli) = vtest(&root, &[tool]);
+        assert_eq!(code, 3, "{tool}: {cli}");
+        assert_eq!(codes(&cli), vec!["E-INTERNAL-001"], "{tool}: {cli}");
+        let mcp = mcp_tool(&root, tool, serde_json::json!({}));
+        assert_eq!(codes(&mcp), vec!["E-INTERNAL-001"], "{tool}: {mcp}");
+    }
+    fs::remove_dir_all(&root).ok();
+
+    // Schema violation: an undeclared field in an accepted record.
+    let root = fixture("judgment-store-schema");
+    let accepted = judge_case_coverage(&root, "accepted", &[]);
+    let path = root.join(format!(".verify/decisions/{accepted}.yaml"));
+    let text = fs::read_to_string(&path).unwrap();
+    fs::write(&path, format!("{text}unexpected: true\n")).unwrap();
+    let report = report_on_all_paths(&root);
+    assert!(case_coverage_item(&report).is_some(), "{report}");
+    assert_eq!(codes(&report), vec!["E-SCAN-010"], "{report}");
+    fs::remove_dir_all(&root).ok();
+
+    // A compatible record without judgment_kind next to a valid accepted.
+    let root = fixture("judgment-store-kindless");
+    let accepted = judge_case_coverage(&root, "accepted", &[]);
+    let text = fs::read_to_string(root.join(format!(".verify/decisions/{accepted}.yaml")))
+        .unwrap()
+        .lines()
+        .filter(|line| !line.starts_with("judgment_kind:"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let legacy = "01ZZZZZZZZZZZZZZZZZZZZZZZZ";
+    fs::write(
+        root.join(format!(".verify/decisions/{legacy}.yaml")),
+        format!("{}\n", text.replace(&accepted, legacy)),
+    )
+    .unwrap();
+    let report = report_on_all_paths(&root);
+    assert!(case_coverage_item(&report).is_none(), "{report}");
+    assert_eq!(codes(&report), vec!["W-STORE-003"], "{report}");
     fs::remove_dir_all(&root).ok();
 }
