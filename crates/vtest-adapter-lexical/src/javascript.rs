@@ -561,13 +561,19 @@ impl Reader<'_> {
         let last = (0..self.tokens.len())
             .rev()
             .find(|&i| self.tokens[i].kind != Kind::Comment)?;
-        if self.kind(last) == Some(Kind::Word)
-            && matches!(
-                self.text(last),
-                "export" | "default" | "declare" | "abstract"
-            )
+        // `export` and `default` are reserved words, so they always begin
+        // a declaration; `declare` and `abstract` are also ordinary
+        // identifiers and are a prefix only right after `export`.
+        let prefix = self.kind(last) == Some(Kind::Word)
             && !self.after_dot(last)
-        {
+            && match self.text(last) {
+                "export" | "default" => true,
+                "declare" | "abstract" => self
+                    .previous_significant(0, last)
+                    .is_some_and(|p| self.is(p, "export")),
+                _ => false,
+            };
+        if prefix {
             return Some(last);
         }
         (0..=last)
@@ -898,16 +904,15 @@ impl Reader<'_> {
             && (after..end).any(|i| self.is(i, "=>"))
     }
 
-    /// The first top-level `=` in `tokens[from..end]`.
     /// The declarators of a variable statement whose first declarator starts
     /// at `from`, split at top-level commas: `f = () => 1, g = () => 2`.
-    /// Commas inside a type annotation's `<...>` (`Map<K, V>`) or a generic
-    /// arrow's type parameters (`= <T, U>(x: T) => x`) do not split them.
+    /// Commas inside a type annotation's `<...>` (`Map<K, V>`), a generic
+    /// arrow's type parameters (`= <T, U>(x: T) => x`), or a call's type
+    /// arguments (`pick<A, B>(a, b)`) do not split them.
     /// Each is a token range, without the trailing `,` or `;`.
     fn declarators(&self, from: usize, end: usize) -> Vec<(usize, usize)> {
         let mut output = Vec::new();
         let mut first = from;
-        let mut angles = 0usize;
         let mut typed = true;
         let mut index = from;
         while index < end {
@@ -915,12 +920,16 @@ impl Reader<'_> {
                 Kind::Open(_) => index = self.partner(index),
                 Kind::Semi => break,
                 Kind::Op => match self.text(index) {
-                    "<" if typed || self.is(index.wrapping_sub(1), "=") => angles += 1,
-                    ">" | ">>" | ">>>" if angles > 0 => {
-                        angles = angles.saturating_sub(self.text(index).len());
+                    "<" => {
+                        if let Some(close) = self
+                            .angle_close(index, end)
+                            .filter(|&close| typed || self.type_arguments(index, close))
+                        {
+                            index = close;
+                        }
                     }
-                    "=" if angles == 0 => typed = false,
-                    "," if angles == 0 => {
+                    "=" => typed = false,
+                    "," => {
                         output.push((first, index));
                         first = index + 1;
                         typed = true;
@@ -933,6 +942,56 @@ impl Reader<'_> {
         }
         output.push((first, index));
         output
+    }
+
+    /// The token that closes the `<` at `open` as a type's angle brackets,
+    /// or `None` when no `>` can close it before a token that cannot be
+    /// part of a type (so it is a comparison).
+    fn angle_close(&self, open: usize, end: usize) -> Option<usize> {
+        let mut depth = 0usize;
+        let mut index = open;
+        while index < end {
+            match self.tokens[index].kind {
+                Kind::Open(_) => index = self.partner(index),
+                Kind::Semi => return None,
+                Kind::Op => match self.text(index) {
+                    "<" => depth += 1,
+                    closing @ (">" | ">>" | ">>>") => {
+                        depth = depth.checked_sub(closing.len())?;
+                        if depth == 0 {
+                            return Some(index);
+                        }
+                    }
+                    "=" | "==" | "===" | "!=" | "!==" | "<=" | ">=" | "&&" | "||" | "??" => {
+                        return None
+                    }
+                    _ => {}
+                },
+                _ => {}
+            }
+            index += 1;
+        }
+        None
+    }
+
+    /// Whether the `<` at `open`, closed by the `>` at `close`, inside an
+    /// initializer opens type parameters or type arguments rather than a
+    /// comparison: right after `=` (a generic arrow), or after a name and
+    /// followed by `(` or a template literal (a generic call, as
+    /// TypeScript reads `f<A, B>(x)`).
+    fn type_arguments(&self, open: usize, close: usize) -> bool {
+        let Some(before) = open.checked_sub(1) else {
+            return false;
+        };
+        if self.is(before, "=") {
+            return true;
+        }
+        self.kind(before) == Some(Kind::Word)
+            && match self.kind(close + 1) {
+                Some(Kind::Open('(')) => true,
+                Some(Kind::Literal) => self.text(close + 1).starts_with('`'),
+                _ => false,
+            }
     }
 
     fn initializer(&self, from: usize, end: usize) -> Option<usize> {
@@ -1401,8 +1460,13 @@ describe("Calc", () => {
         for (source, unreadable) in [
             ("export", true),
             ("export default", true),
-            ("declare", true),
             ("export abstract", true),
+            ("export declare", true),
+            ("const declare = 1;\ndeclare", false),
+            (
+                "const abstract = 1;\nfunction f() { return abstract; }\nabstract",
+                false,
+            ),
             ("@decorator", true),
             ("@a.b(1)", true),
             ("function f() {}\nexport", true),
@@ -1419,5 +1483,65 @@ describe("Calc", () => {
         }
         let after = discover_text(&JavaScript, "src/u.ts", "function u() {}\n", "demo");
         assert_eq!(after.sources.len(), 1);
+    }
+
+    /// @vtest.id TEST-ADAPTER-JAVASCRIPT-GENERIC-CALLS-IN-DECLARATORS
+    /// @vtest.covers VO-ADAPTER-LEXICAL-NORMALIZES-DECLARATION
+    /// @vtest.target crates/vtest-adapter-lexical/src/javascript.rs::Reader::declarators
+    /// @vtest.intent verifies that commas inside a generic call's type arguments do not split a variable statement, while commas after a comparison still do, so an edit to the tail of each arrow body changes its Source text
+    #[test]
+    fn generic_calls_in_declarators() {
+        let read = |tail: &str| {
+            let source = format!(
+                "const f = () => pick<number, string>(1, {tail}), g = () => 2;\n\
+                 const h = () => wrap<Map<string, Array<number>>, number>(new Map(), {tail}), i = () => 3;\n\
+                 const j = (a: number, b: number) => a < b, k = (c: number) => c > {tail};\n\
+                 const l = () => tag<string>`x${{{tail}}}`, m = () => 4;\n"
+            );
+            let outcome = discover_text(&JavaScript, "src/g.ts", &source, "demo");
+            assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+            outcome
+                .sources
+                .iter()
+                .map(|found| (found.locator.value.clone(), found.construct_text.clone()))
+                .collect::<Vec<_>>()
+        };
+        let before = read("1");
+        assert_eq!(
+            before,
+            vec![
+                (
+                    "src/g.ts::f".to_owned(),
+                    "const f = () => pick<number, string>(1, 1)".to_owned()
+                ),
+                ("src/g.ts::g".to_owned(), "g = () => 2".to_owned()),
+                (
+                    "src/g.ts::h".to_owned(),
+                    "const h = () => wrap<Map<string, Array<number>>, number>(new Map(), 1)"
+                        .to_owned()
+                ),
+                ("src/g.ts::i".to_owned(), "i = () => 3".to_owned()),
+                (
+                    "src/g.ts::j".to_owned(),
+                    "const j = (a: number, b: number) => a < b".to_owned()
+                ),
+                (
+                    "src/g.ts::k".to_owned(),
+                    "k = (c: number) => c > 1".to_owned()
+                ),
+                (
+                    "src/g.ts::l".to_owned(),
+                    "const l = () => tag<string>`x${1}`".to_owned()
+                ),
+                ("src/g.ts::m".to_owned(), "m = () => 4".to_owned()),
+            ]
+        );
+        let after = read("9");
+        for (name, (old, new)) in ["f", "h", "k", "l"]
+            .iter()
+            .zip([0, 2, 5, 6].map(|n| (&before[n].1, &after[n].1)))
+        {
+            assert_ne!(old, new, "{name}");
+        }
     }
 }

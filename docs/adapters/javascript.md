@@ -29,7 +29,10 @@ all framework-neutral adapters.
   balance, the file is reported as `E-SCAN-001`. Functions nested inside other functions or inside call
   arguments (such as helpers defined in a `describe` callback) are not Source
   Targets, and neither are methods of object literals assigned to a
-  variable.
+  variable. In an initializer, `name<...>` followed by `(` or a template
+  literal is read as a generic call, as TypeScript reads it, in `.js` files
+  too, so in `const f = () => a < b, g = c > (d)` the two declarators are
+  read as one.
 
 ```ts
 // @vtest.id TEST-CALC-ADD
