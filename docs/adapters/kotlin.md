@@ -14,10 +14,14 @@ framework-neutral adapters.
 - **Tests**: any construct right after a `@vtest.` comment. That can be a
   JUnit or kotlin.test method (with `@Test` as part of the construct) or a
   Kotest/Spek block such as `"adds" { ... }` or `test("adds") { ... }`.
+- **Where a construct ends**: at a `;`, or at a newline after a token that
+  can end an expression, unless the next line continues it (`.`, `?.`,
+  `?:`, `&&`, `||`, `as`, `else`, `catch`, `finally`). So an expression body
+  such as `= if (x) { 1 } else { 2 }` runs to its last branch. A newline
+  never ends an annotation line (`@Test`) or a `fun`/`class` header still
+  waiting for its `{`, `=`, `:`, or `where`.
 - **Limits**: overloads share a locator, so use `@vtest.src-id` to target
-  one of them. A declaration header split before its `{` onto a line that
-  does not start with `{`, `.`, `:`, `=`, or `?` is read as ending at the
-  line break.
+  one of them.
 
 ```kotlin
 class CalcTest {
