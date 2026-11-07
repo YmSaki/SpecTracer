@@ -275,15 +275,14 @@ fn tools_call_result(root: &Path, params: &Value, mtime_rescan: &mut MtimeRescan
     if let Err(error) = validate_tool_arguments(name, arguments) {
         return tool_result(error);
     }
-    // Every tool re-scans internally via `ops::*::execute` (which itself
-    // calls `scan_project`), so — unlike the predecessor transport that
-    // shelled out to a separately-scanning CLI process per call — no
-    // freshness check is needed before dispatch. It is kept only to expose
-    // an explicit `scan` no-op fast path for a caller that wants a single
-    // freshness probe without paying for a `verify`/`run`.
+    // The mtime check runs at the start of every call (DES-112/DES-483), but
+    // its scan never stands in for the requested operation: every tool
+    // re-scans inside its own `ops::*::execute` and reports the scan
+    // diagnostics it is affected by, exactly as the CLI does (DS-1563). Only
+    // a failure to inspect the project at all ends the call here (#178).
     if name != "scan" {
-        if let Some(scan) = rescan_if_changed(root, mtime_rescan) {
-            return tool_result(scan);
+        if let Some(failure) = rescan_if_changed(root, mtime_rescan) {
+            return tool_result(failure);
         }
     }
     let envelope = dispatch_tool(root, name, &Value::Object(arguments.clone()));
@@ -293,6 +292,10 @@ fn tools_call_result(root: &Path, params: &Value, mtime_rescan: &mut MtimeRescan
     tool_result(envelope)
 }
 
+/// Re-scans when the project's mtimes changed since the last clean scan.
+/// Returns an envelope only when the project cannot be inspected or the
+/// adapter registry cannot be built; scan diagnostics are left to the
+/// operation, which reports them itself.
 fn rescan_if_changed(root: &Path, state: &mut MtimeRescan) -> Option<Value> {
     let current = match project_mtime_snapshot(root) {
         Ok(snapshot) => snapshot,
@@ -315,12 +318,12 @@ fn rescan_if_changed(root: &Path, state: &mut MtimeRescan) -> Option<Value> {
         Err(envelope) => return Some(envelope),
     };
     let (_, scan) = ops::scan::execute(root, &registry);
+    // A scan with errors leaves the snapshot unrecorded, so the next call
+    // checks again; the operation itself reports those errors.
     if scan.get("ok") == Some(&Value::Bool(true)) {
         state.last_scan = Some(current);
-        None
-    } else {
-        Some(scan)
     }
+    None
 }
 
 fn project_mtime_snapshot(root: &Path) -> io::Result<Vec<(String, u128)>> {

@@ -175,6 +175,95 @@ fn report_runs_the_same_aggregation_as_verify() {
     }
 }
 
+/// Sends one `tools/call` to a real `vtest mcp` process over stdio and
+/// returns the tool's structured envelope.
+fn mcp_tool(root: &Path, name: &str, arguments: Value) -> Value {
+    use std::io::{BufRead, BufReader, Write};
+    let mut child = Command::new(env!("CARGO_BIN_EXE_vtest"))
+        .arg("--project")
+        .arg(root)
+        .arg("mcp")
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    {
+        let mut stdin = child.stdin.take().unwrap();
+        for request in [
+            serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+            serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": name, "arguments": arguments}
+            }),
+        ] {
+            writeln!(stdin, "{request}").unwrap();
+        }
+    }
+    let output = child.wait_with_output().unwrap();
+    let response = BufReader::new(output.stdout.as_slice())
+        .lines()
+        .map(|line| serde_json::from_str::<Value>(&line.unwrap()).unwrap())
+        .find(|response| response["id"] == 2)
+        .unwrap_or_else(|| panic!("{}", String::from_utf8_lossy(&output.stderr)));
+    response["result"]["structuredContent"].clone()
+}
+
+/// PR #150 review / #178: a scan error that the report itself reports (an
+/// unresolved target) must not make MCP replace the report with the bare
+/// scan envelope. The CLI and a real stdio `tools/call` return the same
+/// `ok`, `data` and `diagnostics` for `report` and for `verify`.
+/// @vtest.id TEST-REPORT-MCP-TRANSPORT-KEEPS-REPORT-ON-SCAN-ERRORS
+/// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE, VO-REPORT-CLI-MCP-PARITY
+/// @vtest.target crates/vtest-mcp/src/lib.rs::tools_call_result
+/// @vtest.intent 未解決targetを含むプロジェクトで、CLIのreport/verifyと実stdio MCPのtools/callが同じok・data・diagnosticsを返し、MCPがscanの件数だけを返さないことを確認する
+#[test]
+fn mcp_report_over_stdio_matches_the_cli_when_the_scan_has_errors() {
+    let root = fixture("mcp-unresolved");
+    fs::write(
+        root.join("tests/report.rs"),
+        TESTS.replace(
+            "@vtest.target src/lib.rs::sub",
+            "@vtest.target src/lib.rs::missing",
+        ),
+    )
+    .unwrap();
+
+    for (tool, cli, arguments) in [
+        (
+            "report",
+            vec!["report", "--from", "TEST-A", "--direction", "down"],
+            serde_json::json!({"from": "TEST-A", "direction": "down"}),
+        ),
+        ("report", vec!["report"], serde_json::json!({})),
+        ("verify", vec!["verify"], serde_json::json!({})),
+    ] {
+        let (code, cli) = vtest(&root, &cli);
+        assert_ne!(code, 0, "an unresolved target is not PASS: {cli}");
+        assert!(
+            cli["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|diagnostic| diagnostic["code"] == "E-SCAN-004"),
+            "{cli}"
+        );
+        let mcp = mcp_tool(&root, tool, arguments.clone());
+        for key in ["ok", "data", "diagnostics"] {
+            assert_eq!(cli[key], mcp[key], "{tool} {arguments} {key}: {mcp}");
+        }
+        assert!(mcp["data"]["state"].is_string(), "{tool}: {mcp}");
+        if tool == "report" {
+            for key in ["tree", "pending", "projection"] {
+                assert!(!mcp["data"][key].is_null(), "{tool} {key}: {mcp}");
+            }
+        }
+    }
+    fs::remove_dir_all(&root).ok();
+}
+
 /// @vtest.id TEST-REPORT-DOC-DOWN-PAIRS
 /// @vtest.covers VO-REPORT-DOC-DOWN-DERIVES-FROM-PAIRS, VO-REPORT-ANCHOR-OMITTED-WHEN-ABSENT
 /// @vtest.target crates/vtest-cli/src/ops/report.rs::project
