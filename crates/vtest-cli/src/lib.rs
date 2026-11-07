@@ -1316,8 +1316,28 @@ fn run_verify(
             }
             exit
         }
-        Err(ops::verify::VerifyOpError::Usage { code, message }) => {
-            usage_failure(format, quiet, code, &message)
+        // DS-1154/DS-1563: the defined gate names are in `message` and, for
+        // `--format json`, in `diagnostics[].candidates` exactly as the MCP
+        // tool returns them (the same envelope function builds both).
+        Err(ops::verify::VerifyOpError::Usage {
+            code,
+            message,
+            candidates,
+        }) => {
+            if format == OutputFormat::Json {
+                if !quiet {
+                    let value = ops::verify::usage_envelope(code, &message, candidates.as_deref());
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&value).unwrap_or_else(|error| format!(
+                            "{{\"ok\":false,\"data\":null,\"diagnostics\":[\"{error}\"]}}"
+                        ))
+                    );
+                }
+                ExitCode::Usage
+            } else {
+                usage_failure(format, quiet, code, &message)
+            }
         }
         Err(ops::verify::VerifyOpError::Scan(error)) => scan_error_exit(&error, format, quiet),
         Err(ops::verify::VerifyOpError::Internal { message }) => {

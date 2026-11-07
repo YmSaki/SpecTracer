@@ -77,7 +77,15 @@ pub struct GateApproval {
 #[derive(Debug)]
 pub enum VerifyOpError {
     /// Usage error (E-OP-001 / E-CONFIG-002): exit code 2, no verification run.
-    Usage { code: &'static str, message: String },
+    /// `candidates` carries the valid alternatives when the rejected input
+    /// names one of a closed set (DS-1154/DS-1216: the defined gate names
+    /// for an unknown `--gate`, possibly an empty set); it is `None` when the
+    /// input has no closed set of alternatives.
+    Usage {
+        code: &'static str,
+        message: String,
+        candidates: Option<Vec<String>>,
+    },
     /// scan failed; caller maps to the appropriate exit code / diagnostic code.
     Scan(vtest_scan::ScanError),
     /// The tool itself failed (E-INTERNAL-001, exit code 3, DS-1689/DS-1690):
@@ -102,6 +110,32 @@ pub fn scoped_envelope(
         "scope": data.scope,
         "data": data,
         "diagnostics": diagnostics,
+    })
+}
+
+/// DS-1154/DS-1191/DS-1563: the one failure envelope for a rejected
+/// `verify` input, shared by the CLI (`--format json`) and the MCP tool so
+/// both return the same `diagnostics`. `candidates` is emitted whenever the
+/// rejected input names one of a closed set (the defined gate names, `[]`
+/// when no gate is defined) and omitted when there is no such set, so a
+/// missing field never reads as "no valid value exists".
+pub fn usage_envelope(
+    code: &str,
+    message: &str,
+    candidates: Option<&[String]>,
+) -> serde_json::Value {
+    let mut diagnostic = serde_json::json!({
+        "code": code,
+        "severity": "error",
+        "message": message,
+    });
+    if let Some(candidates) = candidates {
+        diagnostic["candidates"] = serde_json::json!(candidates);
+    }
+    serde_json::json!({
+        "ok": false,
+        "data": null,
+        "diagnostics": [diagnostic],
     })
 }
 
@@ -144,26 +178,26 @@ pub fn evaluate(
     let entity = entity_scope(doc, vo, test).map_err(|message| VerifyOpError::Usage {
         code: "E-OP-001",
         message,
+        candidates: None,
     })?;
     let requested = parse_items(items).map_err(|message| VerifyOpError::Usage {
         code: "E-OP-001",
         message,
+        candidates: None,
     })?;
 
     let config = load_config(root).map_err(|error| match error.config_load_code() {
         Some(code) => VerifyOpError::Usage {
             code,
             message: error.to_string(),
+            candidates: None,
         },
         None => VerifyOpError::Internal {
             message: error.to_string(),
         },
     })?;
 
-    let gate_config = resolve_gate(&config, gate).map_err(|message| VerifyOpError::Usage {
-        code: "E-CONFIG-002",
-        message,
-    })?;
+    let gate_config = resolve_gate(&config, gate)?;
 
     let scan: ScanResult = scan_project(root, registry).map_err(VerifyOpError::Scan)?;
 
@@ -279,19 +313,34 @@ fn parse_items(items: &[String]) -> Result<Option<Vec<VerificationCheck>>, Strin
     Ok(Some(checks))
 }
 
+/// DS-1116/DS-1154/DS-1216: the gate name is an exact, case-sensitive match
+/// against `config.gates[].name`. An unknown name is E-CONFIG-002 whose
+/// message names the requested gate and every defined gate, and whose
+/// `candidates` carry the defined names (in config order) so a client can
+/// correct the input without re-reading config.yaml.
 fn resolve_gate<'a>(
     config: &'a ProjectConfig,
     gate: Option<&str>,
-) -> Result<Option<&'a GateConfig>, String> {
+) -> Result<Option<&'a GateConfig>, VerifyOpError> {
     let Some(name) = gate else {
         return Ok(None);
     };
-    config
-        .gates
-        .iter()
-        .find(|candidate| candidate.name == name)
-        .map(Some)
-        .ok_or_else(|| format!("no gate named '{name}' is defined in config.yaml"))
+    if let Some(found) = config.gates.iter().find(|candidate| candidate.name == name) {
+        return Ok(Some(found));
+    }
+    let candidates: Vec<String> = config.gates.iter().map(|g| g.name.clone()).collect();
+    let defined = if candidates.is_empty() {
+        "none".to_owned()
+    } else {
+        candidates.join(", ")
+    };
+    Err(VerifyOpError::Usage {
+        code: "E-CONFIG-002",
+        message: format!(
+            "no gate named '{name}' is defined in config.yaml (defined gates: {defined})"
+        ),
+        candidates: Some(candidates),
+    })
 }
 
 fn evaluate_gate(
