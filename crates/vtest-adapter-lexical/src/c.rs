@@ -109,10 +109,10 @@ fn lex(source: &str) -> Result<Vec<Tok>, ExtractError> {
         }
         let at_line_start = std::mem::replace(&mut line_start, false);
         let kind = if at_line_start && bytes[i] == b'#' {
-            i = directive_end(source, i);
+            i = line_end(source, i);
             Kind::Directive
         } else if rest.starts_with("//") {
-            i += rest.find('\n').unwrap_or(rest.len());
+            i = line_end(source, i);
             Kind::Comment
         } else if let Some(body) = rest.strip_prefix("/*") {
             let close = body
@@ -149,9 +149,10 @@ fn lex(source: &str) -> Result<Vec<Tok>, ExtractError> {
     Ok(tokens)
 }
 
-/// The end of a preprocessor line starting at `start`: the first line
-/// break not preceded by `\`.
-fn directive_end(source: &str, start: usize) -> usize {
+/// The end of a preprocessor line or `//` comment starting at `start`:
+/// the first line break not preceded by `\`, because a backslash-newline
+/// is removed before comments and directives are recognized.
+fn line_end(source: &str, start: usize) -> usize {
     let bytes = source.as_bytes();
     let mut i = start;
     while i < bytes.len() {
@@ -235,7 +236,7 @@ impl Reader<'_> {
                     continue;
                 }
                 Kind::Open(open) => {
-                    if open == '(' && body.is_none() && !initializer {
+                    if open == '(' && body.is_none() && !initializer && !self.is_attribute(index) {
                         paren.get_or_insert(index);
                     }
                     let close = self.partner(index);
@@ -285,9 +286,21 @@ impl Reader<'_> {
         Err("the declaration has neither a body nor a `;`".to_owned())
     }
 
+    /// Whether the `(` at `paren` holds the arguments of a compiler
+    /// attribute (`__attribute__((noinline))`, `__declspec(dllexport)`)
+    /// rather than a declarator.
+    fn is_attribute(&self, paren: usize) -> bool {
+        paren
+            .checked_sub(1)
+            .is_some_and(|p| self.tokens[p].kind == Kind::Word && is_attribute_word(self.text(p)))
+    }
+
     /// Whether `tokens[start..=last]` is a lone macro invocation (`NAME` or
     /// `NAME(...)`) that ends its line without `;` or a body.
     fn is_macro_line(&self, start: usize, last: usize) -> bool {
+        if is_attribute_word(self.text(start)) {
+            return false;
+        }
         let shape = if last == start {
             self.tokens[start].kind == Kind::Word
         } else {
@@ -393,10 +406,15 @@ impl Reader<'_> {
     }
 }
 
+fn is_attribute_word(word: &str) -> bool {
+    matches!(word, "__attribute__" | "__attribute" | "__declspec")
+}
+
 /// The lines of a `//` or `/* */` comment with the comment markers removed.
+/// A `//` comment continued with `\` is one line.
 fn comment_lines(comment: &str) -> Vec<String> {
     if let Some(line) = comment.strip_prefix("//") {
-        return vec![line.to_owned()];
+        return vec![line.replace("\\\r\n", "").replace("\\\n", "")];
     }
     let inner = comment
         .strip_prefix("/*")
@@ -522,5 +540,28 @@ END_TEST
             .map(|source| source.locator.value.as_str())
             .collect::<Vec<_>>();
         assert_eq!(locators, vec!["fixture.c::f", "fixture.c::factory"]);
+    }
+    /// @vtest.id TEST-ADAPTER-C-LINE-SPLICES-AND-ATTRIBUTES
+    /// @vtest.covers VO-ADAPTER-LEXICAL-NORMALIZES-DECLARATION
+    /// @vtest.target crates/vtest-adapter-lexical/src/c.rs::Reader::declaration_end
+    /// @vtest.intent verifies a line comment continued with a backslash hides the code on its next line, and compiler attributes before or after the return type are not taken for the function's declarator
+    #[test]
+    fn line_splices_and_attributes() {
+        let source = "// disabled \\\nint phantom(void) { return 1; }\nint real(void) { return 2; }\n__attribute__((noinline)) int f(void) { return 1; }\n__attribute__((noinline)) __attribute__((cold))\nstatic int *g(void) { return 0; }\n// @vtest.src-id SRC-C-H\n__declspec(dllexport) int (*h(void))(int) { return 0; }\n";
+        let outcome = discover_text(&C, "src/a.c", source, "demo");
+        assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+        let sources = outcome
+            .sources
+            .iter()
+            .map(|source| source.locator.value.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            sources,
+            vec!["src/a.c::real", "src/a.c::f", "src/a.c::g", "src/a.c::h"]
+        );
+        assert_eq!(
+            outcome.sources[3].src_id.as_ref().map(|id| id.as_str()),
+            Some("SRC-C-H")
+        );
     }
 }
