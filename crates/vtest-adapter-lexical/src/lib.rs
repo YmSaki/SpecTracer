@@ -61,6 +61,7 @@ pub mod kotlin;
 pub mod php;
 pub mod python;
 pub mod shared;
+pub mod swift;
 
 use std::{
     collections::BTreeMap,
