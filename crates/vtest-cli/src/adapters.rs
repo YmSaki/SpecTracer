@@ -29,6 +29,7 @@ pub fn builtin_registry() -> Result<AdapterRegistry, AdapterRegistrationError> {
     let mut registry = AdapterRegistry::new();
     registry.register(Box::new(RustCargoAdapter::new()))?;
     registry.register(Box::new(vtest_adapter_lexical::cpp::adapter()))?;
+    registry.register(Box::new(vtest_adapter_lexical::csharp::adapter()))?;
     registry.register(Box::new(vtest_adapter_lexical::java::adapter()))?;
     Ok(registry)
 }
