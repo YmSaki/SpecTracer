@@ -277,6 +277,40 @@ const OPEN_KEYWORDS: &[&str] = &[
 ];
 
 /// Tokens that, at the start of a line, continue the previous line.
+/// Modifiers, which Kotlin lets a line break follow before the rest of
+/// the declaration (`public\nfun f()`).
+const MODIFIERS: &[&str] = &[
+    "public",
+    "private",
+    "protected",
+    "internal",
+    "override",
+    "open",
+    "abstract",
+    "final",
+    "sealed",
+    "data",
+    "inner",
+    "enum",
+    "annotation",
+    "companion",
+    "inline",
+    "noinline",
+    "crossinline",
+    "suspend",
+    "tailrec",
+    "operator",
+    "infix",
+    "external",
+    "lateinit",
+    "const",
+    "vararg",
+    "reified",
+    "expect",
+    "actual",
+    "value",
+];
+
 const CONTINUATIONS: &[&str] = &[
     ".", "?.", "?:", "&&", "||", "as", "else", "catch", "finally",
 ];
@@ -446,6 +480,7 @@ impl Reader<'_> {
             if self.line_breaks(last, next) > 0
                 && self.can_end(last)
                 && !self.ends_annotation(last)
+                && !self.in_modifiers(start, last)
                 && !CONTINUATIONS.contains(&self.text(next))
                 && !(header && matches!(self.text(next), "{" | "=" | ":" | "where"))
                 && !(property && self.starts_accessor(next))
@@ -455,6 +490,22 @@ impl Reader<'_> {
             index = next;
         }
         index
+    }
+
+    /// Whether `tokens[last]` is a modifier in the modifier list that
+    /// begins the declaration at `start`: the first token, or right after
+    /// another modifier or an annotation.
+    fn in_modifiers(&self, start: usize, last: usize) -> bool {
+        let modifier = |i: usize| {
+            self.kind(i) == Some(Kind::Word)
+                && MODIFIERS.contains(&self.text(i))
+                && !self.after_access(i)
+        };
+        modifier(last)
+            && self
+                .previous_significant(last)
+                .filter(|&p| p >= start)
+                .is_none_or(|p| modifier(p) || self.ends_annotation(p))
     }
 
     /// Whether a property accessor (`get() = ...`, `private set`) starts at
@@ -755,5 +806,31 @@ class CalcTest {
         let broken = discover_text(&Kotlin, "src/Broken.kt", "val x = \"\"\"open\n", "demo");
         assert_eq!(broken.diagnostics.len(), 1);
         assert_eq!(broken.diagnostics[0].code.as_str(), "E-SCAN-001");
+    }
+    /// @vtest.id TEST-ADAPTER-KOTLIN-MODIFIERS-ON-THEIR-OWN-LINE
+    /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
+    /// @vtest.target crates/vtest-adapter-lexical/src/kotlin.rs::Reader::declaration_end
+    /// @vtest.intent verifies a modifier list broken across lines, alone or after annotations, does not end the declaration, so the Test construct runs to the end of the function body and a change to the end of the body changes it
+    #[test]
+    fn modifiers_on_their_own_line() {
+        let declare = "// @vtest.id TEST-X\n// @vtest.covers VO-X\n// @vtest.intent check\n";
+        for header in [
+            "public\n",
+            "private\noverride\n",
+            "@Test\npublic\n",
+            "@Tag(\"a\") internal\nsuspend\n",
+        ] {
+            let one = format!("class C {{\n{declare}{header}fun f() {{ println(1) }}\n}}\n");
+            let two = one.replace("println(1)", "println(2)");
+            let text = |source: &str| {
+                let outcome = discover_text(&Kotlin, "src/C.kt", source, "demo");
+                assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+                assert_eq!(outcome.tests.len(), 1, "{header:?}");
+                assert_eq!(outcome.tests[0].location.locator, "C::f", "{header:?}");
+                outcome.tests[0].construct_text.clone()
+            };
+            assert!(text(&one).ends_with("println(1) }"), "{header:?}");
+            assert_ne!(text(&one), text(&two), "{header:?}");
+        }
     }
 }
