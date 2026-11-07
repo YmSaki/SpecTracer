@@ -15,6 +15,11 @@ shared by all framework-neutral adapters.
   `TEST`/`TEST_F`, Catch2 `TEST_CASE`, doctest, and Boost.Test macros with a
   body all work. Such a macro block is named after its macro, so several in
   one file get the Test locator `<macro>#<n>`.
+- **Where a construct ends**: after a function's `{}` body, or at the `;`
+  of a declaration (`= default;`, brace initializers, and class bodies
+  included). The braces of a constructor's initializer list
+  (`C() : x{0} { ... }`) are not the body. A macro invocation on a line of
+  its own ends at its line.
 - **Limits**: overloads share a locator, so use `@vtest.src-id` to target
   one of them. Both branches of `#if` are scanned. A Test can target only
   `cpp` Source Targets: a C function scanned by the `c` adapter has another

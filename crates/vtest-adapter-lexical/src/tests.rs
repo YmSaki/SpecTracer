@@ -4,40 +4,17 @@ use std::{
 };
 
 use super::*;
-use crate::{
-    header::{classify_c_like, AttributeForms, CLikeRules},
-    lexer::StringSyntax,
-};
 
-/// A minimal C-family profile used only by these tests.
+/// A line-oriented language used only by these tests, so that they exercise
+/// the crate root through [`LanguageProfile`] and nothing else:
+///
+/// - `// text` is a comment line; consecutive comment lines form a block,
+///   and the next line (with no blank line between) is its construct;
+/// - `scope NAME {` ... `}` qualifies the functions inside it;
+/// - `fn NAME ...` is a one-line function definition;
+/// - a construct line `??` cannot be read (its extent is unknown);
+/// - a line containing `!!` makes the whole file unreadable.
 struct Toy;
-
-const TOY_SYNTAX: LexicalSyntax = LexicalSyntax {
-    line_comments: &["//"],
-    line_comment_exclusions: &[],
-    block_comments: &[("/*", "*/")],
-    nested_block_comments: false,
-    strings: &[
-        StringSyntax::single("\"", "\""),
-        StringSyntax::single("'", "'"),
-    ],
-    preprocessor: false,
-    cpp_raw_strings: false,
-    word_suffix_chars: &[],
-    newline_terminates: false,
-    structure: Structure::Braces,
-};
-
-const TOY_RULES: CLikeRules = CLikeRules {
-    attributes: AttributeForms {
-        at_sign: true,
-        hash_bracket: false,
-        bracket: false,
-    },
-    scope_keywords: &["class", "namespace"],
-    scope_rest_keywords: &["namespace"],
-    arrow_bodies: false,
-};
 
 impl LanguageProfile for Toy {
     fn adapter_id(&self) -> &'static str {
@@ -56,12 +33,62 @@ impl LanguageProfile for Toy {
         &["vendor"]
     }
 
-    fn syntax(&self) -> &'static LexicalSyntax {
-        &TOY_SYNTAX
-    }
-
-    fn classify(&self, header: &[HTok<'_>], has_body: bool) -> HeaderKind {
-        classify_c_like(header, has_body, &TOY_RULES)
+    fn extract(&self, source: &str) -> Result<FileItems, ExtractError> {
+        let mut items = FileItems::default();
+        let mut scope = Vec::new();
+        let mut comment: Option<(usize, Vec<String>)> = None;
+        let mut offset = 0;
+        for raw in source.split_inclusive('\n') {
+            let start = offset;
+            offset += raw.len();
+            let line = raw.trim_end_matches('\n');
+            let indent = line.len() - line.trim_start().len();
+            let text = line.trim();
+            if text.contains("!!") {
+                return Err(ExtractError {
+                    offset: start,
+                    message: "unreadable line".to_owned(),
+                });
+            }
+            if let Some(body) = text.strip_prefix("//") {
+                let block = comment.get_or_insert((start + indent, Vec::new()));
+                block.1.push(body.to_owned());
+                continue;
+            }
+            let construct = (start + indent, start + line.len());
+            if let Some((comment_start, lines)) = comment.take() {
+                if !text.is_empty() && text != "}" {
+                    items.annotated.push(Annotated {
+                        comment_start,
+                        lines,
+                        construct: if text == "??" {
+                            Err("unknown extent".to_owned())
+                        } else {
+                            Ok(construct)
+                        },
+                    });
+                }
+            }
+            if let Some(name) = text.strip_prefix("scope ") {
+                scope.push(name.trim_end_matches('{').trim().to_owned());
+            } else if text == "}" {
+                scope.pop();
+            } else if let Some(rest) = text.strip_prefix("fn ") {
+                let mut name = scope.clone();
+                name.push(
+                    rest.split_whitespace()
+                        .next()
+                        .unwrap_or_default()
+                        .to_owned(),
+                );
+                items.functions.push(Function {
+                    name,
+                    start: construct.0,
+                    end: construct.1,
+                });
+            }
+        }
+        Ok(items)
     }
 }
 
@@ -92,42 +119,30 @@ fn discover(files: &[(&str, &str)]) -> DiscoveryOutcome {
     outcome
 }
 
-const CALCULATOR: &str = r#"namespace demo;
-
-class Calculator {
-    /** Adds two numbers.
-     * @vtest.src-id SRC-TOY-ADD
-     */
-    int add(int a, int b) { return a + b; }
-
-    int sub(int a, int b) {
-        if (a > b) { return a - b; }
-        return "}".length;
-    }
+const CALCULATOR: &str = "scope Calculator {
+  // Adds two numbers.
+  // @vtest.src-id SRC-TOY-ADD
+  fn add a b
+  fn sub a b
 }
-
-class CalculatorTest {
-    // @vtest.id TEST-TOY-ADD
-    // @vtest.covers VO-TOY-ADD, VO-TOY-MATH
-    // @vtest.target src/calc.toy::demo::Calculator::sub
-    // @vtest.target SRC-TOY-ADD
-    // @vtest.intent adds
-    @Test(timeout = 5)
-    void addsNumbers() { assertEquals(3, add(1, 2)); }
+scope CalculatorTest {
+  // @vtest.id TEST-TOY-ADD
+  // @vtest.covers VO-TOY-ADD, VO-TOY-MATH
+  // @vtest.target src/calc.toy::Calculator::sub
+  // @vtest.target SRC-TOY-ADD
+  // @vtest.intent adds
+  fn addsNumbers check add 1 2
 }
-
-/* @vtest.id TEST-TOY-CALL-STYLE */
+// @vtest.id TEST-TOY-CALL-STYLE
 // @vtest.covers VO-TOY-ADD
-// @vtest.intent a framework call with a closure is a Test construct too
-test("adds", () => {
-    expect(add(1, 2)).toBe(3);
-});
-"#;
+// @vtest.intent a construct that is not a function is a Test construct too
+test adds
+";
 
 /// @vtest.id TEST-ADAPTER-LEXICAL-DISCOVERS-ANNOTATED-CONSTRUCTS
 /// @vtest.covers VO-ADAPTER-LEXICAL-NORMALIZES-DECLARATION, VO-ADAPTER-LEXICAL-OPAQUE-LOCATOR-SYNTAX
 /// @vtest.target crates/vtest-adapter-lexical/src/lib.rs::LexicalAdapter::discover
-/// @vtest.intent verifies an annotated method and an annotated framework call are both Test constructs with normalized metadata, and every function is a Source Target with a scope-qualified locator and its declared src-id
+/// @vtest.intent verifies an annotated function and an annotated non-function construct are both Test constructs with normalized metadata, and every function the profile returns is a Source Target with a scope-qualified locator and its declared src-id
 #[test]
 fn discovers_annotated_tests_and_qualified_sources() {
     let outcome = discover(&[("src/calc.toy", CALCULATOR)]);
@@ -147,49 +162,44 @@ fn discovers_annotated_tests_and_qualified_sources() {
     assert_eq!(
         sources,
         vec![
-            ("src/calc.toy::demo::Calculator::add", Some("SRC-TOY-ADD")),
-            ("src/calc.toy::demo::Calculator::sub", None),
-            ("src/calc.toy::demo::CalculatorTest::addsNumbers", None),
+            ("src/calc.toy::Calculator::add", Some("SRC-TOY-ADD")),
+            ("src/calc.toy::Calculator::sub", None),
+            ("src/calc.toy::CalculatorTest::addsNumbers", None),
         ]
     );
 
     assert_eq!(outcome.tests.len(), 2);
-    let method = &outcome.tests[0];
-    assert_eq!(method.id.as_str(), "TEST-TOY-ADD");
+    let function = &outcome.tests[0];
+    assert_eq!(function.id.as_str(), "TEST-TOY-ADD");
     assert_eq!(
-        method.covers.iter().map(VoId::as_str).collect::<Vec<_>>(),
+        function.covers.iter().map(VoId::as_str).collect::<Vec<_>>(),
         vec!["VO-TOY-ADD", "VO-TOY-MATH"]
     );
     assert_eq!(
-        method.targets,
+        function.targets,
         vec![
             TargetRef::Locator(Locator {
                 adapter: AdapterId::new("toy"),
-                value: "src/calc.toy::demo::Calculator::sub".to_owned(),
+                value: "src/calc.toy::Calculator::sub".to_owned(),
             }),
             TargetRef::SrcId(SrcId::new("SRC-TOY-ADD")),
         ]
     );
-    assert_eq!(method.location.locator, "demo::CalculatorTest::addsNumbers");
-    assert_eq!(
-        method.execution.selector,
-        "demo::CalculatorTest::addsNumbers"
-    );
-    assert_eq!(method.execution.project.as_deref(), Some("toy-project"));
-    assert!(method.construct_text.starts_with("@Test(timeout = 5)"));
-    assert!(!method.construct_text.contains("@vtest"));
+    assert_eq!(function.location.locator, "CalculatorTest::addsNumbers");
+    assert_eq!(function.execution.selector, "CalculatorTest::addsNumbers");
+    assert_eq!(function.execution.project.as_deref(), Some("toy-project"));
+    assert_eq!(function.construct_text, "fn addsNumbers check add 1 2");
 
-    let call = &outcome.tests[1];
-    assert_eq!(call.id.as_str(), "TEST-TOY-CALL-STYLE");
-    assert_eq!(call.location.locator, "test#2");
-    assert!(call.construct_text.starts_with("test(\"adds\""));
-    assert!(call.construct_text.ends_with("});"));
+    let other = &outcome.tests[1];
+    assert_eq!(other.id.as_str(), "TEST-TOY-CALL-STYLE");
+    assert_eq!(other.location.locator, "test#2");
+    assert_eq!(other.construct_text, "test adds");
 }
 
 /// @vtest.id TEST-ADAPTER-LEXICAL-RANGES-MATCH-CURRENT-BYTES
 /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
 /// @vtest.target crates/vtest-adapter-lexical/src/lib.rs::LexicalAdapter::discover
-/// @vtest.intent verifies every returned Test and Source Target byte range selects exactly its construct bytes in the current file, with the Source Target including its comment block
+/// @vtest.intent verifies every returned Test and Source Target byte range selects exactly its construct bytes in the current file, with a declared Source Target including its comment block
 #[test]
 fn every_range_selects_its_construct_bytes() {
     let outcome = discover(&[("src/calc.toy", CALCULATOR)]);
@@ -202,12 +212,10 @@ fn every_range_selects_its_construct_bytes() {
     for source in &outcome.sources {
         assert_eq!(slice(&source.location), source.construct_text);
     }
-    assert!(outcome.sources[0]
-        .construct_text
-        .starts_with("/** Adds two numbers."));
-    assert!(outcome.sources[1]
-        .construct_text
-        .ends_with("return \"}\".length;\n    }"));
+    assert_eq!(
+        outcome.sources[0].construct_text,
+        "// Adds two numbers.\n  // @vtest.src-id SRC-TOY-ADD\n  fn add a b"
+    );
 }
 
 /// @vtest.id TEST-ADAPTER-LEXICAL-MALFORMED-DECLARATION-IS-MISSING
@@ -218,8 +226,8 @@ fn every_range_selects_its_construct_bytes() {
 fn malformed_declarations_are_missing_tests_with_diagnostics() {
     let outcome = discover(&[(
         "t.toy",
-        "// @vtest.id TEST-A\n// @vtest.covers VO-A\n// @vtest.intnet typo\nvoid a() {}\n\n\
-         // @vtest.id TEST-B\n// @vtest.intent no covers\nvoid b() {}\n",
+        "// @vtest.id TEST-A\n// @vtest.covers VO-A\n// @vtest.intnet typo\nfn a\n\n\
+         // @vtest.id TEST-B\n// @vtest.intent no covers\nfn b\n",
     )]);
     assert!(outcome.tests.is_empty());
     assert_eq!(outcome.missing_tests.len(), 2);
@@ -229,37 +237,46 @@ fn malformed_declarations_are_missing_tests_with_diagnostics() {
         .map(|diagnostic| diagnostic.code.as_str())
         .collect::<Vec<_>>();
     assert_eq!(codes, vec!["E-SCAN-006", "E-SCAN-007"]);
-    assert_eq!(outcome.missing_tests[0].construct_text, "void a() {}");
+    assert_eq!(outcome.missing_tests[0].construct_text, "fn a");
 }
 
-/// @vtest.id TEST-ADAPTER-LEXICAL-BLANK-LINE-DETACHES
-/// @vtest.covers VO-ADAPTER-LEXICAL-NORMALIZES-DECLARATION
+/// @vtest.id TEST-ADAPTER-LEXICAL-UNKNOWN-EXTENT-IS-MISSING
+/// @vtest.covers VO-ADAPTER-LEXICAL-UNPARSEABLE-DECLARATION-MISSING, VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
 /// @vtest.target crates/vtest-adapter-lexical/src/lib.rs::LexicalAdapter::discover
-/// @vtest.intent verifies a blank line between a declaration comment and the next construct leaves the construct undeclared
+/// @vtest.intent verifies a declared Test whose construct extent the profile cannot determine is a Missing Test construct with E-SCAN-001 and never a Test draft over a fragment, while other Tests of the file are still discovered
 #[test]
-fn a_blank_line_ends_the_association() {
+fn an_unknown_extent_is_missing_not_a_fragment() {
     let outcome = discover(&[(
         "t.toy",
-        "// @vtest.id TEST-A\n// @vtest.covers VO-A\n// @vtest.intent x\n\nvoid a() {}\n",
+        "// @vtest.id TEST-A\n// @vtest.covers VO-A\n// @vtest.intent a\n??\n\n\
+         // @vtest.id TEST-B\n// @vtest.covers VO-B\n// @vtest.intent b\nfn b\n",
     )]);
-    assert!(outcome.tests.is_empty());
-    assert!(outcome.missing_tests.is_empty());
-    assert_eq!(outcome.sources.len(), 1);
+    assert_eq!(
+        outcome
+            .tests
+            .iter()
+            .map(|t| t.id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["TEST-B"]
+    );
+    assert_eq!(outcome.missing_tests.len(), 1);
+    assert_eq!(outcome.diagnostics.len(), 1);
+    assert_eq!(outcome.diagnostics[0].code, "E-SCAN-001");
 }
 
 /// @vtest.id TEST-ADAPTER-LEXICAL-UNBALANCED-FILE-E-SCAN-001
 /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
 /// @vtest.target crates/vtest-adapter-lexical/src/lib.rs::LexicalAdapter::discover
-/// @vtest.intent verifies a file whose brackets do not balance yields E-SCAN-001 and no guessed constructs, without stopping discovery of other files or descending into excluded directories
+/// @vtest.intent verifies a file the profile cannot read yields E-SCAN-001 and no guessed constructs, without stopping discovery of other files or descending into excluded directories
 #[test]
-fn unbalanced_file_is_e_scan_001_and_contributes_nothing() {
+fn unreadable_file_is_e_scan_001_and_contributes_nothing() {
     let outcome = discover(&[
         (
             "a.toy",
-            "// @vtest.id T\n// @vtest.covers VO\n// @vtest.intent x\nvoid a() {\n",
+            "// @vtest.id T\n// @vtest.covers VO\n// @vtest.intent x\nfn a !!\n",
         ),
-        ("b.toy", "void b() {}\n"),
-        ("vendor/c.toy", "void c() {}\n"),
+        ("b.toy", "fn b\n"),
+        ("vendor/c.toy", "fn c\n"),
     ]);
     assert_eq!(outcome.files_scanned, 2);
     assert_eq!(outcome.diagnostics.len(), 1);
@@ -288,110 +305,4 @@ fn declares_only_source_discovery() {
     assert!(registry.test_runner("toy").is_none());
     assert!(registry.coverage("toy").is_none());
     assert!(registry.static_analysis("toy").is_none());
-}
-
-/// A profile for the non-brace structures: `def name` is a function and
-/// `class Name` a scope, as in Python and Ruby.
-struct Keyworded {
-    syntax: &'static LexicalSyntax,
-}
-
-const INDENT_SYNTAX: LexicalSyntax = LexicalSyntax {
-    line_comments: &["#"],
-    line_comment_exclusions: &[],
-    block_comments: &[],
-    nested_block_comments: false,
-    strings: &[StringSyntax::single("\"", "\"")],
-    preprocessor: false,
-    cpp_raw_strings: false,
-    word_suffix_chars: &[],
-    newline_terminates: true,
-    structure: Structure::Indentation,
-};
-
-const KEYWORD_SYNTAX: LexicalSyntax = LexicalSyntax {
-    word_suffix_chars: &['?', '!'],
-    structure: Structure::KeywordEnd,
-    ..INDENT_SYNTAX
-};
-
-impl LanguageProfile for Keyworded {
-    fn adapter_id(&self) -> &'static str {
-        "keyworded"
-    }
-
-    fn languages(&self) -> &'static [&'static str] {
-        &["keyworded"]
-    }
-
-    fn extensions(&self) -> &'static [&'static str] {
-        &["kw"]
-    }
-
-    fn syntax(&self) -> &'static LexicalSyntax {
-        self.syntax
-    }
-
-    fn classify(&self, header: &[HTok<'_>], _has_body: bool) -> HeaderKind {
-        match header {
-            [keyword, name, ..] if name.kind == lexer::TokKind::Word => {
-                if keyword.is_word("def") {
-                    HeaderKind::Function(vec![name.text.to_owned()])
-                } else if keyword.is_word("class") {
-                    HeaderKind::Scope(vec![name.text.to_owned()])
-                } else {
-                    HeaderKind::Other
-                }
-            }
-            _ => HeaderKind::Other,
-        }
-    }
-}
-
-fn structure_summary(syntax: &'static LexicalSyntax, source: &str) -> (Vec<String>, Vec<String>) {
-    let outcome = discover_text(&Keyworded { syntax }, "a.kw", source, "p");
-    assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
-    let sources = outcome
-        .sources
-        .iter()
-        .map(|source| source.locator.value.clone())
-        .collect();
-    let tests = outcome
-        .tests
-        .iter()
-        .map(|test| test.construct_text.clone())
-        .collect();
-    (sources, tests)
-}
-
-/// @vtest.id TEST-ADAPTER-LEXICAL-INDENTATION-EXTENTS
-/// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
-/// @vtest.target crates/vtest-adapter-lexical/src/indent.rs::construct_end
-/// @vtest.target crates/vtest-adapter-lexical/src/indent.rs::functions
-/// @vtest.intent verifies that under the indentation structure a construct ends where its indented body ends, a decorator belongs to it, and a class qualifies the functions it indents
-#[test]
-fn indentation_structure_bounds_constructs_by_indent() {
-    let source = "class Calc:\n    def add(self, a):\n        return a\n\n# @vtest.id TEST-KW-ADD\n# @vtest.covers VO-KW-ADD\n# @vtest.intent adds\n@mark\ndef test_add():\n    assert add(1)\n\n    assert add(2)\nvalue = 1\n";
-    let (sources, tests) = structure_summary(&INDENT_SYNTAX, source);
-    assert_eq!(sources, vec!["a.kw::Calc::add", "a.kw::test_add"]);
-    assert_eq!(
-        tests,
-        vec!["@mark\ndef test_add():\n    assert add(1)\n\n    assert add(2)"]
-    );
-}
-
-/// @vtest.id TEST-ADAPTER-LEXICAL-KEYWORD-END-EXTENTS
-/// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
-/// @vtest.target crates/vtest-adapter-lexical/src/keyword.rs::construct_end
-/// @vtest.target crates/vtest-adapter-lexical/src/keyword.rs::functions
-/// @vtest.intent verifies that under the keyword/end structure a construct ends at the end that closes it, nested blocks do not end it early, a word suffix such as `?` stays part of a name but `!=` stays an operator, and a class qualifies its functions
-#[test]
-fn keyword_end_structure_pairs_openers_with_end() {
-    let source = "class Calc\n  def empty?(a)\n    a != 0\n  end\nend\n\n# @vtest.id TEST-KW-ADD\n# @vtest.covers VO-KW-ADD\n# @vtest.intent adds\ndef test_add\n  [1].each do |x|\n    if x then x end\n  end\nend\n";
-    let (sources, tests) = structure_summary(&KEYWORD_SYNTAX, source);
-    assert_eq!(sources, vec!["a.kw::Calc::empty?", "a.kw::test_add"]);
-    assert_eq!(
-        tests,
-        vec!["def test_add\n  [1].each do |x|\n    if x then x end\n  end\nend"]
-    );
 }
