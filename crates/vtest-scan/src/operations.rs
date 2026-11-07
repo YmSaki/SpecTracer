@@ -2122,20 +2122,35 @@ mod tests {
     #[test]
     fn structured_operations_without_capability_write_nothing() {
         let root = rescan_fixture(RESCAN_FIXTURE_TEST);
+        // DS-1547: the Form names `rust-cargo` as its owner, which here lacks
+        // the Structured Test capability.
+        fs::create_dir_all(root.join(".verify/forms")).unwrap();
+        fs::write(
+            root.join(".verify/forms/rust-unit-function.yaml"),
+            vtest_adapter_rust::structured_test::RUST_UNIT_FUNCTION_FORM,
+        )
+        .unwrap();
         let before = tree_snapshot(&root);
         let mut registry = AdapterRegistry::new();
         registry
             .register(Box::new(DiscoveryOnly(RustCargoAdapter::new())))
             .unwrap();
         let supplied = FormAnswers {
-            form: "rust-unit".to_owned(),
+            form: "rust-unit-function".to_owned(),
             answers: BTreeMap::new(),
         };
         let mut set = BTreeMap::new();
         set.insert("intent".to_owned(), FormValue::Scalar("changed".to_owned()));
 
-        let create =
-            create_test(&root, "rust-unit", &supplied, None, false, &registry).unwrap_err();
+        let create = create_test(
+            &root,
+            "rust-unit-function",
+            &supplied,
+            None,
+            false,
+            &registry,
+        )
+        .unwrap_err();
         let edit = edit_test(&root, "TEST-ADD", None, &set, None, false, &registry).unwrap_err();
 
         assert_eq!(create.code, "E-ADAPTER-004");
