@@ -1210,6 +1210,49 @@ mod tests {
         assert_eq!(missing["diagnostics"][0]["code"], "E-OP-001");
     }
 
+    /// @vtest.id TEST-MCP-AUDIT-STATIC-COLLIDING-TEST-ID
+    /// @vtest.covers VO-AUDIT-STATIC-COLLIDING-TEST-ID-E-SCAN-002
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent the MCP audit_static tool rejects a Test ID declared by two constructs (one clean, one empty) with E-SCAN-002, returns no data, and writes no cache for both test and all
+    #[test]
+    fn audit_static_tool_rejects_a_colliding_test_id() {
+        for args in [json!({"test": "TEST-A"}), json!({"all": true})] {
+            let root = temp_root("audit-static-collision");
+            vtest_store::init_project(&root, "audit-static-collision").unwrap();
+            std::fs::write(
+                root.join("Cargo.toml"),
+                "[package]\nname = \"audit\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+            )
+            .unwrap();
+            std::fs::create_dir_all(root.join("src")).unwrap();
+            std::fs::create_dir_all(root.join("tests")).unwrap();
+            std::fs::write(root.join("src/lib.rs"), "pub fn f() -> i32 { 1 }\n").unwrap();
+            std::fs::write(
+                root.join("tests/a.rs"),
+                "/// @vtest.id TEST-A\n/// @vtest.covers VO-F\n/// @vtest.target src/lib.rs::f\n\
+                 /// @vtest.intent f\n#[test]\nfn a() { assert_eq!(audit::f(), 1); }\n",
+            )
+            .unwrap();
+            std::fs::write(
+                root.join("tests/b.rs"),
+                "/// @vtest.id TEST-A\n/// @vtest.covers VO-F\n/// @vtest.target src/lib.rs::f\n\
+                 /// @vtest.intent f\n#[test]\nfn b() {}\n",
+            )
+            .unwrap();
+            let envelope = dispatch_tool(&root, "audit_static", &args);
+            assert_eq!(envelope["ok"], false, "{args}: {envelope}");
+            assert_eq!(envelope["data"], Value::Null, "{args}: {envelope}");
+            assert_eq!(
+                envelope["diagnostics"][0]["code"], "E-SCAN-002",
+                "{args}: {envelope}"
+            );
+            assert!(
+                !root.join(".verify/cache/audit-static.json").exists(),
+                "{args}: no derived cache for a rejected operation"
+            );
+        }
+    }
+
     /// @vtest.id TEST-MCP-RECORD-ERROR-CODES
     /// @vtest.covers VO-SCAN-RECORD-INTEGRITY-E-SCAN-010
     /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
