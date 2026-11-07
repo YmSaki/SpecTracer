@@ -41,7 +41,7 @@ impl AuditOpError {
         match self {
             Self::Usage(_) => "E-OP-001",
             Self::MissingCapability(_) => "E-ADAPTER-004",
-            Self::Cache { .. } => "E-CORE-001",
+            Self::Cache { .. } => vtest_model::INTERNAL_ERROR_CODE,
         }
     }
 
