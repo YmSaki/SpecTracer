@@ -59,6 +59,15 @@ language-adapter separation is tracked in
 future TypeScript/JavaScript, Go, C#, and other adapters must preserve the same
 contract and evidence rules.
 
+`vtest-adapter-lexical` is the shared, framework-neutral discovery engine for
+languages other than Rust. A Test construct is the construct that immediately
+follows a comment block declaring `@vtest.` test-keys, so discovery does not
+depend on the project's test framework. Each language is a `LanguageProfile`
+(lexical syntax, file extensions, function and scope recognition) registered as
+an adapter that declares only `source_discovery`; runner, coverage, and static
+analysis stay undeclared, so verification reports their checks as
+`NO_EVIDENCE` rather than inventing a framework-specific default.
+
 ## Interface parity
 
 CLI and MCP operations must be non-interactive and return the same JSON result

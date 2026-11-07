@@ -1,0 +1,12 @@
+id: VO-ADAPTER-LEXICAL-NORMALIZES-DECLARATION
+parent: null
+derives_from:
+  - doc: DES-215
+claim: >-
+  `SourceDiscoveryAdapter` は、adapter所有のsource declarationを `id`、`covers[]`、`targets[]`、`intent`、`input?`、`expect?`、`kind?`、`cases[]`、`related[]` の論理fieldへ正規化する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-07T00:00:00Z
+updated: 2026-11-07T00:00:00Z

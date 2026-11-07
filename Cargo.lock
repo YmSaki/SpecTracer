@@ -535,6 +535,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vtest-adapter-lexical"
+version = "0.1.0"
+dependencies = [
+ "ignore",
+ "vtest-adapter-api",
+ "vtest-model",
+]
+
+[[package]]
 name = "vtest-adapter-rust"
 version = "0.1.0"
 dependencies = [

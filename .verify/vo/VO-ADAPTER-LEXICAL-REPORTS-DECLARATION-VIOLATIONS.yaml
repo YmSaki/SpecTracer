@@ -1,0 +1,12 @@
+id: VO-ADAPTER-LEXICAL-REPORTS-DECLARATION-VIOLATIONS
+parent: null
+derives_from:
+  - doc: DES-229
+claim: >-
+  adapterはTest構文の違反（重複不可キーの重複、未知キー、必須キーの欠落）をE-SCAN-005 / E-SCAN-006 / E-SCAN-007で報告する（§5.4）。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-07T00:00:00Z
+updated: 2026-11-07T00:00:00Z
