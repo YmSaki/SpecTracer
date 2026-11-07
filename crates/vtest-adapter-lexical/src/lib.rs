@@ -65,6 +65,7 @@ pub mod annotation;
 pub mod braces;
 pub mod header;
 pub mod lexer;
+pub mod swift;
 
 use std::{
     collections::BTreeMap,
