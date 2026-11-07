@@ -56,6 +56,7 @@ pub mod cpp;
 pub mod csharp;
 pub mod go;
 pub mod java;
+pub mod javascript;
 pub mod kotlin;
 pub mod shared;
 pub mod swift;
