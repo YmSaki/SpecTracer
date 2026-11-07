@@ -33,7 +33,9 @@ pub fn builtin_registry() -> Result<AdapterRegistry, AdapterRegistrationError> {
     registry.register(Box::new(vtest_adapter_lexical::csharp::adapter()))?;
     registry.register(Box::new(vtest_adapter_lexical::go::adapter()))?;
     registry.register(Box::new(vtest_adapter_lexical::java::adapter()))?;
+    registry.register(Box::new(vtest_adapter_lexical::javascript::adapter()))?;
     registry.register(Box::new(vtest_adapter_lexical::kotlin::adapter()))?;
     registry.register(Box::new(vtest_adapter_lexical::php::adapter()))?;
+    registry.register(Box::new(vtest_adapter_lexical::python::adapter()))?;
     Ok(registry)
 }

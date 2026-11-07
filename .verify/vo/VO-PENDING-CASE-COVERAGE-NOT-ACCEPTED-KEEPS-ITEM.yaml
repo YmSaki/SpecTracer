@@ -1,0 +1,11 @@
+id: VO-PENDING-CASE-COVERAGE-NOT-ACCEPTED-KEEPS-ITEM
+parent: null
+derives_from:
+  - doc: DS-892
+claim: "実効判断が未確定・`rejected`・`deferred`のいずれの場合も項目を生成し、参照した判断記録IDを`basis`に載せる。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-08T12:00:00+09:00
+updated: 2026-11-08T12:00:00+09:00

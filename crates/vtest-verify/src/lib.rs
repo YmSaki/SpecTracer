@@ -535,6 +535,47 @@ impl EvidenceContext<'_> {
     }
 }
 
+/// The latest Evidence of one Test, chosen exactly as `verify_project`
+/// chooses it (DS-673/DS-674/DS-1365/DS-1366): the newest record *file*,
+/// valid or not. A newer invalid record (or one whose Test cannot be told)
+/// is the latest, and no older valid record stands in for it.
+#[derive(Clone, Debug)]
+pub enum LatestEvidence {
+    /// The latest record is a valid Evidence record.
+    Valid(Box<EvidenceRecord>),
+    /// The latest record could not be read or is not a valid record
+    /// (E-SCAN-010 / E-INTERNAL-001). `id` is its file stem, when known.
+    Invalid { id: Option<String>, reason: String },
+}
+
+/// The latest Evidence of each of `test_ids`, by the same selection
+/// `verify_project` uses, so a caller that shows Evidence (`vtest report`)
+/// never presents an older valid record that `verify` has refused to use.
+/// A Test with no Evidence record at all is absent from the map.
+pub fn latest_evidence<'a>(
+    root: &Path,
+    registry: &vtest_adapter_api::AdapterRegistry,
+    test_ids: impl IntoIterator<Item = &'a str>,
+) -> BTreeMap<String, LatestEvidence> {
+    let layout = VerifyLayout::new(root);
+    let context = EvidenceContext::load(root, &layout, registry);
+    let mut out = BTreeMap::new();
+    for test_id in test_ids {
+        let latest = match context.invalid_latest(test_id) {
+            Some(invalid) => LatestEvidence::Invalid {
+                id: invalid.id.clone(),
+                reason: invalid.reason.clone(),
+            },
+            None => match context.latest_by_test.get(test_id) {
+                Some(record) => LatestEvidence::Valid(Box::new(record.clone())),
+                None => continue,
+            },
+        };
+        out.insert(test_id.to_owned(), latest);
+    }
+    out
+}
+
 /// The `test_id` a broken Evidence file declares, so a record that fails the
 /// schema (an unknown field, an id that differs from its file name, ...) can
 /// still be attributed to its Test. The file is parsed as YAML and the value
