@@ -207,6 +207,27 @@ impl<P: LanguageProfile> SourceDiscoveryAdapter for LexicalAdapter<P> {
     }
 }
 
+/// Discovers the text of one file as if it were at the project-relative
+/// path `relative`, without touching the file system. `vtest scan` goes
+/// through [`SourceDiscoveryAdapter::discover`]; this entry point lets a
+/// language profile's tests check its rules on inline sources.
+pub fn discover_text(
+    profile: &dyn LanguageProfile,
+    relative: &str,
+    source: &str,
+    package: &str,
+) -> DiscoveryOutcome {
+    let mut outcome = DiscoveryOutcome {
+        files_scanned: 1,
+        tests: Vec::new(),
+        missing_tests: Vec::new(),
+        sources: Vec::new(),
+        diagnostics: Vec::new(),
+    };
+    FileScan::new(profile, relative, source, package).run(&mut outcome);
+    outcome
+}
+
 fn collect_files(
     project_root: &Path,
     path: &Path,
