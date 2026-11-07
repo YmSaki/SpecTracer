@@ -64,7 +64,9 @@
 pub mod annotation;
 pub mod braces;
 pub mod header;
+pub mod keyword;
 pub mod lexer;
+pub mod ruby;
 
 use std::{
     collections::BTreeMap,
@@ -375,6 +377,25 @@ impl<'a> FileScan<'a> {
                     braces::construct_end(
                         &tokens_for_extent,
                         syntax,
+                        start,
+                        tokens_for_extent.len(),
+                    )
+                };
+                (functions, Box::new(extent))
+            }
+            Structure::KeywordEnd => {
+                let partners = match keyword::pairs(&tokens, self.source) {
+                    Ok(partners) => partners,
+                    Err(error) => return self.lex_failure(outcome, error),
+                };
+                let classify =
+                    |header: &[HTok<'_>], has_body: bool| self.profile.classify(header, has_body);
+                let functions = keyword::functions(&tokens, self.source, &partners, &classify);
+                let tokens_for_extent = tokens.clone();
+                let extent = move |start: usize| {
+                    keyword::construct_end(
+                        &tokens_for_extent,
+                        &partners,
                         start,
                         tokens_for_extent.len(),
                     )
