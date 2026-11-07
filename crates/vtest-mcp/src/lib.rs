@@ -1161,7 +1161,11 @@ fn verify_tool(root: &Path, args: &Value) -> Value {
         Ok((exit, data, diagnostics)) => {
             ops::verify::scoped_envelope(exit == ExitCode::Ok, &data, &diagnostics)
         }
-        Err(ops::verify::VerifyOpError::Usage { code, message }) => failure_envelope(code, message),
+        Err(ops::verify::VerifyOpError::Usage {
+            code,
+            message,
+            candidates,
+        }) => failure_envelope_with_candidates(code, message, candidates.as_deref()),
         Err(ops::verify::VerifyOpError::Scan(error)) => {
             let code = error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE);
             failure_envelope(code, error.to_string())
@@ -1203,15 +1207,18 @@ fn resolve_registry() -> Result<vtest_adapter_api::AdapterRegistry, Value> {
 }
 
 fn failure_envelope(code: &str, message: impl Into<String>) -> Value {
-    json!({
-        "ok": false,
-        "data": null,
-        "diagnostics": [{
-            "code": code,
-            "severity": "error",
-            "message": message.into()
-        }]
-    })
+    failure_envelope_with_candidates(code, message, None)
+}
+
+/// DS-1191/DS-1192: an input-validation tool error carries
+/// `{code, message, candidates}`. The envelope is built by the same function
+/// the CLI uses for `--format json` (DS-1563).
+fn failure_envelope_with_candidates(
+    code: &str,
+    message: impl Into<String>,
+    candidates: Option<&[String]>,
+) -> Value {
+    ops::verify::usage_envelope(code, &message.into(), candidates)
 }
 
 #[cfg(test)]
@@ -1269,6 +1276,37 @@ mod tests {
                 "{tool}: {envelope}"
             );
         }
+    }
+
+    /// @vtest.id TEST-MCP-VERIFY-UNDEFINED-GATE-CANDIDATES
+    /// @vtest.covers VO-VERIFY-UNDEFINED-GATE-CANDIDATES
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent the MCP verify tool rejects an unknown gate as an E-CONFIG-002 tool error whose candidates equal the defined gate names and whose data is null
+    #[test]
+    fn verify_tool_returns_defined_gates_as_candidates() {
+        let root = temp_root("gate-candidates");
+        let layout = vtest_store::init_project(&root, "gate-candidates").unwrap();
+        let mut config = vtest_store::load_config(&root).unwrap();
+        for name in ["release", "beta"] {
+            config.gates.push(vtest_store::GateConfig {
+                name: name.to_owned(),
+                require: vtest_store::GateRequirement {
+                    verification: "PASS".to_owned(),
+                    approvals: Vec::new(),
+                },
+            });
+        }
+        std::fs::write(layout.config(), config.to_yaml()).unwrap();
+
+        let result = tool_result(dispatch_tool(&root, "verify", &json!({"gate": "Release"})));
+        assert_eq!(result["isError"], true);
+        let envelope = &result["structuredContent"];
+        assert_eq!(envelope["data"], Value::Null, "no partial result");
+        let diagnostic = &envelope["diagnostics"][0];
+        assert_eq!(diagnostic["code"], "E-CONFIG-002");
+        assert_eq!(diagnostic["candidates"], json!(["release", "beta"]));
+        let message = diagnostic["message"].as_str().unwrap();
+        assert!(message.contains("'Release'") && message.contains("beta"));
     }
 
     /// @vtest.id TEST-MCP-RECORD-ERROR-CODES
@@ -1340,9 +1378,14 @@ mod tests {
                     vtest_cli::ops::verify::scoped_envelope(ok, &data, &diagnostics),
                 )
             }
-            Err(vtest_cli::ops::verify::VerifyOpError::Usage { code, message }) => {
-                (ExitCode::Usage, failure_envelope(code, message))
-            }
+            Err(vtest_cli::ops::verify::VerifyOpError::Usage {
+                code,
+                message,
+                candidates,
+            }) => (
+                ExitCode::Usage,
+                failure_envelope_with_candidates(code, message, candidates.as_deref()),
+            ),
             Err(vtest_cli::ops::verify::VerifyOpError::Scan(error)) => {
                 let code = error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE);
                 (ExitCode::Usage, failure_envelope(code, error.to_string()))
