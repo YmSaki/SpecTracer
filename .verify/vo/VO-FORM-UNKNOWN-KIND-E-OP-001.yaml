@@ -1,0 +1,11 @@
+id: VO-FORM-UNKNOWN-KIND-E-OP-001
+parent: null
+derives_from:
+  - doc: DS-534
+claim: '重複kindまたは対応の不一致はE-ADAPTER-001、未知kindはE-OP-001とし、coreが名前からRust adapterを推測しない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00
