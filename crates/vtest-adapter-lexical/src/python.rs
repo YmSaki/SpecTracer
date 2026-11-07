@@ -61,6 +61,7 @@ impl LanguageProfile for Python {
     fn extract(&self, source: &str) -> Result<FileItems, ExtractError> {
         let tokens = lex(source)?;
         let lines = logical_lines(source, &tokens)?;
+        check_blocks(source, &tokens, &lines)?;
         let reader = Reader {
             source,
             tokens: &tokens,
@@ -209,11 +210,29 @@ fn string_end(bytes: &[u8], i: usize, formatted: bool) -> Option<usize> {
 }
 
 /// One past the `}` closing an f-string field whose code starts at `i`.
+/// The field is code: brackets nest, strings (f-strings included) are
+/// read whole, and `#` starts a comment (Python 3.12). After a top-level
+/// `:`, the format spec is text with nested `{...}` fields.
 fn field_end(bytes: &[u8], mut i: usize) -> Option<usize> {
     let mut depth = 1usize;
     while i < bytes.len() {
         match bytes[i] {
+            b'#' => {
+                while i < bytes.len() && bytes[i] != b'\n' {
+                    i += 1;
+                }
+            }
             b'"' | b'\'' => i = string_end(bytes, i, false)?,
+            byte if is_word_char(byte) => match string_prefix(bytes, i) {
+                Some((prefix, formatted)) if prefix > 0 => {
+                    i = string_end(bytes, i + prefix, formatted)?;
+                }
+                _ => {
+                    while i < bytes.len() && is_word_char(bytes[i]) {
+                        i += 1;
+                    }
+                }
+            },
             b'(' | b'[' | b'{' => {
                 depth += 1;
                 i += 1;
@@ -222,8 +241,19 @@ fn field_end(bytes: &[u8], mut i: usize) -> Option<usize> {
                 depth -= 1;
                 i += 1;
                 if depth == 0 {
-                    return Some(i);
+                    return (bytes[i - 1] == b'}').then_some(i);
                 }
+            }
+            b':' if depth == 1 => {
+                i += 1;
+                while i < bytes.len() {
+                    match bytes[i] {
+                        b'{' => i = field_end(bytes, i + 1)?,
+                        b'}' => return Some(i + 1),
+                        _ => i += 1,
+                    }
+                }
+                return None;
             }
             _ => i += 1,
         }
@@ -295,14 +325,82 @@ fn logical_lines(source: &str, tokens: &[Tok]) -> Result<Vec<Line>, ExtractError
     }
 }
 
-/// Lines that continue the compound statement before them at the same
-/// indentation.
+/// Statements that always open a block with a `:` (soft keywords such as
+/// `match` and `case` are not among them).
+const BLOCK_KEYWORDS: &[&str] = &[
+    "def", "class", "if", "elif", "else", "for", "while", "try", "except", "finally", "with",
+];
+
+/// Checks the block structure the way Python's parser does, so a cut-off
+/// or malformed statement is not read as a complete one: a statement
+/// keyword needs its `:`, a line ending with `:` needs an indented block
+/// after it, a block can only be indented after such a line, and a dedent
+/// must return to an enclosing indentation.
+fn check_blocks(source: &str, tokens: &[Tok], lines: &[Line]) -> Result<(), ExtractError> {
+    let text = |index: usize| &source[tokens[index].start..tokens[index].end];
+    let mut indents = vec![0usize];
+    let mut opens = false;
+    for (n, line) in lines.iter().enumerate() {
+        let error = |message: &str| Err(ExtractError::new(tokens[line.first].start, message));
+        let top = *indents.last().expect("the outermost indentation stays");
+        if line.indent > top {
+            if !opens {
+                return error("unexpected indent");
+            }
+            indents.push(line.indent);
+        } else {
+            if opens {
+                return error("expected an indented block");
+            }
+            while indents.last().is_some_and(|&indent| indent > line.indent) {
+                indents.pop();
+            }
+            if indents.last() != Some(&line.indent) {
+                return error("unindent does not match any outer indentation level");
+            }
+        }
+        let mut keyword = line.first;
+        if text(keyword) == "async" && keyword < line.last {
+            keyword += 1;
+        }
+        let mut depth = 0usize;
+        let mut colon = false;
+        for (index, token) in tokens
+            .iter()
+            .enumerate()
+            .take(line.last + 1)
+            .skip(line.first)
+        {
+            match token.kind {
+                Kind::Open(_) => depth += 1,
+                Kind::Close(_) => depth = depth.saturating_sub(1),
+                Kind::Op if depth == 0 && text(index) == ":" => colon = true,
+                _ => {}
+            }
+        }
+        if BLOCK_KEYWORDS.contains(&text(keyword)) && !colon {
+            return error("a compound statement without its `:`");
+        }
+        opens = text(line.last) == ":";
+        if opens && n + 1 == lines.len() {
+            return Err(ExtractError::new(
+                tokens[line.last].start,
+                "expected an indented block",
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// Compound statements whose suites stay in the enclosing scope.
 const COMPOUND: &[&str] = &[
     "if", "elif", "else", "try", "except", "finally", "with", "for", "while", "match", "case",
 ];
 
-const CLAUSES: &[&str] = &["elif", "else", "except", "finally", "case"];
+/// Lines that continue the compound statement before them at the same
+/// indentation (`case` clauses are handled apart, as `case` is a soft
+/// keyword that can also be a name: `case = 2`).
+const CLAUSES: &[&str] = &["elif", "else", "except", "finally"];
 
 struct Reader<'a> {
     source: &'a str,
@@ -343,11 +441,22 @@ impl Reader<'_> {
             }
             let continues = index < self.lines.len()
                 && self.lines[index].indent == indent
-                && CLAUSES.iter().any(|clause| self.starts_with(index, clause));
+                && (CLAUSES.iter().any(|clause| self.starts_with(index, clause))
+                    || (self.is_case(line) && self.is_case(index)));
             if !continues {
                 return index;
             }
         }
+    }
+
+    /// Whether logical line `line` is a `case` clause of a `match`: it
+    /// starts with `case` and opens a block, unlike `case = 2`.
+    fn is_case(&self, line: usize) -> bool {
+        self.starts_with(line, "case")
+            && self
+                .word(line, 1)
+                .is_some_and(|word| !matches!(word, "=" | "." | ":"))
+            && self.text(self.lines[line].last) == ":"
     }
 
     /// The byte range of logical lines `first..end`.
@@ -642,5 +751,57 @@ x = 1
             Some("SRC-PY-WIN")
         );
         assert_eq!(outcome.sources[1].src_id, None);
+    }
+
+    /// @vtest.id TEST-ADAPTER-PYTHON-BLOCK-STRUCTURE-CASE-NAMES-AND-FSTRING-FIELDS
+    /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
+    /// @vtest.target crates/vtest-adapter-lexical/src/python.rs::check_blocks
+    /// @vtest.intent verifies that a def without its colon or suite, or with a dedent to no enclosing level, makes the file unreadable instead of yielding a Test, that a statement named case after a function is not part of it so editing it leaves the Test text unchanged, and that comments and nested f-strings inside f-string fields are read as code
+    #[test]
+    fn block_structure_case_names_and_fstring_fields() {
+        let declare =
+            "# @vtest.id TEST-X\n# @vtest.covers VO-X\n# @vtest.intent complete construct\n";
+        for tail in [
+            "def f():\n",
+            "def f()\n    assert 1 == 1\n",
+            "def f():\n        a = 1\n    b = 2\n",
+            "if x:\ny = 1\n",
+            "    x = 1\n",
+        ] {
+            let outcome = discover_text(
+                &Python,
+                "tests/test_a.py",
+                &format!("{declare}{tail}"),
+                "demo",
+            );
+            assert_eq!(outcome.diagnostics.len(), 1, "{tail:?}");
+            assert_eq!(outcome.diagnostics[0].code.as_str(), "E-SCAN-001");
+            assert!(outcome.tests.is_empty(), "{tail:?}");
+            assert!(outcome.sources.is_empty(), "{tail:?}");
+        }
+
+        let text = |source: &str| {
+            let outcome = discover_text(&Python, "tests/test_a.py", source, "demo");
+            assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+            assert_eq!(outcome.tests.len(), 1);
+            outcome.tests[0].construct_text.clone()
+        };
+        let one = format!("{declare}def f():\n    assert 1 == 1\ncase = 2\n");
+        assert_eq!(text(&one), "def f():\n    assert 1 == 1");
+        assert_eq!(text(&one), text(&one.replace("case = 2", "case = 999")));
+        let matched = format!(
+            "{declare}def f(x):\n    match x:\n        case 1:\n            return 1\n        case (a, b):\n            return 2\n"
+        );
+        assert!(text(&matched).ends_with("return 2"));
+
+        for field in [
+            "s = f\"{(\n      1 # }\" ignore this comment\n    )}\"",
+            "s = f\"{f\"{1}\"}\"",
+            "s = f\"{x:>{width}}\"",
+            "s = f'{\"a\" if x else \"b\"!r:#x}'",
+        ] {
+            let source = format!("{declare}def f():\n    {field}\n    assert 1 == 1\n");
+            assert!(text(&source).ends_with("assert 1 == 1"), "{field:?}");
+        }
     }
 }
