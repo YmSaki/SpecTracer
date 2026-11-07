@@ -108,7 +108,7 @@ impl LanguageProfile for JavaScript {
             .map_err(|index| {
                 ExtractError::new(
                     tokens[index].start,
-                    "the file ends before this statement is complete",
+                    "the file or its enclosing block ends before this statement is complete",
                 )
             })?;
         Ok(FileItems {
@@ -178,6 +178,15 @@ fn is_word_char(byte: u8) -> bool {
     is_word_start(byte) || byte.is_ascii_digit()
 }
 
+/// Whether the last code token read so far is a `}`.
+fn after_brace(tokens: &[Tok]) -> bool {
+    tokens
+        .iter()
+        .rev()
+        .find(|t| t.kind != Kind::Comment)
+        .is_some_and(|t| t.kind == Kind::Close('}'))
+}
+
 struct Lexer<'a> {
     source: &'a str,
     bytes: &'a [u8],
@@ -233,14 +242,16 @@ impl Lexer<'_> {
                     i += 1;
                 }
                 Kind::Word
-            } else if byte == b'/'
+            } else if let Some(regex) = (byte == b'/'
                 && !matches!(bytes.get(i + 1), Some(b'/' | b'*'))
-                && self.expression_position(&tokens)
+                && self.expression_position(&tokens))
+            .then(|| self.regex_end(i))
+            .filter(|end| end.is_some() || !after_brace(&tokens))
             {
                 // Where an expression starts, a `/` can only begin a
-                // regular expression.
-                i = self
-                    .regex_end(i)
+                // regular expression. After a `}`, which may close a block
+                // or an object literal, a `/` that cannot end one divides.
+                i = regex
                     .ok_or_else(|| ExtractError::new(start, "unterminated regular expression"))?;
                 Kind::Literal
             } else if let Some(end) = (byte == b'<' && self.expression_position(&tokens))
@@ -741,7 +752,7 @@ impl Reader<'_> {
     /// (see the module documentation), otherwise where automatic semicolon
     /// insertion ends it. A `}` or `)` closing the enclosing block also
     /// ends it.
-    /// `None` when the file ends first: after a token that cannot end an
+    /// `None` when the file or the enclosing block ends first: after a token that cannot end an
     /// expression (`() =>`, `a +`), a decorator, or a `function` or `class`
     /// still waiting for its body.
     fn scan(&self, start: usize, bodied: bool, keyword: &str) -> Option<usize> {
@@ -752,7 +763,14 @@ impl Reader<'_> {
                     index += 1;
                     continue;
                 }
-                Kind::Close(_) => return Some(index),
+                Kind::Close(_) => {
+                    // The enclosing block ends the statement, which must be
+                    // able to stop there, as at a line break.
+                    return match self.previous_significant(start, index) {
+                        Some(last) if !self.can_stop(start, last) => None,
+                        _ => Some(index),
+                    };
+                }
                 Kind::Semi => return Some(index + 1),
                 Kind::Open('{') if bodied && self.opens_body(start, index) => {
                     let close = self.partner(index);
@@ -771,14 +789,10 @@ impl Reader<'_> {
                 _ => index,
             };
             let Some(next) = self.next_significant(last + 1) else {
-                return (self.can_end(last)
-                    && !self.ends_decorator(last)
-                    && !self.awaits_body(start, last))
-                .then_some(last + 1);
+                return self.complete(start, last).then_some(last + 1);
             };
             if self.line_breaks(last, next) > 0
-                && self.can_end(last)
-                && !self.ends_decorator(last)
+                && self.can_stop(start, last)
                 && !self.continues(next, bodied)
             {
                 return Some(last + 1);
@@ -788,11 +802,36 @@ impl Reader<'_> {
         None
     }
 
+    /// Whether the statement in `tokens[start..=last]` may end there: its
+    /// expression can end, it is not a bare decorator, and no `function` or
+    /// `class` still waits for its body.
+    fn complete(&self, start: usize, last: usize) -> bool {
+        self.can_end(last) && !self.ends_decorator(last) && !self.awaits_body(start, last)
+    }
+
+    /// Whether the statement in `tokens[start..=last]` may stop before a
+    /// line break or the `}` closing its block. Unlike [`Self::complete`],
+    /// the statement's own `function` may lack its body there, as a
+    /// TypeScript overload or ambient signature (`function f(): void`), but
+    /// a function or class expression in it may not (`f = function ()`).
+    fn can_stop(&self, start: usize, last: usize) -> bool {
+        let keyword = self.statement_keyword(start);
+        self.can_end(last)
+            && !self.ends_decorator(last)
+            && !(keyword < last && self.awaits_body(keyword + 1, last))
+    }
+
     /// Whether a `function` or `class` in `tokens[start..=last]` (outside
     /// brackets) has no body yet: `const f = function ()`. An ambient
     /// `declare` statement needs none.
     fn awaits_body(&self, start: usize, last: usize) -> bool {
-        if self.is(self.skip_decorators(start), "declare") {
+        let mut prefix = self.skip_decorators(start);
+        while matches!(self.text(prefix), "export" | "default") {
+            prefix = self
+                .next_significant(prefix + 1)
+                .unwrap_or(self.tokens.len());
+        }
+        if self.is(prefix, "declare") {
             return false;
         }
         let mut waiting = false;
@@ -1326,7 +1365,10 @@ impl Reader<'_> {
                     self.tokens[next].start,
                     self.tokens[end.max(next + 1) - 1].end,
                 )),
-                None => Err("the file ends before this statement is complete".to_owned()),
+                None => Err(
+                    "the file or its enclosing block ends before this statement is complete"
+                        .to_owned(),
+                ),
             };
             output.push(Annotated {
                 comment_start: self.all[first].start,
@@ -1730,6 +1772,41 @@ describe("Calc", () => {
         ] {
             let outcome = discover_text(&JavaScript, "src/d.ts", complete, "demo");
             assert!(outcome.diagnostics.is_empty(), "{complete:?}");
+        }
+    }
+
+    /// @vtest.id TEST-ADAPTER-JAVASCRIPT-ENCLOSING-BLOCK-ENDS-AND-OBJECT-DIVISION
+    /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
+    /// @vtest.target crates/vtest-adapter-lexical/src/javascript.rs::Reader::scan
+    /// @vtest.intent verifies that a statement cut off by the `}` of its enclosing block (an arrow or function expression without its body, a dangling operator, a bare decorator) is not read as a whole Test, while a function expression body may start on the next line, a `/` after an object literal divides, and exported ambient `declare function`s and signatures in a `declare namespace` need no body
+    #[test]
+    fn enclosing_block_ends_and_object_division() {
+        let declare = "// @vtest.id TEST-JS-REVIEW\n// @vtest.covers VO-REVIEW\n// @vtest.intent full source is traced\n";
+        for source in [
+            format!("class C {{\n{declare}broken = () =>\n}}\n"),
+            format!("function outer() {{\n{declare}const f = function ()\n}}\n"),
+            format!("function outer() {{\n{declare}test('a', () => {{}}) +\n}}\n"),
+            format!("class C {{\n{declare}@sealed\n}}\n"),
+        ] {
+            let outcome = discover_text(&JavaScript, "src/t.js", &source, "demo");
+            assert!(outcome.tests.is_empty(), "{source:?}");
+            assert!(!outcome.diagnostics.is_empty(), "{source:?}");
+        }
+        for complete in [
+            "const n = { valueOf() { return 6; } } / 2;\n",
+            "if (x) { y(); }\n/re/.test(z);\n",
+            "export declare function ambient(x: number): void\n",
+            "export default declare class A\n",
+            "const g = function ()\n{ return 1; }\n",
+            "declare namespace N {\n  function f(): void\n}\n",
+            "class C {\n  abstract f(): void\n}\n",
+        ] {
+            let outcome = discover_text(&JavaScript, "src/d.ts", complete, "demo");
+            assert!(
+                outcome.diagnostics.is_empty(),
+                "{complete:?}: {:?}",
+                outcome.diagnostics
+            );
         }
     }
 }

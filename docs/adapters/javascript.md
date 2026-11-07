@@ -26,10 +26,15 @@ all framework-neutral adapters.
 - **Limits**: a `/` is read as a regular expression only where an
   expression can start, so a regular expression after `)` (rare outside
   `if (x) /re/.test(y)`) is read as division; if its brackets then do not
-  balance, the file is reported as `E-SCAN-001`. So is a file that ends
+  balance, the file is reported as `E-SCAN-001`. After `}`, which may close
+  a block or an object literal, a `/` is read as a regular expression only
+  if one ends on that line, and otherwise as division. A file that ends
   inside a statement (`const f = () =>`, `const f = function ()`, an
   unterminated regular expression, or a template `${...}` whose brackets do
-  not balance). Functions nested inside other functions or inside call
+  not balance) is `E-SCAN-001` too, and so is a statement that the `}` of
+  its block cuts off the same way (`broken = () =>` before a class's `}`);
+  a function declaration without a body there is read as an overload or
+  ambient signature. Functions nested inside other functions or inside call
   arguments (such as helpers defined in a `describe` callback) are not Source
   Targets, and neither are methods of object literals assigned to a
   variable. In an initializer, `name<...>` followed by `(` or a template
