@@ -573,6 +573,16 @@ impl Reader<'_> {
     /// qualifiers: `add`, `Calc::add`, `~Calc`, `operator==`,
     /// `operator()`, or `max_of` for `max_of<int>`.
     fn function_name(&self, start: usize, paren: usize) -> Option<Vec<String>> {
+        // A grouped declarator (`int (*factory(void))(int)`, `T (&pick())[2]`):
+        // the name is the one inside the group.
+        let inner = self.next_significant(paren + 1)?;
+        if matches!(self.tokens[inner].kind, Kind::Punct('*' | '&'))
+            && !(paren > start && self.text(paren - 1) == "operator")
+        {
+            let close = self.partner(paren);
+            let open = (inner..close).find(|&i| self.tokens[i].kind == Kind::Open('('))?;
+            return self.function_name(inner + 1, open);
+        }
         let mut name_end = paren;
         // `operator()(...)`: the first `()` is part of the name.
         if name_end > start
@@ -810,6 +820,35 @@ TEST(CalcTest, Other) {}
         assert_ne!(
             test("C() : x{0} { marker(); one(); }"),
             test("C() : x{0} { marker(); two(); }")
+        );
+    }
+
+    /// @vtest.id TEST-ADAPTER-CPP-POINTER-RETURNING-FUNCTION-NAME
+    /// @vtest.covers VO-ADAPTER-CPP-REGISTERS-WITHOUT-CORE-CHANGES
+    /// @vtest.target crates/vtest-adapter-lexical/src/cpp.rs::Reader::function_name
+    /// @vtest.intent verifies that a function returning a function pointer or an array reference is named by the identifier inside its grouped declarator, and that an access specifier before a method does not detach its SRC ID declaration
+    #[test]
+    fn grouped_declarators_and_access_specifiers() {
+        let source = "int (*factory(void))(int) { return &f; }\nint (&pick())[2] { return a; }\nclass C {\npublic:\n// @vtest.src-id SRC-X\nint f(){return 1;}\n};\n";
+        let outcome = discover_text(&Cpp, "fixture.cpp", source, "demo");
+        assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+        let sources = outcome
+            .sources
+            .iter()
+            .map(|source| {
+                (
+                    source.locator.value.as_str(),
+                    source.src_id.as_ref().map(|id| id.as_str()),
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            sources,
+            vec![
+                ("fixture.cpp::factory", None),
+                ("fixture.cpp::pick", None),
+                ("fixture.cpp::C::f", Some("SRC-X")),
+            ]
         );
     }
 }
