@@ -51,6 +51,8 @@ impl StringSyntax {
 pub enum Structure {
     /// `{ ... }` delimits bodies (C, C++, Java, C#, Go, JavaScript, ...).
     Braces,
+    /// Indentation delimits bodies (Python).
+    Indentation,
 }
 
 /// The lexical syntax of one language.

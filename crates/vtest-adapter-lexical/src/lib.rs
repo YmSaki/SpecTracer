@@ -64,7 +64,9 @@
 pub mod annotation;
 pub mod braces;
 pub mod header;
+pub mod indent;
 pub mod lexer;
+pub mod python;
 
 use std::{
     collections::BTreeMap,
@@ -379,6 +381,19 @@ impl<'a> FileScan<'a> {
                         tokens_for_extent.len(),
                     )
                 };
+                (functions, Box::new(extent))
+            }
+            Structure::Indentation => {
+                if let Err(error) = braces::matching(&tokens) {
+                    return self.lex_failure(outcome, error);
+                }
+                let classify =
+                    |header: &[HTok<'_>], has_body: bool| self.profile.classify(header, has_body);
+                let lines = indent::logical_lines(&tokens, self.source);
+                let functions = indent::functions(&tokens, self.source, &lines, &classify);
+                let tokens_for_extent = tokens.clone();
+                let extent =
+                    move |start: usize| indent::construct_end(&tokens_for_extent, &lines, start);
                 (functions, Box::new(extent))
             }
         };
