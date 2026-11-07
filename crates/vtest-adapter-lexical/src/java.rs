@@ -161,7 +161,7 @@ fn literal_end(source: &str, from: usize, close: &str, multiline: bool) -> Optio
         if bytes[i] == b'\n' && !multiline {
             return None;
         }
-        if source[i..].starts_with(close) {
+        if bytes[i..].starts_with(close.as_bytes()) {
             return Some(i + close.len());
         }
         i += 1;
@@ -269,10 +269,16 @@ impl Reader<'_> {
                 .map_err(|message| ExtractError::new(self.tokens[index].start, &message))?;
             let header_end = member.body.unwrap_or(member.end);
             match self.declares(index, header_end) {
-                Declares::Type(name) => {
+                Declares::Type(name, is_enum) => {
                     if let Some(open) = member.body {
+                        let close = self.partner(open);
+                        let first = if is_enum {
+                            self.after_enum_constants(open + 1, close)
+                        } else {
+                            open + 1
+                        };
                         scope.push(name);
-                        self.members(open + 1, self.partner(open), scope, output)?;
+                        self.members(first, close, scope, output)?;
                         scope.pop();
                     }
                 }
@@ -292,8 +298,25 @@ impl Reader<'_> {
         Ok(())
     }
 
+    /// The first member of an enum body `tokens[low..high]`: the enum
+    /// constants (`A, B(1), C { ... },`) come first and end at the body's
+    /// first top-level `;`, or at the end of the body when there is none.
+    fn after_enum_constants(&self, low: usize, high: usize) -> usize {
+        let mut index = low;
+        while index < high {
+            match self.tokens[index].kind {
+                Kind::Semi => return index + 1,
+                Kind::Open(_) => index = self.partner(index),
+                _ => {}
+            }
+            index += 1;
+        }
+        high
+    }
+
     /// What the member header `tokens[start..end]` (the declaration before
-    /// its body) declares.
+    /// its body) declares. Annotations may appear anywhere among the
+    /// modifiers (`public @A(x = {1}) void f()`), so each is skipped whole.
     fn declares(&self, start: usize, end: usize) -> Declares {
         let mut index = self.skip_annotations(start, end);
         let mut paren = None;
@@ -302,14 +325,19 @@ impl Reader<'_> {
                 Kind::Word
                     if matches!(self.text(index), "class" | "interface" | "enum" | "record") =>
                 {
+                    let is_enum = self.text(index) == "enum";
                     return self
                         .word_after(index, end)
-                        .map_or(Declares::Other, Declares::Type);
+                        .map_or(Declares::Other, |name| Declares::Type(name, is_enum));
                 }
                 Kind::Punct('@') if index + 1 < end && self.text(index + 1) == "interface" => {
                     return self
                         .word_after(index + 1, end)
-                        .map_or(Declares::Other, Declares::Type);
+                        .map_or(Declares::Other, |name| Declares::Type(name, false));
+                }
+                Kind::Punct('@') => {
+                    index = self.skip_annotations(index, end).max(index + 1);
+                    continue;
                 }
                 Kind::Punct('=') => return Declares::Other,
                 Kind::Open('(') => {
@@ -406,7 +434,8 @@ impl Reader<'_> {
 }
 
 enum Declares {
-    Type(String),
+    /// A type, and whether it is an `enum`.
+    Type(String, bool),
     Method(String),
     Other,
 }
@@ -571,5 +600,29 @@ class CalculatorTest {
         assert!(outcome.sources.is_empty());
         assert_eq!(outcome.diagnostics.len(), 1);
         assert_eq!(outcome.diagnostics[0].code, "E-SCAN-001");
+    }
+    /// @vtest.id TEST-ADAPTER-JAVA-ENUMS-ANNOTATIONS-AND-UNICODE
+    /// @vtest.covers VO-ADAPTER-LEXICAL-NORMALIZES-DECLARATION
+    /// @vtest.target crates/vtest-adapter-lexical/src/java.rs::Reader::declares
+    /// @vtest.intent verifies enum constants are not read as members, an annotation among the modifiers is not the method name, and non-ASCII text in literals is read without failing
+    #[test]
+    fn enums_annotations_and_unicode() {
+        let source = "enum E { A, B }\nenum F { X(1), Y { int g() { return 2; } }, ; int h() { return 3; } }\nenum G { P, Q, }\n@interface A { int[] x(); }\nclass C {\n  // @vtest.src-id SRC-JAVA-F\n  public @A(x={1}) void f() { marker(); }\n  String s() { return \"日本語😀\" + '日' + \"\"\"\n    テキスト\n    \"\"\"; }\n}\n";
+        let outcome = discover_text(&Java, "src/E.java", source, "demo");
+        assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+        let sources = outcome
+            .sources
+            .iter()
+            .map(|source| source.locator.value.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            sources,
+            vec!["src/E.java::F::h", "src/E.java::C::f", "src/E.java::C::s"]
+        );
+        let f = &outcome.sources[1];
+        assert_eq!(f.src_id.as_ref().map(|id| id.as_str()), Some("SRC-JAVA-F"));
+        let unterminated =
+            discover_text(&Java, "src/U.java", "class U { String s = \"日本", "demo");
+        assert_eq!(unterminated.diagnostics.len(), 1);
     }
 }
