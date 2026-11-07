@@ -12,6 +12,11 @@ for the declaration rules shared by all framework-neutral adapters.
   PHPUnit method, including its `#[Test]` attributes, or a Pest
   `test('adds', function () { ... });` call with the Test locator `test#<n>`.
   `@vtest.` lines are read from docblocks, `//` comments, and `#` comments.
+- **Where a construct ends**: at its `;`, or after the `{}` body of a
+  `function`, type, `namespace`, or control statement (`else`, `catch`, and
+  `finally` continue it). Closures, `match` arms, and attributes (`#[...]`)
+  inside a statement do not end it. Inline HTML outside `<?php ... ?>` is
+  not code.
 - **Limits**: heredoc/nowdoc strings and inline HTML outside `<?php ... ?>`
   are read as code. If their brackets do not balance, the file is reported
   as `E-SCAN-001`.
