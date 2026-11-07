@@ -56,8 +56,11 @@ are traced by `chain_integrity` and `orphan_detection`. `target_binding` stays
 `E-ADAPTER-004`. No test runner or coverage tool is assumed.
 
 A test without a `@vtest.` declaration is not observed, because recognizing it
-would require knowing the framework. A file the lexer cannot balance is
-reported as `E-SCAN-001` and contributes nothing.
+would require knowing the framework. A file the adapter cannot read with
+confidence (an unterminated string, unbalanced brackets, a missing `end`) is
+reported as `E-SCAN-001` and contributes nothing. A declared Test whose extent
+cannot be determined is reported as Missing with `E-SCAN-001`; it is never
+returned as a fragment of its construct.
 
 ## Configuration
 
@@ -76,21 +79,43 @@ Each language adapter has its own page in this directory.
 
 ## Adding a language
 
-A language is a `LanguageProfile` in `crates/vtest-adapter-lexical/src/<lang>.rs`:
-its comment and string syntax, file extensions, excluded directories, and a
-`classify` function that tells function definitions and named scopes from other
-statements. The profile chooses one of the block structures this crate
-provides:
+A language is a `LanguageProfile` in `crates/vtest-adapter-lexical/src/<lang>.rs`.
+Its `extract` function reads one file by that language's own rules and returns
+`FileItems`:
 
-| `Structure` | Bodies are delimited by | Example languages |
-|---|---|---|
-| `Braces` | `{ ... }` | C, C++, Java, C#, Go, JavaScript |
-| `Indentation` | the indentation after a `:` line | Python |
-| `KeywordEnd` | an opening keyword and its `end` | Ruby |
+- every function definition (a Source Target): its qualified name and byte
+  range;
+- every comment block attached to a construct: the comment's lines without the
+  comment markers, and the construct's byte range, or why the range could not
+  be determined.
 
-A language change adds only that file, one `pub mod <lang>;` line in
-`src/lib.rs`, and one `registry.register(...)` line in
-`crates/vtest-cli/src/adapters.rs` (the composition root, BD-007 / BD-102),
-plus its tests and documentation. If a language needs something the crate does
-not provide, such as another block structure or a lexer rule, change the crate
-first in its own change, not in the language change.
+The crate root does the rest for every language: it walks the include paths,
+parses the `@vtest.` lines, reports their diagnostics, and builds Drafts and
+Locators. The composition root (`crates/vtest-cli/src/adapters.rs`, BD-007 /
+BD-102) injects each profile as `LexicalAdapter::new(Profile)`.
+
+Each language reads its comments and strings and decides where a declaration
+ends by its own grammar, written for that language alone:
+
+| Language | Where a declaration ends |
+|---|---|
+| C, C++, C#, Java | after the `{}` body, or at `;` |
+| Go | at a newline where Go inserts a semicolon |
+| Kotlin | at a newline that ends the expression, unless the next line continues it (`else`, `.`, `?:`) |
+| Swift | at a newline, judged by operator whitespace (`x!` ends a line, `a +` does not) |
+| JavaScript, TypeScript | after the body, or where automatic semicolon insertion ends it |
+| PHP | at `;`, or after the body |
+| Python | at the end of the indented block of logical lines |
+| Ruby | at the `end` paired with its keyword |
+
+Only what means the same thing in every language is shared, in
+`src/shared.rs`: pairing brackets once the lexer has found them, and the rule
+that attaches a comment block to the construct on the next line (SpecTracer's
+annotation rule). Comment syntax is not shared even where languages spell it
+the same way, because it is each language's grammar.
+
+A language change adds only its file, one `pub mod <lang>;` line in
+`src/lib.rs`, one `registry.register(...)` line in the composition root, its
+tests, and its documentation. If a language needs something shared that the
+crate does not provide, change the crate first in its own change, not in the
+language change.

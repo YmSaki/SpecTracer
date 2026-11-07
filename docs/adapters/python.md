@@ -14,8 +14,12 @@ framework-neutral adapters.
 - **Tests**: any construct right after a `@vtest.` `#` comment, such as a
   pytest function (its `@pytest.mark...` decorators are part of the
   construct), a `unittest.TestCase` method, or a pytest class method.
+- **Where a construct ends**: at the end of its block of logical lines:
+  every following logical line indented deeper (a newline inside brackets,
+  after a `\`, or inside a string does not start a line), plus `elif`,
+  `else`, `except`, `finally`, and `case` clauses at its own indentation.
 - **Limits**: declarations are read from `#` comments, not from docstrings.
-  Tabs count as one column, so mixed tab/space indentation can mis-nest.
+  A tab advances to the next multiple of eight columns, as in Python.
 
 ```python
 # @vtest.id TEST-CALC-ADD
