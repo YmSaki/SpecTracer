@@ -58,18 +58,20 @@ is implemented, add its acceptance test and remove its gap-table row.
 
 ## Verification behavior to preserve
 
-- Every non-`PASS` state (`FAIL`, `MISMATCH`, `MISSING`, `NOT_CHECKED`,
-  `NOT_EXECUTED`, `STALE`, or `UNKNOWN`) contributes to a non-passing result.
-- Stale approval, audit, and Evidence hashes leave a current verify non-passing.
-- Limited scopes keep out-of-scope items as `NOT_CHECKED` rather than converting
-  them to `PASS`.
+- Every non-`PASS` state (`FAIL`, `MISMATCH`, `NO_EVIDENCE`, or `UNKNOWN`)
+  contributes to a non-passing result. Diagnostic labels (`MISSING`,
+  `NOT_CHECKED`, `NOT_EXECUTED`, `STALE`) explain the cause and are never
+  ranked.
+- Stale approval and Evidence hashes leave a current verify non-passing.
+- Limited scopes keep out-of-scope checks as `NO_EVIDENCE` (`NOT_CHECKED`)
+  rather than converting them to `PASS`.
 - CLI and MCP must preserve the same core JSON envelope and result semantics.
 - Structured test edits must stay within one Test and be deterministic and
   idempotent.
 
-When changing static audit, execution, aggregation, record schemas, CLI, or MCP,
-also run the applicable fixture flow (`vtest audit static`, bundle/submit,
-`vtest run`, and `vtest verify`) and record the result.
+When changing execution, aggregation, record schemas, CLI, or MCP, also run
+the applicable fixture flow (`vtest scan`, `vtest run`, and `vtest verify`)
+and record the result. (`vtest audit` and bundle/submit are not provided yet.)
 
 ## Release verification
 

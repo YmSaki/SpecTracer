@@ -114,6 +114,44 @@ pub enum Command {
     /// there is no separate persisted registry record.
     #[command(subcommand)]
     Doc(DocCommand),
+    /// Structured Test Operation (SPEC-385 / SPEC-386, BD-077): create or
+    /// edit one Test through its adapter's Structured Test capability.
+    #[command(subcommand)]
+    Test(TestCommand),
+}
+
+#[derive(Subcommand, Debug)]
+pub enum TestCommand {
+    /// SPEC-385: generate and insert a Test from a Form answers file.
+    Create {
+        /// The Form `kind` (DS-1545).
+        #[arg(long)]
+        form: String,
+        /// The answers file (`form:` + `answers:`, §14).
+        #[arg(long)]
+        answers: PathBuf,
+        /// Use this Test ID instead of deriving one from the answers.
+        #[arg(long)]
+        id: Option<String>,
+        /// DS-1065 / DS-1561: show the insertion and its position only.
+        #[arg(long = "dry-run")]
+        dry_run: bool,
+    },
+    /// SPEC-386: apply a desired state to one existing Test.
+    Edit {
+        id: String,
+        /// DS-1067: the complete desired state.
+        #[arg(long, conflicts_with = "set")]
+        answers: Option<PathBuf>,
+        /// DS-1068: `field=value` for the named fields only.
+        #[arg(long = "set", value_name = "FIELD=VALUE")]
+        set: Vec<String>,
+        /// DS-1069: the full new Test implementation, handed to the adapter.
+        #[arg(long = "body-file")]
+        body_file: Option<PathBuf>,
+        #[arg(long = "dry-run")]
+        dry_run: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -277,6 +315,7 @@ pub fn run(cli: Cli) -> ExitCode {
         } => run_run(&cli.project, test, vo, all, fast, cli.format, cli.quiet),
         Command::Approval(command) => run_approval(&cli.project, command, cli.format, cli.quiet),
         Command::Doc(command) => run_doc(&cli.project, command, cli.format, cli.quiet),
+        Command::Test(command) => run_test(&cli.project, command, cli.format, cli.quiet),
         Command::Verify {
             items,
             doc,
@@ -377,6 +416,116 @@ fn run_doctor(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
         format!("doctor: project {project}, {adapters} adapter(s), {diagnostics} diagnostic(s)\n")
     });
     exit
+}
+
+// ---------------------------------------------------------------------------
+// test create / edit
+// ---------------------------------------------------------------------------
+
+fn run_test(project: &Path, command: TestCommand, format: OutputFormat, quiet: bool) -> ExitCode {
+    let root = match resolve_root(project, format, quiet) {
+        Ok(root) => root,
+        Err(code) => return code,
+    };
+    let registry = match resolve_registry(format, quiet) {
+        Ok(registry) => registry,
+        Err(code) => return code,
+    };
+    let (exit, envelope) = match command {
+        TestCommand::Create {
+            form,
+            answers,
+            id,
+            dry_run,
+        } => match vtest_store::read_form_answers(&absolute_path(&answers)) {
+            Ok(answers) => {
+                ops::test_op::create(&root, &registry, &form, &answers, id.as_deref(), dry_run)
+            }
+            Err(error) => ops::test_op::input_failure(Diagnostic::error(
+                "E-OP-001",
+                format!("cannot read answers file: {error}"),
+            )),
+        },
+        TestCommand::Edit {
+            id,
+            answers,
+            set,
+            body_file,
+            dry_run,
+        } => edit_from_args(&root, &registry, &id, answers, &set, body_file, dry_run),
+    };
+    emit_value(format, quiet, &envelope, |envelope| {
+        let data = envelope.get("data");
+        let field = |key: &str| {
+            data.and_then(|data| data.get(key))
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default()
+                .to_owned()
+        };
+        if data.is_none_or(serde_json::Value::is_null) {
+            return String::new();
+        }
+        let dry_run = data
+            .and_then(|data| data.get("dry_run"))
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or_default();
+        format!(
+            "test {}: {}{}\n{}",
+            field("test_id"),
+            field("file"),
+            if dry_run { " (dry run)" } else { "" },
+            field("diff")
+        )
+    });
+    exit
+}
+
+fn edit_from_args(
+    root: &Path,
+    registry: &vtest_adapter_api::AdapterRegistry,
+    id: &str,
+    answers: Option<PathBuf>,
+    set: &[String],
+    body_file: Option<PathBuf>,
+    dry_run: bool,
+) -> (ExitCode, serde_json::Value) {
+    let answers = match answers
+        .map(|path| vtest_store::read_form_answers(&absolute_path(&path)))
+        .transpose()
+    {
+        Ok(answers) => answers,
+        Err(error) => {
+            return ops::test_op::input_failure(Diagnostic::error(
+                "E-OP-001",
+                format!("cannot read answers file: {error}"),
+            ))
+        }
+    };
+    let set = match vtest_scan::operations::parse_test_set_values(set) {
+        Ok(set) => set,
+        Err(diagnostic) => return ops::test_op::input_failure(diagnostic),
+    };
+    let body = match body_file
+        .map(|path| std::fs::read_to_string(absolute_path(&path)))
+        .transpose()
+    {
+        Ok(body) => body,
+        Err(error) => {
+            return ops::test_op::input_failure(Diagnostic::error(
+                "E-OP-001",
+                format!("cannot read --body-file: {error}"),
+            ))
+        }
+    };
+    ops::test_op::edit(
+        root,
+        registry,
+        id,
+        answers.as_ref(),
+        &set,
+        body.as_deref(),
+        dry_run,
+    )
 }
 
 // ---------------------------------------------------------------------------
