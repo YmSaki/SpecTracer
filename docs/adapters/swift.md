@@ -17,7 +17,8 @@ shared by all framework-neutral adapters.
   newline, judged by Swift's operator whitespace (a line ending with `x!` is
   complete, one ending with `a +` is not; a next line starting with a spaced
   operator, `.member`, or `{` continues it, so a trailing closure on the
-  line after a call is part of the call). Attributes may be qualified by
+  line after a call is part of the call, as is a labeled trailing closure
+  such as `onDone: { ... }` on the line after one). Attributes may be qualified by
   their module (`@Testing.Test`). A function's body is the first `{`
   after its parameter list, so a default argument closure
   (`func f(x: () -> Int = { 1 })`) is not the body.
@@ -25,7 +26,9 @@ shared by all framework-neutral adapters.
   `@vtest.src-id` to target one of them. `#if` lines are skipped, and every
   branch is scanned. A file that ends while a declaration is incomplete
   (`func f() ->`, `let a =`, a `func` without its body) is unreadable
-  (`E-SCAN-001`).
+  (`E-SCAN-001`). A declaration that the `}` of its enclosing block cuts
+  off the same way is not read as a whole construct either; a `func`
+  without a body there is a protocol requirement.
 
 ```swift
 // @vtest.id TEST-CALC-ADD

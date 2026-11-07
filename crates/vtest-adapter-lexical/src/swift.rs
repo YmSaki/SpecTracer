@@ -456,6 +456,12 @@ impl Reader<'_> {
         (from..self.tokens.len()).find(|&i| self.tokens[i].kind != Kind::Comment)
     }
 
+    fn previous_significant(&self, low: usize, index: usize) -> Option<usize> {
+        (low..index)
+            .rev()
+            .find(|&i| self.tokens[i].kind != Kind::Comment)
+    }
+
     fn line_breaks(&self, before: usize, after: usize) -> usize {
         self.source[self.tokens[before].end..self.tokens[after].start]
             .matches('\n')
@@ -534,6 +540,17 @@ impl Reader<'_> {
         }
     }
 
+    /// Whether the line starting at `tokens[next]` passes another labeled
+    /// trailing closure (`onDone: { ... }`) to the call whose trailing
+    /// closure ends at `tokens[last]`.
+    fn labeled_closure(&self, last: usize, next: usize) -> bool {
+        self.kind(last) == Some(Kind::Close('}'))
+            && self.kind(next) == Some(Kind::Word)
+            && self.is(next + 1, ":")
+            && self.touching(next, next + 1)
+            && self.kind(next + 2) == Some(Kind::Open('{'))
+    }
+
     /// One past the last token of the declaration or statement starting at
     /// `start` (see the module documentation), or `None` when the file
     /// ends before it is complete (`func f() ->`, `let a =`, a `func` or
@@ -558,7 +575,17 @@ impl Reader<'_> {
                     index += 1;
                     continue;
                 }
-                Kind::Close(_) => return Some(index),
+                Kind::Close(_) => {
+                    // The enclosing block ends the declaration, which must be
+                    // able to stop there, as at a line break. A `func`
+                    // without its body may (a protocol requirement).
+                    return match self.previous_significant(start, index) {
+                        Some(last) if !self.completes(last) || self.in_modifiers(start, last) => {
+                            None
+                        }
+                        _ => Some(index),
+                    };
+                }
                 Kind::Semi => return Some(index + 1),
                 Kind::Open('{') if shape != Shape::Expression => {
                     return Some(self.partner(index) + 1)
@@ -589,6 +616,7 @@ impl Reader<'_> {
                 && self.completes(last)
                 && !self.in_modifiers(start, last)
                 && !self.continues(next, shape == Shape::Bodied)
+                && !self.labeled_closure(last, next)
             {
                 return Some(last + 1);
             }
@@ -1014,5 +1042,42 @@ func adds() {
             assert_eq!(outcome.diagnostics[0].code.as_str(), "E-SCAN-001");
             assert!(outcome.tests.is_empty(), "{tail:?}");
         }
+    }
+
+    /// @vtest.id TEST-ADAPTER-SWIFT-LABELED-CLOSURES-AND-ENCLOSING-BLOCK-ENDS
+    /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
+    /// @vtest.target crates/vtest-adapter-lexical/src/swift.rs::Reader::declaration_end
+    /// @vtest.intent verifies that a labeled trailing closure on the next line is part of the call's Test construct, so an edit to it changes the construct, that a declaration cut off by the `}` of its enclosing block (`let a =`, `func f() ->`, a bare modifier) is not read as a whole Test, and that a protocol requirement without a body still ends at that `}`
+    #[test]
+    fn labeled_closures_and_enclosing_block_ends() {
+        let declare = "// @vtest.id TEST-X\n// @vtest.covers VO-X\n// @vtest.intent check\n";
+        let body = "run { print(1) }\nonDone: { print(2) }\n";
+        let text = |source: &str| {
+            let outcome = discover_text(&Swift, "Tests/T.swift", source, "demo");
+            assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+            assert_eq!(outcome.tests.len(), 1);
+            outcome.tests[0].construct_text.clone()
+        };
+        let one = format!("{declare}{body}");
+        assert_eq!(text(&one), body.trim_end());
+        assert_ne!(text(&one), text(&one.replace("print(2)", "print(222)")));
+
+        for tail in ["let a =\n", "func f() ->\n", "public\n"] {
+            for source in [
+                format!("func outer() {{\n{declare}{tail}}}\n"),
+                format!("struct S {{\n{declare}{tail}}}\n"),
+            ] {
+                let outcome = discover_text(&Swift, "Tests/U.swift", &source, "demo");
+                assert!(outcome.tests.is_empty(), "{source:?}");
+                assert!(!outcome.diagnostics.is_empty(), "{source:?}");
+            }
+        }
+        let outcome = discover_text(
+            &Swift,
+            "Sources/P.swift",
+            "protocol P {\n    func f() -> Int\n    var a: Int { get }\n}\n",
+            "demo",
+        );
+        assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
     }
 }
