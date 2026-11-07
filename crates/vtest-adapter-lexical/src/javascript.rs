@@ -68,7 +68,15 @@ impl LanguageProfile for JavaScript {
             source,
             bytes: source.as_bytes(),
         };
-        let (tokens, _) = lexer.run(0, false)?;
+        let (all, _) = lexer.run(0, false)?;
+        // Comments are kept only to find the comment blocks of
+        // declarations; everything else reads the code tokens, so a comment
+        // inside a declaration (`function /* c */ f() {}`) changes nothing.
+        let tokens: Vec<Tok> = all
+            .iter()
+            .filter(|token| token.kind != Kind::Comment)
+            .copied()
+            .collect();
         let partners = pair_brackets(tokens.iter().map(|token| match token.kind {
             Kind::Open(c) | Kind::Close(c) => (token.start, Some(c)),
             _ => (token.start, None),
@@ -76,6 +84,7 @@ impl LanguageProfile for JavaScript {
         let enclosing = enclosing(&tokens, &partners);
         let reader = Reader {
             source,
+            all: &all,
             tokens: &tokens,
             partners: &partners,
             enclosing: &enclosing,
@@ -88,13 +97,20 @@ impl LanguageProfile for JavaScript {
         }
         let mut functions = Vec::new();
         let mut class_bodies = HashSet::new();
-        reader.statements(
-            0,
-            tokens.len(),
-            &mut Vec::new(),
-            &mut functions,
-            &mut class_bodies,
-        );
+        reader
+            .statements(
+                0,
+                tokens.len(),
+                &mut Vec::new(),
+                &mut functions,
+                &mut class_bodies,
+            )
+            .map_err(|index| {
+                ExtractError::new(
+                    tokens[index].start,
+                    "the file ends before this statement is complete",
+                )
+            })?;
         Ok(FileItems {
             functions,
             annotated: reader.annotated(&class_bodies),
@@ -217,11 +233,15 @@ impl Lexer<'_> {
                     i += 1;
                 }
                 Kind::Word
-            } else if let Some(end) = (byte == b'/' && self.expression_position(&tokens))
-                .then(|| self.regex_end(i))
-                .flatten()
+            } else if byte == b'/'
+                && !matches!(bytes.get(i + 1), Some(b'/' | b'*'))
+                && self.expression_position(&tokens)
             {
-                i = end;
+                // Where an expression starts, a `/` can only begin a
+                // regular expression.
+                i = self
+                    .regex_end(i)
+                    .ok_or_else(|| ExtractError::new(start, "unterminated regular expression"))?;
                 Kind::Literal
             } else if let Some(end) = (byte == b'<' && self.expression_position(&tokens))
                 .then(|| self.jsx_end(i))
@@ -319,7 +339,14 @@ impl Lexer<'_> {
             match self.bytes[i] {
                 b'\\' => i += 2,
                 b'`' => return Ok(i + 1),
-                b'$' if self.bytes.get(i + 1) == Some(&b'{') => i = self.run(i + 2, true)?.1,
+                b'$' if self.bytes.get(i + 1) == Some(&b'{') => {
+                    let (inner, end) = self.run(i + 2, true)?;
+                    pair_brackets(inner.iter().map(|token| match token.kind {
+                        Kind::Open(c) | Kind::Close(c) => (token.start, Some(c)),
+                        _ => (token.start, None),
+                    }))?;
+                    i = end;
+                }
                 _ => i += 1,
             }
         }
@@ -523,6 +550,9 @@ enum Declares {
 
 struct Reader<'a> {
     source: &'a str,
+    /// Every token, comments included.
+    all: &'a [Tok],
+    /// The tokens without comments.
     tokens: &'a [Tok],
     partners: &'a [Option<usize>],
     enclosing: &'a [Option<usize>],
@@ -711,7 +741,10 @@ impl Reader<'_> {
     /// (see the module documentation), otherwise where automatic semicolon
     /// insertion ends it. A `}` or `)` closing the enclosing block also
     /// ends it.
-    fn scan(&self, start: usize, bodied: bool, keyword: &str) -> usize {
+    /// `None` when the file ends first: after a token that cannot end an
+    /// expression (`() =>`, `a +`), a decorator, or a `function` or `class`
+    /// still waiting for its body.
+    fn scan(&self, start: usize, bodied: bool, keyword: &str) -> Option<usize> {
         let mut index = start;
         while index < self.tokens.len() {
             let last = match self.tokens[index].kind {
@@ -719,8 +752,8 @@ impl Reader<'_> {
                     index += 1;
                     continue;
                 }
-                Kind::Close(_) => return index,
-                Kind::Semi => return index + 1,
+                Kind::Close(_) => return Some(index),
+                Kind::Semi => return Some(index + 1),
                 Kind::Open('{') if bodied && self.opens_body(start, index) => {
                     let close = self.partner(index);
                     match self.next_significant(close + 1) {
@@ -731,25 +764,57 @@ impl Reader<'_> {
                             index = next;
                             continue;
                         }
-                        _ => return close + 1,
+                        _ => return Some(close + 1),
                     }
                 }
                 Kind::Open(_) => self.partner(index),
                 _ => index,
             };
             let Some(next) = self.next_significant(last + 1) else {
-                return last + 1;
+                return (self.can_end(last)
+                    && !self.ends_decorator(last)
+                    && !self.awaits_body(start, last))
+                .then_some(last + 1);
             };
             if self.line_breaks(last, next) > 0
                 && self.can_end(last)
                 && !self.ends_decorator(last)
                 && !self.continues(next, bodied)
             {
-                return last + 1;
+                return Some(last + 1);
             }
             index = next;
         }
-        index
+        None
+    }
+
+    /// Whether a `function` or `class` in `tokens[start..=last]` (outside
+    /// brackets) has no body yet: `const f = function ()`. An ambient
+    /// `declare` statement needs none.
+    fn awaits_body(&self, start: usize, last: usize) -> bool {
+        if self.is(self.skip_decorators(start), "declare") {
+            return false;
+        }
+        let mut waiting = false;
+        let mut index = start;
+        while index <= last {
+            match self.tokens[index].kind {
+                Kind::Word
+                    if matches!(self.text(index), "function" | "class")
+                        && !self.after_dot(index) =>
+                {
+                    waiting = true;
+                }
+                Kind::Open('{') => {
+                    waiting = false;
+                    index = self.partner(index);
+                }
+                Kind::Open(_) => index = self.partner(index),
+                _ => {}
+            }
+            index += 1;
+        }
+        waiting
     }
 
     /// The first token of the statement at `start` after its decorators and
@@ -780,13 +845,15 @@ impl Reader<'_> {
     }
 
     /// One past the last token of the statement starting at `start`.
-    fn statement_end(&self, start: usize) -> usize {
+    fn statement_end(&self, start: usize) -> Option<usize> {
         if self.kind(start) == Some(Kind::Open('{')) {
-            return self.partner(start) + 1;
+            return Some(self.partner(start) + 1);
         }
         let keyword = self.statement_keyword(start);
         if keyword >= self.tokens.len() {
-            return self.tokens.len();
+            // Only prefix words up to the end: an expression such as the
+            // identifier `declare` (a lone `export` is reported earlier).
+            return self.scan(start, false, "");
         }
         let text = self.text(keyword);
         let bodied = matches!(
@@ -843,10 +910,10 @@ impl Reader<'_> {
     }
 
     /// One past the last token of the class member starting at `start`.
-    fn member_end(&self, start: usize) -> usize {
+    fn member_end(&self, start: usize) -> Option<usize> {
         let name = self.member_name(start);
         if self.is(name, "static") && self.kind(name + 1) == Some(Kind::Open('{')) {
-            return self.partner(name + 1) + 1;
+            return Some(self.partner(name + 1) + 1);
         }
         let after = self.after_member_name(name);
         let method = self.kind(after) == Some(Kind::Open('(')) || self.is(after, "<");
@@ -923,7 +990,7 @@ impl Reader<'_> {
                     "<" => {
                         // Right after `=`, `<...>` can only be a generic
                         // arrow's type parameters, which may have defaults.
-                        let parameters = !typed && self.is(index.wrapping_sub(1), "=");
+                        let parameters = !typed && self.after_equals(index);
                         if let Some(close) =
                             self.angle_close(index, end, parameters).filter(|&close| {
                                 typed || parameters || self.type_arguments(index, close)
@@ -990,15 +1057,25 @@ impl Reader<'_> {
         let Some(before) = open.checked_sub(1) else {
             return false;
         };
-        if self.is(before, "=") {
+        if self.after_equals(open) {
             return true;
         }
-        self.kind(before) == Some(Kind::Word)
+        (self.kind(before) == Some(Kind::Word) || self.is(before, "?."))
             && match self.kind(close + 1) {
                 Some(Kind::Open('(')) => true,
                 Some(Kind::Literal) => self.text(close + 1).starts_with('`'),
                 _ => false,
             }
+    }
+
+    /// Whether the `<` at `open` starts a value: right after `=`, or after
+    /// `= async` (`= async <T = number>(x: T) => x`).
+    fn after_equals(&self, open: usize) -> bool {
+        match open.checked_sub(1) {
+            Some(before) if self.is(before, "async") => before > 0 && self.is(before - 1, "="),
+            Some(before) => self.is(before, "="),
+            None => false,
+        }
     }
 
     fn initializer(&self, from: usize, end: usize) -> Option<usize> {
@@ -1117,14 +1194,17 @@ impl Reader<'_> {
         scope: &mut Vec<String>,
         output: &mut Vec<Function>,
         class_bodies: &mut HashSet<usize>,
-    ) {
+    ) -> Result<(), usize> {
         let mut index = low;
         while let Some(start) = self.next_significant(index).filter(|&s| s < high) {
             if matches!(self.tokens[start].kind, Kind::Semi | Kind::Close(_)) {
                 index = start + 1;
                 continue;
             }
-            let end = self.statement_end(start).clamp(start + 1, high);
+            let end = self
+                .statement_end(start)
+                .ok_or(start)?
+                .clamp(start + 1, high);
             self.record(
                 self.declares_statement(start, end),
                 start,
@@ -1132,9 +1212,10 @@ impl Reader<'_> {
                 scope,
                 output,
                 class_bodies,
-            );
+            )?;
             index = end;
         }
+        Ok(())
     }
 
     /// Collects the functions among the class members in
@@ -1146,14 +1227,14 @@ impl Reader<'_> {
         scope: &mut Vec<String>,
         output: &mut Vec<Function>,
         class_bodies: &mut HashSet<usize>,
-    ) {
+    ) -> Result<(), usize> {
         let mut index = low;
         while let Some(start) = self.next_significant(index).filter(|&s| s < high) {
             if matches!(self.tokens[start].kind, Kind::Semi | Kind::Close(_)) {
                 index = start + 1;
                 continue;
             }
-            let end = self.member_end(start).clamp(start + 1, high);
+            let end = self.member_end(start).ok_or(start)?.clamp(start + 1, high);
             self.record(
                 self.declares_member(start, end),
                 start,
@@ -1161,9 +1242,10 @@ impl Reader<'_> {
                 scope,
                 output,
                 class_bodies,
-            );
+            )?;
             index = end;
         }
+        Ok(())
     }
 
     fn record(
@@ -1174,18 +1256,18 @@ impl Reader<'_> {
         scope: &mut Vec<String>,
         output: &mut Vec<Function>,
         class_bodies: &mut HashSet<usize>,
-    ) {
+    ) -> Result<(), usize> {
         match declares {
             Declares::Class(name, open) => {
                 class_bodies.insert(open);
                 scope.push(name);
-                self.members(open + 1, self.partner(open), scope, output, class_bodies);
+                self.members(open + 1, self.partner(open), scope, output, class_bodies)?;
                 scope.pop();
             }
             Declares::Namespace(names, open) => {
                 let restore = scope.len();
                 scope.extend(names);
-                self.statements(open + 1, self.partner(open), scope, output, class_bodies);
+                self.statements(open + 1, self.partner(open), scope, output, class_bodies)?;
                 scope.truncate(restore);
             }
             Declares::Function(name) => {
@@ -1210,13 +1292,14 @@ impl Reader<'_> {
             }
             Declares::Other => {}
         }
+        Ok(())
     }
 
     /// Every comment block that starts a line and is followed, on the next
     /// line, by a statement or class member.
     fn annotated(&self, class_bodies: &HashSet<usize>) -> Vec<Annotated> {
         let spans: Vec<Span> = self
-            .tokens
+            .all
             .iter()
             .map(|token| Span {
                 start: token.start,
@@ -1226,6 +1309,9 @@ impl Reader<'_> {
             .collect();
         let mut output = Vec::new();
         for Attached { first, last, next } in attached_comments(self.source, &spans) {
+            // `next` counts comments; find the same token among the code.
+            let start = self.all[next].start;
+            let next = self.tokens.partition_point(|token| token.start < start);
             if matches!(self.tokens[next].kind, Kind::Close(_) | Kind::Semi) {
                 continue;
             }
@@ -1234,14 +1320,20 @@ impl Reader<'_> {
                 self.member_end(next)
             } else {
                 self.statement_end(next)
-            }
-            .max(next + 1);
+            };
+            let construct = match end {
+                Some(end) => Ok((
+                    self.tokens[next].start,
+                    self.tokens[end.max(next + 1) - 1].end,
+                )),
+                None => Err("the file ends before this statement is complete".to_owned()),
+            };
             output.push(Annotated {
-                comment_start: self.tokens[first].start,
+                comment_start: self.all[first].start,
                 lines: (first..=last)
-                    .flat_map(|i| comment_lines(self.text(i)))
+                    .flat_map(|i| comment_lines(&self.source[self.all[i].start..self.all[i].end]))
                     .collect(),
-                construct: Ok((self.tokens[next].start, self.tokens[end - 1].end)),
+                construct,
             });
         }
         output
@@ -1556,6 +1648,88 @@ describe("Calc", () => {
             .zip([0, 2, 5, 6, 8, 9, 10].map(|n| (&before[n].1, &after[n].1)))
         {
             assert_ne!(old, new, "{name}");
+        }
+    }
+
+    /// @vtest.id TEST-ADAPTER-JAVASCRIPT-OPTIONAL-GENERIC-CALLS-COMMENTS-AND-TRUNCATED-FILES
+    /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
+    /// @vtest.target crates/vtest-adapter-lexical/src/javascript.rs::Reader::scan
+    /// @vtest.intent verifies that optional and commented generic calls and async generic arrows with default type parameters keep each declarator whole so an edit to its tail changes its Source text, that comments inside declarations do not lose them, and that a file ending inside an expression, a function without its body, an unterminated regular expression, or a template expression with unbalanced brackets is unreadable instead of yielding a Test
+    #[test]
+    fn optional_generic_calls_comments_and_truncated_files() {
+        let read = |tail: &str| {
+            let source = format!(
+                "const f = () => pick?.<number, string>(1, {tail}), g = () => 2;\n\
+                 const h = () => pick /* c */ <number, string>(1, {tail}), i = () => 3;\n\
+                 const j = async <T = number, U = string>(x: T, y: U) => {tail},\n      k = () => 4;\n"
+            );
+            let outcome = discover_text(&JavaScript, "src/o.ts", &source, "demo");
+            assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+            outcome
+                .sources
+                .iter()
+                .map(|found| (found.locator.value.clone(), found.construct_text.clone()))
+                .collect::<Vec<_>>()
+        };
+        let before = read("1");
+        assert_eq!(
+            before.iter().map(|(l, _)| l.as_str()).collect::<Vec<_>>(),
+            vec![
+                "src/o.ts::f",
+                "src/o.ts::g",
+                "src/o.ts::h",
+                "src/o.ts::i",
+                "src/o.ts::j",
+                "src/o.ts::k",
+            ]
+        );
+        assert_eq!(before[0].1, "const f = () => pick?.<number, string>(1, 1)");
+        assert_eq!(
+            before[4].1,
+            "const j = async <T = number, U = string>(x: T, y: U) => 1"
+        );
+        let after = read("9");
+        for n in [0, 2, 4] {
+            assert_ne!(before[n].1, after[n].1, "{}", before[n].0);
+        }
+
+        for (source, locator) in [
+            (
+                "export function /* implementation */ f(x) { return x; }\n",
+                "c.js::f",
+            ),
+            ("const f = /* implementation */ () => 1;\n", "c.js::f"),
+            (
+                "class C { f /* implementation */ (x = 1) { return x; } }\n",
+                "c.js::C::f",
+            ),
+        ] {
+            let outcome = discover_text(&JavaScript, "c.js", source, "demo");
+            assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+            assert_eq!(locators(&outcome), vec![locator], "{source:?}");
+        }
+
+        let declare = "// @vtest.id TEST-JS-REVIEW\n// @vtest.covers VO-REVIEW\n// @vtest.intent full source is traced\n";
+        for tail in [
+            "const f = () =>\n",
+            "const f = function ()\n",
+            "const x = /unterminated\n",
+            "const x = `value ${f(}`;\n",
+            "class C\n",
+            "test('a', () => {}) +\n",
+        ] {
+            let outcome =
+                discover_text(&JavaScript, "src/t.js", &format!("{declare}{tail}"), "demo");
+            assert_eq!(outcome.diagnostics.len(), 1, "{tail:?}");
+            assert_eq!(outcome.diagnostics[0].code.as_str(), "E-SCAN-001");
+            assert!(outcome.tests.is_empty(), "{tail:?}");
+        }
+        for complete in [
+            "declare function f(x: number): void\n",
+            "const f = function () {}\n",
+        ] {
+            let outcome = discover_text(&JavaScript, "src/d.ts", complete, "demo");
+            assert!(outcome.diagnostics.is_empty(), "{complete:?}");
         }
     }
 }

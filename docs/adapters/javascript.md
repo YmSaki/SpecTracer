@@ -26,7 +26,10 @@ all framework-neutral adapters.
 - **Limits**: a `/` is read as a regular expression only where an
   expression can start, so a regular expression after `)` (rare outside
   `if (x) /re/.test(y)`) is read as division; if its brackets then do not
-  balance, the file is reported as `E-SCAN-001`. Functions nested inside other functions or inside call
+  balance, the file is reported as `E-SCAN-001`. So is a file that ends
+  inside a statement (`const f = () =>`, `const f = function ()`, an
+  unterminated regular expression, or a template `${...}` whose brackets do
+  not balance). Functions nested inside other functions or inside call
   arguments (such as helpers defined in a `describe` callback) are not Source
   Targets, and neither are methods of object literals assigned to a
   variable. In an initializer, `name<...>` followed by `(` or a template
