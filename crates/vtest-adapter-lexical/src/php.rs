@@ -12,12 +12,16 @@
 //!    ends. PHP needs no newline rule: a statement ends at its `;`, or
 //!    after the `{}` body of a `function`, `class`, `interface`, `trait`,
 //!    `enum`, `namespace`, or control statement (an `else`, `elseif`,
-//!    `catch`, or `finally` continues it). Brackets are skipped whole, so
+//!    `catch`, or `finally` continues it; a control statement's body can
+//!    also be one statement or alternative syntax). A file that ends
+//!    before a statement does is unreadable. Brackets are skipped whole, so
 //!    closures, `match` arms, and anonymous classes inside an expression
 //!    statement do not end it.
 //! 3. [`Reader::statements`] walks the file: `namespace` (braced or
 //!    statement form, `A\B` names) and `class`, `interface`, `trait`, and
 //!    `enum` bodies qualify the named `function` declarations inside them.
+//!    Named functions inside control statements and function bodies are
+//!    declared in the namespace.
 //!    A method without a body (abstract or in an interface) and closures
 //!    are not Source Targets.
 //!
@@ -71,7 +75,14 @@ impl LanguageProfile for Php {
                 "alternative syntax without its end keyword",
             ));
         }
-        reader.statements(0, tokens.len(), &mut Vec::new(), &mut functions);
+        reader
+            .statements(0, tokens.len(), &mut Vec::new(), 0, &mut functions)
+            .map_err(|index| {
+                ExtractError::new(
+                    tokens[index].start,
+                    "the file ends before this statement is complete",
+                )
+            })?;
         Ok(FileItems {
             functions,
             annotated: reader.annotated(),
@@ -320,12 +331,19 @@ const BODIED: &[&str] = &[
     "use",
 ];
 
+/// Control statements whose blocks can declare named functions.
+const CONTROL: &[&str] = &[
+    "if", "else", "elseif", "while", "do", "for", "foreach", "switch", "declare", "try",
+];
+
 /// What a statement declares.
 enum Declares {
-    Scope(Vec<String>, usize),
+    /// A class-like or braced namespace body (`true` for a namespace).
+    Scope(Vec<String>, usize, bool),
     /// `namespace A\B;`: the statements after it belong to `A\B`.
     Namespace(Vec<String>),
-    Function(String),
+    /// A named function and the `{` of its body.
+    Function(String, usize),
     Other,
 }
 
@@ -374,45 +392,54 @@ impl Reader<'_> {
     }
 
     /// One past the last token of the statement or member starting at
-    /// `start` (see the module documentation). A `}` closing the enclosing
-    /// block also ends it.
-    fn statement_end(&self, start: usize) -> usize {
+    /// `start` (see the module documentation), or `None` when the file
+    /// ends first (PHP needs a `;`, `?>`, or body to end every statement).
+    /// A `}` closing the enclosing block also ends it.
+    fn statement_end(&self, start: usize) -> Option<usize> {
         if self.kind(start) == Some(Kind::Open('{')) {
-            return self.partner(start) + 1;
+            return Some(self.partner(start) + 1);
         }
         let keyword_index = self.keyword(start);
         let keyword = match self.kind(keyword_index) {
             Some(Kind::Word) => self.text(keyword_index).to_ascii_lowercase(),
             _ => String::new(),
         };
+        match keyword.as_str() {
+            "if" | "elseif" | "while" | "for" | "foreach" | "switch" | "declare" => {
+                if let Some(end) = self.control_end(keyword_index, &keyword) {
+                    return end;
+                }
+            }
+            "else" => return self.statement_end(self.next_significant(keyword_index + 1)?),
+            "do" => {
+                let body = self.statement_end(self.next_significant(keyword_index + 1)?)?;
+                let word = self.next_significant(body)?;
+                let open = self.next_significant(word + 1)?;
+                if !(self.is(word, "while") && self.kind(open) == Some(Kind::Open('('))) {
+                    return None;
+                }
+                let semi = self.next_significant(self.partner(open) + 1)?;
+                return (self.kind(semi) == Some(Kind::Semi)).then_some(semi + 1);
+            }
+            _ => {}
+        }
         let bodied = BODIED.contains(&keyword.as_str());
         let mut index = start;
         while index < self.tokens.len() {
             match self.tokens[index].kind {
-                Kind::Close(_) => return index,
-                Kind::Semi => return index + 1,
+                Kind::Close(_) => return Some(index),
+                Kind::Semi => return Some(index + 1),
                 Kind::Open('{') if bodied => {
                     let close = self.partner(index);
                     match self.next_significant(close + 1) {
-                        Some(next)
-                            if ["else", "elseif", "catch", "finally"]
-                                .iter()
-                                .any(|k| self.is(next, k))
-                                || (keyword == "do" && self.is(next, "while")) =>
-                        {
+                        Some(next) if ["catch", "finally"].iter().any(|k| self.is(next, k)) => {
                             index = next;
                         }
                         Some(next) if keyword == "use" && self.kind(next) == Some(Kind::Semi) => {
-                            return next + 1
+                            return Some(next + 1)
                         }
-                        _ => return close + 1,
+                        _ => return Some(close + 1),
                     }
-                    continue;
-                }
-                Kind::Op if bodied && self.text(index) == ":" && self.opens_alternative(index) => {
-                    index = self
-                        .alternative_end(index, &keyword)
-                        .unwrap_or(self.tokens.len());
                     continue;
                 }
                 Kind::Open(_) => index = self.partner(index),
@@ -420,7 +447,39 @@ impl Reader<'_> {
             }
             index += 1;
         }
-        index
+        None
+    }
+
+    /// The end of the control statement (`if`, `while`, ...) at `keyword`
+    /// whose body follows its parenthesized head: a block, a single
+    /// statement (`if ($a) one(); else two();`), or alternative syntax
+    /// (`if ($a): ... endif;`); `if` and `elseif` continue with `else` or
+    /// `elseif`. The outer `None` means the keyword has no head (it is not
+    /// a control statement); the inner one that the file ends first.
+    #[allow(clippy::option_option)]
+    fn control_end(&self, keyword: usize, word: &str) -> Option<Option<usize>> {
+        let open = self.next_significant(keyword + 1)?;
+        if self.kind(open) != Some(Kind::Open('(')) {
+            return None;
+        }
+        let end = (|| {
+            let after = self.next_significant(self.partner(open) + 1)?;
+            if self.is(after, ":") {
+                let end = self.alternative_end(after, word)?;
+                let semi = self.next_significant(end)?;
+                return (self.kind(semi) == Some(Kind::Semi)).then_some(semi + 1);
+            }
+            let body = self.statement_end(after)?;
+            if matches!(word, "if" | "elseif") {
+                if let Some(next) = self.next_significant(body) {
+                    if self.is(next, "else") || self.is(next, "elseif") {
+                        return self.statement_end(next);
+                    }
+                }
+            }
+            Some(body)
+        })();
+        Some(end)
     }
 
     /// Whether the `:` at `index` opens the alternative syntax of a
@@ -490,14 +549,18 @@ impl Reader<'_> {
     }
 
     /// Collects the function definitions among the statements in
-    /// `tokens[low..high]`, qualified by `scope`.
+    /// `tokens[low..high]`, qualified by `scope`, whose first `namespace`
+    /// names are the namespace. Named functions inside control statements
+    /// and function bodies are declared in the namespace, so they are
+    /// collected too. `Err` is the statement the file ends inside.
     fn statements(
         &self,
         low: usize,
         high: usize,
         scope: &mut Vec<String>,
+        mut namespace: usize,
         output: &mut Vec<Function>,
-    ) {
+    ) -> Result<(), usize> {
         let restore = scope.len();
         let mut index = low;
         while let Some(start) = self.next_significant(index).filter(|&s| s < high) {
@@ -505,19 +568,28 @@ impl Reader<'_> {
                 index = start + 1;
                 continue;
             }
-            let end = self.statement_end(start).clamp(start + 1, high);
+            if let Some(colon) = self.label_colon(start) {
+                index = colon + 1;
+                continue;
+            }
+            let end = self
+                .statement_end(start)
+                .ok_or(start)?
+                .clamp(start + 1, high);
             match self.declares(start, end) {
-                Declares::Scope(name, open) => {
+                Declares::Scope(name, open, is_namespace) => {
                     let inner = scope.len();
                     scope.extend(name);
-                    self.statements(open + 1, self.partner(open), scope, output);
+                    let inner_namespace = if is_namespace { scope.len() } else { namespace };
+                    self.statements(open + 1, self.partner(open), scope, inner_namespace, output)?;
                     scope.truncate(inner);
                 }
                 Declares::Namespace(name) => {
                     scope.truncate(restore);
                     scope.extend(name);
+                    namespace = scope.len();
                 }
-                Declares::Function(name) => {
+                Declares::Function(name, open) => {
                     let mut qualified = scope.clone();
                     qualified.push(name);
                     output.push(Function {
@@ -525,12 +597,109 @@ impl Reader<'_> {
                         start: self.tokens[start].start,
                         end: self.tokens[end - 1].end,
                     });
+                    let mut inner = scope[..namespace].to_vec();
+                    self.statements(open + 1, self.partner(open), &mut inner, namespace, output)?;
                 }
-                Declares::Other => {}
+                Declares::Other => {
+                    if CONTROL.iter().any(|k| self.is(self.keyword(start), k)) {
+                        self.control_bodies(start, end, scope, namespace, output)?;
+                    }
+                }
             }
             index = end;
         }
         scope.truncate(restore);
+        Ok(())
+    }
+
+    /// Collects the functions in the blocks and alternative-syntax bodies
+    /// of the control statement `tokens[start..end]`.
+    fn control_bodies(
+        &self,
+        start: usize,
+        end: usize,
+        scope: &mut Vec<String>,
+        namespace: usize,
+        output: &mut Vec<Function>,
+    ) -> Result<(), usize> {
+        let mut index = start;
+        while index < end {
+            match self.tokens[index].kind {
+                Kind::Open('{') => {
+                    let close = self.partner(index);
+                    self.statements(index + 1, close, scope, namespace, output)?;
+                    index = close;
+                }
+                Kind::Open(_) => index = self.partner(index),
+                Kind::Op if self.text(index) == ":" && self.opens_alternative(index) => {
+                    let keyword = (start..index)
+                        .rev()
+                        .find(|&i| CONTROL.iter().any(|k| self.is(i, k)) && !self.is(i, "else"))
+                        .map(|i| self.text(i).to_ascii_lowercase())
+                        .unwrap_or_default();
+                    if let Some(after) = self.alternative_end(index, &keyword) {
+                        self.statements(index + 1, after - 1, scope, namespace, output)?;
+                        index = after - 1;
+                    }
+                }
+                _ => {}
+            }
+            index += 1;
+        }
+        Ok(())
+    }
+
+    /// The `:` ending the label at `start` that only separates statements
+    /// inside a body: `case ...:`, `default:`, or, in alternative syntax,
+    /// `else:` and `elseif (...):`.
+    fn label_colon(&self, start: usize) -> Option<usize> {
+        if self.is(start, "else") {
+            let colon = self.next_significant(start + 1)?;
+            return self.is(colon, ":").then_some(colon);
+        }
+        if self.is(start, "elseif") {
+            return self.alternative_colon(start);
+        }
+        if !(self.is(start, "case") || self.is(start, "default")) {
+            return None;
+        }
+        // The first `:` that is not part of `::`, `?:`, or a ternary.
+        let mut ternaries = 0usize;
+        let mut index = start + 1;
+        while index < self.tokens.len() {
+            match self.tokens[index].kind {
+                Kind::Open(_) => index = self.partner(index),
+                Kind::Semi => return Some(index),
+                Kind::Close(_) => return None,
+                Kind::Op if self.text(index) == "?" => {
+                    if self.touching(index, &["?", ":", "-", ">"]) {
+                        index += 1;
+                    } else {
+                        ternaries += 1;
+                    }
+                }
+                Kind::Op if self.text(index) == ":" => {
+                    if self.touching(index, &[":"]) {
+                        index += 1;
+                    } else if ternaries > 0 {
+                        ternaries -= 1;
+                    } else {
+                        return Some(index);
+                    }
+                }
+                _ => {}
+            }
+            index += 1;
+        }
+        None
+    }
+
+    /// Whether the token after `index` follows it without a gap and is
+    /// one of `texts` (`??`, `?:`, `?->`, `::`).
+    fn touching(&self, index: usize, texts: &[&str]) -> bool {
+        self.tokens.get(index + 1).is_some_and(|next| {
+            next.start == self.tokens[index].end && texts.contains(&self.text(index + 1))
+        })
     }
 
     /// The first top-level `{` in `tokens[from..end]`.
@@ -560,20 +729,21 @@ impl Reader<'_> {
                 if self.is(name, "&") {
                     name += 1;
                 }
-                if self.kind(name) == Some(Kind::Word)
-                    && self.kind(name + 1) == Some(Kind::Open('('))
-                    && self.body(name, end).is_some()
-                {
-                    Declares::Function(self.text(name).to_owned())
-                } else {
-                    Declares::Other
+                match self.body(name, end) {
+                    Some(open)
+                        if self.kind(name) == Some(Kind::Word)
+                            && self.kind(name + 1) == Some(Kind::Open('(')) =>
+                    {
+                        Declares::Function(self.text(name).to_owned(), open)
+                    }
+                    _ => Declares::Other,
                 }
             }
             "class" | "interface" | "trait" | "enum" => {
                 let name = keyword + 1;
                 match (self.kind(name), self.body(name, end)) {
                     (Some(Kind::Word), Some(open)) => {
-                        Declares::Scope(vec![self.text(name).to_owned()], open)
+                        Declares::Scope(vec![self.text(name).to_owned()], open, false)
                     }
                     _ => Declares::Other,
                 }
@@ -590,7 +760,7 @@ impl Reader<'_> {
                     _ => Vec::new(),
                 };
                 match self.body(keyword, end) {
-                    Some(open) => Declares::Scope(segments, open),
+                    Some(open) => Declares::Scope(segments, open, true),
                     None => Declares::Namespace(segments),
                 }
             }
@@ -615,13 +785,19 @@ impl Reader<'_> {
             if matches!(self.tokens[next].kind, Kind::Close(_) | Kind::Semi) {
                 continue;
             }
-            let end = self.statement_end(next).max(next + 1);
+            let construct = match self.statement_end(next) {
+                Some(end) => Ok((
+                    self.tokens[next].start,
+                    self.tokens[end.max(next + 1) - 1].end,
+                )),
+                None => Err("the file ends before this statement is complete".to_owned()),
+            };
             output.push(Annotated {
                 comment_start: self.tokens[first].start,
                 lines: (first..=last)
                     .flat_map(|i| comment_lines(self.text(i)))
                     .collect(),
-                construct: Ok((self.tokens[next].start, self.tokens[end - 1].end)),
+                construct,
             });
         }
         output
@@ -861,5 +1037,72 @@ class CalcTest extends TestCase
         }
         let upper = discover_text(&Php, "src/w.php", "<?PHP function f() {}\n", "demo");
         assert_eq!(upper.sources[0].locator.value, "src/w.php::f");
+    }
+
+    /// @vtest.id TEST-ADAPTER-PHP-UNBRACED-BODIES-TRUNCATED-FILES-AND-NESTED-FUNCTIONS
+    /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
+    /// @vtest.target crates/vtest-adapter-lexical/src/php.rs::Reader::statement_end
+    /// @vtest.intent verifies that a single-statement if/else or do/while body is part of the Test construct so an edit to its tail changes the text, that a file ending inside a statement is unreadable instead of yielding a Test, and that named functions inside control statements, switch cases, alternative syntax, and function bodies are Source Targets in their namespace
+    #[test]
+    fn unbraced_bodies_truncated_files_and_nested_functions() {
+        let declare = "<?php\n// @vtest.id TEST-X\n// @vtest.covers VO-X\n// @vtest.intent check\n";
+        for body in [
+            "if ($flag) one(); else tail();\n",
+            "if ($flag) one(); elseif ($other) two(); else if ($third) three(); else tail();\n",
+            "do one(); while (tail());\n",
+            "while ($flag) tail();\n",
+            "if ($flag) { one(); } else { tail(); }\n",
+        ] {
+            let text = |source: &str| {
+                let outcome = discover_text(&Php, "src/t.php", source, "demo");
+                assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+                assert_eq!(outcome.tests.len(), 1, "{body:?}");
+                outcome.tests[0].construct_text.clone()
+            };
+            let one = format!("{declare}{body}");
+            assert!(text(&one).ends_with(body.trim_end()), "{body:?}");
+            assert_ne!(
+                text(&one),
+                text(&one.replace("tail()", "tail_changed()")),
+                "{body:?}"
+            );
+        }
+        for tail in [
+            "function broken()\n",
+            "if ($flag)\n",
+            "if ($flag) { one(); } else\n",
+            "test('tail', function () { tail(); })\n",
+            "do one();\n",
+        ] {
+            let outcome = discover_text(&Php, "src/u.php", &format!("{declare}{tail}"), "demo");
+            assert_eq!(outcome.diagnostics.len(), 1, "{tail:?}");
+            assert_eq!(outcome.diagnostics[0].code.as_str(), "E-SCAN-001");
+            assert!(outcome.tests.is_empty(), "{tail:?}");
+        }
+        let outcome = discover_text(
+            &Php,
+            "fixture.php",
+            "<?php\nnamespace N;\nif (!function_exists('f')) { function f() { return 1; } }\nfunction outer() { function inner() { return 1; } }\nclass C { function m() { function g() {} } }\nswitch ($x) { case $a ? 1 : 2: function s() {} break; case A::B: default: function t() {} }\nif ($a): function u() {} elseif ($b): function v() {} else: function w() {} endif;\ntry { function x() {} } catch (E $e) { function y() {} } finally { function z() {} }\n",
+            "demo",
+        );
+        assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+        assert_eq!(
+            locators(&outcome),
+            vec![
+                "fixture.php::N::f",
+                "fixture.php::N::outer",
+                "fixture.php::N::inner",
+                "fixture.php::N::C::m",
+                "fixture.php::N::g",
+                "fixture.php::N::s",
+                "fixture.php::N::t",
+                "fixture.php::N::u",
+                "fixture.php::N::v",
+                "fixture.php::N::w",
+                "fixture.php::N::x",
+                "fixture.php::N::y",
+                "fixture.php::N::z",
+            ]
+        );
     }
 }
