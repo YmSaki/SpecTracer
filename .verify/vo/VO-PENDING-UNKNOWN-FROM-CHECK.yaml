@@ -1,0 +1,11 @@
+id: VO-PENDING-UNKNOWN-FROM-CHECK
+parent: null
+derives_from:
+  - doc: DS-894
+claim: "検査に由来する`kind: unknown`の項目（DA規則の解析限界等）の生成・消滅は当該検査の値だけで決まり、判断記録の有無で変わらない。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00

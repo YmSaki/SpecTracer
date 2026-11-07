@@ -75,6 +75,7 @@ const TOOL_NAMES: &[&str] = &[
     "scan",
     "run_tests",
     "verify",
+    "report",
     "approval_create",
     "approval_withdraw",
     "approval_get",
@@ -405,6 +406,21 @@ fn tool_input_schema(name: &str) -> Value {
             }),
             Vec::new(),
         ),
+        // DS-1215: verify's inputs plus from / view / depth / direction.
+        "report" => (
+            json!({
+                "items": {"type": "array", "items": {"type": "string"}},
+                "doc": {"type": "string"},
+                "vo": {"type": "string"},
+                "test": {"type": "string"},
+                "gate": {"type": "string"},
+                "from": {"type": "string"},
+                "view": {"type": "string", "enum": ["pm", "tester", "coder"]},
+                "depth": {"type": "integer", "minimum": 0},
+                "direction": {"type": "string", "enum": ["up", "down", "both"]}
+            }),
+            Vec::new(),
+        ),
         "approval_create" => (
             json!({
                 "subject": {
@@ -626,6 +642,17 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
         "scan" => &[],
         "run_tests" => &["test", "vo", "all", "fast"],
         "verify" => &["items", "doc", "vo", "test", "gate", "summary"],
+        "report" => &[
+            "items",
+            "doc",
+            "vo",
+            "test",
+            "gate",
+            "from",
+            "view",
+            "depth",
+            "direction",
+        ],
         "approval_create" => &["subject", "state", "approver", "basis", "supersedes"],
         "approval_withdraw" => &["approval_id", "approver", "basis"],
         "approval_get" => &["subject"],
@@ -682,6 +709,21 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
                 optional_nonempty_string(args, key)?;
             }
             optional_bool(args, "summary")
+        }
+        "report" => {
+            optional_string_array(args, "items")?;
+            for key in ["doc", "vo", "test", "gate", "from", "view", "direction"] {
+                optional_nonempty_string(args, key)?;
+            }
+            if let Some(depth) = args.get("depth") {
+                if depth.as_u64().is_none() {
+                    return Err(failure_envelope(
+                        "E-OP-001",
+                        "argument `depth` must be a non-negative integer",
+                    ));
+                }
+            }
+            Ok(())
         }
         // `approval_*` argument presence/type is checked by the tool
         // functions themselves (`approval_create_tool`/etc, via
@@ -821,6 +863,7 @@ fn dispatch_tool(root: &Path, name: &str, args: &Value) -> Value {
         },
         "run_tests" => run_tool(root, args),
         "verify" => verify_tool(root, args),
+        "report" => report_tool(root, args),
         "approval_create" => approval_create_tool(root, args),
         "approval_withdraw" => approval_withdraw_tool(root, args),
         "approval_get" => approval_get_tool(root, args),
@@ -1640,6 +1683,56 @@ fn verify_tool(root: &Path, args: &Value) -> Value {
     }
 }
 
+/// DS-1215: the same `ops::report::execute` `vtest report` calls.
+fn report_tool(root: &Path, args: &Value) -> Value {
+    let items = string_array_arg(args, "items");
+    if args
+        .get("depth")
+        .is_some_and(|depth| depth.as_u64().is_none())
+    {
+        return failure_envelope(
+            "E-OP-001",
+            "argument `depth` must be a non-negative integer",
+        );
+    }
+    let projection = ops::report::ProjectionArgs {
+        from: string_arg(args, "from").map(str::to_owned),
+        view: string_arg(args, "view").map(str::to_owned),
+        depth: args
+            .get("depth")
+            .and_then(Value::as_u64)
+            .and_then(|depth| usize::try_from(depth).ok()),
+        direction: string_arg(args, "direction").map(str::to_owned),
+    };
+    let registry = match resolve_registry() {
+        Ok(registry) => registry,
+        Err(envelope) => return envelope,
+    };
+    match ops::report::execute(
+        root,
+        &items,
+        string_arg(args, "doc").map(str::to_owned),
+        string_arg(args, "vo").map(str::to_owned),
+        string_arg(args, "test").map(str::to_owned),
+        string_arg(args, "gate"),
+        &projection,
+        &registry,
+    ) {
+        Ok((exit, data, diagnostics)) => success_envelope(exit == ExitCode::Ok, data, &diagnostics),
+        Err(ops::verify::VerifyOpError::Usage {
+            code,
+            message,
+            candidates,
+        }) => failure_envelope_with_candidates(code, message, candidates.as_deref()),
+        Err(ops::verify::VerifyOpError::Scan(error)) => {
+            failure_envelope(error.code().unwrap_or("E-CORE-001"), error.to_string())
+        }
+        Err(ops::verify::VerifyOpError::Internal { message }) => {
+            failure_envelope("E-INTERNAL-001", message)
+        }
+    }
+}
+
 fn success_envelope<T: serde::Serialize>(
     ok: bool,
     data: T,
@@ -2313,6 +2406,45 @@ mod tests {
             "a lone unknown test id is still rejected, not ignored: {unknown}"
         );
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    /// @vtest.id TEST-MCP-REPORT-MATCHES-CLI
+    /// @vtest.covers VO-REPORT-CLI-MCP-PARITY
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent MCP `report` returns the same envelope as the shared report operation the CLI calls, with projection arguments, and rejects a bad view with E-OP-001
+    #[test]
+    fn mcp_report_tool_matches_the_cli_report_operation() {
+        let root = temp_root("report-equivalence");
+        fixture_vo_project(&root);
+        let registry = vtest_cli::adapters::builtin_registry().expect("builtin registry");
+        let projection = ops::report::ProjectionArgs {
+            from: Some("ROOT-001".to_owned()),
+            view: Some("pm".to_owned()),
+            depth: Some(2),
+            direction: Some("down".to_owned()),
+        };
+        let (exit, data, diagnostics) =
+            ops::report::execute(&root, &[], None, None, None, None, &projection, &registry)
+                .unwrap_or_else(|_| panic!("report must run"));
+        let cli_envelope =
+            json!({"ok": exit == ExitCode::Ok, "data": data, "diagnostics": diagnostics});
+        let mcp_envelope = dispatch_tool(
+            &root,
+            "report",
+            &json!({"from": "ROOT-001", "view": "pm", "depth": 2, "direction": "down"}),
+        );
+        assert_eq!(mcp_envelope, cli_envelope);
+        assert!(mcp_envelope["data"]["pending"].is_array());
+        assert!(mcp_envelope["data"]["projection"]["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|node| node["kind"] == "vo"));
+
+        let bad = dispatch_tool(&root, "report", &json!({"view": "boss"}));
+        assert_eq!(bad["diagnostics"][0]["code"], "E-OP-001");
+        let bad_depth = dispatch_tool(&root, "report", &json!({"depth": -1}));
+        assert_eq!(bad_depth["diagnostics"][0]["code"], "E-OP-001");
     }
 
     /// @vtest.id TEST-MCP-SCAN-MATCHES-CLI

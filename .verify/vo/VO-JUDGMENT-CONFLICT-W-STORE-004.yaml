@@ -1,0 +1,11 @@
+id: VO-JUDGMENT-CONFLICT-W-STORE-004
+parent: null
+derives_from:
+  - doc: DS-730
+claim: "実効判断は、Eに2種以上のdecision値がある（競合）とき未確定（UNKNOWN）とし、W-STORE-004を出す。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-08T12:00:00+09:00
+updated: 2026-11-08T12:00:00+09:00
