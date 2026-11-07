@@ -179,3 +179,52 @@ fn audit_static_writes_no_canonical_record() {
         assert_eq!(envelope["diagnostics"][0]["code"], "E-OP-001");
     }
 }
+
+/// Two Test constructs declaring the same ID: `tests/a.rs` passes every rule,
+/// `tests/b.rs` is empty (DA-005 `FAIL`). Auditing either one alone would hide
+/// the other's result.
+fn colliding_fixture(name: &str) -> PathBuf {
+    let root = fixture(name);
+    fs::remove_file(root.join("tests/audit.rs")).unwrap();
+    fs::write(
+        root.join("tests/a.rs"),
+        "/// @vtest.id TEST-A\n/// @vtest.covers VO-X\n/// @vtest.target src/lib.rs::add\n\
+         /// @vtest.intent adds\n#[test]\nfn a() {\n    assert_eq!(audit_fixture::add(2, 3), 5);\n}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("tests/b.rs"),
+        "/// @vtest.id TEST-A\n/// @vtest.covers VO-X\n/// @vtest.target src/lib.rs::add\n\
+         /// @vtest.intent nothing\n#[test]\nfn b() {}\n",
+    )
+    .unwrap();
+    root
+}
+
+/// @vtest.id TEST-AUDIT-STATIC-COLLIDING-TEST-ID
+/// @vtest.covers VO-AUDIT-STATIC-COLLIDING-TEST-ID-E-SCAN-002
+/// @vtest.target crates/vtest-cli/src/ops/audit.rs::audit_static
+/// @vtest.intent a Test ID declared by two constructs (one clean, one empty) makes audit static --test and --all fail with E-SCAN-002 / exit 2, audit neither construct, and write no cache
+#[test]
+fn a_colliding_test_id_is_rejected_without_a_cache() {
+    for args in [
+        &["audit", "static", "--test", "TEST-A"][..],
+        &["audit", "static", "--all"][..],
+    ] {
+        let root = colliding_fixture("colliding");
+        let (code, envelope) = vtest(&root, args);
+        assert_eq!(code, 2, "{args:?}: {envelope}");
+        assert_eq!(envelope["ok"], false, "{args:?}: {envelope}");
+        assert_eq!(envelope["data"], Value::Null, "{args:?}: {envelope}");
+        assert_eq!(
+            envelope["diagnostics"][0]["code"], "E-SCAN-002",
+            "{args:?}: {envelope}"
+        );
+        let message = envelope["diagnostics"][0]["message"].as_str().unwrap();
+        assert!(message.contains("TEST-A"), "{message}");
+        assert!(
+            !root.join(".verify/cache/audit-static.json").exists(),
+            "{args:?}: no derived cache for a rejected operation"
+        );
+    }
+}

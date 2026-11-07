@@ -13,7 +13,7 @@ use std::path::Path;
 
 use vtest_adapter_api::{AdapterRegistry, StaticAnalysisInput};
 use vtest_model::{Diagnostic, TestEntity};
-use vtest_scan::ScanResult;
+use vtest_scan::{ScanResult, TestIdLookup};
 use vtest_store::VerifyLayout;
 
 #[derive(Debug, thiserror::Error)]
@@ -26,6 +26,11 @@ pub enum AuditOpError {
     /// operation stops before analyzing anything and writes no cache.
     #[error("{0}")]
     MissingCapability(String),
+    /// E-SCAN-002: a selected Test ID is declared by more than one Test
+    /// construct. Which construct the request means cannot be decided, so the
+    /// operation audits nothing and writes no cache instead of picking one.
+    #[error("{0}")]
+    TestIdCollision(String),
     /// Writing the cache file failed: an internal error.
     #[error("cannot write the audit cache at {path}: {source}")]
     Cache {
@@ -41,6 +46,7 @@ impl AuditOpError {
         match self {
             Self::Usage(_) => "E-OP-001",
             Self::MissingCapability(_) => "E-ADAPTER-004",
+            Self::TestIdCollision(_) => "E-SCAN-002",
             Self::Cache { .. } => vtest_model::INTERNAL_ERROR_CODE,
         }
     }
@@ -49,7 +55,9 @@ impl AuditOpError {
     /// the tool itself.
     pub fn exit_code(&self) -> vtest_model::ExitCode {
         match self {
-            Self::Usage(_) | Self::MissingCapability(_) => vtest_model::ExitCode::Usage,
+            Self::Usage(_) | Self::MissingCapability(_) | Self::TestIdCollision(_) => {
+                vtest_model::ExitCode::Usage
+            }
             Self::Cache { .. } => vtest_model::ExitCode::Internal,
         }
     }
@@ -92,6 +100,10 @@ pub struct StaticAuditData {
 
 pub const CACHE_FILE: &str = "audit-static.json";
 
+/// Selects the Tests to audit. A Test ID declared by several Test constructs
+/// (E-SCAN-002) is never narrowed to one representative: `--test` with such
+/// an ID, or `--all` while any ID collides, is rejected before anything is
+/// analyzed or written.
 fn select<'a>(
     scan: &'a ScanResult,
     test: Option<&str>,
@@ -101,13 +113,39 @@ fn select<'a>(
         (Some(_), true) | (None, false) => Err(AuditOpError::Usage(
             "audit static takes exactly one of --test <ID> or --all".to_owned(),
         )),
-        (None, true) => Ok(scan.tests.iter().collect()),
-        (Some(id), false) => scan
-            .tests
-            .iter()
-            .find(|candidate| candidate.id.as_str() == id)
-            .map(|found| vec![found])
-            .ok_or_else(|| AuditOpError::Usage(format!("no Test with id '{id}' exists"))),
+        (None, true) => {
+            let mut counts: std::collections::BTreeMap<&str, usize> =
+                std::collections::BTreeMap::new();
+            for test in &scan.tests {
+                *counts.entry(test.id.as_str()).or_default() += 1;
+            }
+            let collided: Vec<String> = counts
+                .into_iter()
+                .filter(|(_, count)| *count > 1)
+                .map(|(id, count)| format!("{id} ({count} constructs)"))
+                .collect();
+            if collided.is_empty() {
+                Ok(scan.tests.iter().collect())
+            } else {
+                Err(AuditOpError::TestIdCollision(format!(
+                    "Test IDs declared by more than one Test construct (E-SCAN-002): {}; \
+                     audit static cannot tell which construct each ID means, so nothing was \
+                     analyzed or written",
+                    collided.join(", ")
+                )))
+            }
+        }
+        (Some(id), false) => match scan.tests_by_id(id) {
+            TestIdLookup::Unique(found) => Ok(vec![found]),
+            TestIdLookup::NotFound => Err(AuditOpError::Usage(format!(
+                "no Test with id '{id}' exists"
+            ))),
+            TestIdLookup::Collided(entities) => Err(AuditOpError::TestIdCollision(format!(
+                "Test ID '{id}' is declared by {} Test constructs (E-SCAN-002); audit static \
+                 cannot pick which one to audit, so nothing was analyzed or written",
+                entities.len()
+            ))),
+        },
     }
 }
 

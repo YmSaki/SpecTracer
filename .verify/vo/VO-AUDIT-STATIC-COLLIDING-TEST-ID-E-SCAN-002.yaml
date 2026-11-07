@@ -1,0 +1,16 @@
+id: VO-AUDIT-STATIC-COLLIDING-TEST-ID-E-SCAN-002
+parent: null
+derives_from:
+  - doc: DS-536
+  - doc: DS-582
+claim: >-
+  導出。audit static（CLI・MCP）は、選択した Test ID が複数の Test construct
+  から宣言されている（E-SCAN-002）とき、代表の1件を選んで監査せず、
+  E-SCAN-002、ok: false、終了コード 2 を返し、どの Test も解析せず
+  派生 cache を書かない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-07T12:00:00+09:00
+updated: 2026-11-07T12:00:00+09:00
