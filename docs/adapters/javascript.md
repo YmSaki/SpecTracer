@@ -16,6 +16,13 @@ all framework-neutral adapters.
   `test("adds", () => { ... })` or `it(...)`, even inside `describe`
   blocks. Such a call gets the Test locator `<callee>#<n>`, for example
   `test#1`.
+- **Where a construct ends**: a `function`, `class`, method, `namespace`, or
+  `if`/`for`/`try` statement ends after its `{}` body (`else`, `catch`, and
+  `finally` continue it); anything else at a `;` or where automatic
+  semicolon insertion ends it. A `{` after `:`, `|`, `&`, `=>`, `<`, or
+  `extends` is a TypeScript type, so `function f(): { x: number } {` takes
+  the second brace as the body. Template literals, regular expressions, and
+  JSX elements are read as literals.
 - **Limits**: regular-expression literals that contain unbalanced brackets
   (`/[{]/`) can make a file unparseable, and the file is then reported as
   `E-SCAN-001`. Functions nested inside other functions or inside call
