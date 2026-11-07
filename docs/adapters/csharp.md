@@ -13,6 +13,10 @@ framework-neutral adapters.
   xUnit, NUnit, or MSTest method. Its attributes (`[Fact]`,
   `[Theory, InlineData(1, 2)]`) are part of the Test construct. `///` XML
   doc comments work. Free text and XML tags in them are ignored.
+- **Where a construct ends**: after the `{}` body, at the `;` of an
+  expression body (`=> new[] { 1, 2 };`) or a field, or after a property's
+  `{ get; set; } = value;`. Brackets in attributes (`[Values(new int[]{1,2})]`)
+  are not a body.
 - **Limits**: overloads share a locator, so use `@vtest.src-id` to target one
   of them. Preprocessor lines (`#if`, `#region`) are skipped as directives,
   and both branches of an `#if` are scanned.

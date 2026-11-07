@@ -4,7 +4,8 @@
 //! (`"@vtest." test-key SP value`, DS-487) from Rust doc comments. The
 //! lexical adapters read the same grammar from any comment of the target
 //! language that immediately precedes a construct, because those languages
-//! have no single doc-comment form and their test frameworks differ. The key
+//! have no single doc-comment form and their test frameworks differ. Each
+//! language removes its own comment markers; this module reads the lines. The key
 //! sets, repetition rules, and diagnostics are the same as `rust-cargo`'s:
 //!
 //! - a comment block with at least one test-key line declares a Test
@@ -26,34 +27,16 @@ pub const TEST_KEYS: &[&str] = &[
 /// The only source-target-key.
 pub const SOURCE_TARGET_KEY: &str = "src-id";
 
-/// Extracts the `@vtest.` lines of one comment's text, in order.
-///
-/// Comment markers are removed by trimming, from the start of each line,
-/// whitespace and the marker characters `/`, `*`, `!`, `#`, and from its
-/// end, the block-comment closers passed in `closers` (so that
-/// `/** @vtest.id T */` yields the value `T`). Lines that do not then start
-/// with `@vtest.` are free text and are ignored.
-pub fn annotation_lines(comment: &str, closers: &[&str]) -> Vec<(String, String)> {
-    let mut lines = Vec::new();
-    for raw in comment.lines() {
-        let mut line = raw.trim();
-        for closer in closers {
-            if let Some(stripped) = line.strip_suffix(closer) {
-                line = stripped.trim_end();
-            }
-        }
-        let line = line
-            .trim_start_matches(|c: char| c.is_whitespace() || matches!(c, '/' | '*' | '!' | '#'));
-        let Some(annotation) = line.strip_prefix("@vtest.") else {
-            continue;
-        };
-        let (key, value) = match annotation.find(char::is_whitespace) {
-            Some(separator) => annotation.split_at(separator),
-            None => (annotation, ""),
-        };
-        lines.push((key.trim().to_owned(), value.trim().to_owned()));
-    }
-    lines
+/// Reads one comment line, with the language's comment markers already
+/// removed, as an `@vtest.` annotation line: its key and value. A line that
+/// does not start with `@vtest.` (after whitespace) is free text.
+pub fn parse_line(line: &str) -> Option<(String, String)> {
+    let annotation = line.trim().strip_prefix("@vtest.")?;
+    let (key, value) = match annotation.find(char::is_whitespace) {
+        Some(separator) => annotation.split_at(separator),
+        None => (annotation, ""),
+    };
+    Some((key.trim().to_owned(), value.trim().to_owned()))
 }
 
 /// The normalized surface-1 declaration (DES-215's logical fields), with the
@@ -176,30 +159,20 @@ mod tests {
 
     /// @vtest.id TEST-ADAPTER-LEXICAL-ANNOTATION-LINES-FROM-ANY-COMMENT
     /// @vtest.covers VO-ADAPTER-LEXICAL-NORMALIZES-DECLARATION
-    /// @vtest.target crates/vtest-adapter-lexical/src/annotation.rs::annotation_lines
-    /// @vtest.intent verifies @vtest lines are read from line, block, javadoc, and hash comments and that free text is ignored
+    /// @vtest.target crates/vtest-adapter-lexical/src/annotation.rs::parse_line
+    /// @vtest.intent verifies an @vtest line yields its key and trimmed value, a key alone has an empty value, and free text is ignored
     #[test]
-    fn reads_vtest_lines_from_several_comment_styles() {
+    fn reads_vtest_lines() {
         assert_eq!(
-            annotation_lines("/// @vtest.id A", &["*/"]),
-            vec![("id".to_owned(), "A".to_owned())]
+            parse_line(" @vtest.covers VO-1, VO-2 "),
+            Some(("covers".to_owned(), "VO-1, VO-2".to_owned()))
         );
         assert_eq!(
-            annotation_lines(
-                "/**\n * free text\n * @vtest.covers VO-1, VO-2\n */",
-                &["*/"]
-            ),
-            vec![("covers".to_owned(), "VO-1, VO-2".to_owned())]
+            parse_line("@vtest.id"),
+            Some(("id".to_owned(), String::new()))
         );
-        assert_eq!(
-            annotation_lines("/* @vtest.intent does a thing */", &["*/"]),
-            vec![("intent".to_owned(), "does a thing".to_owned())]
-        );
-        assert_eq!(
-            annotation_lines("# @vtest.kind unit", &[]),
-            vec![("kind".to_owned(), "unit".to_owned())]
-        );
-        assert!(annotation_lines("// see @vtest.id elsewhere", &[]).is_empty());
+        assert_eq!(parse_line("see @vtest.id elsewhere"), None);
+        assert_eq!(parse_line("free text"), None);
     }
 
     /// @vtest.id TEST-ADAPTER-LEXICAL-ANNOTATION-GRAMMAR-DIAGNOSTICS
