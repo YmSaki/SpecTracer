@@ -1,0 +1,11 @@
+id: VO-CLI-VO-LIST-DOC-FILTER
+parent: null
+derives_from:
+  - doc: DS-1026
+claim: "`--doc DOC-X` は当該 document を根とする下流 VO の絞り込みである。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T12:00:00+09:00
+updated: 2026-11-03T12:00:00+09:00

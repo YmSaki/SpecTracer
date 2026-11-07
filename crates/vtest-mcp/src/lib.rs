@@ -84,6 +84,11 @@ const TOOL_NAMES: &[&str] = &[
     "test_create",
     "test_edit",
     "form_get",
+    "vo_list",
+    "vo_get",
+    "vo_upsert",
+    "vo_expand",
+    "vo_approve",
 ];
 
 #[derive(Default)]
@@ -420,6 +425,75 @@ fn tool_input_schema(name: &str) -> Value {
             }),
             vec!["subject", "state", "approver"],
         ),
+        "vo_list" => (
+            json!({
+                "doc": {"type": "string"},
+                "status": {"type": "string", "enum": ["draft", "approved"]}
+            }),
+            Vec::new(),
+        ),
+        "vo_get" => (json!({"id": {"type": "string"}}), vec!["id"]),
+        "vo_upsert" => (
+            json!({
+                "id": {"type": "string"},
+                "claim": {"type": "string"},
+                "parent": {"type": "string"},
+                "derives_from": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "doc": {"type": "string"},
+                            "anchor": {"type": "string"},
+                            "note": {"type": "string"}
+                        },
+                        "required": ["doc"]
+                    }
+                },
+                "dimensions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "partitions": {"type": "array", "items": {"type": "string"}}
+                        },
+                        "required": ["name", "partitions"]
+                    }
+                },
+                "coverage_policy": {
+                    "type": ["string", "null"],
+                    "enum": ["independent-axes", "full-product", "explicit", null]
+                },
+                "combinations": {
+                    "type": "array",
+                    "items": {"type": "object", "additionalProperties": {"type": "string"}}
+                }
+            }),
+            vec!["id", "derives_from"],
+        ),
+        "vo_expand" => (
+            json!({"id": {"type": "string"}, "dry_run": {"type": "boolean"}}),
+            vec!["id"],
+        ),
+        "vo_approve" => (
+            json!({
+                "id": {"type": "string"},
+                "state": {"type": "string"},
+                "approver": {
+                    "type": "object",
+                    "properties": {
+                        "kind": {"type": "string"},
+                        "id": {"type": "string"},
+                        "model": {"type": "string"}
+                    }
+                },
+                "basis": {"type": "array", "items": {"type": "string"}},
+                "supersedes": {"type": "array", "items": {"type": "string"}}
+            }),
+            vec!["id", "state", "approver"],
+        ),
         "approval_withdraw" => (
             json!({
                 "approval_id": {"type": "string"},
@@ -524,6 +598,19 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
         "test_create" => &["form", "answers", "id", "dry_run"],
         "test_edit" => &["id", "answers", "set", "body", "dry_run"],
         "form_get" => &["kind"],
+        "vo_list" => &["doc", "status"],
+        "vo_get" => &["id"],
+        "vo_upsert" => &[
+            "id",
+            "claim",
+            "parent",
+            "derives_from",
+            "dimensions",
+            "coverage_policy",
+            "combinations",
+        ],
+        "vo_expand" => &["id", "dry_run"],
+        "vo_approve" => &["id", "state", "approver", "basis", "supersedes"],
         _ => &[],
     };
     if let Some(key) = args.keys().find(|key| !allowed.contains(&key.as_str())) {
@@ -587,6 +674,25 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
                 }
             }
             optional_bool(args, "dry_run")
+        }
+        "vo_list" => {
+            optional_nonempty_string(args, "doc")?;
+            optional_nonempty_string(args, "status").map(|_| ())
+        }
+        "vo_get" => optional_nonempty_string(args, "id").map(|_| ()),
+        "vo_expand" => {
+            optional_nonempty_string(args, "id")?;
+            optional_bool(args, "dry_run")
+        }
+        "vo_approve" => {
+            optional_nonempty_string(args, "id")?;
+            optional_string_array(args, "basis")?;
+            optional_string_array(args, "supersedes")
+        }
+        // `vo_upsert`'s nested shape is checked by `vo_upsert_tool`.
+        "vo_upsert" => {
+            optional_nonempty_string(args, "id")?;
+            optional_nonempty_string(args, "parent").map(|_| ())
         }
         _ => Ok(()),
     }
@@ -666,6 +772,11 @@ fn dispatch_tool(root: &Path, name: &str, args: &Value) -> Value {
             (Some(kind), Ok(registry)) => ops::form::get(root, &registry, kind).1,
             (Some(_), Err(envelope)) => envelope,
         },
+        "vo_list" => vo_list_tool(root, args),
+        "vo_get" => vo_get_tool(root, args),
+        "vo_upsert" => vo_upsert_tool(root, args),
+        "vo_expand" => vo_expand_tool(root, args),
+        "vo_approve" => vo_approve_tool(root, args),
         _ => failure_envelope("E-OP-001", format!("unknown MCP tool `{name}`")),
     }
 }
@@ -748,6 +859,194 @@ fn test_edit_tool(root: &Path, args: &Value) -> Value {
         }
         Err(envelope) => envelope,
     }
+}
+
+// ---------------------------------------------------------------------------
+// vo_* (DS-1199〜DS-1202, DS-1218〜DS-1226): each tool calls the same
+// `ops::vo` function as the matching `vtest vo` subcommand.
+// ---------------------------------------------------------------------------
+
+fn vo_error_envelope(error: &ops::vo::VoOpError) -> Value {
+    use ops::vo::VoOpError;
+    match error {
+        VoOpError::Store(error) => record_error_envelope(error),
+        VoOpError::Approval(error) => approval_error_envelope(error),
+        VoOpError::Usage(_) | VoOpError::InvalidCombinations(_) => {
+            failure_envelope(error.code().unwrap_or("E-OP-001"), error.message())
+        }
+    }
+}
+
+fn vo_list_tool(root: &Path, args: &Value) -> Value {
+    let layout = vtest_store::VerifyLayout::new(root);
+    match ops::vo::list(&layout, string_arg(args, "doc"), string_arg(args, "status")) {
+        Ok(entries) => success_envelope(true, json!({ "vos": entries }), &[]),
+        Err(error) => vo_error_envelope(&error),
+    }
+}
+
+fn vo_get_tool(root: &Path, args: &Value) -> Value {
+    let Some(id) = string_arg(args, "id") else {
+        return failure_envelope("E-OP-001", "vo_get requires id");
+    };
+    let registry = match resolve_registry() {
+        Ok(registry) => registry,
+        Err(envelope) => return envelope,
+    };
+    let scan = match vtest_scan::scan_project(root, &registry) {
+        Ok(scan) => scan,
+        Err(error) => {
+            return failure_envelope(error.code().unwrap_or("E-CORE-001"), error.to_string())
+        }
+    };
+    let layout = vtest_store::VerifyLayout::new(root);
+    match ops::vo::show(&layout, &scan, id) {
+        Ok(view) => success_envelope(true, view, &[]),
+        Err(error) => vo_error_envelope(&error),
+    }
+}
+
+/// DS-1200/DS-1218〜DS-1225: translate the JSON field set into the same
+/// `VoArgs` the CLI's parser produces, then call `ops::vo::upsert`.
+fn vo_upsert_args(args: &Value) -> Result<ops::vo::VoArgs, ops::vo::VoOpError> {
+    use ops::vo::{CombinationsUpdate, VoOpError};
+    let usage = |message: &str| VoOpError::Usage(message.to_owned());
+    let mut out = ops::vo::VoArgs {
+        id: string_arg(args, "id").map(str::to_owned),
+        claim: string_arg(args, "claim").map(str::to_owned),
+        parent: string_arg(args, "parent").map(str::to_owned),
+        ..Default::default()
+    };
+    if let Some(value) = args.get("claim") {
+        if !value.is_string() {
+            return Err(usage("claim must be a string"));
+        }
+    }
+    if let Some(entries) = args.get("derives_from") {
+        let entries = entries
+            .as_array()
+            .ok_or_else(|| usage("derives_from must be an array"))?;
+        let mut derives = Vec::new();
+        for entry in entries {
+            let doc = entry
+                .get("doc")
+                .and_then(Value::as_str)
+                .filter(|doc| !doc.trim().is_empty())
+                .ok_or_else(|| usage("each derives_from entry needs a non-empty doc"))?;
+            let text = |key: &str| -> Result<Option<String>, VoOpError> {
+                match entry.get(key) {
+                    None | Some(Value::Null) => Ok(None),
+                    Some(Value::String(value)) => Ok(Some(value.clone())),
+                    Some(_) => Err(VoOpError::Usage(format!(
+                        "derives_from[].{key} must be a string"
+                    ))),
+                }
+            };
+            derives.push(vtest_model::DerivesFrom {
+                doc: vtest_model::DocumentId::new(doc),
+                anchor: text("anchor")?,
+                note: text("note")?,
+            });
+        }
+        out.derives_from = Some(derives);
+    }
+    if let Some(dimensions) = args.get("dimensions") {
+        let dimensions = dimensions
+            .as_array()
+            .ok_or_else(|| usage("dimensions must be an array"))?;
+        let mut parsed = Vec::new();
+        for dimension in dimensions {
+            let name = dimension
+                .get("name")
+                .and_then(Value::as_str)
+                .filter(|name| !name.is_empty())
+                .ok_or_else(|| usage("each dimension needs a non-empty name"))?;
+            let partitions = dimension
+                .get("partitions")
+                .and_then(Value::as_array)
+                .ok_or_else(|| usage("each dimension needs a partitions array"))?
+                .iter()
+                .map(|partition| {
+                    partition
+                        .as_str()
+                        .filter(|partition| !partition.is_empty())
+                        .map(str::to_owned)
+                        .ok_or_else(|| usage("partitions must be non-empty strings"))
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            parsed.push(vtest_model::Dimension {
+                name: name.to_owned(),
+                partitions,
+            });
+        }
+        out.dimensions = Some(parsed);
+    }
+    match args.get("coverage_policy") {
+        None => {}
+        Some(Value::Null) => out.policy = Some(None),
+        Some(Value::String(policy)) => out.policy = Some(ops::vo::parse_policy(policy)?),
+        Some(_) => return Err(usage("coverage_policy must be a string or null")),
+    }
+    // DS-1225: omitted keeps, an explicit [] clears, a non-empty list
+    // replaces (desired state, DS-1221).
+    out.combinations = match args.get("combinations") {
+        None => CombinationsUpdate::Keep,
+        Some(Value::Array(entries)) if entries.is_empty() => CombinationsUpdate::Clear,
+        Some(Value::Array(entries)) => {
+            let mut parsed = Vec::new();
+            for entry in entries {
+                let map = entry
+                    .as_object()
+                    .ok_or_else(|| usage("each combinations entry must be an object"))?;
+                let pairs = map
+                    .iter()
+                    .map(|(dimension, partition)| {
+                        partition
+                            .as_str()
+                            .map(|partition| (dimension.clone(), partition.to_owned()))
+                            .ok_or_else(|| usage("combination partition values must be strings"))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                parsed.push(pairs.into_iter().collect());
+            }
+            CombinationsUpdate::Replace(parsed)
+        }
+        Some(_) => return Err(usage("combinations must be an array")),
+    };
+    Ok(out)
+}
+
+fn vo_upsert_tool(root: &Path, args: &Value) -> Value {
+    let layout = vtest_store::VerifyLayout::new(root);
+    match vo_upsert_args(args).and_then(|args| ops::vo::upsert(&layout, args)) {
+        Ok(result) => success_envelope(true, result, &[]),
+        Err(error) => vo_error_envelope(&error),
+    }
+}
+
+fn vo_expand_tool(root: &Path, args: &Value) -> Value {
+    let Some(id) = string_arg(args, "id") else {
+        return failure_envelope("E-OP-001", "vo_expand requires id");
+    };
+    let layout = vtest_store::VerifyLayout::new(root);
+    match ops::vo::expand(&layout, id, bool_arg(args, "dry_run")) {
+        Ok(result) => success_envelope(true, result, &[]),
+        Err(error) => vo_error_envelope(&error),
+    }
+}
+
+/// DS-1202/SPEC-410: `vo_approve` is `approval_create` with `subject: {
+/// type: vo, id }` — same operation, same record, same rejections.
+fn vo_approve_tool(root: &Path, args: &Value) -> Value {
+    let Some(id) = string_arg(args, "id") else {
+        return failure_envelope("E-OP-001", "vo_approve requires id");
+    };
+    let mut forwarded = args.clone();
+    if let Some(object) = forwarded.as_object_mut() {
+        object.remove("id");
+        object.insert("subject".to_owned(), json!({"type": "vo", "id": id}));
+    }
+    approval_create_tool(root, &forwarded)
 }
 
 /// BD-305: `approval_create`（`subject: { type, id }`）— the same canonical
@@ -1317,6 +1616,207 @@ mod tests {
         assert_eq!(diagnostic["candidates"], json!(["release", "beta"]));
         let message = diagnostic["message"].as_str().unwrap();
         assert!(message.contains("'Release'") && message.contains("beta"));
+    }
+
+    fn vo_fixture(name: &str) -> PathBuf {
+        let root = temp_root(name);
+        let layout = vtest_store::init_project(&root, "vo-tools").unwrap();
+        let source = vtest_model::NodeSource {
+            doc: "root.md".to_owned(),
+            heading: "fixture".to_owned(),
+            lines: [1, 1],
+        };
+        let file = vtest_model::DocumentFile {
+            schema_version: "0.1".to_owned(),
+            root: vec![vtest_model::RootNode {
+                id: vtest_model::DocumentId::new("ROOT-001"),
+                statement: "root".to_owned(),
+                description: None,
+                source,
+            }],
+            request: Vec::new(),
+            require: Vec::new(),
+            spec: Vec::new(),
+            detailed_spec: Vec::new(),
+            basic_design: Vec::new(),
+            design: Vec::new(),
+        };
+        vtest_store::write_document_file(&layout, "fixture", &file).unwrap();
+        root
+    }
+
+    /// @vtest.id TEST-MCP-VO-UPSERT-COMBINATIONS
+    /// @vtest.covers VO-MCP-VO-UPSERT-COMBINATIONS-OMITTED-KEEPS
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent vo_upsert creates then updates a VO; omitting combinations keeps them, an explicit [] clears them, and invalid combinations are an E-SCAN-017 tool error that writes nothing
+    #[test]
+    fn vo_upsert_treats_combinations_as_desired_state() {
+        let root = vo_fixture("vo-upsert");
+        let base = json!({
+            "id": "VO-X",
+            "claim": "c",
+            "derives_from": [{"doc": "ROOT-001", "anchor": "§1"}],
+            "dimensions": [{"name": "sign", "partitions": ["positive", "negative"]}],
+            "coverage_policy": "explicit",
+            "combinations": [{"sign": "positive"}]
+        });
+        let created = dispatch_tool(&root, "vo_upsert", &base);
+        assert_eq!(created["ok"], true, "{created}");
+        assert_eq!(created["data"]["created"], true);
+
+        let kept = dispatch_tool(
+            &root,
+            "vo_upsert",
+            &json!({"id": "VO-X", "claim": "c2", "derives_from": [{"doc": "ROOT-001"}]}),
+        );
+        assert_eq!(kept["data"]["created"], false, "{kept}");
+        assert_eq!(
+            kept["data"]["record"]["combinations"],
+            json!([{"sign": "positive"}])
+        );
+
+        let invalid = tool_result(dispatch_tool(
+            &root,
+            "vo_upsert",
+            &json!({"id": "VO-X", "derives_from": [{"doc": "ROOT-001"}], "combinations": [{"sign": "zero"}]}),
+        ));
+        assert_eq!(invalid["isError"], true);
+        assert_eq!(
+            invalid["structuredContent"]["diagnostics"][0]["code"],
+            "E-SCAN-017"
+        );
+        let shown = dispatch_tool(&root, "vo_list", &json!({}));
+        assert_eq!(
+            shown["data"]["vos"][0]["claim"], "c2",
+            "rejected update wrote nothing"
+        );
+
+        let cleared = dispatch_tool(
+            &root,
+            "vo_upsert",
+            &json!({
+                "id": "VO-X",
+                "derives_from": [{"doc": "ROOT-001"}],
+                "coverage_policy": null,
+                "combinations": []
+            }),
+        );
+        assert_eq!(cleared["ok"], true, "{cleared}");
+        assert_eq!(cleared["data"]["record"]["combinations"], json!([]));
+
+        let missing = dispatch_tool(&root, "vo_upsert", &json!({"id": "VO-Y", "claim": "c"}));
+        assert_eq!(missing["diagnostics"][0]["code"], "E-OP-001");
+    }
+
+    /// PR #147 review: the MCP vo_upsert/vo_expand share the CLI's id check,
+    /// so a traversal id is a tool error that writes nothing.
+    /// @vtest.id TEST-MCP-VO-ID-PATH-TRAVERSAL-REJECTED
+    /// @vtest.covers VO-STORE-VO-ID-IS-ITS-FILE-NAME
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent MCPのvo_upsert/vo_expandで..や区切り文字を含むVO IDをE-OP-001で拒否し、vo_get/vo_approveも失敗して、.verify/config.yamlや承認記録を含め何も書き換えないことを確認する
+    #[test]
+    fn vo_tools_reject_ids_that_are_not_a_file_name() {
+        let root = vo_fixture("vo-id-traversal");
+        let config = root.join(".verify").join("config.yaml");
+        let before = std::fs::read(&config).unwrap();
+        for id in ["../config", "VO-A/VO-B", "..", "/tmp/vo"] {
+            let upsert = dispatch_tool(
+                &root,
+                "vo_upsert",
+                &json!({"id": id, "claim": "overwrite", "derives_from": [{"doc": "ROOT-001"}]}),
+            );
+            assert_eq!(
+                upsert["diagnostics"][0]["code"], "E-OP-001",
+                "{id}: {upsert}"
+            );
+            let expand = dispatch_tool(&root, "vo_expand", &json!({"id": id}));
+            assert_eq!(
+                expand["diagnostics"][0]["code"], "E-OP-001",
+                "{id}: {expand}"
+            );
+            // vo_get / vo_approve resolve the id against the existing VOs,
+            // so it is unknown: both fail and vo_approve writes no record.
+            let get = dispatch_tool(&root, "vo_get", &json!({"id": id}));
+            assert_eq!(get["ok"], false, "{id}: {get}");
+            let approve = dispatch_tool(
+                &root,
+                "vo_approve",
+                &json!({
+                    "id": id,
+                    "state": "approved",
+                    "approver": {"kind": "agent", "id": "bot", "model": "m"}
+                }),
+            );
+            assert_eq!(approve["ok"], false, "{id}: {approve}");
+        }
+        let approvals = root.join(".verify").join("approvals");
+        let records = std::fs::read_dir(&approvals)
+            .map(|entries| {
+                entries
+                    .filter_map(Result::ok)
+                    .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "yaml"))
+                    .count()
+            })
+            .unwrap_or(0);
+        assert_eq!(records, 0, "no approval record was written");
+        assert_eq!(std::fs::read(&config).unwrap(), before, "config untouched");
+        let listed = dispatch_tool(&root, "vo_list", &json!({}));
+        assert_eq!(listed["data"]["vos"], json!([]), "{listed}");
+    }
+
+    /// @vtest.id TEST-MCP-VO-APPROVE-ALIAS
+    /// @vtest.covers VO-MCP-VO-APPROVE-ALIAS
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent vo_approve produces the same approval record shape and rejection codes as approval_create with subject type vo
+    #[test]
+    fn vo_approve_matches_approval_create() {
+        let root = vo_fixture("vo-approve");
+        for id in ["VO-A", "VO-B"] {
+            let created = dispatch_tool(
+                &root,
+                "vo_upsert",
+                &json!({"id": id, "claim": "c", "derives_from": [{"doc": "ROOT-001"}]}),
+            );
+            assert_eq!(created["ok"], true, "{created}");
+        }
+        let approver = json!({"kind": "agent", "id": "bot", "model": "m"});
+        let via_vo = dispatch_tool(
+            &root,
+            "vo_approve",
+            &json!({"id": "VO-A", "state": "approved", "approver": approver}),
+        );
+        let via_approval = dispatch_tool(
+            &root,
+            "approval_create",
+            &json!({"subject": {"type": "vo", "id": "VO-B"}, "state": "approved", "approver": approver}),
+        );
+        assert_eq!(via_vo["ok"], true, "{via_vo}");
+        for key in ["subject_type", "approved_state", "supersedes"] {
+            assert_eq!(via_vo["data"][key], via_approval["data"][key], "{key}");
+        }
+        let listed = dispatch_tool(&root, "vo_list", &json!({"status": "approved"}));
+        assert_eq!(listed["data"]["vos"].as_array().unwrap().len(), 2);
+
+        let unknown_vo = dispatch_tool(
+            &root,
+            "vo_approve",
+            &json!({"id": "VO-NONE", "state": "approved", "approver": approver}),
+        );
+        let unknown_approval = dispatch_tool(
+            &root,
+            "approval_create",
+            &json!({"subject": {"type": "vo", "id": "VO-NONE"}, "state": "approved", "approver": approver}),
+        );
+        assert_eq!(
+            unknown_vo["diagnostics"][0]["code"],
+            unknown_approval["diagnostics"][0]["code"]
+        );
+
+        let expanded = dispatch_tool(&root, "vo_expand", &json!({"id": "VO-A", "dry_run": true}));
+        assert_eq!(
+            expanded["diagnostics"][0]["code"], "E-OP-001",
+            "no dimensions: nothing to expand"
+        );
     }
 
     /// @vtest.id TEST-MCP-RECORD-ERROR-CODES

@@ -42,6 +42,15 @@ pub enum StoreError {
     InvalidForm(String),
     #[error("invalid form answers: {0}")]
     InvalidAnswers(String),
+    /// A VO id that cannot name a file inside `.verify/vo/` (`..`, a path
+    /// separator, an absolute path, …; see [`canonical::is_valid_vo_id`]).
+    /// Rejected before any path is built, so nothing outside the VO
+    /// directory is read or written.
+    #[error(
+        "invalid VO id {0:?}: a VO id is one path component of ASCII letters, digits, \
+         '-', '_' and '.' that does not start with '.'"
+    )]
+    InvalidVoId(String),
 
     /// A record does not conform to the canonical schema it declares —
     /// DS-1645: "E-SCAN-010はerrorであり、レコードのid / ファイル名 /
