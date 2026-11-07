@@ -14,4 +14,5 @@ pub mod pending;
 pub mod report;
 pub mod run;
 pub mod scan;
+pub mod test_op;
 pub mod verify;

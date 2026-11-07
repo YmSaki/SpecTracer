@@ -550,6 +550,7 @@ version = "0.1.0"
 dependencies = [
  "ignore",
  "proc-macro2",
+ "quote",
  "rustc-demangle",
  "serde",
  "serde_json",
@@ -627,7 +628,6 @@ name = "vtest-scan"
 version = "0.1.0"
 dependencies = [
  "serde",
- "syn 2.0.119",
  "thiserror",
  "vtest-adapter-api",
  "vtest-adapter-rust",
