@@ -51,6 +51,11 @@ impl StringSyntax {
 pub enum Structure {
     /// `{ ... }` delimits bodies (C, C++, Java, C#, Go, JavaScript, ...).
     Braces,
+    /// Keywords (`def`, `class`, `do`, `if`, ...) open bodies that `end`
+    /// closes (Ruby).
+    KeywordEnd,
+    /// Indentation delimits bodies (Python).
+    Indentation,
 }
 
 /// The lexical syntax of one language.
@@ -208,7 +213,9 @@ pub fn lex(source: &str, syntax: &LexicalSyntax) -> Result<Vec<Tok>, LexError> {
                 }
             }
             if let Some(suffix) = source[end..].chars().next() {
-                if syntax.word_suffix_chars.contains(&suffix) {
+                // `empty?` and `save!` are names, but `a!= b` is `a` `!=`.
+                let after = source[end + suffix.len_utf8()..].chars().next();
+                if syntax.word_suffix_chars.contains(&suffix) && after != Some('=') {
                     end += suffix.len_utf8();
                 }
             }
