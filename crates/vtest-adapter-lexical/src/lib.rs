@@ -58,6 +58,7 @@ pub mod go;
 pub mod java;
 pub mod kotlin;
 pub mod shared;
+pub mod swift;
 
 use std::{
     collections::BTreeMap,
