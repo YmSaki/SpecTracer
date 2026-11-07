@@ -18,7 +18,7 @@ shared by all framework-neutral adapters.
   complete, one ending with `a +` is not; a next line starting with a spaced
   operator, `.member`, or `{` continues it, so a trailing closure on the
   line after a call is part of the call, as is a labeled trailing closure
-  such as `onDone: { ... }` on the line after one). Attributes may be qualified by
+  such as `onDone: { ... }` (spaces around the `:` allowed) on the line after one). Attributes may be qualified by
   their module (`@Testing.Test`). A function's body is the first `{`
   after its parameter list, so a default argument closure
   (`func f(x: () -> Int = { 1 })`) is not the body.

@@ -541,14 +541,16 @@ impl Reader<'_> {
     }
 
     /// Whether the line starting at `tokens[next]` passes another labeled
-    /// trailing closure (`onDone: { ... }`) to the call whose trailing
+    /// trailing closure (`onDone: { ... }`, spaces allowed around the `:`)
+    /// to the call whose trailing
     /// closure ends at `tokens[last]`.
     fn labeled_closure(&self, last: usize, next: usize) -> bool {
+        let colon = self.next_significant(next + 1);
+        let open = colon.and_then(|colon| self.next_significant(colon + 1));
         self.kind(last) == Some(Kind::Close('}'))
             && self.kind(next) == Some(Kind::Word)
-            && self.is(next + 1, ":")
-            && self.touching(next, next + 1)
-            && self.kind(next + 2) == Some(Kind::Open('{'))
+            && colon.is_some_and(|colon| self.is(colon, ":"))
+            && open.is_some_and(|open| self.kind(open) == Some(Kind::Open('{')))
     }
 
     /// One past the last token of the declaration or statement starting at
@@ -1047,20 +1049,27 @@ func adds() {
     /// @vtest.id TEST-ADAPTER-SWIFT-LABELED-CLOSURES-AND-ENCLOSING-BLOCK-ENDS
     /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
     /// @vtest.target crates/vtest-adapter-lexical/src/swift.rs::Reader::declaration_end
-    /// @vtest.intent verifies that a labeled trailing closure on the next line is part of the call's Test construct, so an edit to it changes the construct, that a declaration cut off by the `}` of its enclosing block (`let a =`, `func f() ->`, a bare modifier) is not read as a whole Test, and that a protocol requirement without a body still ends at that `}`
+    /// @vtest.intent verifies that a labeled trailing closure on the next line, with or without spaces around its `:`, is part of the call's Test construct, so an edit to it changes the construct, that a declaration cut off by the `}` of its enclosing block (`let a =`, `func f() ->`, a bare modifier) is not read as a whole Test, and that a protocol requirement without a body still ends at that `}`
     #[test]
     fn labeled_closures_and_enclosing_block_ends() {
         let declare = "// @vtest.id TEST-X\n// @vtest.covers VO-X\n// @vtest.intent check\n";
-        let body = "run { print(1) }\nonDone: { print(2) }\n";
-        let text = |source: &str| {
-            let outcome = discover_text(&Swift, "Tests/T.swift", source, "demo");
-            assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
-            assert_eq!(outcome.tests.len(), 1);
-            outcome.tests[0].construct_text.clone()
-        };
-        let one = format!("{declare}{body}");
-        assert_eq!(text(&one), body.trim_end());
-        assert_ne!(text(&one), text(&one.replace("print(2)", "print(222)")));
+        for body in [
+            "run { print(1) }\nonDone: { print(2) }\n",
+            "run { print(1) }\nonDone : { print(2) }\n",
+            "run { print(1) }\nonDone :{ print(2) }\n",
+        ] {
+            let text = |source: &str| {
+                let outcome = discover_text(&Swift, "Tests/T.swift", source, "demo");
+                assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+                assert_eq!(outcome.tests.len(), 1);
+                outcome.tests[0].construct_text.clone()
+            };
+            let one = format!("{declare}{body}");
+            assert_eq!(text(&one), body.trim_end());
+            assert_ne!(text(&one), text(&one.replace("print(2)", "print(222)")));
+            let inner = format!("func spec() {{\n{declare}{body}}}\n");
+            assert_eq!(text(&inner), body.trim_end());
+        }
 
         for tail in ["let a =\n", "func f() ->\n", "public\n"] {
             for source in [
