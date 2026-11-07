@@ -755,7 +755,7 @@ fn test_edit_tool(root: &Path, args: &Value) -> Value {
 /// `vtest audit static` calls. No canonical record, no audit record id.
 fn audit_static_tool(root: &Path, args: &Value) -> Value {
     if let Err(error) = vtest_store::load_config(root) {
-        return failure_envelope("E-CONFIG-001", error.to_string());
+        return vtest_cli::config_error_result(&error).1;
     }
     let registry = match resolve_registry() {
         Ok(registry) => registry,
@@ -764,7 +764,10 @@ fn audit_static_tool(root: &Path, args: &Value) -> Value {
     let scan = match vtest_scan::scan_project(root, &registry) {
         Ok(scan) => scan,
         Err(error) => {
-            return failure_envelope(error.code().unwrap_or("E-CORE-001"), error.to_string())
+            return failure_envelope(
+                error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE),
+                error.to_string(),
+            )
         }
     };
     match ops::audit::audit_static(

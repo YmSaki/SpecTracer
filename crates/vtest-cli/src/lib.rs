@@ -809,7 +809,7 @@ fn run_audit_static(
         Err(code) => return code,
     };
     if let Err(error) = load_config(&root) {
-        return usage_failure(format, quiet, "E-CONFIG-001", &error.to_string());
+        return config_error_exit(&error, format, quiet);
     }
     let registry = match resolve_registry(format, quiet) {
         Ok(registry) => registry,
