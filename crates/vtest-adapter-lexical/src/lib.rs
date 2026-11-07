@@ -64,6 +64,7 @@
 pub mod annotation;
 pub mod braces;
 pub mod header;
+pub mod java;
 pub mod lexer;
 
 use std::{
