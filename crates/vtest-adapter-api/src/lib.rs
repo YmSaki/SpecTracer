@@ -372,14 +372,47 @@ pub trait CoverageAdapter {
     ) -> Vec<CoverageTargetMeasurement>;
 }
 
+/// The Structured Test Operation capability (BD-016/BD-101/BD-197/BD-310):
+/// the language syntax that `test create` / `test edit` need, owned by the
+/// adapter so core holds no parser for any language (issue #73). Core keeps
+/// the operation itself — selecting the Test, rendering annotations,
+/// rescanning and rolling back — and asks this capability only the
+/// questions that need the language's grammar. An adapter without it makes
+/// create / edit fail with E-ADAPTER-004 and leaves files untouched
+/// (DS-1240/DS-1555).
+///
+/// The canon names the capability but not its method signatures; this
+/// shape is the smallest one the current operations need.
+pub trait StructuredTestAdapter {
+    /// `text` is exactly one syntactically valid Test construct (a test
+    /// function, for `rust-cargo`). The error is the parser's message.
+    fn check_test_construct(&self, text: &str) -> Result<(), String>;
+
+    /// `text` is a syntactically valid whole source file.
+    fn check_source_file(&self, text: &str) -> Result<(), String>;
+
+    /// `text` is a syntactically valid replacement body (a block).
+    fn check_body(&self, text: &str) -> Result<(), String>;
+
+    /// `name` is a valid identifier in this language.
+    fn is_identifier(&self, name: &str) -> bool;
+
+    /// The byte range of the body inside one Test construct's text.
+    fn body_range(&self, construct: &str) -> Result<std::ops::Range<usize>, String>;
+
+    /// The variants of every enum named `type_name` declared in `source`
+    /// (nested modules included). `None` when `source` does not parse.
+    fn enum_variants(&self, source: &str, type_name: &str) -> Option<Vec<String>>;
+}
+
 /// 本冊 §5.2「adapter capabilityは `SourceDiscoveryAdapter`、
 /// `TestWireCodec`、`StaticAnalysisAdapter`、`StructuredTestAdapter`、
 /// `TestRunnerAdapter`、`CoverageAdapter`に分割する」（BD-197）が列挙する
-/// 6 capability。`TestWireCodec` / `StructuredTestAdapter` は本 PR の
-/// 時点で対応する trait を持たない（trait 自体は PR E / G が追加する）ため
-/// `Adapter` に対応する `as_*` メソッドが無い — しかし `AdapterRegistry::
-/// register` はこの2つも「実装 `false` 固定」で検査対象に含める（レビュー
-/// round 2 項目 A-2）。トレイトが無いことは「宣言しても拒否されない」を
+/// 6 capability。`TestWireCodec` は本 PR の時点で対応する trait を持た
+/// ない（trait 自体は PR E が追加する）ため `Adapter` に対応する `as_*`
+/// メソッドが無い — しかし `AdapterRegistry::register` はこれも「実装
+/// `false` 固定」で検査対象に含める（レビュー round 2 項目 A-2）。
+/// `StructuredTestAdapter` は `Adapter::as_structured_test` を持つ。トレイトが無いことは「宣言しても拒否されない」を
 /// 意味しない: 宣言すれば必ず `DeclaredWithoutImplementation`（実装が
 /// 存在し得ないため）で拒否される。
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -529,6 +562,10 @@ pub trait Adapter {
         None
     }
 
+    fn as_structured_test(&self) -> Option<&dyn StructuredTestAdapter> {
+        None
+    }
+
     fn as_test_runner(&self) -> Option<&dyn TestRunnerAdapter> {
         None
     }
@@ -602,8 +639,8 @@ impl AdapterRegistry {
             return Err(AdapterRegistrationError::DuplicateId { id: descriptor.id });
         }
         // BD-197 が列挙する6 capability すべてを宣言と実装の双方向で検査する。
-        // `StructuredTest` は対応する trait をまだ持たないため `implemented`
-        // を `false` で固定する（宣言すれば DeclaredWithoutImplementation）。
+        // `StructuredTest` は `StructuredTestAdapter`（issue #73）で他と同じく
+        // 双方向に検査する。
         let checks: [(Capability, bool); 6] = [
             (
                 Capability::SourceDiscovery,
@@ -617,7 +654,10 @@ impl AdapterRegistry {
                 Capability::StaticAnalysis,
                 adapter.as_static_analysis().is_some(),
             ),
-            (Capability::StructuredTest, false),
+            (
+                Capability::StructuredTest,
+                adapter.as_structured_test().is_some(),
+            ),
             (Capability::TestRunner, adapter.as_test_runner().is_some()),
             (Capability::Coverage, adapter.as_coverage().is_some()),
         ];
@@ -667,6 +707,20 @@ impl AdapterRegistry {
 
     pub fn static_analysis(&self, id: &str) -> Option<&dyn StaticAnalysisAdapter> {
         self.get(id).and_then(Adapter::as_static_analysis)
+    }
+
+    pub fn structured_test(&self, id: &str) -> Option<&dyn StructuredTestAdapter> {
+        self.get(id).and_then(Adapter::as_structured_test)
+    }
+
+    /// The ids of the registered adapters that provide the Structured Test
+    /// capability, in registration order.
+    pub fn structured_test_ids(&self) -> Vec<&str> {
+        self.adapters
+            .iter()
+            .filter(|entry| entry.adapter.as_structured_test().is_some())
+            .map(|entry| entry.descriptor.id.as_str())
+            .collect()
     }
 
     pub fn test_runner(&self, id: &str) -> Option<&dyn TestRunnerAdapter> {

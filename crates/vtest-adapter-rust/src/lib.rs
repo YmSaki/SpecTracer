@@ -30,8 +30,8 @@ use syn::{Attribute, Expr, ExprLit, ImplItem, Item, ItemFn, ItemImpl, Lit, Meta}
 use vtest_adapter_api::{
     Adapter, AdapterDescriptor, AdapterScanConfig, Capability, CoverageAdapter, DiscoveryError,
     DiscoveryOutcome, MissingTestConstruct, RunnerCommand, RunnerOutput, RunnerTestResult,
-    SourceDiscoveryAdapter, SourceDraft, StaticAnalysisAdapter, TestDraft, TestRunnerAdapter,
-    TestRunnerError,
+    SourceDiscoveryAdapter, SourceDraft, StaticAnalysisAdapter, StructuredTestAdapter, TestDraft,
+    TestRunnerAdapter, TestRunnerError,
 };
 use vtest_model::{
     AdapterId, Diagnostic, ExecutionDescriptor, Locator, ProjectPath, SourceLocation, SourceRange,
@@ -40,6 +40,7 @@ use vtest_model::{
 
 pub mod coverage;
 pub mod oracle_presence;
+pub mod structured_test;
 pub mod wire_codec;
 
 pub use coverage::RustCargoCoverageAdapter;
@@ -407,6 +408,7 @@ impl Adapter for RustCargoAdapter {
                 Capability::SourceDiscovery,
                 Capability::TestWireCodec,
                 Capability::StaticAnalysis,
+                Capability::StructuredTest,
                 Capability::TestRunner,
                 Capability::Coverage,
             ],
@@ -424,6 +426,10 @@ impl Adapter for RustCargoAdapter {
 
     fn as_static_analysis(&self) -> Option<&dyn StaticAnalysisAdapter> {
         Some(&self.static_analysis)
+    }
+
+    fn as_structured_test(&self) -> Option<&dyn StructuredTestAdapter> {
+        Some(&structured_test::RustStructuredTest)
     }
 
     fn as_test_runner(&self) -> Option<&dyn TestRunnerAdapter> {
@@ -1940,7 +1946,7 @@ fn join_module_path(prefix: &str, item_path: &str) -> String {
     }
 }
 
-fn line_offsets(source: &str) -> Vec<usize> {
+pub(crate) fn line_offsets(source: &str) -> Vec<usize> {
     let mut offsets = vec![0];
     for (index, byte) in source.as_bytes().iter().enumerate() {
         if *byte == b'\n' {
@@ -1948,6 +1954,25 @@ fn line_offsets(source: &str) -> Vec<usize> {
         }
     }
     offsets
+}
+
+/// Byte offset of a `proc_macro2` (1-based line, 0-based column) position.
+/// `LineColumn.column` counts UTF-8 characters, not bytes, so the column is
+/// walked character by character on its own line: adding it to the line's
+/// byte offset directly cuts a line holding non-ASCII text (e.g. a Japanese
+/// literal) short.
+pub(crate) fn line_column_byte_offset(
+    source: &str,
+    offsets: &[usize],
+    line: usize,
+    column: usize,
+) -> Option<usize> {
+    let line_start = *offsets.get(line.checked_sub(1)?)?;
+    let rest = source.get(line_start..)?;
+    let line_text = rest.split('\n').next().unwrap_or(rest);
+    let mut chars = line_text.char_indices().map(|(index, _)| index);
+    let within = chars.nth(column).unwrap_or(line_text.len());
+    (line_text.chars().count() >= column).then_some(line_start + within)
 }
 
 /// `locator` はこの construct の item path（module path + 関数名。例:
@@ -1985,8 +2010,10 @@ fn make_location_range(
     let end = end_span.end();
     let start_line = start.line.max(1);
     let end_line = end.line.max(start_line);
-    let start_byte = offsets.get(start_line - 1).copied().unwrap_or(0) + start.column;
-    let end_byte = offsets.get(end_line - 1).copied().unwrap_or(source.len()) + end.column;
+    let start_byte =
+        line_column_byte_offset(source, offsets, start_line, start.column).unwrap_or(0);
+    let end_byte =
+        line_column_byte_offset(source, offsets, end_line, end.column).unwrap_or(source.len());
     SourceLocation {
         adapter: AdapterId::new(ADAPTER_ID),
         path: ProjectPath::new(relative),

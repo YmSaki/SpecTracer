@@ -14,4 +14,5 @@ pub mod init;
 pub mod judgment;
 pub mod run;
 pub mod scan;
+pub mod test_op;
 pub mod verify;
