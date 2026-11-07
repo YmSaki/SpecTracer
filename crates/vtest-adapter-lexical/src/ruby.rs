@@ -24,7 +24,9 @@
 //! A comment block attached to a statement makes it a Test (or declares
 //! its SRC ID): the statement runs to the `end` of the keywords it opens,
 //! then to the end of its line, unless the line ends with an operator or
-//! the next line starts with `.method`. Minitest methods, RSpec examples
+//! the next line starts with `.method`; the bodies of heredocs opened on
+//! the line are part of it. A file that ends while an expression is
+//! awaited is unreadable. Minitest methods, RSpec examples
 //! (`it "adds" do ... end`), and test-unit are discovered the same way.
 
 use crate::{
@@ -87,6 +89,9 @@ pub fn adapter() -> LexicalAdapter<Ruby> {
 enum Kind {
     Comment,
     Literal,
+    /// The bodies of the heredocs opened on the line before, up to their
+    /// terminators: part of the statement that opened them.
+    HeredocBody,
     Word,
     Open(char),
     Close(char),
@@ -147,7 +152,7 @@ impl Lexer<'_> {
             let kind = if byte == b'\n' && !pending.is_empty() {
                 i = self.heredoc_bodies(i + 1, &mut pending)?;
                 tokens.push(Tok {
-                    kind: Kind::Literal,
+                    kind: Kind::HeredocBody,
                     start: start + 1,
                     end: i,
                 });
@@ -218,19 +223,30 @@ impl Lexer<'_> {
                     Kind::Word
                 }
             } else if let Some(end) = (byte == b'/' && self.expression_position(&tokens, i))
-                .then(|| self.delimited_end(i + 1, b'/', b'/', true))
+                .then(|| {
+                    self.literal_or_error(
+                        &tokens,
+                        i,
+                        self.delimited_end(i + 1, b'/', b'/', true),
+                        "unterminated regular expression",
+                    )
+                })
                 .flatten()
             {
-                i = end;
+                i = end?;
                 while i < bytes.len() && bytes[i].is_ascii_alphabetic() {
                     i += 1;
                 }
                 Kind::Literal
             } else if let Some(end) = (byte == b'%' && self.expression_position(&tokens, i))
-                .then(|| self.percent_end(i))
+                .then(|| {
+                    self.percent_end(i).and_then(|end| {
+                        self.literal_or_error(&tokens, i, end, "unterminated percent literal")
+                    })
+                })
                 .flatten()
             {
-                i = end;
+                i = end?;
                 Kind::Literal
             } else {
                 i += 1;
@@ -302,6 +318,30 @@ impl Lexer<'_> {
         }
     }
 
+    /// The end of a literal that starts at `i` (a `/` or `%`): `Some(Err)`
+    /// when it has no closing delimiter where only a literal can start
+    /// (after an operator, bracket, keyword, or line break), and `None`
+    /// (read as an operator) when a method name before it leaves the `/`
+    /// or `%` ambiguous.
+    fn literal_or_error(
+        &self,
+        tokens: &[Tok],
+        i: usize,
+        end: Option<usize>,
+        message: &str,
+    ) -> Option<Result<usize, ExtractError>> {
+        if let Some(end) = end {
+            return Some(Ok(end));
+        }
+        let previous = tokens.iter().rev().find(|t| t.kind != Kind::Comment);
+        let certain = previous.is_none_or(|previous| {
+            self.source[previous.end..i].contains('\n')
+                || !(previous.kind == Kind::Word
+                    && !EXPRESSION_KEYWORDS.contains(&self.text(previous)))
+        });
+        certain.then(|| Err(ExtractError::new(i, message)))
+    }
+
     /// One past the closing delimiter of a literal whose contents start at
     /// `i`; `open`/`close` nest, and `#{...}` is read as code when
     /// `interpolates`.
@@ -361,8 +401,10 @@ impl Lexer<'_> {
         None
     }
 
-    /// One past a percent literal (`%w[a b]`, `%q{...}`, `%(...)`) at `i`.
-    fn percent_end(&self, i: usize) -> Option<usize> {
+    /// One past a percent literal (`%w[a b]`, `%q{...}`, `%(...)`) at `i`:
+    /// `None` when the `%` does not start one, `Some(None)` when it is not
+    /// closed.
+    fn percent_end(&self, i: usize) -> Option<Option<usize>> {
         let mut j = i + 1;
         let kind = *self.bytes.get(j)?;
         if b"qQwWiIrsx".contains(&kind) {
@@ -380,14 +422,15 @@ impl Lexer<'_> {
             other => other,
         };
         let interpolates = !matches!(kind, b'q' | b'w' | b'i' | b's');
-        let end = self.delimited_end(j + 1, open, close, interpolates)?;
-        let mut end = end;
+        let Some(mut end) = self.delimited_end(j + 1, open, close, interpolates) else {
+            return Some(None);
+        };
         if kind == b'r' {
             while end < self.bytes.len() && self.bytes[end].is_ascii_alphabetic() {
                 end += 1;
             }
         }
-        Some(end)
+        Some(Some(end))
     }
 
     /// A heredoc opener (`<<~EOS`, `<<-EOS`, `<<"EOS"`, `<<EOS`) at `i`:
@@ -407,9 +450,22 @@ impl Lexer<'_> {
             byte if is_word_char(*byte) => {
                 let length = after.bytes().take_while(|b| is_word_char(*b)).count();
                 let word = &after[..length];
+                // After a method name, `<<word` may be a shift (`a <<b`), so
+                // only the conventional upper-case label opens a heredoc
+                // there; after an operator, bracket, keyword, or line break
+                // any label does (`text = <<text`).
+                let after_name = tokens
+                    .iter()
+                    .rev()
+                    .find(|t| t.kind != Kind::Comment)
+                    .is_some_and(|t| {
+                        t.kind == Kind::Word
+                            && !EXPRESSION_KEYWORDS.contains(&self.text(t))
+                            && !self.source[t.end..i].contains('\n')
+                    });
                 let explicit = indented
-                    || (word.bytes().all(|b| !b.is_ascii_lowercase())
-                        && self.expression_position(tokens, i));
+                    || (self.expression_position(tokens, i)
+                        && (!after_name || word.bytes().all(|b| !b.is_ascii_lowercase())));
                 if !explicit {
                     return None;
                 }
@@ -572,11 +628,19 @@ impl Reader<'_> {
             }
             _ => return None,
         }
-        // A setter: `def value=(v)`.
-        if self.is(index, "=")
+        // A unary operator: `def +@`, `def -@`.
+        if matches!(name.as_str(), "+" | "-" | "!" | "~")
+            && self.is(index, "@")
             && self.touching(index - 1, index)
-            && self.kind(index + 1) == Some(Kind::Open('('))
-            && self.touching(index, index + 1)
+        {
+            name.push('@');
+            index += 1;
+        }
+        // A setter: `def value=(v)`, `def value= v`. An endless method
+        // cannot be a setter, so a `=` bound to the name is part of it.
+        if self.is(index, "=")
+            && self.kind(index - 1) == Some(Kind::Word)
+            && self.touching(index - 1, index)
         {
             name.push('=');
             index += 1;
@@ -692,7 +756,12 @@ impl Reader<'_> {
             ));
         }
         for (mut qualified, name, start) in endless {
-            let last = self.statement_end(start) - 1;
+            let last = self.statement_end(start).ok_or_else(|| {
+                ExtractError::new(
+                    self.tokens[start].start,
+                    "the file ends before this method's expression",
+                )
+            })? - 1;
             qualified.push(name);
             functions.push(Function {
                 name: qualified,
@@ -721,9 +790,10 @@ impl Reader<'_> {
     }
 
     /// One past the last token of the statement starting at `start` (see
-    /// the module documentation). A `}` or `)` closing the enclosing
-    /// bracket also ends it.
-    fn statement_end(&self, start: usize) -> usize {
+    /// the module documentation), or `None` when the file ends while it
+    /// still waits for an expression (`def f =`, `a +`). A `}` or `)`
+    /// closing the enclosing bracket also ends it.
+    fn statement_end(&self, start: usize) -> Option<usize> {
         let mut index = start;
         while index < self.tokens.len() {
             let last = match self.tokens[index].kind {
@@ -731,23 +801,26 @@ impl Reader<'_> {
                     index += 1;
                     continue;
                 }
-                Kind::Close(_) => return index,
-                Kind::Semi => return index + 1,
+                Kind::Close(_) => return Some(index),
+                Kind::Semi => return Some(index + 1),
                 Kind::Open(_) => self.partner(index),
                 _ => self.ends[index].unwrap_or(index),
             };
+            let waits = self.kind(last) == Some(Kind::Op)
+                || (self.kind(last) == Some(Kind::Word)
+                    && matches!(self.text(last), "and" | "or" | "not"));
             let Some(next) = self.next_significant(last + 1) else {
-                return last + 1;
+                return (!waits).then_some(last + 1);
             };
-            let continued = self.kind(last) == Some(Kind::Op)
-                || matches!(self.text(last), "and" | "or" | "not")
-                || matches!(self.text(next), "." | "&.");
+            let continued = waits
+                || matches!(self.text(next), "." | "&.")
+                || self.kind(next) == Some(Kind::HeredocBody);
             if self.breaks(last, next) && !continued {
-                return last + 1;
+                return Some(last + 1);
             }
             index = next;
         }
-        index
+        None
     }
 
     /// Every comment block that starts a line and is followed, on the next
@@ -765,15 +838,18 @@ impl Reader<'_> {
         attached_comments(self.source, &spans)
             .into_iter()
             .filter(|block| !matches!(self.tokens[block.next].kind, Kind::Close(_) | Kind::Semi))
-            .map(|Attached { first, last, next }| {
-                let end = self.statement_end(next).max(next + 1);
-                Annotated {
-                    comment_start: self.tokens[first].start,
-                    lines: (first..=last)
-                        .flat_map(|i| comment_lines(self.text(i)))
-                        .collect(),
-                    construct: Ok((self.tokens[next].start, self.tokens[end - 1].end)),
-                }
+            .map(|Attached { first, last, next }| Annotated {
+                comment_start: self.tokens[first].start,
+                lines: (first..=last)
+                    .flat_map(|i| comment_lines(self.text(i)))
+                    .collect(),
+                construct: match self.statement_end(next) {
+                    Some(end) => Ok((
+                        self.tokens[next].start,
+                        self.tokens[end.max(next + 1) - 1].end,
+                    )),
+                    None => Err("the file ends before this statement is complete".to_owned()),
+                },
             })
             .collect()
     }
@@ -1010,6 +1086,86 @@ end
             "def f\n  [:if, :class]\nend\n",
         ] {
             assert!(range(source).ends_with("end"), "{source:?}");
+        }
+    }
+
+    /// @vtest.id TEST-ADAPTER-RUBY-HEREDOCS-OPERATOR-NAMES-AND-TRUNCATED-FILES
+    /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
+    /// @vtest.target crates/vtest-adapter-lexical/src/ruby.rs::Reader::statement_end
+    /// @vtest.intent verifies that a heredoc body is part of the construct that opens it so an edit to it changes the Test text, that a lower-case heredoc label hides its body from the code, that unterminated percent literals and regular expressions and a file ending while an expression is awaited are unreadable instead of yielding a Test, and that spaced setters and unary operator methods keep their names
+    #[test]
+    fn heredocs_operator_names_and_truncated_files() {
+        let declare = "# @vtest.id TEST-X\n# @vtest.covers VO-X\n# @vtest.intent review boundary\n";
+        for body in [
+            "def f = <<~TEXT\n  tail\nTEXT\n",
+            "assert_equal <<~TEXT, actual\n  tail\nTEXT\n",
+            "it \"a\" do\n  x = <<-EOS\n    tail\n  EOS\nend\n",
+        ] {
+            let text = |source: &str| {
+                let outcome = discover_text(&Ruby, "test/a_test.rb", source, "demo");
+                assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+                assert_eq!(outcome.tests.len(), 1, "{body:?}");
+                outcome.tests[0].construct_text.clone()
+            };
+            let one = format!("{declare}{body}");
+            assert_eq!(text(&one), body.trim_end(), "{body:?}");
+            assert_ne!(
+                text(&one),
+                text(&one.replace("tail", "tail_changed")),
+                "{body:?}"
+            );
+        }
+
+        let hidden = format!("text = <<text\n{declare}def fake\n  1\nend\ntext\n");
+        let outcome = discover_text(&Ruby, "fixture.rb", &hidden, "demo");
+        assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+        assert!(outcome.tests.is_empty());
+        assert!(outcome.sources.is_empty());
+        let shift = discover_text(&Ruby, "fixture.rb", "def f\n  a <<b\nend\n", "demo");
+        assert_eq!(locators(&shift), vec!["fixture.rb::f"]);
+
+        for tail in [
+            "def f\n  x = %q!unterminated\n  tail\nend\n",
+            "def f\n  x = /unterminated\n  tail\nend\n",
+            "def f =\n",
+            "expect(value).to eq(1) +\n",
+        ] {
+            let outcome = discover_text(&Ruby, "fixture.rb", &format!("{declare}{tail}"), "demo");
+            assert_eq!(outcome.diagnostics.len(), 1, "{tail:?}");
+            assert_eq!(outcome.diagnostics[0].code.as_str(), "E-SCAN-001");
+            assert!(outcome.tests.is_empty(), "{tail:?}");
+            assert!(outcome.sources.is_empty(), "{tail:?}");
+        }
+
+        for (source, expected) in [
+            (
+                "class Box\n  def value= value\n    @value = value\n  end\nend\n",
+                "fixture.rb::Box::value=",
+            ),
+            (
+                "class Box\n  def value= (value)\n    @value = value\n  end\nend\n",
+                "fixture.rb::Box::value=",
+            ),
+            (
+                "class Box\n  def value=(value)\n    @value = value\n  end\nend\n",
+                "fixture.rb::Box::value=",
+            ),
+            (
+                "class Box\n  def +@\n    self\n  end\nend\n",
+                "fixture.rb::Box::+@",
+            ),
+            (
+                "class Box\n  def -@\n    self\n  end\nend\n",
+                "fixture.rb::Box::-@",
+            ),
+            (
+                "class Box\n  def +(other)\n    self\n  end\nend\n",
+                "fixture.rb::Box::+",
+            ),
+        ] {
+            let outcome = discover_text(&Ruby, "fixture.rb", source, "demo");
+            assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+            assert_eq!(locators(&outcome), vec![expected], "{source:?}");
         }
     }
 }

@@ -6,7 +6,8 @@ rules shared by all framework-neutral adapters.
 
 - **Source Targets**: `def` methods, including predicate and bang methods
   (`empty?`, `save!`), singleton methods (`self.create`), setters
-  (`value=`), operators (`==`, `[]`), `private def`, and endless methods
+  (`value=`, also `def value= v`), operators (`==`, `[]`, and unary `+@` and
+  `-@`), `private def`, and endless methods
   (`def name = expr`). `class` and `module` (including `A::B`) qualify
   them: `lib/calc.rb::Demo::Calc::add`.
 - **Tests**: any construct right after a `@vtest.` `#` comment. That can be
@@ -20,10 +21,15 @@ rules shared by all framework-neutral adapters.
   do not.
 - **Where a construct ends**: at the `end` paired with the keyword it
   opens, then at the end of its line unless the line ends with an operator
-  or the next line starts with `.method`. `end` inside heredocs, `%w[]`
-  literals, interpolations, and regular expressions is text.
-- **Limits**: a missing or extra `end`, or an unterminated heredoc or
-  string, makes the file unreadable (`E-SCAN-001`).
+  or the next line starts with `.method`; the bodies of heredocs opened on
+  that line (`<<~TEXT` ... `TEXT`) are part of it. `end` inside heredocs,
+  `%w[]` literals, interpolations, and regular expressions is text. After a
+  method name, `<<word` is a heredoc only with an upper-case label (`a <<b`
+  may be a shift); elsewhere any label opens one (`text = <<text`).
+- **Limits**: a missing or extra `end`, an unterminated heredoc, string,
+  percent literal, or regular expression, or a file that ends while an
+  expression is still awaited (`def f =`, `a +`), makes the file
+  unreadable (`E-SCAN-001`).
 
 ```ruby
 # @vtest.id TEST-CALC-ADD
