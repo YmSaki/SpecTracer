@@ -1,0 +1,31 @@
+# PHP adapter (`php`)
+
+Discovers `.php` files (skipping `vendor/`). See [lexical.md](lexical.md)
+for the declaration rules shared by all framework-neutral adapters.
+
+- **Source Targets**: named `function` declarations with a body, both free
+  functions and methods. `namespace` (statement form `namespace A\B;` or
+  braced) and `class`, `interface`, `trait`, and `enum` qualify them:
+  `src/Calc.php::App::Math::Calc::add`. Abstract methods, closures, and arrow
+  functions are not Source Targets.
+- **Tests**: any construct right after a `@vtest.` comment. That can be a
+  PHPUnit method, including its `#[Test]` attributes, or a Pest
+  `test('adds', function () { ... });` call with the Test locator `test#<n>`.
+  `@vtest.` lines are read from docblocks, `//` comments, and `#` comments.
+- **Limits**: heredoc/nowdoc strings and inline HTML outside `<?php ... ?>`
+  are read as code. If their brackets do not balance, the file is reported
+  as `E-SCAN-001`.
+
+```php
+final class CalcTest extends TestCase
+{
+    // @vtest.id TEST-CALC-ADD
+    // @vtest.covers VO-CALC-ADD
+    // @vtest.target src/Calc.php::App::Calc::add
+    // @vtest.intent adding two numbers returns their sum
+    public function testAdd(): void
+    {
+        $this->assertSame(3, (new Calc())->add(1, 2));
+    }
+}
+```
