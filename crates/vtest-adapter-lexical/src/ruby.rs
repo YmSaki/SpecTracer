@@ -222,16 +222,14 @@ impl Lexer<'_> {
                 } else {
                     Kind::Word
                 }
-            } else if let Some(end) = (byte == b'/' && self.expression_position(&tokens, i))
-                .then(|| {
-                    self.literal_or_error(
-                        &tokens,
-                        i,
+            } else if let Some(end) =
+                (byte == b'/' && self.expression_position(&tokens, i)).then(|| {
+                    Self::literal_or_error(
                         self.delimited_end(i + 1, b'/', b'/', true),
+                        i,
                         "unterminated regular expression",
                     )
                 })
-                .flatten()
             {
                 i = end?;
                 while i < bytes.len() && bytes[i].is_ascii_alphabetic() {
@@ -240,9 +238,8 @@ impl Lexer<'_> {
                 Kind::Literal
             } else if let Some(end) = (byte == b'%' && self.expression_position(&tokens, i))
                 .then(|| {
-                    self.percent_end(i).and_then(|end| {
-                        self.literal_or_error(&tokens, i, end, "unterminated percent literal")
-                    })
+                    self.percent_end(i)
+                        .map(|end| Self::literal_or_error(end, i, "unterminated percent literal"))
                 })
                 .flatten()
             {
@@ -318,28 +315,18 @@ impl Lexer<'_> {
         }
     }
 
-    /// The end of a literal that starts at `i` (a `/` or `%`): `Some(Err)`
-    /// when it has no closing delimiter where only a literal can start
-    /// (after an operator, bracket, keyword, or line break), and `None`
-    /// (read as an operator) when a method name before it leaves the `/`
-    /// or `%` ambiguous.
+    /// The end of a literal that starts at `i` (a `/` or `%` where a
+    /// literal can start), or an error when it has no closing delimiter.
+    /// After a method name (`assert_match /x`) the `/` or `%` could also be
+    /// an operator if the name were a local variable, which a lexical
+    /// reader cannot tell, so an unclosed one is rejected rather than read
+    /// as code.
     fn literal_or_error(
-        &self,
-        tokens: &[Tok],
-        i: usize,
         end: Option<usize>,
+        i: usize,
         message: &str,
-    ) -> Option<Result<usize, ExtractError>> {
-        if let Some(end) = end {
-            return Some(Ok(end));
-        }
-        let previous = tokens.iter().rev().find(|t| t.kind != Kind::Comment);
-        let certain = previous.is_none_or(|previous| {
-            self.source[previous.end..i].contains('\n')
-                || !(previous.kind == Kind::Word
-                    && !EXPRESSION_KEYWORDS.contains(&self.text(previous)))
-        });
-        certain.then(|| Err(ExtractError::new(i, message)))
+    ) -> Result<usize, ExtractError> {
+        end.ok_or_else(|| ExtractError::new(i, message))
     }
 
     /// One past the closing delimiter of a literal whose contents start at
@@ -450,10 +437,13 @@ impl Lexer<'_> {
             byte if is_word_char(*byte) => {
                 let length = after.bytes().take_while(|b| is_word_char(*b)).count();
                 let word = &after[..length];
-                // After a method name, `<<word` may be a shift (`a <<b`), so
-                // only the conventional upper-case label opens a heredoc
-                // there; after an operator, bracket, keyword, or line break
-                // any label does (`text = <<text`).
+                // After a method name, `<<word` may be a shift (`a <<b`) if
+                // the name is a local variable, which a lexical reader cannot
+                // tell. There, the conventional upper-case label, or any
+                // label whose terminator line follows, opens a heredoc, so a
+                // heredoc's text is never read as code; after an operator,
+                // bracket, keyword, or line break any label does
+                // (`text = <<text`).
                 let after_name = tokens
                     .iter()
                     .rev()
@@ -465,7 +455,9 @@ impl Lexer<'_> {
                     });
                 let explicit = indented
                     || (self.expression_position(tokens, i)
-                        && (!after_name || word.bytes().all(|b| !b.is_ascii_lowercase())));
+                        && (!after_name
+                            || word.bytes().all(|b| !b.is_ascii_lowercase())
+                            || self.has_terminator(i, word)));
                 if !explicit {
                     return None;
                 }
@@ -475,6 +467,17 @@ impl Lexer<'_> {
         };
         let end = i + (rest.len() - after.len()) + length;
         Some((end, Pending { label, indented }))
+    }
+
+    /// Whether a line after the one holding `i` consists of `label` alone
+    /// (the terminator of a heredoc `<<label` opened at `i`).
+    fn has_terminator(&self, i: usize, label: &str) -> bool {
+        let Some(line_end) = self.source[i..].find('\n') else {
+            return false;
+        };
+        self.source[i + line_end + 1..]
+            .lines()
+            .any(|line| line.trim_end_matches('\r') == label)
     }
 
     /// Skips the bodies of the pending heredocs, which start at `i`,
@@ -629,17 +632,19 @@ impl Reader<'_> {
             _ => return None,
         }
         // A unary operator: `def +@`, `def -@`.
-        if matches!(name.as_str(), "+" | "-" | "!" | "~")
+        if self.kind(index - 1) == Some(Kind::Op)
+            && matches!(self.text(index - 1), "+" | "-" | "!" | "~")
             && self.is(index, "@")
             && self.touching(index - 1, index)
         {
             name.push('@');
             index += 1;
         }
-        // A setter: `def value=(v)`, `def value= v`. An endless method
-        // cannot be a setter, so a `=` bound to the name is part of it.
+        // A setter: `def value=(v)`, `def value= v`, `def []=(k, v)`. An
+        // endless method cannot be a setter, so a `=` bound to the name is
+        // part of it.
         if self.is(index, "=")
-            && self.kind(index - 1) == Some(Kind::Word)
+            && matches!(self.kind(index - 1), Some(Kind::Word | Kind::Close(']')))
             && self.touching(index - 1, index)
         {
             name.push('=');
@@ -759,7 +764,7 @@ impl Reader<'_> {
             let last = self.statement_end(start).ok_or_else(|| {
                 ExtractError::new(
                     self.tokens[start].start,
-                    "the file ends before this method's expression",
+                    "the file or its enclosing construct ends before this method's expression",
                 )
             })? - 1;
             qualified.push(name);
@@ -790,7 +795,8 @@ impl Reader<'_> {
     }
 
     /// One past the last token of the statement starting at `start` (see
-    /// the module documentation), or `None` when the file ends while it
+    /// the module documentation), or `None` when the file, or the `end`,
+    /// clause, or bracket closing the enclosing construct, comes while it
     /// still waits for an expression (`def f =`, `a +`). A `}` or `)`
     /// closing the enclosing bracket also ends it.
     fn statement_end(&self, start: usize) -> Option<usize> {
@@ -806,12 +812,21 @@ impl Reader<'_> {
                 Kind::Open(_) => self.partner(index),
                 _ => self.ends[index].unwrap_or(index),
             };
+            // An endless range (`1..`) may end the statement, but it
+            // continues onto a next line like any other operator.
+            let range =
+                self.kind(last) == Some(Kind::Op) && matches!(self.text(last), ".." | "...");
             let waits = self.kind(last) == Some(Kind::Op)
                 || (self.kind(last) == Some(Kind::Word)
                     && matches!(self.text(last), "and" | "or" | "not"));
             let Some(next) = self.next_significant(last + 1) else {
-                return (!waits).then_some(last + 1);
+                return (!waits || range).then_some(last + 1);
             };
+            if waits && self.closes(next) {
+                // The enclosing `end`, clause, or bracket comes while an
+                // expression is still awaited (`def f =` then `end`).
+                return range.then_some(last + 1);
+            }
             let continued = waits
                 || matches!(self.text(next), "." | "&.")
                 || self.kind(next) == Some(Kind::HeredocBody);
@@ -821,6 +836,21 @@ impl Reader<'_> {
             index = next;
         }
         None
+    }
+
+    /// Whether `tokens[index]` closes the enclosing construct: a `)`, `]`,
+    /// or `}`, an `end`, or a clause keyword (`else`, `when`, ...).
+    fn closes(&self, index: usize) -> bool {
+        match self.tokens[index].kind {
+            Kind::Close(_) => true,
+            Kind::Word => {
+                matches!(
+                    self.text(index),
+                    "end" | "else" | "elsif" | "when" | "in" | "rescue" | "ensure" | "then"
+                ) && !self.after_dot(index)
+            }
+            _ => false,
+        }
     }
 
     /// Every comment block that starts a line and is followed, on the next
@@ -848,7 +878,7 @@ impl Reader<'_> {
                         self.tokens[next].start,
                         self.tokens[end.max(next + 1) - 1].end,
                     )),
-                    None => Err("the file ends before this statement is complete".to_owned()),
+                    None => Err("the file or its enclosing construct ends before this statement is complete".to_owned()),
                 },
             })
             .collect()
@@ -1161,6 +1191,65 @@ end
             (
                 "class Box\n  def +(other)\n    self\n  end\nend\n",
                 "fixture.rb::Box::+",
+            ),
+        ] {
+            let outcome = discover_text(&Ruby, "fixture.rb", source, "demo");
+            assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+            assert_eq!(locators(&outcome), vec![expected], "{source:?}");
+        }
+    }
+
+    /// @vtest.id TEST-ADAPTER-RUBY-ARGUMENT-LITERALS-ENCLOSING-ENDS-AND-OPERATOR-NAMES
+    /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
+    /// @vtest.target crates/vtest-adapter-lexical/src/ruby.rs::Reader::statement_end
+    /// @vtest.intent verifies that a lower-case heredoc passed as a method argument hides its body from the code, that an unterminated literal passed as a method argument and an expression cut off by the enclosing `end` or `}` are not read as a whole Test, that an endless range may end an endless method, and that `[]=` and singleton unary operator methods keep their names
+    #[test]
+    fn argument_literals_enclosing_ends_and_operator_names() {
+        let declare = "# @vtest.id TEST-X\n# @vtest.covers VO-X\n# @vtest.intent review\n";
+        let hidden = format!("assert_equal <<text, actual\n{declare}def fake\n  1\nend\ntext\n");
+        let outcome = discover_text(&Ruby, "fixture.rb", &hidden, "demo");
+        assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+        assert!(outcome.tests.is_empty());
+        assert!(outcome.sources.is_empty());
+
+        for source in [
+            format!("{declare}def f\n  assert_equal %q!unterminated\n  tail\nend\n"),
+            format!("{declare}def f\n  assert_match /unterminated\n  tail\nend\n"),
+            format!("class C\n{declare}def f =\nend\n"),
+            format!("describe do\n{declare}expect(value).to eq(1) +\nend\n"),
+            format!("describe {{\n{declare}expect(value).to eq(1) +\n}}\n"),
+            format!("if x\n{declare}y = 1 +\nelse\n  z\nend\n"),
+        ] {
+            let outcome = discover_text(&Ruby, "fixture.rb", &source, "demo");
+            assert!(outcome.tests.is_empty(), "{source:?}");
+            assert!(!outcome.diagnostics.is_empty(), "{source:?}");
+        }
+
+        let range = discover_text(
+            &Ruby,
+            "fixture.rb",
+            &format!("{declare}def f = 1..\n"),
+            "demo",
+        );
+        assert!(range.diagnostics.is_empty(), "{:?}", range.diagnostics);
+        assert_eq!(range.tests[0].construct_text, "def f = 1..");
+        let inner = discover_text(
+            &Ruby,
+            "fixture.rb",
+            &format!("class C\n{declare}def f = 1..\nend\n"),
+            "demo",
+        );
+        assert!(inner.diagnostics.is_empty(), "{:?}", inner.diagnostics);
+        assert_eq!(inner.tests[0].construct_text, "def f = 1..");
+
+        for (source, expected) in [
+            (
+                "class Box\n  def []=(key, value)\n    @items[key] = value\n  end\nend\n",
+                "fixture.rb::Box::[]=",
+            ),
+            (
+                "class Box\n  def self.+@\n    self\n  end\nend\n",
+                "fixture.rb::Box::self.+@",
             ),
         ] {
             let outcome = discover_text(&Ruby, "fixture.rb", source, "demo");

@@ -6,8 +6,8 @@ rules shared by all framework-neutral adapters.
 
 - **Source Targets**: `def` methods, including predicate and bang methods
   (`empty?`, `save!`), singleton methods (`self.create`), setters
-  (`value=`, also `def value= v`), operators (`==`, `[]`, and unary `+@` and
-  `-@`), `private def`, and endless methods
+  (`value=`, also `def value= v`, and `[]=`), operators (`==`, `[]`, and
+  unary `+@` and `-@`, also on `self.`), `private def`, and endless methods
   (`def name = expr`). `class` and `module` (including `A::B`) qualify
   them: `lib/calc.rb::Demo::Calc::add`.
 - **Tests**: any construct right after a `@vtest.` `#` comment. That can be
@@ -24,12 +24,17 @@ rules shared by all framework-neutral adapters.
   or the next line starts with `.method`; the bodies of heredocs opened on
   that line (`<<~TEXT` ... `TEXT`) are part of it. `end` inside heredocs,
   `%w[]` literals, interpolations, and regular expressions is text. After a
-  method name, `<<word` is a heredoc only with an upper-case label (`a <<b`
-  may be a shift); elsewhere any label opens one (`text = <<text`).
+  method name, `<<word` is a heredoc only with an upper-case label or when
+  a later line consists of the label alone (`a <<b` may be a shift);
+  elsewhere any label opens one (`text = <<text`).
 - **Limits**: a missing or extra `end`, an unterminated heredoc, string,
-  percent literal, or regular expression, or a file that ends while an
-  expression is still awaited (`def f =`, `a +`), makes the file
-  unreadable (`E-SCAN-001`).
+  percent literal, or regular expression (also as a method argument, such
+  as `assert_match /x`, where a local variable would make the `/` a
+  division), or a file that ends while an expression is still awaited
+  (`def f =`, `a +`), makes the file unreadable (`E-SCAN-001`). An
+  expression that the enclosing `end`, clause, or bracket cuts off the same
+  way is not read as a whole construct either. An endless range (`1..`)
+  may end an expression.
 
 ```ruby
 # @vtest.id TEST-CALC-ADD
