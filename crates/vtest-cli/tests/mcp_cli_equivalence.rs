@@ -11,6 +11,8 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
+mod support;
+
 use serde_json::{json, Value};
 use vtest_model::{
     DerivesFrom, DocumentFile, DocumentId, NodeSource, RootNode, SentenceNode, VoId, VoRecord,
@@ -246,5 +248,68 @@ fn approval_create_gives_the_same_result_over_cli_and_the_mcp_transport() {
         );
         fs::remove_dir_all(cli_root).ok();
         fs::remove_dir_all(mcp_root).ok();
+    }
+}
+
+/// @vtest.id TEST-MCP-TRANSPORT-SWIFT-BODYLESS-PARITY
+/// @vtest.covers VO-ADAPTER-SWIFT-REGISTERS-WITHOUT-CORE-CHANGES
+/// @vtest.target crates/vtest-adapter-lexical/src/swift.rs::Reader::declaration_end
+/// @vtest.intent verifies that a valid bodyless Swift protocol requirement is discovered, bodyless declarations outside protocols fail closed, and the real CLI and MCP scan transports return identical envelopes
+#[test]
+fn swift_bodyless_requirements_match_cli_and_mcp() {
+    let declare =
+        "// @vtest.id TEST-X\n// @vtest.covers VO-X\n// @vtest.intent complete declaration\n";
+    for (case, source, expected_tests, unreadable) in [
+        (
+            "protocol-requirement",
+            format!("protocol P {{\n{declare}    func f() -> Int\n}}\n"),
+            1,
+            false,
+        ),
+        (
+            "struct-missing-body",
+            format!("struct S {{\n{declare}    func f() -> Int\n}}\n"),
+            0,
+            true,
+        ),
+        (
+            "class-missing-body",
+            format!("class C {{\n{declare}    func f() -> Int\n}}\n"),
+            0,
+            true,
+        ),
+        (
+            "nested-missing-body",
+            format!("func outer() {{\n{declare}    func f() -> Int\n}}\n"),
+            0,
+            true,
+        ),
+    ] {
+        let project = support::fixture(
+            "swift",
+            &[("Sources/Bodyless.swift", source.as_str())],
+            &["VO-X"],
+        );
+        let (scan, _) = project.scan_and_verify();
+        assert_eq!(scan.tests.len(), expected_tests, "{case}: {:?}", scan.diagnostics);
+        assert_eq!(
+            scan.diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code.as_str() == "E-SCAN-001"),
+            unreadable,
+            "{case}: {:?}",
+            scan.diagnostics
+        );
+
+        let via_cli = cli(project.path(), &["scan"]);
+        let via_mcp = mcp(project.path(), "scan", json!({}));
+        assert_eq!(via_cli["ok"], via_mcp["ok"], "{case}");
+        assert_eq!(stable_data(&via_cli), stable_data(&via_mcp), "{case}");
+        assert_eq!(via_cli["diagnostics"], via_mcp["diagnostics"], "{case}");
+        assert_eq!(
+            codes(&via_cli).contains(&json!("E-SCAN-001")),
+            unreadable,
+            "{case}: {via_cli}"
+        );
     }
 }
