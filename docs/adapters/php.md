@@ -25,7 +25,8 @@ for the declaration rules shared by all framework-neutral adapters.
 - **Limits**: an unterminated string, heredoc, or nowdoc, or brackets that
   do not balance in the code between `<?php` and `?>`, or a file that ends
   inside a statement (`function f()`, `if ($a)`, a call without its `;`),
-  make the file unreadable (`E-SCAN-001`).
+  make the file unreadable (`E-SCAN-001`). A statement that the `}` of its
+  block cuts off the same way is not read as a whole construct either.
 
 ```php
 final class CalcTest extends TestCase

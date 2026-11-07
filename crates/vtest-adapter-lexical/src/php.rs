@@ -80,7 +80,7 @@ impl LanguageProfile for Php {
             .map_err(|index| {
                 ExtractError::new(
                     tokens[index].start,
-                    "the file ends before this statement is complete",
+                    "the file or its enclosing block ends before this statement is complete",
                 )
             })?;
         Ok(FileItems {
@@ -393,8 +393,9 @@ impl Reader<'_> {
 
     /// One past the last token of the statement or member starting at
     /// `start` (see the module documentation), or `None` when the file
-    /// ends first (PHP needs a `;`, `?>`, or body to end every statement).
-    /// A `}` closing the enclosing block also ends it.
+    /// or the enclosing block ends first (PHP needs a `;`, `?>`, or body to
+    /// end every statement). A `)` or `]` closing an enclosing argument
+    /// list ends it.
     fn statement_end(&self, start: usize) -> Option<usize> {
         if self.kind(start) == Some(Kind::Open('{')) {
             return Some(self.partner(start) + 1);
@@ -427,6 +428,10 @@ impl Reader<'_> {
         let mut index = start;
         while index < self.tokens.len() {
             match self.tokens[index].kind {
+                // A statement needs its `;` or body before the `}` closing
+                // its block: `function f()` or `test(...)` there, or `if ($a)`
+                // with no statement after it, is incomplete.
+                Kind::Close('}') => return None,
                 Kind::Close(_) => return Some(index),
                 Kind::Semi => return Some(index + 1),
                 Kind::Open('{') if bodied => {
@@ -790,7 +795,10 @@ impl Reader<'_> {
                     self.tokens[next].start,
                     self.tokens[end.max(next + 1) - 1].end,
                 )),
-                None => Err("the file ends before this statement is complete".to_owned()),
+                None => Err(
+                    "the file or its enclosing block ends before this statement is complete"
+                        .to_owned(),
+                ),
             };
             output.push(Annotated {
                 comment_start: self.tokens[first].start,
@@ -1104,5 +1112,34 @@ class CalcTest extends TestCase
                 "fixture.php::N::z",
             ]
         );
+    }
+
+    /// @vtest.id TEST-ADAPTER-PHP-ENCLOSING-BLOCK-ENDS
+    /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
+    /// @vtest.target crates/vtest-adapter-lexical/src/php.rs::Reader::statement_end
+    /// @vtest.intent verifies that a statement cut off by the `}` of its enclosing block (a function without its body, a call without its `;`, an `if` without its statement) is not read as a whole Test, while a `?>` before that `}` still ends a statement
+    #[test]
+    fn enclosing_block_ends() {
+        let declare = "// @vtest.id TEST-X\n// @vtest.covers VO-X\n// @vtest.intent check\n";
+        for tail in [
+            "function broken()\n",
+            "test('tail', function () { tail(); })\n",
+            "if ($flag)\n",
+            "if ($flag) { one(); } else\n",
+        ] {
+            for source in [
+                format!("<?php\nfunction outer() {{\n{declare}{tail}}}\n"),
+                format!("<?php\nclass C {{\n    function m() {{\n{declare}{tail}}}\n}}\n"),
+            ] {
+                let outcome = discover_text(&Php, "src/u.php", &source, "demo");
+                assert!(outcome.tests.is_empty(), "{source:?}");
+                assert!(!outcome.diagnostics.is_empty(), "{source:?}");
+            }
+        }
+        let source = format!("<?php\nif ($flag) {{\n{declare}one() ?>\n<p>html</p>\n<?php }}\n");
+        let outcome = discover_text(&Php, "src/v.php", &source, "demo");
+        assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+        assert_eq!(outcome.tests.len(), 1);
+        assert_eq!(outcome.tests[0].construct_text, "one() ?>");
     }
 }
