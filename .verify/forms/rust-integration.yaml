@@ -1,4 +1,5 @@
 kind: rust-integration
+adapter: rust-cargo
 title: Rust integration test
 fields:
   - name: targets

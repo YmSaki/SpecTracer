@@ -13,6 +13,7 @@ use thiserror::Error;
 
 pub mod approval;
 pub mod canonical;
+pub mod decisions;
 pub mod doc_registry;
 pub mod execution_state;
 pub mod forms;
@@ -42,6 +43,15 @@ pub enum StoreError {
     InvalidForm(String),
     #[error("invalid form answers: {0}")]
     InvalidAnswers(String),
+    /// A VO id that cannot name a file inside `.verify/vo/` (`..`, a path
+    /// separator, an absolute path, …; see [`canonical::is_valid_vo_id`]).
+    /// Rejected before any path is built, so nothing outside the VO
+    /// directory is read or written.
+    #[error(
+        "invalid VO id {0:?}: a VO id is one path component of ASCII letters, digits, \
+         '-', '_' and '.' that does not start with '.'"
+    )]
+    InvalidVoId(String),
 
     /// A record does not conform to the canonical schema it declares —
     /// DS-1645: "E-SCAN-010はerrorであり、レコードのid / ファイル名 /
@@ -676,7 +686,27 @@ fn is_rust_identifier(segment: &str) -> bool {
         && chars.all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
 }
 
+/// Creates the `.verify/` layout with no built-in Form Schema. `vtest init`
+/// uses [`init_project_with_forms`] to also write the registered adapters'
+/// built-in Forms (DS-985); core names no built-in Form itself (DS-1549).
 pub fn init_project(root: &Path, name: &str) -> Result<VerifyLayout, StoreError> {
+    init_project_with_forms(root, name, &[])
+}
+
+/// [`init_project`] plus each `(kind, schema text)` written as
+/// `.verify/forms/<kind>.yaml` (DS-985, BD-153).
+pub fn init_project_with_forms(
+    root: &Path,
+    name: &str,
+    forms: &[(&str, &str)],
+) -> Result<VerifyLayout, StoreError> {
+    for (kind, _) in forms {
+        if !is_valid_form_kind(kind) {
+            return Err(StoreError::InvalidForm(format!(
+                "built-in form kind is not a valid kind: `{kind}`"
+            )));
+        }
+    }
     let layout = VerifyLayout::new(root);
     if layout.verify_dir().exists() {
         return Err(StoreError::AlreadyInitialized(layout.verify_dir()));
@@ -700,14 +730,12 @@ pub fn init_project(root: &Path, name: &str) -> Result<VerifyLayout, StoreError>
     }
     let config = ProjectConfig::default_for(name);
     write_new_file(&layout.config(), config.to_yaml().as_bytes())?;
-    write_new_file(
-        &layout.forms_dir().join("rust-unit-function.yaml"),
-        RUST_UNIT_FUNCTION_FORM.as_bytes(),
-    )?;
-    write_new_file(
-        &layout.forms_dir().join("rust-integration.yaml"),
-        RUST_INTEGRATION_FORM.as_bytes(),
-    )?;
+    for (kind, schema) in forms {
+        write_new_file(
+            &layout.forms_dir().join(format!("{kind}.yaml")),
+            schema.as_bytes(),
+        )?;
+    }
     for directory in [
         layout.doc_dir(),
         layout.vo_dir(),

@@ -1,0 +1,11 @@
+id: VO-FORM-OWNER-CONFLICT-REJECTED
+parent: null
+derives_from:
+  - doc: DS-1547
+claim: '同じkindを複数adapterが宣言する、schemaとregistry ownerが不一致、adapterが未知、またはcapabilityがない場合は操作を拒否し、ファイルを変更しない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00

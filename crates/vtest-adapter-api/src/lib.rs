@@ -403,6 +403,28 @@ pub trait StructuredTestAdapter {
     /// The variants of every enum named `type_name` declared in `source`
     /// (nested modules included). `None` when `source` does not parse.
     fn enum_variants(&self, source: &str, type_name: &str) -> Option<Vec<String>>;
+
+    /// DES-373: the built-in Form kinds this adapter owns, each with its
+    /// Form Schema text (§14). Core never names a built-in Form itself
+    /// (DS-1549); it resolves kinds through these declarations.
+    fn built_in_forms(&self) -> &'static [BuiltInForm];
+
+    /// DES-373 / DES-490: the compatibility matcher for a user-defined Form
+    /// Schema that declares no `adapter`. Decides from the schema text alone
+    /// whether this adapter can own it. The default accepts nothing, so only
+    /// the built-in kind declarations above resolve such a schema.
+    fn accepts_form_schema(&self, _schema_text: &str) -> bool {
+        false
+    }
+}
+
+/// One built-in Form an adapter declares (DES-373).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct BuiltInForm {
+    /// The repository-global Form `kind` (DS-1545).
+    pub kind: &'static str,
+    /// The Form Schema text, in the `.verify/forms/<kind>.yaml` format.
+    pub schema: &'static str,
 }
 
 /// 本冊 §5.2「adapter capabilityは `SourceDiscoveryAdapter`、
@@ -493,12 +515,51 @@ pub enum StaticAnalysisVerdict {
     Unknown(Vec<String>),
 }
 
+/// SPEC-387/DS-1208: one rule's verdict for `vtest audit static`.
+/// `NoViolation` is "違反なし", deliberately not `Pass`: a rule reporting
+/// no violation is not by itself a verification `PASS`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RuleOutcome {
+    Fail,
+    Unknown,
+    NoViolation,
+}
+
+impl RuleOutcome {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Fail => "FAIL",
+            Self::Unknown => "UNKNOWN",
+            Self::NoViolation => "NO_VIOLATION",
+        }
+    }
+}
+
+/// One rule verdict. `target` is set for target-scoped rules (DA-002 /
+/// DA-003, DS-630/DS-1208) and names the declared target it applies to.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RuleVerdict {
+    pub rule: String,
+    pub target: Option<String>,
+    pub outcome: RuleOutcome,
+    pub reason: String,
+}
+
 /// 本冊 §5.2 `StaticAnalysisAdapter`（DES-408、`oracle_presence`の
 /// dispatch先）。
 pub trait StaticAnalysisAdapter {
     fn id(&self) -> &'static str;
 
     fn analyze(&self, input: StaticAnalysisInput<'_>) -> StaticAnalysisVerdict;
+
+    /// SPEC-387/DS-1208: the rule-by-rule verdicts behind `analyze`, for
+    /// `vtest audit static`. The default is empty, which callers must
+    /// report as "this adapter gives no rule-level breakdown" and never as
+    /// "no violation".
+    fn audit_rules(&self, input: StaticAnalysisInput<'_>) -> Vec<RuleVerdict> {
+        let _ = input;
+        Vec::new()
+    }
 }
 
 /// DES-350/351「各adapterは一意なID、languages、capabilities、config

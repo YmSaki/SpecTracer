@@ -1590,7 +1590,7 @@ fn evaluate_oracle_presence(test: &TestEntity, evidence: &EvidenceContext<'_>) -
 /// range `vtest-scan` already located (`location.byte_range`), the same
 /// bytes `source_target_subject_hash`/`test_subject_hash` bind — this
 /// function never re-parses or re-locates anything, only re-reads.
-fn read_construct_text(root: &Path, location: &vtest_model::SourceLocation) -> Option<String> {
+pub fn read_construct_text(root: &Path, location: &vtest_model::SourceLocation) -> Option<String> {
     let path = root.join(location.path.as_str());
     let bytes = std::fs::read(path).ok()?;
     let start = usize::try_from(location.byte_range.start).ok()?;

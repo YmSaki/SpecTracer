@@ -1,0 +1,11 @@
+id: VO-CLI-VO-ANCHOR-BINDING
+parent: null
+derives_from:
+  - doc: DS-1029
+claim: "`--derives-from` を伴わない `--anchor`、または 1 つの `--derives-from` に対する 2 個目以降の `--anchor` は引数不正として終了コード 2 で拒否し、レコードを書かない。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T12:00:00+09:00
+updated: 2026-11-03T12:00:00+09:00
