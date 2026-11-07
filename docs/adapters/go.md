@@ -12,6 +12,11 @@ framework-neutral adapters.
   `go test` function (`func TestAdd(t *testing.T)`), a testify suite method,
   or a Ginkgo `It("...", func() { ... })` call, which gets the Test locator
   `It#<n>`.
+- **Where a construct ends**: where Go itself ends a statement: at a `;`,
+  or at a newline after an identifier, literal, `)`, `]`, `}`, `++`, `--`,
+  or `return`/`break`/`continue`/`fallthrough`. A function's body is its
+  last `{}` group, so the braces of a `struct` or `interface` result type
+  (`func f() struct{ X int } {`) are not the body.
 - **Limits**: build tags and `//go:build` constraints are not evaluated, so
   every file is scanned.
 
