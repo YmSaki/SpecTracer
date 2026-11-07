@@ -1,0 +1,12 @@
+id: VO-ADAPTER-LEXICAL-OPAQUE-LOCATOR-SYNTAX
+parent: null
+derives_from:
+  - doc: BD-027
+claim: >-
+  opaque locatorの構文と恒久SRC IDの宣言方法はadapterが定める。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-07T00:00:00Z
+updated: 2026-11-07T00:00:00Z

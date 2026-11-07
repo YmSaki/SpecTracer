@@ -1,0 +1,12 @@
+id: VO-ADAPTER-LEXICAL-UNPARSEABLE-DECLARATION-MISSING
+parent: null
+derives_from:
+  - doc: DES-223
+claim: >-
+  adapter固有のsource declarationを構文解析できない場合、adapterは該当Test constructをDiscovered Testとして返し、対応を `ManagedTestLink::Missing` として診断を付与する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-07T00:00:00Z
+updated: 2026-11-07T00:00:00Z

@@ -105,6 +105,10 @@ filter, package, and target kind. Supporting additional ecosystems therefore
 requires generalizing those coordinates while preserving the language-neutral
 verification states, canonical identities, and Evidence hash binding.
 
+Framework-neutral discovery adapters for other languages are documented in
+[`docs/adapters/`](docs/adapters/lexical.md). They trace `@vtest.` declarations
+written in ordinary comments and leave execution and coverage `NO_EVIDENCE`.
+
 Support is evidence-based: an ecosystem is supported only after its discovery,
 execution, freshness, and target-measurement behavior has reproducible acceptance
 coverage. Return `NOT_CHECKED` or `UNKNOWN` for unsupported or unavailable
