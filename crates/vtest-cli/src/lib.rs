@@ -104,6 +104,34 @@ pub enum Command {
         #[arg(long)]
         summary: bool,
     },
+    /// Detailed report: the same aggregation as `verify` with its basis,
+    /// Evidence references, a projection and the `pending` section
+    /// (SPEC-401, DS-1215).
+    Report {
+        #[arg(long, value_delimiter = ',')]
+        items: Vec<String>,
+        #[arg(long)]
+        doc: Option<String>,
+        #[arg(long)]
+        vo: Option<String>,
+        #[arg(long)]
+        test: Option<String>,
+        #[arg(long)]
+        gate: Option<String>,
+        /// Start node of a local trace: a DOC / VO / TEST / SRC id
+        /// (DS-1133).
+        #[arg(long)]
+        from: Option<String>,
+        /// Role preset: pm / tester / coder (DS-1136).
+        #[arg(long)]
+        view: Option<String>,
+        /// Number of steps to follow (DS-1135).
+        #[arg(long)]
+        depth: Option<usize>,
+        /// up / down / both (DS-1134). Default both.
+        #[arg(long)]
+        direction: Option<String>,
+    },
     /// Approval domain: the sole canonical entry point for承認レコード
     /// (BD-304/305/306, 本冊 §3.5, DS-1050-1062/DS-1461-1490).
     #[command(subcommand)]
@@ -413,6 +441,32 @@ pub fn run(cli: Cli) -> ExitCode {
         } => run_run(&cli.project, test, vo, all, fast, cli.format, cli.quiet),
         Command::Approval(command) => run_approval(&cli.project, command, cli.format, cli.quiet),
         Command::Doc(command) => run_doc(&cli.project, command, cli.format, cli.quiet),
+        Command::Report {
+            items,
+            doc,
+            vo,
+            test,
+            gate,
+            from,
+            view,
+            depth,
+            direction,
+        } => run_report(
+            &cli.project,
+            &items,
+            doc,
+            vo,
+            test,
+            gate.as_deref(),
+            &ops::report::ProjectionArgs {
+                from,
+                view,
+                depth,
+                direction,
+            },
+            cli.format,
+            cli.quiet,
+        ),
         Command::Test(command) => run_test(&cli.project, command, cli.format, cli.quiet),
         Command::Audit(AuditCommand::Static { test, all }) => {
             run_audit_static(&cli.project, test.as_deref(), all, cli.format, cli.quiet)
@@ -1804,6 +1858,145 @@ fn run_verify(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
+fn run_report(
+    project: &Path,
+    items: &[String],
+    doc: Option<String>,
+    vo: Option<String>,
+    test: Option<String>,
+    gate: Option<&str>,
+    projection: &ops::report::ProjectionArgs,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    let root = match resolve_root(project, format, quiet) {
+        Ok(root) => root,
+        Err(code) => return code,
+    };
+    let registry = match resolve_registry(format, quiet) {
+        Ok(registry) => registry,
+        Err(code) => return code,
+    };
+    match ops::report::execute(&root, items, doc, vo, test, gate, projection, &registry) {
+        Ok((exit, data, diagnostics)) => {
+            let envelope = JsonEnvelope::new(exit == ExitCode::Ok, data, diagnostics);
+            emit(format, quiet, &envelope, render_report_text);
+            exit
+        }
+        // Same as `run_verify`: an undefined `--gate` lists the defined
+        // gate names, in `diagnostics[].candidates` for JSON (DS-1154).
+        Err(ops::verify::VerifyOpError::Usage {
+            code,
+            message,
+            candidates,
+        }) => {
+            if format == OutputFormat::Json {
+                if !quiet {
+                    let value = ops::verify::usage_envelope(code, &message, candidates.as_deref());
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&value).unwrap_or_else(|error| format!(
+                            "{{\"ok\":false,\"data\":null,\"diagnostics\":[\"{error}\"]}}"
+                        ))
+                    );
+                }
+                ExitCode::Usage
+            } else {
+                usage_failure(format, quiet, code, &message)
+            }
+        }
+        Err(ops::verify::VerifyOpError::Scan(error)) => scan_error_exit(&error, format, quiet),
+        Err(ops::verify::VerifyOpError::Internal { message }) => {
+            emit_failure(format, quiet, "E-INTERNAL-001", &message);
+            ExitCode::Internal
+        }
+    }
+}
+
+fn render_report_text(envelope: &JsonEnvelope<ops::report::ReportData>) -> String {
+    let data = &envelope.data;
+    let verify = JsonEnvelope::new(envelope.ok, data.verify.clone(), Vec::new());
+    let mut out = render_verify_text(&verify);
+    if !data.evidence.is_empty() {
+        out.push_str("\nEvidence:\n");
+        for evidence in &data.evidence {
+            let line = match &evidence.invalid {
+                Some(reason) => format!(
+                    "  {} -> {} (invalid, not used: {reason})\n",
+                    evidence.test,
+                    evidence.evidence.as_deref().unwrap_or("<unknown>")
+                ),
+                None => format!(
+                    "  {} -> {} ({}, {})\n",
+                    evidence.test,
+                    evidence.evidence.as_deref().unwrap_or("<unknown>"),
+                    evidence.result.as_deref().unwrap_or("-"),
+                    evidence.executed_at.as_deref().unwrap_or("-")
+                ),
+            };
+            out.push_str(&line);
+        }
+    }
+    let projection = &data.projection;
+    out.push_str(&format!(
+        "\nProjection{}{} ({:?}{}):\n",
+        projection
+            .from
+            .as_deref()
+            .map(|from| format!(" from {from}"))
+            .unwrap_or_default(),
+        projection
+            .view
+            .as_deref()
+            .map(|view| format!(" view {view}"))
+            .unwrap_or_default(),
+        projection.direction,
+        projection
+            .depth
+            .map(|depth| format!(", depth {depth}"))
+            .unwrap_or_default(),
+    ));
+    for node in &projection.nodes {
+        out.push_str(&format!(
+            "  {:?} {} [{}]\n",
+            node.kind,
+            node.id,
+            node.state.unwrap_or("-")
+        ));
+    }
+    for edge in &projection.edges {
+        out.push_str(&format!(
+            "  {} --{}--> {}",
+            edge.from, edge.relation, edge.to
+        ));
+        if let Some(anchor) = &edge.anchor {
+            out.push_str(&format!(" (anchor {anchor})"));
+        }
+        out.push('\n');
+    }
+    out
+}
+
+fn render_pending(pending: &[ops::pending::PendingItem], out: &mut String) {
+    if pending.is_empty() {
+        return;
+    }
+    out.push_str("\nPending:\n");
+    for item in pending {
+        let check = item
+            .check
+            .as_ref()
+            .map(|check| format!(" {} {}", check.name, check.state))
+            .unwrap_or_default();
+        let kind = item
+            .judgment_kind
+            .map(|kind| format!(" ({kind})"))
+            .unwrap_or_default();
+        out.push_str(&format!("  {} {}{check}{kind}\n", item.kind, item.subject));
+    }
+}
+
 fn label_name(label: vtest_model::DiagnosticLabel) -> &'static str {
     match label {
         vtest_model::DiagnosticLabel::Missing => "MISSING",
@@ -1898,6 +2091,7 @@ fn render_verify_text(envelope: &JsonEnvelope<VerifyData>) -> String {
         }
     }
 
+    render_pending(&data.pending, &mut out);
     out.push_str(&format!(
         "\nAggregate state: {}\nNon-PASS checks: {}\nResult: {}\n",
         data.state, data.non_pass, data.result
