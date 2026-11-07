@@ -527,7 +527,26 @@ struct Scanner<'a> {
     /// construct 全体を成す。
     missing_tests: Vec<MissingTestConstruct>,
     sources: Vec<SourceDraft>,
+    /// Parallel to `sources`: what can tell a source apart from another
+    /// one that received the same base locator (#35, DS-510).
+    source_qualifiers: Vec<SourceQualifier>,
+    /// `#[cfg(...)]` predicates of the enclosing `mod` / `impl` items.
+    cfg_stack: Vec<String>,
+    /// Item path of the enclosing trait impl, `<Type as Trait>`, if any.
+    trait_impl: Option<String>,
     diagnostics: Vec<Diagnostic>,
+}
+
+/// Disambiguation context recorded for every Source Target. It is used
+/// only when two Source Targets would otherwise share a canonical locator,
+/// so the locators of non-colliding items never change.
+#[derive(Clone, Debug, Default)]
+struct SourceQualifier {
+    /// The item path with the impl's self type written as
+    /// `<Type as Trait>` (trait impl methods only).
+    trait_item_path: Option<String>,
+    /// The `#[cfg]` predicates that apply to the item, outermost first.
+    cfg: Vec<String>,
 }
 
 impl<'a> Scanner<'a> {
@@ -538,8 +557,32 @@ impl<'a> Scanner<'a> {
             tests: Vec::new(),
             missing_tests: Vec::new(),
             sources: Vec::new(),
+            source_qualifiers: Vec::new(),
+            cfg_stack: Vec::new(),
+            trait_impl: None,
             diagnostics: Vec::new(),
         }
+    }
+
+    fn push_source(&mut self, draft: SourceDraft, attrs: &[Attribute], item_path: &str) {
+        let mut cfg = self.cfg_stack.clone();
+        cfg.extend(cfg_predicates(attrs));
+        let trait_item_path = self.trait_impl.as_ref().and_then(|qualified| {
+            let (prefix, name) = item_path.rsplit_once("::")?;
+            let (module, _) = match prefix.rsplit_once("::") {
+                Some((module, ty)) => (Some(module), ty),
+                None => (None, prefix),
+            };
+            Some(match module {
+                Some(module) => format!("{module}::{qualified}::{name}"),
+                None => format!("{qualified}::{name}"),
+            })
+        });
+        self.sources.push(draft);
+        self.source_qualifiers.push(SourceQualifier {
+            trait_item_path,
+            cfg,
+        });
     }
 
     /// この関数 item は Test construct（`is_test_function` 済み）だが、
@@ -722,7 +765,9 @@ impl<'a> Scanner<'a> {
                         } else {
                             format!("{module}::{}", item_mod.ident)
                         };
-                        self.collect_items(
+                        let depth = self.cfg_stack.len();
+                        self.cfg_stack.extend(cfg_predicates(&item_mod.attrs));
+                        let result = self.collect_items(
                             nested,
                             relative,
                             test_target,
@@ -732,7 +777,9 @@ impl<'a> Scanner<'a> {
                             line_offsets,
                             &nested_module,
                             path,
-                        )?;
+                        );
+                        self.cfg_stack.truncate(depth);
+                        result?;
                     }
                 }
                 _ => {}
@@ -770,16 +817,17 @@ impl<'a> Scanner<'a> {
             self.diagnostics
                 .push(Diagnostic::warning(code, message).with_location(location.clone()));
         }
-        self.sources.push(SourceDraft {
+        let draft = SourceDraft {
             locator: RustLocator {
                 path: relative.to_owned(),
-                item_path,
+                item_path: item_path.clone(),
             }
             .to_locator(),
             src_id: outcome.src_id,
             location,
             construct_text: content.to_owned(),
-        });
+        };
+        self.push_source(draft, attrs, &item_path);
         Ok(())
     }
 
@@ -803,6 +851,47 @@ impl<'a> Scanner<'a> {
         let Some(type_name) = type_name else {
             return Ok(());
         };
+        let depth = self.cfg_stack.len();
+        self.cfg_stack.extend(cfg_predicates(&item_impl.attrs));
+        self.trait_impl = item_impl.trait_.as_ref().map(|(bang, trait_path, _)| {
+            let bang = if bang.is_some() { "!" } else { "" };
+            format!(
+                "<{} as {bang}{}>",
+                compact_tokens(&item_impl.self_ty),
+                compact_tokens(trait_path)
+            )
+        });
+        let result = self.collect_impl_items(
+            item_impl,
+            &type_name,
+            relative,
+            test_target,
+            package,
+            filter_prefix,
+            source,
+            line_offsets,
+            module,
+            path,
+        );
+        self.trait_impl = None;
+        self.cfg_stack.truncate(depth);
+        result
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn collect_impl_items(
+        &mut self,
+        item_impl: &ItemImpl,
+        type_name: &str,
+        relative: &str,
+        test_target: &TestTarget,
+        package: &str,
+        filter_prefix: &str,
+        source: &str,
+        line_offsets: &[usize],
+        module: &str,
+        path: &Path,
+    ) -> Result<(), DiscoveryError> {
         for item in &item_impl.items {
             let ImplItem::Fn(item_fn) = item else {
                 continue;
@@ -917,7 +1006,7 @@ impl<'a> Scanner<'a> {
             }
             outcome.src_id
         };
-        self.sources.push(SourceDraft {
+        let draft = SourceDraft {
             locator: RustLocator {
                 path: relative.to_owned(),
                 item_path: item_path.to_owned(),
@@ -926,7 +1015,8 @@ impl<'a> Scanner<'a> {
             src_id,
             location: location.clone(),
             construct_text: content.to_owned(),
-        });
+        };
+        self.push_source(draft, attrs, item_path);
 
         if !is_test {
             return Ok(());
@@ -1124,7 +1214,8 @@ impl<'a> Scanner<'a> {
         Ok(())
     }
 
-    fn finish(self, files: usize) -> DiscoveryOutcome {
+    fn finish(mut self, files: usize) -> DiscoveryOutcome {
+        disambiguate_locators(&mut self.sources, &self.source_qualifiers);
         DiscoveryOutcome {
             files_scanned: files,
             tests: self.tests,
@@ -1754,6 +1845,93 @@ fn package_root_for_path(root: &Path, path: &Path) -> Option<PathBuf> {
     None
 }
 
+/// `#[cfg(...)]` predicates of `attrs`, whitespace removed.
+fn cfg_predicates(attrs: &[Attribute]) -> Vec<String> {
+    attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("cfg"))
+        .filter_map(|attr| match &attr.meta {
+            syn::Meta::List(list) => Some(format!("cfg({})", compact(&list.tokens.to_string()))),
+            _ => None,
+        })
+        .collect()
+}
+
+fn compact_tokens(tokens: &impl quote::ToTokens) -> String {
+    compact(&tokens.to_token_stream().to_string())
+}
+
+fn compact(text: &str) -> String {
+    text.chars().filter(|c| !c.is_whitespace()).collect()
+}
+
+/// #35 / DS-510: the canonical locator must identify one Source Target.
+/// `syn` sees every `#[cfg]` branch and every trait impl, so two items can
+/// get the same base locator (`Widget::f` from `impl A for Widget` and
+/// `impl B for Widget`, or `f` under `#[cfg(unix)]` and `#[cfg(windows)]`).
+/// Only such colliding locators are rewritten, so existing `@vtest.target`
+/// references and Evidence for every other item keep their locator:
+///
+/// 1. a trait impl method in a collision becomes `<Widget as A>::f`
+///    (an inherent method keeps `Widget::f`);
+/// 2. an item still colliding gets its `#[cfg]` predicates appended, as in
+///    `f[cfg(unix)]`.
+///
+/// Anything that still collides after both steps is left as is; a
+/// reference to it stays ambiguous and fails closed (E-SCAN-004).
+fn disambiguate_locators(sources: &mut [SourceDraft], qualifiers: &[SourceQualifier]) {
+    let colliding = |sources: &[SourceDraft]| {
+        let mut counts = std::collections::BTreeMap::<(String, String), usize>::new();
+        for source in sources.iter() {
+            *counts
+                .entry((
+                    source.locator.adapter.as_str().to_owned(),
+                    source.locator.value.clone(),
+                ))
+                .or_default() += 1;
+        }
+        sources
+            .iter()
+            .map(|source| {
+                counts[&(
+                    source.locator.adapter.as_str().to_owned(),
+                    source.locator.value.clone(),
+                )] > 1
+            })
+            .collect::<Vec<_>>()
+    };
+    let rewrite = |source: &mut SourceDraft, item_path: String| {
+        let Some(locator) = RustLocator::parse(&source.locator.value) else {
+            return;
+        };
+        source.location.locator = item_path.clone();
+        source.locator = RustLocator {
+            path: locator.path,
+            item_path,
+        }
+        .to_locator();
+    };
+
+    let first = colliding(sources);
+    for (index, source) in sources.iter_mut().enumerate() {
+        if first[index] {
+            if let Some(trait_item_path) = &qualifiers[index].trait_item_path {
+                rewrite(source, trait_item_path.clone());
+            }
+        }
+    }
+    let second = colliding(sources);
+    for (index, source) in sources.iter_mut().enumerate() {
+        if second[index] && !qualifiers[index].cfg.is_empty() {
+            let Some(locator) = RustLocator::parse(&source.locator.value) else {
+                continue;
+            };
+            let item_path = format!("{}[{}]", locator.item_path, qualifiers[index].cfg.join(","));
+            rewrite(source, item_path);
+        }
+    }
+}
+
 fn join_module_path(prefix: &str, item_path: &str) -> String {
     if prefix.is_empty() {
         item_path.to_owned()
@@ -2234,6 +2412,99 @@ mod nested { struct NestedStruct; fn nested_fn() {} }
                 "src/lib.rs::nested::nested_fn",
             ]
         );
+    }
+
+    /// #35 / DS-510: items whose plain Rust item path collides are told
+    /// apart by trait and by `#[cfg]` context (also inherited from an
+    /// enclosing `mod` / `impl`), while every non-colliding item keeps its
+    /// plain locator, independent of declaration order.
+    /// @vtest.id TEST-ADAPTER-RUST-LOCATOR-COLLISION-DISAMBIGUATED
+    /// @vtest.covers VO-ADAPTER-RUST-LOCATOR-COLLISION-DISAMBIGUATED
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::RustCargoAdapter::discover
+    /// @vtest.intent trait impls and cfg branches with the same item path get distinct locators and others are unchanged
+    #[test]
+    fn colliding_item_paths_are_disambiguated_by_trait_and_cfg() {
+        let discover = |name: &str, text: &str| {
+            let root = temp_dir(name);
+            fs::create_dir_all(root.join("src")).expect("create src");
+            fs::write(
+                root.join("Cargo.toml"),
+                "[package]\nname = \"fixture\"\nversion = \"0.1.0\"\n",
+            )
+            .expect("write manifest");
+            fs::write(root.join("src/lib.rs"), text).expect("write fixture");
+            let outcome = RustCargoAdapter::new()
+                .discover(
+                    &root,
+                    "fixture",
+                    &AdapterScanConfig {
+                        include_paths: vec![PathBuf::from("src")],
+                    },
+                )
+                .expect("discovery succeeds");
+            let mut locators: Vec<String> = outcome
+                .sources
+                .iter()
+                .map(|source| {
+                    assert_eq!(
+                        format!("src/lib.rs::{}", source.location.locator),
+                        source.locator.value
+                    );
+                    source.locator.value.clone()
+                })
+                .collect();
+            locators.sort_unstable();
+            locators
+        };
+        let fixture = r#"
+trait A { fn f(); }
+trait B { fn f(); }
+struct Widget;
+impl Widget { fn f() {} fn only() {} }
+impl A for Widget { fn f() {} }
+impl B for Widget { fn f() {} }
+#[cfg(unix)]
+fn cfg_dup() {}
+#[cfg(windows)]
+fn cfg_dup() {}
+#[cfg(unix)]
+mod imp { pub fn run() {} }
+#[cfg(not(unix))]
+mod imp { pub fn run() {} }
+fn plain() {}
+"#;
+        let locators = discover("locator-collisions", fixture);
+        for expected in [
+            "src/lib.rs::A",
+            "src/lib.rs::B",
+            "src/lib.rs::Widget",
+            "src/lib.rs::Widget::f",
+            "src/lib.rs::Widget::only",
+            "src/lib.rs::<Widget as A>::f",
+            "src/lib.rs::<Widget as B>::f",
+            "src/lib.rs::cfg_dup[cfg(unix)]",
+            "src/lib.rs::cfg_dup[cfg(windows)]",
+            "src/lib.rs::imp::run[cfg(unix)]",
+            "src/lib.rs::imp::run[cfg(not(unix))]",
+            "src/lib.rs::plain",
+        ] {
+            assert!(
+                locators.iter().any(|locator| locator == expected),
+                "{expected} missing from {locators:?}"
+            );
+        }
+        let unique: BTreeSet<&String> = locators.iter().collect();
+        assert_eq!(unique.len(), locators.len(), "{locators:?}");
+        for locator in &locators {
+            assert!(RustLocator::parse(locator).is_some(), "{locator}");
+        }
+
+        // Declaration order does not change any locator.
+        let swapped = fixture.replace(
+            "impl A for Widget { fn f() {} }\nimpl B for Widget { fn f() {} }",
+            "impl B for Widget { fn f() {} }\nimpl A for Widget { fn f() {} }",
+        );
+        assert_eq!(discover("locator-collisions-swapped", &swapped), locators);
     }
 
     /// @vtest.id TEST-ADAPTER-RUST-LOCATOR-FIRST-SEPARATOR
