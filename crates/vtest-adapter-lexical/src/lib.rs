@@ -57,6 +57,7 @@ pub mod csharp;
 pub mod go;
 pub mod java;
 pub mod kotlin;
+pub mod php;
 pub mod shared;
 
 use std::{
