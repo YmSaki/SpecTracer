@@ -2,72 +2,57 @@
 //!
 //! `vtest-adapter-rust` discovers Tests from Rust's `#[test]` attribute and
 //! reads their declarations from doc comments. Other ecosystems have many
-//! test frameworks (pytest and unittest, JUnit and TestNG, Jest and Vitest
-//! and Mocha, GoogleTest and Catch2, ...), so this crate does not recognize a
-//! Test by a framework's syntax. Instead, **a Test construct is the construct
-//! that immediately follows a comment block declaring at least one
-//! `@vtest.` test-key**. The same rule finds a JUnit method, a Go
-//! `func TestX`, a `test("...", () => { ... })` call, and a GoogleTest
-//! `TEST(Suite, Name) { ... }` block.
+//! test frameworks, so these adapters do not recognize a Test by a
+//! framework's syntax. Instead, **a Test construct is the construct that
+//! immediately follows a comment block declaring at least one `@vtest.`
+//! test-key**.
 //!
-//! Each language is a [`LanguageProfile`]: its lexical syntax, the file
-//! extensions it owns, and how it tells a function definition (a Source
-//! Target) and a named scope from other statements. [`LexicalAdapter`]
-//! turns a profile into a registered adapter that declares only the
-//! `source_discovery` capability (DES-350). It declares no test runner,
-//! coverage, or static analysis, because those depend on the test framework
-//! and tools a project chooses; verification therefore reports
-//! `target_binding` as `NO_EVIDENCE` (`NOT_EXECUTED`, `NOT_CHECKED`) and
-//! `oracle_presence` as `NO_EVIDENCE` (`NOT_CHECKED`) for these Tests, and
-//! `vtest run` rejects them with `E-ADAPTER-004`, as for the synthetic
-//! adapter.
+//! # Responsibilities
 //!
-//! # Declarations
+//! Each language is a [`LanguageProfile`] in its own module. It reads its
+//! own syntax and returns, for one file, [`FileItems`]: every function
+//! definition (a Source Target) with its name and byte range, and every
+//! comment block that immediately precedes a construct, with the comment's
+//! lines and the construct's byte range. How a language finds those (its
+//! comments and strings, which `{` is a body, where a statement ends) is
+//! decided only in its module.
 //!
-//! The grammar is `rust-cargo`'s test-annotation-line (DS-487), read from
-//! the comment block that immediately precedes a construct (see
-//! [`annotation`]). "Immediately" means that the comment block starts its
-//! own line, consecutive comments in it are separated by at most one line
-//! break, and at most one line break separates the block from the
-//! construct: a blank line ends the association. Attributes, annotations,
-//! and decorators between the comment and the declaration (`@Test`,
-//! `[Fact]`, `@pytest.mark.slow`) belong to the construct.
+//! This crate root depends only on that interface. [`LexicalAdapter`] walks
+//! the include paths, calls the profile for each file, and turns what it
+//! returns into Drafts: it parses the `@vtest.` lines (see [`annotation`]),
+//! reports their diagnostics, and builds Locators. The composition root
+//! (`vtest-cli`'s `adapters.rs`) injects each profile as
+//! `LexicalAdapter::new(Profile)`.
+//!
+//! What means the same thing in every language (pairing brackets, and
+//! the rule that attaches a comment block to the construct after it) is
+//! in [`shared`], for the language modules to call.
+//!
+//! The adapters declare only the `source_discovery` capability (DES-350).
+//! Verification therefore reports `target_binding` as `NO_EVIDENCE`
+//! (`NOT_EXECUTED`, `NOT_CHECKED`) and `oracle_presence` as `NO_EVIDENCE`
+//! (`NOT_CHECKED`) for these Tests, and `vtest run` rejects them with
+//! `E-ADAPTER-004`.
 //!
 //! # Locators
 //!
 //! A Source Target's opaque locator (BD-027) is
 //! `<project-relative path>::<qualified name>`, where the qualified name
-//! joins the enclosing named scopes (class, namespace, ...) and the function
-//! name with `::` — for example `src/calc.py::Calculator::add`. Overloads
-//! share a locator; a Target Reference to one is then ambiguous and the core
-//! reports `E-SCAN-004`, so declare a permanent `@vtest.src-id` on the one
-//! meant and target that ID instead.
-//!
-//! A Test's `SourceLocation.locator` and `ExecutionDescriptor.selector` are
+//! joins the enclosing named scopes and the function name with `::`. A
+//! Test's `SourceLocation.locator` and `ExecutionDescriptor.selector` are
 //! the qualified function name when the Test construct is a function whose
 //! name is unique in its file, and `<first word>#<n>` (the n-th Test
 //! construct of the file, from 1) otherwise.
 //!
-//! # Limits
+//! # Failing closed
 //!
-//! - A test that carries no `@vtest.` declaration is not observed at all,
-//!   because recognizing it would require knowing the framework; no
-//!   `W-SCAN-101` is emitted and no `ManagedTestLink::Missing` is produced
-//!   for it. A declared Test whose declaration is malformed *is* observed
-//!   and reported as Missing with its diagnostics (DES-223).
-//! - The lexer does not understand every literal form of every language
-//!   (JavaScript regular expression literals, Ruby `%w()` literals, heredocs
-//!   with brackets). A file whose brackets do not balance after lexing is
-//!   reported as `E-SCAN-001` and contributes nothing, rather than being
-//!   guessed at.
+//! A file the profile cannot read is `E-SCAN-001` and contributes nothing.
+//! A declared Test whose construct extent the profile cannot determine is
+//! reported as Missing with `E-SCAN-001`, never as a fragment.
 
 pub mod annotation;
-pub mod braces;
 pub mod c;
-pub mod header;
-pub mod indent;
-pub mod keyword;
-pub mod lexer;
+pub mod shared;
 
 use std::{
     collections::BTreeMap,
@@ -85,14 +70,9 @@ use vtest_model::{
     SrcId, TargetRef, TestId, VoId,
 };
 
-use crate::{
-    annotation::{Declaration, SourceDeclaration, TestDeclaration},
-    braces::FunctionSite,
-    header::{HTok, HeaderKind},
-    lexer::{LexError, LexicalSyntax, Structure, Tok, TokKind},
-};
+use crate::annotation::{Declaration, SourceDeclaration, TestDeclaration};
 
-/// One language's discovery rules.
+/// One language's discovery: how to read one of its files.
 pub trait LanguageProfile {
     /// The adapter ID (`config.yaml` `adapters[].id`, `Locator.adapter`).
     fn adapter_id(&self) -> &'static str;
@@ -110,11 +90,50 @@ pub trait LanguageProfile {
         &[]
     }
 
-    fn syntax(&self) -> &'static LexicalSyntax;
+    /// Reads one file. An error means the file as a whole could not be
+    /// read with confidence; it is reported as `E-SCAN-001`.
+    fn extract(&self, source: &str) -> Result<FileItems, ExtractError>;
+}
 
-    /// Classifies one declaration header (see [`header`]). `has_body` tells
-    /// whether the statement continues with a `{ ... }` body.
-    fn classify(&self, header: &[HTok<'_>], has_body: bool) -> HeaderKind;
+/// Why a file could not be read.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExtractError {
+    /// The byte offset the problem was found at.
+    pub offset: usize,
+    pub message: String,
+}
+
+/// What a profile found in one file.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct FileItems {
+    /// Every function definition, in source order.
+    pub functions: Vec<Function>,
+    /// Every comment block that immediately precedes a construct, in source
+    /// order.
+    pub annotated: Vec<Annotated>,
+}
+
+/// A function definition (a Source Target).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Function {
+    /// The qualified name, enclosing scopes first.
+    pub name: Vec<String>,
+    /// The byte range of the definition, from its first token (attributes
+    /// and annotations included) to its last.
+    pub start: usize,
+    pub end: usize,
+}
+
+/// A comment block and the construct right after it.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Annotated {
+    /// The byte offset where the comment block starts.
+    pub comment_start: usize,
+    /// The comment block's lines with the language's comment markers
+    /// removed.
+    pub lines: Vec<String>,
+    /// The byte range of the construct, or why it could not be determined.
+    pub construct: Result<(usize, usize), String>,
 }
 
 /// A [`LanguageProfile`] registered as an adapter with the
@@ -293,13 +312,6 @@ fn file_location(adapter: &str, relative: &str, length: usize) -> SourceLocation
     }
 }
 
-/// A comment block and the token it is attached to.
-struct CommentBlock {
-    start_byte: usize,
-    attached: usize,
-    declaration: Option<Declaration>,
-}
-
 struct FileScan<'a> {
     profile: &'a dyn LanguageProfile,
     relative: &'a str,
@@ -338,108 +350,64 @@ impl<'a> FileScan<'a> {
         }
     }
 
-    fn lex_failure(&self, outcome: &mut DiscoveryOutcome, error: LexError) {
-        outcome.diagnostics.push(
-            Diagnostic::error(
-                "E-SCAN-001",
-                format!(
-                    "failed to parse {} at byte {}: {}",
-                    self.relative, error.offset, error.message
-                ),
-            )
-            .with_location(file_location(
-                self.profile.adapter_id(),
-                self.relative,
-                self.source.len(),
-            )),
-        );
-    }
-
     fn run(&self, outcome: &mut DiscoveryOutcome) {
-        let syntax = self.profile.syntax();
-        let tokens = match lexer::lex(self.source, syntax) {
-            Ok(tokens) => tokens,
-            Err(error) => return self.lex_failure(outcome, error),
-        };
-        let (functions, extent): (Vec<FunctionSite>, Box<dyn Fn(usize) -> usize>) = match syntax
-            .structure
-        {
-            Structure::Braces => {
-                let partners = match braces::matching(&tokens) {
-                    Ok(partners) => partners,
-                    Err(error) => return self.lex_failure(outcome, error),
-                };
-                let classify =
-                    |header: &[HTok<'_>], has_body: bool| self.profile.classify(header, has_body);
-                let functions =
-                    braces::functions(&tokens, self.source, syntax, &partners, &classify);
-                let tokens_for_extent = tokens.clone();
-                let extent = move |start: usize| {
-                    braces::construct_end(
-                        &tokens_for_extent,
-                        syntax,
-                        start,
-                        tokens_for_extent.len(),
+        let items = match self.profile.extract(self.source) {
+            Ok(items) => items,
+            Err(error) => {
+                outcome.diagnostics.push(
+                    Diagnostic::error(
+                        "E-SCAN-001",
+                        format!(
+                            "failed to parse {} at byte {}: {}",
+                            self.relative, error.offset, error.message
+                        ),
                     )
-                };
-                (functions, Box::new(extent))
-            }
-            Structure::Indentation => {
-                if let Err(error) = braces::matching(&tokens) {
-                    return self.lex_failure(outcome, error);
-                }
-                let classify =
-                    |header: &[HTok<'_>], has_body: bool| self.profile.classify(header, has_body);
-                let lines = indent::logical_lines(&tokens, self.source);
-                let functions = indent::functions(&tokens, self.source, &lines, &classify);
-                let tokens_for_extent = tokens.clone();
-                let extent =
-                    move |start: usize| indent::construct_end(&tokens_for_extent, &lines, start);
-                (functions, Box::new(extent))
-            }
-            Structure::KeywordEnd => {
-                let partners = match keyword::pairs(&tokens, self.source) {
-                    Ok(partners) => partners,
-                    Err(error) => return self.lex_failure(outcome, error),
-                };
-                let classify =
-                    |header: &[HTok<'_>], has_body: bool| self.profile.classify(header, has_body);
-                let functions = keyword::functions(&tokens, self.source, &partners, &classify);
-                let tokens_for_extent = tokens.clone();
-                let extent = move |start: usize| {
-                    keyword::construct_end(
-                        &tokens_for_extent,
-                        &partners,
-                        start,
-                        tokens_for_extent.len(),
-                    )
-                };
-                (functions, Box::new(extent))
+                    .with_location(file_location(
+                        self.profile.adapter_id(),
+                        self.relative,
+                        self.source.len(),
+                    )),
+                );
+                return;
             }
         };
-        let blocks = comment_blocks(&tokens, self.source, syntax);
-        let block_at = blocks
+        let declarations = items
+            .annotated
             .iter()
-            .map(|block| (block.attached, block))
+            .map(|annotated| {
+                let lines = annotated
+                    .lines
+                    .iter()
+                    .filter_map(|line| annotation::parse_line(line))
+                    .collect::<Vec<_>>();
+                (annotated, annotation::classify(lines))
+            })
+            .collect::<Vec<_>>();
+        let attached_at = declarations
+            .iter()
+            .filter_map(|(annotated, declaration)| {
+                let (start, _) = annotated.construct.as_ref().ok()?;
+                Some((*start, (*annotated, declaration.as_ref()?)))
+            })
             .collect::<BTreeMap<_, _>>();
 
         let mut name_counts = BTreeMap::<String, usize>::new();
-        for function in &functions {
+        for function in &items.functions {
             *name_counts.entry(function.name.join("::")).or_default() += 1;
         }
-        let function_at = functions
+        let function_at = items
+            .functions
             .iter()
-            .map(|function| (function.start_tok, function))
+            .map(|function| (function.start, function))
             .collect::<BTreeMap<_, _>>();
 
-        for function in &functions {
-            let block = block_at.get(&function.start_tok);
-            let start = block.map_or(tokens[function.start_tok].start, |block| block.start_byte);
-            let end = tokens[function.end_tok - 1].end;
+        for function in &items.functions {
+            let attached = attached_at.get(&function.start);
+            let start = attached.map_or(function.start, |(annotated, _)| annotated.comment_start);
             let item_path = function.name.join("::");
-            let location = self.location(&item_path, start, end);
-            let src_id = match block.and_then(|block| block.declaration.as_ref()) {
-                Some(Declaration::Source(declaration)) => {
+            let location = self.location(&item_path, start, function.end);
+            let src_id = match attached {
+                Some((_, Declaration::Source(declaration))) => {
                     self.source_diagnostics(outcome, declaration, &location);
                     declaration.src_id.clone().map(SrcId::new)
                 }
@@ -452,18 +420,25 @@ impl<'a> FileScan<'a> {
                 },
                 src_id,
                 location,
-                construct_text: self.source[start..end].to_owned(),
+                construct_text: self.source[start..function.end].to_owned(),
             });
         }
 
         let mut ordinal = 0usize;
-        for block in &blocks {
-            let declaration = match &block.declaration {
+        for (annotated, declaration) in &declarations {
+            let declaration = match declaration {
                 Some(Declaration::Test(declaration)) => declaration,
                 Some(Declaration::Source(declaration)) => {
-                    if !function_at.contains_key(&block.attached) {
-                        let start = tokens[block.attached].start;
-                        let location = self.location("", block.start_byte, start);
+                    let attached_to_function = annotated
+                        .construct
+                        .as_ref()
+                        .is_ok_and(|(start, _)| function_at.contains_key(start));
+                    if !attached_to_function {
+                        let end = annotated
+                            .construct
+                            .as_ref()
+                            .map_or(annotated.comment_start, |(start, _)| *start);
+                        let location = self.location("", annotated.comment_start, end);
                         self.source_diagnostics(outcome, declaration, &location);
                     }
                     continue;
@@ -471,21 +446,32 @@ impl<'a> FileScan<'a> {
                 None => continue,
             };
             ordinal += 1;
-            let function = function_at.get(&block.attached);
-            let end_tok = function.map_or_else(|| extent(block.attached), |f| f.end_tok);
-            if end_tok <= block.attached {
-                continue;
-            }
-            let start = tokens[block.attached].start;
-            let end = tokens[end_tok - 1].end;
+            let (start, end) = match &annotated.construct {
+                Ok(range) => *range,
+                Err(reason) => {
+                    let start = annotated.comment_start;
+                    let end = line_end(self.source, start);
+                    let location = self.location(&format!("construct#{ordinal}"), start, end);
+                    let message = format!(
+                        "cannot determine the construct declared at byte {start} of {}: {reason}",
+                        self.relative
+                    );
+                    outcome.diagnostics.push(
+                        Diagnostic::error("E-SCAN-001", message).with_location(location.clone()),
+                    );
+                    outcome.missing_tests.push(MissingTestConstruct {
+                        location,
+                        construct_text: self.source[start..end].to_owned(),
+                    });
+                    continue;
+                }
+            };
+            let function = function_at.get(&start);
             let locator = match function {
                 Some(function) if name_counts[&function.name.join("::")] == 1 => {
                     function.name.join("::")
                 }
-                _ => format!(
-                    "{}#{ordinal}",
-                    first_word(&tokens[block.attached..end_tok], self.source)
-                ),
+                _ => format!("{}#{ordinal}", first_word(&self.source[start..end])),
             };
             let location = self.location(&locator, start, end);
             self.test(outcome, declaration, location, &self.source[start..end]);
@@ -620,81 +606,18 @@ impl<'a> FileScan<'a> {
     }
 }
 
-fn first_word(tokens: &[Tok], source: &str) -> String {
-    tokens
-        .iter()
-        .find(|token| token.kind == TokKind::Word)
-        .map_or_else(
-            || "construct".to_owned(),
-            |token| token.text(source).to_owned(),
-        )
+/// The first identifier-like word of a construct, used to name a Test that
+/// is not a uniquely named function (`test#2`, `TEST#1`).
+fn first_word(text: &str) -> String {
+    text.split(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
+        .find(|word| !word.is_empty())
+        .map_or_else(|| "construct".to_owned(), str::to_owned)
 }
 
-/// Groups comments into blocks and attaches each block to the construct
-/// that immediately follows it (see the crate documentation).
-fn comment_blocks(tokens: &[Tok], source: &str, syntax: &LexicalSyntax) -> Vec<CommentBlock> {
-    let closers = syntax
-        .block_comments
-        .iter()
-        .map(|(_, close)| *close)
-        .collect::<Vec<_>>();
-    let mut blocks = Vec::new();
-    let mut index = 0usize;
-    while index < tokens.len() {
-        let token = tokens[index];
-        if token.kind != TokKind::Comment || !starts_line(source, token.start) {
-            index += 1;
-            continue;
-        }
-        let first = index;
-        let mut last = index;
-        loop {
-            let (newlines, next) = skip_newlines(tokens, last + 1);
-            if newlines <= 1 && next < tokens.len() && tokens[next].kind == TokKind::Comment {
-                last = next;
-            } else {
-                break;
-            }
-        }
-        index = last + 1;
-        let (newlines, next) = skip_newlines(tokens, last + 1);
-        if newlines > 1 || next >= tokens.len() {
-            continue;
-        }
-        if matches!(
-            tokens[next].kind,
-            TokKind::Comment | TokKind::Directive | TokKind::Close(_) | TokKind::Semi
-        ) {
-            continue;
-        }
-        let lines = tokens[first..=last]
-            .iter()
-            .filter(|token| token.kind == TokKind::Comment)
-            .flat_map(|token| annotation::annotation_lines(token.text(source), &closers))
-            .collect::<Vec<_>>();
-        blocks.push(CommentBlock {
-            start_byte: tokens[first].start,
-            attached: next,
-            declaration: annotation::classify(lines),
-        });
-    }
-    blocks
-}
-
-fn skip_newlines(tokens: &[Tok], mut index: usize) -> (usize, usize) {
-    let mut newlines = 0usize;
-    while index < tokens.len() && tokens[index].kind == TokKind::Newline {
-        newlines += 1;
-        index += 1;
-    }
-    (newlines, index)
-}
-
-fn starts_line(source: &str, start: usize) -> bool {
-    source[..start]
-        .rsplit('\n')
-        .next()
-        .is_none_or(|prefix| prefix.trim().is_empty())
+fn line_end(source: &str, start: usize) -> usize {
+    source[start..]
+        .find('\n')
+        .map_or(source.len(), |offset| start + offset)
 }
 
 #[cfg(test)]

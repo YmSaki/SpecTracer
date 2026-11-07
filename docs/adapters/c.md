@@ -12,6 +12,10 @@ framework-neutral adapters.
   or CMocka test function or a Check `START_TEST(name) { ... }` block. A
   macro block is named after its macro (`START_TEST`); when several share a
   name in one file, the Test locator falls back to `<first word>#<n>`.
+- **Where a construct ends**: after a function's `{}` body, or at the `;`
+  of a declaration (initializers and `struct`/`union`/`enum` bodies
+  included). A macro invocation on a line of its own (`END_TEST`) ends at
+  its line.
 - **Limits**: preprocessor lines are skipped, and both branches of an `#if`
   are scanned. A function whose name comes from a macro expansion is named
   after the macro. A C++ adapter (`cpp`) also claims `.h`, so configure the
