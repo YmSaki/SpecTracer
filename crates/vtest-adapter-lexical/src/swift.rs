@@ -337,6 +337,37 @@ const OPEN_KEYWORDS: &[&str] = &[
     "while",
 ];
 
+/// Declaration modifiers, which a line break may follow before the rest of
+/// the declaration (`public\nfunc f()`).
+const MODIFIERS: &[&str] = &[
+    "public",
+    "private",
+    "fileprivate",
+    "internal",
+    "package",
+    "open",
+    "static",
+    "final",
+    "override",
+    "mutating",
+    "nonmutating",
+    "lazy",
+    "weak",
+    "unowned",
+    "required",
+    "convenience",
+    "dynamic",
+    "optional",
+    "indirect",
+    "prefix",
+    "postfix",
+    "infix",
+    "nonisolated",
+    "distributed",
+    "consuming",
+    "borrowing",
+];
+
 const TYPE_KEYWORDS: &[&str] = &["class", "struct", "enum", "actor", "protocol", "extension"];
 
 /// The kind of declaration being read, as far as its end is concerned.
@@ -385,6 +416,29 @@ impl Reader<'_> {
 
     fn touching(&self, a: usize, b: usize) -> bool {
         self.tokens[a].end == self.tokens[b].start
+    }
+
+    /// Whether `tokens[last]` ends a modifier (`public`, `private(set)`) in
+    /// the modifier list that begins the declaration at `start`: the first
+    /// one, or right after another modifier or an attribute.
+    fn in_modifiers(&self, start: usize, last: usize) -> bool {
+        let modifier_start = |i: usize| -> Option<usize> {
+            let word = match self.kind(i) {
+                Some(Kind::Close(')')) => self.partner(i).checked_sub(1)?,
+                _ => i,
+            };
+            (self.kind(word) == Some(Kind::Word)
+                && MODIFIERS.contains(&self.text(word))
+                && !self.after_dot(word))
+            .then_some(word)
+        };
+        let Some(word) = modifier_start(last) else {
+            return false;
+        };
+        let previous = (start..word)
+            .rev()
+            .find(|&i| self.tokens[i].kind != Kind::Comment);
+        previous.is_none_or(|p| modifier_start(p).is_some() || self.ends_attribute(p))
     }
 
     fn next_significant(&self, from: usize) -> Option<usize> {
@@ -502,6 +556,7 @@ impl Reader<'_> {
             };
             if self.line_breaks(last, next) > 0
                 && self.completes(last)
+                && !self.in_modifiers(start, last)
                 && !self.continues(next, shape == Shape::Bodied)
             {
                 return last + 1;
@@ -847,5 +902,31 @@ func adds() {
         );
         assert_eq!(broken.diagnostics.len(), 1);
         assert_eq!(broken.diagnostics[0].code.as_str(), "E-SCAN-001");
+    }
+    /// @vtest.id TEST-ADAPTER-SWIFT-MODIFIERS-ON-THEIR-OWN-LINE
+    /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
+    /// @vtest.target crates/vtest-adapter-lexical/src/swift.rs::Reader::declaration_end
+    /// @vtest.intent verifies a modifier list broken across lines, alone or after attributes, does not end the declaration, so the Test construct runs to the end of the function body and a change to the end of the body changes it
+    #[test]
+    fn modifiers_on_their_own_line() {
+        let declare = "// @vtest.id TEST-X\n// @vtest.covers VO-X\n// @vtest.intent check\n";
+        for header in [
+            "public\n",
+            "public\nstatic\n",
+            "@Test\npublic\n",
+            "@MainActor private(set)\noverride\n",
+        ] {
+            let one = format!("struct S {{\n{declare}{header}func f() {{ print(1) }}\n}}\n");
+            let two = one.replace("print(1)", "print(2)");
+            let text = |source: &str| {
+                let outcome = discover_text(&Swift, "Sources/S.swift", source, "demo");
+                assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+                assert_eq!(outcome.tests.len(), 1, "{header:?}");
+                assert_eq!(outcome.tests[0].location.locator, "S::f", "{header:?}");
+                outcome.tests[0].construct_text.clone()
+            };
+            assert!(text(&one).ends_with("print(1) }"), "{header:?}");
+            assert_ne!(text(&one), text(&two), "{header:?}");
+        }
     }
 }
