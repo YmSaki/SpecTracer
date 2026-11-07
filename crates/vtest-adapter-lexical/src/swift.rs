@@ -16,9 +16,13 @@
 //!    `Int?`), so a line ending with it is complete, while a line ending
 //!    with a spaced operator, `,`, `:`, or an attribute (`@Test("...")`)
 //!    is not. A next line starting with a spaced binary operator, a
-//!    leading `.member`, `else`, or `catch` continues it, and so does a
-//!    `{`, `->`, `where`, `throws`, or `async` while a `func` or type
-//!    header still waits for its body. Brackets are skipped whole, so a
+//!    leading `.member`, `else`, `catch`, or `{` (a body or a trailing
+//!    closure such as `it("adds")` then `{ ... }`) continues it, and so
+//!    does a `->`, `where`, `throws`, or `async` while a `func` or type
+//!    header still waits for its body. An attribute may be qualified by
+//!    its module (`@Testing.Test`). A file that ends while a declaration
+//!    is incomplete (`func f() ->`, `let a =`, a `func` without its body)
+//!    is unreadable. Brackets are skipped whole, so a
 //!    default argument closure (`func f(x: () -> Int = { 1 })`) is never
 //!    taken for the body: a function's body is the first `{` after its
 //!    parameter list.
@@ -72,7 +76,14 @@ impl LanguageProfile for Swift {
             partners: &partners,
         };
         let mut functions = Vec::new();
-        reader.members(0, tokens.len(), &mut Vec::new(), &mut functions);
+        reader
+            .members(0, tokens.len(), &mut Vec::new(), &mut functions)
+            .map_err(|index| {
+                ExtractError::new(
+                    tokens[index].start,
+                    "the file ends before this declaration is complete",
+                )
+            })?;
         Ok(FileItems {
             functions,
             annotated: reader.annotated(),
@@ -470,8 +481,9 @@ impl Reader<'_> {
         }
     }
 
-    /// Whether `tokens[last]` ends an attribute: `@Test`, `@MainActor`, or
-    /// `@Test("adds")`.
+    /// Whether `tokens[last]` ends an attribute: `@Test`, `@MainActor`,
+    /// `@Test("adds")`, or one qualified by its module
+    /// (`@_Concurrency.MainActor`, `@Testing.Test("adds")`).
     fn ends_attribute(&self, last: usize) -> bool {
         let mut name = last;
         if self.kind(last) == Some(Kind::Close(')')) {
@@ -480,6 +492,15 @@ impl Reader<'_> {
                 Some(before) if self.touching(before, open) => name = before,
                 _ => return false,
             }
+        }
+        while name >= 2
+            && self.kind(name) == Some(Kind::Word)
+            && self.is(name - 1, ".")
+            && self.kind(name - 2) == Some(Kind::Word)
+            && self.touching(name - 2, name - 1)
+            && self.touching(name - 1, name)
+        {
+            name -= 2;
         }
         self.kind(name) == Some(Kind::Word)
             && name > 0
@@ -500,7 +521,10 @@ impl Reader<'_> {
                         .is_none_or(|after| !self.touching(next, after))
             }
             Kind::Punct => self.text(next) == ".",
-            Kind::Open('{') => header,
+            // A `{` on the next line is a body, accessors, or a trailing
+            // closure (`it("adds")` then `{ ... }`); no statement starts
+            // with one.
+            Kind::Open('{') => true,
             Kind::Word => match self.text(next) {
                 "else" | "catch" => true,
                 "where" | "throws" | "rethrows" | "async" => header,
@@ -511,9 +535,11 @@ impl Reader<'_> {
     }
 
     /// One past the last token of the declaration or statement starting at
-    /// `start` (see the module documentation). A `}` or `)` closing the
-    /// enclosing block also ends it.
-    fn declaration_end(&self, start: usize) -> usize {
+    /// `start` (see the module documentation), or `None` when the file
+    /// ends before it is complete (`func f() ->`, `let a =`, a `func` or
+    /// type without its body). A `}` or `)` closing the enclosing block
+    /// also ends it.
+    fn declaration_end(&self, start: usize) -> Option<usize> {
         if self.is_directive(start) {
             let mut index = start;
             while let Some(next) = self.next_significant(index + 1) {
@@ -522,7 +548,7 @@ impl Reader<'_> {
                 }
                 index = next;
             }
-            return index + 1;
+            return Some(index + 1);
         }
         let mut shape = Shape::Expression;
         let mut index = start;
@@ -532,9 +558,11 @@ impl Reader<'_> {
                     index += 1;
                     continue;
                 }
-                Kind::Close(_) => return index,
-                Kind::Semi => return index + 1,
-                Kind::Open('{') if shape != Shape::Expression => return self.partner(index) + 1,
+                Kind::Close(_) => return Some(index),
+                Kind::Semi => return Some(index + 1),
+                Kind::Open('{') if shape != Shape::Expression => {
+                    return Some(self.partner(index) + 1)
+                }
                 Kind::Open(_) => self.partner(index),
                 Kind::Word if shape == Shape::Expression && !self.after_dot(index) => {
                     match self.text(index) {
@@ -552,18 +580,21 @@ impl Reader<'_> {
                 _ => index,
             };
             let Some(next) = self.next_significant(last + 1) else {
-                return last + 1;
+                return (shape != Shape::Bodied
+                    && self.completes(last)
+                    && !self.in_modifiers(start, last))
+                .then_some(last + 1);
             };
             if self.line_breaks(last, next) > 0
                 && self.completes(last)
                 && !self.in_modifiers(start, last)
                 && !self.continues(next, shape == Shape::Bodied)
             {
-                return last + 1;
+                return Some(last + 1);
             }
             index = next;
         }
-        index
+        None
     }
 
     /// Whether `word` at `index` declares a type (`class Calc`, not the
@@ -586,26 +617,30 @@ impl Reader<'_> {
     }
 
     /// Collects the function definitions among the declarations in
-    /// `tokens[low..high]`, qualified by `scope`.
+    /// `tokens[low..high]`, qualified by `scope`. `Err` is the declaration
+    /// the file ends inside.
     fn members(
         &self,
         low: usize,
         high: usize,
         scope: &mut Vec<String>,
         output: &mut Vec<Function>,
-    ) {
+    ) -> Result<(), usize> {
         let mut index = low;
         while let Some(start) = self.next_significant(index).filter(|&s| s < high) {
             if matches!(self.tokens[start].kind, Kind::Semi | Kind::Close(_)) {
                 index = start + 1;
                 continue;
             }
-            let end = self.declaration_end(start).clamp(start + 1, high);
+            let end = self
+                .declaration_end(start)
+                .ok_or(start)?
+                .clamp(start + 1, high);
             match self.declares(start, end) {
                 Declares::Scope(name, open) => {
                     let restore = scope.len();
                     scope.extend(name);
-                    self.members(open + 1, self.partner(open), scope, output);
+                    self.members(open + 1, self.partner(open), scope, output)?;
                     scope.truncate(restore);
                 }
                 Declares::Function(name) => {
@@ -621,6 +656,7 @@ impl Reader<'_> {
             }
             index = end;
         }
+        Ok(())
     }
 
     /// What `tokens[start..end]` declares.
@@ -718,13 +754,19 @@ impl Reader<'_> {
             if matches!(self.tokens[next].kind, Kind::Close(_) | Kind::Semi) {
                 continue;
             }
-            let end = self.declaration_end(next).max(next + 1);
+            let construct = match self.declaration_end(next) {
+                Some(end) => Ok((
+                    self.tokens[next].start,
+                    self.tokens[end.max(next + 1) - 1].end,
+                )),
+                None => Err("the file ends before this declaration is complete".to_owned()),
+            };
             output.push(Annotated {
                 comment_start: self.tokens[first].start,
                 lines: (first..=last)
                     .flat_map(|i| comment_lines(self.text(i)))
                     .collect(),
-                construct: Ok((self.tokens[next].start, self.tokens[end - 1].end)),
+                construct,
             });
         }
         output
@@ -927,6 +969,50 @@ func adds() {
             };
             assert!(text(&one).ends_with("print(1) }"), "{header:?}");
             assert_ne!(text(&one), text(&two), "{header:?}");
+        }
+    }
+
+    /// @vtest.id TEST-ADAPTER-SWIFT-TRAILING-CLOSURES-QUALIFIED-ATTRIBUTES-AND-TRUNCATED-FILES
+    /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
+    /// @vtest.target crates/vtest-adapter-lexical/src/swift.rs::Reader::declaration_end
+    /// @vtest.intent verifies that a trailing closure on the line after a call and a declaration after a module-qualified attribute are part of the Test construct, so an edit to the body changes it, and that a file ending inside a declaration is unreadable instead of yielding a Test
+    #[test]
+    fn trailing_closures_qualified_attributes_and_truncated_files() {
+        let declare = "// @vtest.id TEST-X\n// @vtest.covers VO-X\n// @vtest.intent check\n";
+        for (body, locator) in [
+            ("it(\"case\")\n{ print(1) }\n", "it#1"),
+            ("it(\"case\") {\n    print(1)\n}\n", "it#1"),
+            ("@_Concurrency.MainActor\nfunc f() { print(1) }\n", "f"),
+            ("@Testing.Test\nfunc f() { print(1) }\n", "f"),
+            ("@Testing.Test(\"case\")\nfunc f() { print(1) }\n", "f"),
+        ] {
+            let one = format!("{declare}{body}");
+            let text = |source: &str| {
+                let outcome = discover_text(&Swift, "Tests/T.swift", source, "demo");
+                assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+                assert_eq!(outcome.tests.len(), 1, "{body:?}");
+                assert_eq!(outcome.tests[0].location.locator, locator, "{body:?}");
+                outcome.tests[0].construct_text.clone()
+            };
+            assert_eq!(text(&one), body.trim_end(), "{body:?}");
+            assert_ne!(
+                text(&one),
+                text(&one.replace("print(1)", "print(111)")),
+                "{body:?}"
+            );
+        }
+        for tail in [
+            "func f() ->\n",
+            "let a =\n",
+            "func f()\n",
+            "class C\n",
+            "@Test\n",
+        ] {
+            let outcome =
+                discover_text(&Swift, "Tests/U.swift", &format!("{declare}{tail}"), "demo");
+            assert_eq!(outcome.diagnostics.len(), 1, "{tail:?}");
+            assert_eq!(outcome.diagnostics[0].code.as_str(), "E-SCAN-001");
+            assert!(outcome.tests.is_empty(), "{tail:?}");
         }
     }
 }
