@@ -20,6 +20,7 @@
     - `docs/canonical/export/*.md` は同じデータの生成物として読み、権威は JSON に置く。生成物は JSON より遅れることがあるためです。
     - `docs/archive/` は変換前の退役した原典です。規範は正典 JSON から引用し、`docs/archive/` にしかない主張は JSON で探すか、未解決として報告する。
     - 実装スケジュールや計画書（`docs/plans/`、`docs/*実装スケジュール*`）は、計画に必要なときの工程資料として使い、権威は上の文書に置く。スケジュールは製品の規範ではなく、それで上書きすると製品契約がずれるためです。
+- **正典が沈黙しているとき**: 有効な規範文書どうしが食い違うか、必要な判断を決めていなければ、該当する節を正確に引用して、未解決の契約として報告する。判断は正典から、正典が沈黙していれば上流から得る。過去のファイル、テスト、実装の振る舞い、Git の履歴は「何が行われたか」を示すだけで「何が決まったか」を示さないので、それで欠落を埋めない。迷ったら `.claude/agents/judge.md` の判定役に聞き、判定役が昇格したものは Owner に報告する（`needs-owner`）。
 - **条項 ID**: 正典の各規範は `REQ-`、`SPEC-`、`DS-`、`BD-`、`DES-` などの ID を持つ。コード、コメント、Issue、PR では条項 ID で参照する（第 10 節）。ID は改版で番号がずれる節番号と違い、同じ規範を指し続けるためです。
 - **リポジトリ運用の正本**: Git Flow、ブランチ名、タグ、共有履歴の扱い、仕様変更の手順は `DEVELOPMENT.md` が唯一の正本です。このファイルでは要点と参照先だけを書き、規則そのものは `DEVELOPMENT.md` を読む（第 14 節）。二か所に規則を書くと食い違うためです。
 - **文書の役割分担**:
@@ -45,7 +46,7 @@
 | 5 つの状態 | 検証状態は `PASS`、`FAIL`、`MISMATCH`、`NO_EVIDENCE`、`UNKNOWN` の 5 つだけ。`MISSING`、`NOT_EXECUTED`、`NOT_CHECKED`、`STALE` は状態に付く診断ラベルとして扱う。状態、診断ラベル、診断の重大度、操作エラー、集約の OK/NG、gate の充足は別のフィールドと概念に保つ | `vtest-model` の型。`CheckOutcome::state` と `CheckOutcome::labels` |
 | fail-closed | 欠落、古い、曖昧、不完全、未対応、解析不能な入力には `PASS` 以外の状態を返す。`UNKNOWN` は決定論的な限界として使い、内部エラーとは分ける。操作の拒否と内部障害は 5 状態の外（エラーコードと終了コード）で報告する | `vtest-verify` の集約。第 6.2 節のエラー分類 |
 | 静的解析の `PASS` / `FAIL` | 静的解析など決定論的な解析から `PASS` / `FAIL` を出すのは、該当する正典の規則がその結果を確立するときだけ。反証できないことは証明ではないためです | 各 adapter の capability と `vtest-verify` |
-| スコープ外を `PASS` にしない | 要求スコープ外の作業は証拠がないので `PASS` に数えない。省略した検査は `NO_EVIDENCE` と `NOT_CHECKED` で集約木に残す。限定した結果を報告するときは、完全な検証ではないと書く | `vtest-verify` の scope と集約木 |
+| スコープ外を `PASS` にしない | 要求スコープ外の作業は証拠がないので `PASS` に数えない。scope は 2 軸で、扱いが違う（DS-1104）。**検査軸**（`--items`）で省略した検査は、集約木の中に `NO_EVIDENCE` と `NOT_CHECKED` で残す（DS-1110）。**エンティティ軸**（`--doc` / `--vo` / `--test`）で要求外のエンティティは、集約木に入れず**集約の対象外**とし、正典の scope 表現（`scope.requested`、`scope.unverified_outside_scope`）で未検証と明示する（DES-548）。たとえば Test A だけを検証したとき、Test B を `NO_EVIDENCE` として集約に混ぜない。限定した結果を報告するときは、要求 scope と「scope 外は未検証」を出力の冒頭に示し、完全な検証ではないと書く（DS-1113） | `vtest-verify` の scope（`EntityScope`、`ScopeReport`）と集約木 |
 | 汎用 `document` モデル | 上流の規範的成果物は、新しい文書種別も含めて汎用の `document` モデルと `derives_from` で表す。文書種別ごとの正典エンティティやスキーマは検査を増やすためです | `vtest-model::document`、`vtest-store` の document file |
 | Judgment と Approval の独立 | Judgment と Approval は独立した領域で、記録しても検証状態を変えない。どちらも証拠ではないためです。Approval の正規 CLI は `vtest approval create` / `withdraw` / `show` で、`vtest vo approve` は同じ意味の別名 | `vtest-store::approval`、操作層の `approval` |
 | 検証状態と gate の分離 | `--gate` では終了コード `0` と `ok: true` が gate の充足を表すことがある。実際の集約状態は別に必ず出力する | 操作層の `verify` と envelope |
@@ -282,7 +283,7 @@ module 間の依存も、判定の module からファイル I/O の module へ�
 | 言語固有の処理 | その言語の adapter（Rust は `vtest-adapter-rust`、他の言語は `vtest-adapter-lexical/src/<言語>.rs`） | 第 9 節 |
 | 複数の言語で意味が同じと確認できた処理 | 言語族の共通 module（`vtest-adapter-lexical/src/shared.rs`、`annotation.rs`） | 第 9.3 節の手順で比較してから置く |
 | 正典 record の読み書きと形式 | `vtest-store` の record 種別ごとの module | 読み手と書き手を同じ module に置く |
-| 判定（4 検査、鮮度、スコープ、集約） | `vtest-verify`（#175 R8 の後は `checks/<検査名>.rs`、`evidence.rs`、`scope.rs`、`tree.rs`） | 入力を受け取って結果を返す、副作用のない関数 |
+| 判定（4 検査、鮮度、スコープ、集約）。スコープの 2 軸の扱いは第 1.1 節 | `vtest-verify`（#175 R8 の後は `checks/<検査名>.rs`、`evidence.rs`、`scope.rs`、`tree.rs`） | 入力を受け取って結果を返す、副作用のない関数 |
 | 外部プロセスの起動 | 実行は adapter の runner、git の読み取りは 1 か所（#175 R9） | 引数は配列で渡し、文字列結合でコマンドを組み立てない |
 | ドメインの型 | `vtest-model` の領域ごとのファイル | `serde` の derive。不変条件は型とコンストラクターで守る |
 | 定数 | 利用する module の先頭。複数の crate が使うものは所有する crate の公開定数 | `const`。値の根拠（条項 ID）をコメントに書く |
@@ -354,7 +355,7 @@ crates/<crate>/
 | 外部入力 | Parse, don't validate | 信頼境界で検証済みの型に変換し、内側では同じ検証を繰り返さない |
 | 正典 record の更新 | append-only と不変 | 追記で表し、関係の変更は削除と追加で表す |
 | 鮮度 | content hash による束縛 | 証拠を対象の現在の hash に結び付け、対象が変われば古い証明を無効にする |
-| 集約 | fail-closed の集約木 | 子に `PASS` 以外があれば親を `PASS` にしない。代表状態は決定論的に選ぶ |
+| 集約 | fail-closed の集約木 | 子に `PASS` 以外があれば親を `PASS` にしない。代表状態は決定論的に選ぶ。検査軸で省略した検査は木の中に `NO_EVIDENCE` で残し、エンティティ軸で要求外のエンティティは木に入れず scope 表現で未検証と示す（第 1.1 節） |
 | エラーの返却 | `Result` とエラー型 | 6.2 のとおり |
 
 採用しないパターン: モードフラグで意味の違う処理を 1 関数にまとめること、将来の拡張のためだけの trait や factory、汎用 plugin 機構、何でも入る `utils`。
@@ -426,7 +427,7 @@ crates/<crate>/
 
 ### 8.1 共通
 
-- 識別子は英語。コメントとドキュメントは日本語と英語のどちらでもよいが、1 ファイルの中では揃える（#175 D10。混在の扱いは Owner の確認事項）。
+- 識別子は英語。コメントとドキュメントの言語（日本語と英語の混在の扱い）は **Owner の決定待ち**です（#175 D10）。決まるまで、言語を理由に差し戻さず、既存のファイルを言語の統一のためだけに書き換えない。決まったら、決定を #175 に記録してから、この項目を規則に書き換える。
 - 文字コードは UTF-8、改行コードは LF（`.gitattributes` に従う）。
 - フォーマットは `rustfmt` に任せる。CI は `cargo fmt --all -- --check` で検査する。
 - `clippy` の警告は `-D warnings` で CI を失敗させるので、すべて直す。`#[allow(...)]` で抑制するときは、その行に理由をコメントで書く。`#[allow(clippy::too_many_arguments)]` は、引数を 1 つの型にまとめられないか先に検討する。
@@ -533,7 +534,8 @@ crates/<crate>/
 - CLI を実行するテストは、一時ディレクトリに隔離したプロジェクトを生成して使う。このリポジトリの `.verify/` に書き込むと、テストの出力が正典のデータに混ざるためです。
 - fixture の生成などの共通 helper は `tests/support/mod.rs` に 1 つだけ置く。
 - 外部の振る舞い（公開 API、実ファイルを使う fixture、CLI と MCP の同値性、古い record の互換性、境界値、失敗経路）に結び付けてテストする。内部の実装の行をなぞるだけのテストは増やさない。
-- 機能が存在しないことを確かめるテストは書かない。機能がないまま通ってしまうためです。未実装の受入項目は、受入の対応表（`tests/ACCEPTANCE.md`、`docs/reports/adapter-acceptance-matrix.md`）に gap として記録する。
+- 未実装の機能の受入項目を、「機能がないこと」を確かめるテストで満たしたことにしない。機能がないまま通り、未実装を実装済みに見せるためです。未実装の受入項目は、受入の対応表（`tests/ACCEPTANCE.md`、`docs/reports/adapter-acceptance-matrix.md`）に gap として記録する。
+- 製品が保証する**否定条件の契約**は、テストで押さえる。これは上の項目とは別のものです。例: 未実装の MCP tool が `tools/list` に出ないこと（第 12 節）、capability がない操作を `E-ADAPTER-004` で拒否し、Evidence と Judgment を作らないこと（第 1.1 節）、拒否された操作が何も変えないこと（第 2.3 節）。テストの `@vtest.covers` は、その否定条件を定める条項の VO を指す。
 - 純移動の PR はテストを増やさず、既存のテストと出力の比較で振る舞いの維持を示す。境界に触れる PR は契約テスト（CLI と MCP の同値性、architecture test、出力のバイト一致）を追加する（#175 D11）。
 
 ## 14. 開発プロセス
@@ -600,6 +602,9 @@ CI はビルド、テスト、フォーマット、clippy、`vtest doctor`、`sp
 - 指摘には、このファイルの節番号か条項 ID を根拠として書く。根拠を示せない好みは指摘にしない。このファイルに書かれていないことでは差し戻さず、必要ならこのファイルの改訂を提案する。
 - リファクタリングの PR は、既存のテストを変えずに成功することを確認する。テストを変えた場合は、振る舞いが変わらない根拠を PR に書く。
 - 検証とリリースの判断には `.agents/skills/`（`verify-change`、`architecture-check`、`release-check`）を使う。
+- 削除された helper script を作り直すのは、新しい決定論的な手順が現在の正典契約と現在の実装から完全に導けるときだけにし、足した helper は検証してから使う。検証されていない helper は、レビューされていない結果の出どころになるためです。
+- 現在の実装とテストを調べ、その振る舞いより正典を権威とする。振る舞いは過去の判断の記録で、誤っていることがあるためです。作業ツリーに作業範囲外の正当な利用者の変更があれば、そのまま残す。
+- チェックは変更した範囲に比例して実行する。開発のゲート（第 17 節、`DEVELOPMENT.md`、`TESTING.md`）はコードの品質を示すもので、正典への適合を示さないので、適合の証拠は別に集める。
 
 ## 16. GitHub の運用
 
