@@ -1,3 +1,15 @@
+//! Verification Objective record: `VoRecord` with its `Dimension`s,
+//! `CoveragePolicy` and `CombinationEntry` list, as persisted in
+//! `.verify/vo/VO-*.yaml`.
+//!
+//! Boundary: this module keeps the declared data lossless so that
+//! `vtest-scan` can judge it (E-SCAN-017 for a malformed `combinations`
+//! entry, 詳細設計 v0.1 本冊:283, §17.1). YAML reading and writing live in
+//! `vtest-store`; coverage evaluation lives in `vtest-scan` / `vtest-verify`.
+//!
+//! Clauses: DS-S072 (VO record), 詳細設計 v0.1 §3.2.1 (dimensions and
+//! combinations), DS-1638 (`derives_from` shape).
+
 use crate::{DerivesFrom, VoId};
 use serde::de::{MapAccess, Visitor};
 use serde::ser::{Error as SerError, SerializeMap};
@@ -61,10 +73,13 @@ pub struct Dimension {
 pub struct CombinationEntry(Vec<(String, String)>);
 
 impl CombinationEntry {
+    /// Number of declared (dimension, partition) pairs, counting a repeated
+    /// dimension name each time it appears.
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
+    /// `true` when the entry declares no pair.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }

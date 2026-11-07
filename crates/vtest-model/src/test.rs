@@ -1,3 +1,16 @@
+//! Test-side model: the opaque `ExecutionDescriptor` / `TestSuite`, the
+//! canonical `TestRecord`, and the `DiscoveredTest` / `ManagedTestLink`
+//! pair that records how a discovered construct became a managed Test.
+//!
+//! Boundary: `project`, `suite.*` and `selector` are opaque strings to
+//! core; only the adapter named in `adapter` interprets them (詳細設計 v0.1
+//! 本冊:644-654, 688, §9.2). Discovery of these records and the cardinality
+//! rules on `targets` belong to the adapter and to `vtest-scan`.
+//!
+//! Clauses: 本冊:788-805 (`DiscoveredTest`, `ManagedTestLink`), 本冊:898
+//! (`Multiple` → `chain_integrity = MISMATCH`), 基本:412 (Test ID
+//! collisions are a separate condition).
+
 use crate::{AdapterId, ContentHash, SourceLocation, TargetRef, TestId, VoId};
 use serde::{Deserialize, Serialize};
 
@@ -51,6 +64,11 @@ pub struct TestSuite {
     pub name: Option<String>,
 }
 
+/// A managed Test after core materialization: the canonical metadata of
+/// [`TestRecord`] joined with where the construct is (`location`), its Test
+/// subject hash (`content_hash`) and its opaque execution coordinate
+/// (`execution`). `vtest-scan` builds it from a [`DiscoveredTest`];
+/// `vtest-verify` evaluates the four checks against it (本冊:617-630).
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TestEntity {
     pub id: TestId,

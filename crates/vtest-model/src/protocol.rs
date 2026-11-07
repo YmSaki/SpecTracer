@@ -1,16 +1,35 @@
+//! Process-level protocol values shared by the CLI and MCP: the JSON
+//! envelope, the exit codes, and the scan summary counts.
+//!
+//! Boundary: no mapping logic lives here. Each operation decides its own
+//! `ok`, exit code and diagnostics; the CLI and MCP only serialize the same
+//! envelope (BD-100, BD-260, DS-1563).
+//!
+//! Clauses: DS-941 (`{ ok, data, diagnostics }`), DS-322 (exit codes
+//! 0 / 1 / 2 / 3), DS-1174 / DS-1217 / DS-1539 (`ok` under `--gate`).
+
 use crate::Diagnostic;
 use serde::{Deserialize, Serialize};
 
 /// JSON response envelope containing result data and diagnostics.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct JsonEnvelope<T> {
-    // CHECKME: Is `ok` independently meaningful, or should it be derived from diagnostics?
+    /// Set by the operation, not derived from `diagnostics`: `true` when the
+    /// operation completed and reported no error-severity diagnostic;
+    /// warnings leave it `true`. `verify` and `report` tie it to their exit
+    /// code (`true` ↔ 0), so with `--gate` it means gate satisfaction
+    /// (DS-1174, DS-1217, DS-1539). A rejected operation emits `ok: false`
+    /// with `data: null` and the error diagnostic (DS-941).
     pub ok: bool,
+    /// The operation's result; `null` when the operation was rejected.
     pub data: T,
+    /// Diagnostics in emission order. May be non-empty while `ok` is `true`
+    /// (warnings).
     pub diagnostics: Vec<Diagnostic>,
 }
 
 impl<T> JsonEnvelope<T> {
+    /// Builds an envelope. `ok` is the caller's decision (see the field doc).
     pub fn new(ok: bool, data: T, diagnostics: Vec<Diagnostic>) -> Self {
         Self {
             ok,
@@ -24,9 +43,15 @@ impl<T> JsonEnvelope<T> {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum ExitCode {
+    /// The requested scope is OK (or the gate is satisfied).
     Ok = 0,
+    /// Verification produced a result and it is NG.
     VerificationFailed = 1,
+    /// Rejected before producing a result: invalid input, config, adapter
+    /// precondition or capability (E-OP-* / E-CONFIG-* / E-APPROVAL-* /
+    /// E-ADAPTER-*).
     Usage = 2,
+    /// A failure of the tool itself (`E-INTERNAL-001`).
     Internal = 3,
 }
 
@@ -42,8 +67,8 @@ pub struct ScanSummary {
 mod tests {
     use super::*;
 
-    // CHECKME: The test verifies the serialized type shape, not JsonEnvelope::new.
-    // The current source-target model may not express this verification target precisely.
+    // The target is `JsonEnvelope::new` because a `@vtest.target` locator
+    // names a function; the assertion is on the serialized shape (DS-941).
 
     /// @vtest.id TEST-MODEL-JSON-ENVELOPE-SHAPE
     /// @vtest.covers VO-MODEL-JSON-ENVELOPE-SHAPE

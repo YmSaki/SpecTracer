@@ -1,3 +1,13 @@
+//! String-backed identifier newtypes (`SpecId`, `ReqId`, `VoId`, `TestId`,
+//! `SrcId`, `DocumentId`, `AdapterId`) that keep the id spaces distinct at
+//! compile time while serializing as plain strings.
+//!
+//! Boundary: no validation, generation or renumbering happens here. Id
+//! syntax is owned by the record readers (`vtest-store`) and by the
+//! upstream document model (BD-318, DS-1637); adapter ids are the
+//! `config.yaml` `adapters[].id` / `AdapterRegistry` key space (詳細設計
+//! v0.1 §5.2, §6.1).
+
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -14,10 +24,12 @@ macro_rules! define_string_id_type {
         pub struct $name(pub String);
 
         impl $name {
+            /// Wraps a value without validating its syntax.
             pub fn new(value: impl Into<String>) -> Self {
                 Self(value.into())
             }
 
+            /// The identifier as a string slice.
             pub fn as_str(&self) -> &str {
                 &self.0
             }
