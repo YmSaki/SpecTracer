@@ -207,3 +207,40 @@ fn synthetic_adapter_scans_and_verifies_through_unmodified_core() {
     let (orphan_state, _) = state_and_labels(&outcome, VerificationCheck::OrphanDetection);
     assert_eq!(orphan_state, VerificationState::Pass);
 }
+
+/// PR #148 review: `audit static` is an explicit operation that requires the
+/// Static Analysis capability. For a Test of an adapter without it, the
+/// shared operation the CLI and MCP call stops with E-ADAPTER-004 / exit 2
+/// before analyzing anything, and leaves no derived cache behind.
+/// @vtest.id TEST-AUDIT-STATIC-MISSING-CAPABILITY-E-ADAPTER-004
+/// @vtest.covers VO-AUDIT-STATIC-MISSING-STATIC-ANALYSIS-CAPABILITY-E-ADAPTER-004
+/// @vtest.target crates/vtest-cli/src/ops/audit.rs::audit_static
+/// @vtest.intent Static Analysis capabilityのないadapterのTestに--test・--allでaudit staticを行うとE-ADAPTER-004・終了コード2で中止し、.verify/cache/audit-static.jsonを書かないことを確認する
+#[test]
+fn audit_static_without_the_capability_is_e_adapter_004_and_writes_no_cache() {
+    let root = temp_root("audit-static-missing-capability");
+    build_fixture(&root);
+    let registry = synthetic_only_registry();
+    let scan = scan_project(&root, &registry).expect("scan");
+    assert!(!scan.has_errors(), "{:?}", scan.diagnostics);
+    let cache = root
+        .join(".verify")
+        .join("cache")
+        .join(vtest_cli::ops::audit::CACHE_FILE);
+    for (test, all) in [(Some("TEST-SYN-ONE"), false), (None, true)] {
+        let error = vtest_cli::ops::audit::audit_static(&root, &scan, &registry, test, all)
+            .expect_err("a missing required capability must reject the operation");
+        assert!(
+            matches!(
+                error,
+                vtest_cli::ops::audit::AuditOpError::MissingCapability(_)
+            ),
+            "{error:?}"
+        );
+        assert_eq!(error.code(), "E-ADAPTER-004");
+        assert_eq!(error.exit_code(), vtest_model::ExitCode::Usage);
+        assert!(error.to_string().contains("TEST-SYN-ONE"), "{error}");
+        assert!(!cache.exists(), "no derived cache for a rejected operation");
+    }
+    fs::remove_dir_all(&root).ok();
+}

@@ -1,0 +1,11 @@
+id: VO-JUDGMENT-SUBMIT-SUPERSEDES-E-AUDIT-008
+parent: null
+derives_from:
+  - doc: DS-720
+claim: "`audit submit`は、supersedesの各ULIDが、同一subjectかつ同一judgment_kindの既存判断記録を指し、自己参照でないことを検証する（E-AUDIT-008）。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00

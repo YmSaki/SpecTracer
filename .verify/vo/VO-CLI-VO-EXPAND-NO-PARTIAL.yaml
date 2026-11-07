@@ -1,0 +1,11 @@
+id: VO-CLI-VO-EXPAND-NO-PARTIAL
+parent: null
+derives_from:
+  - doc: DS-1044
+claim: "`combinations` が本冊 §3.2.1 の受理条件に違反する VO に対しては E-SCAN-017、終了コード 2 とし、子 VO を 1 件も生成しない（部分生成しない）。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T12:00:00+09:00
+updated: 2026-11-03T12:00:00+09:00

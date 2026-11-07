@@ -1,0 +1,11 @@
+id: VO-FORM-KIND-UNIQUE-OWNER-DECLARED
+parent: null
+derives_from:
+  - doc: DS-1545
+claim: 'Form `kind`は`[a-z0-9][a-z0-9-]*`のcase-sensitive文字列で、built-inとuser-defined schemaを通してrepository全体で一意であり、schemaはowner `adapter` IDを別fieldで宣言する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00
