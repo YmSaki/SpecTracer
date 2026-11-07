@@ -1,0 +1,12 @@
+id: VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
+parent: null
+derives_from:
+  - doc: DES-102
+claim: >-
+  adapterはsource location、source rangeと現在のbytes、解析済みlogical metadata、ExecutionDescriptorをhash未計算のdiscovery DTOとして返す。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-07T00:00:00Z
+updated: 2026-11-07T00:00:00Z

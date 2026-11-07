@@ -1,0 +1,11 @@
+id: VO-VERIFY-EVIDENCE-REVISION-MISMATCH-STALE
+parent: null
+derives_from:
+  - doc: DS-820
+claim: evidence.revision.commitが非nullでない、または現在のHEAD revisionと一致しない場合、`NO_EVIDENCE`（診断STALE。現在revisionに対する実行ではない）とする。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00

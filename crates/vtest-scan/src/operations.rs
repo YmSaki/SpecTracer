@@ -2315,9 +2315,8 @@ fn adds() { assert_eq!(2, 1 + 1); }
 
         let mut set = BTreeMap::new();
         set.insert("intent".to_owned(), FormValue::Scalar("changed".to_owned()));
-        let result = edit_test(&root, "TEST-ADD", None, &set, None, false, &test_registry());
-
-        let error = result.expect_err("editing a Test ID that no longer exists must fail");
+        let error = edit_test(&root, "TEST-ADD", None, &set, None, false, &test_registry())
+            .expect_err("editing a Test ID that no longer exists must fail");
         assert_eq!(error.code, "E-OP-002");
         let after = fs::read_to_string(root.join("tests/calc.rs")).unwrap();
         assert_eq!(
