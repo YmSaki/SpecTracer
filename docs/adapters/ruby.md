@@ -24,10 +24,13 @@ rules shared by all framework-neutral adapters.
   or the next line starts with `.method`; the bodies of heredocs opened on
   that line (`<<~TEXT` ... `TEXT`) are part of it. `end` inside heredocs,
   `%w[]` literals, interpolations, and regular expressions is text. As in Ruby,
-  `name <<word` is a shift when `name` is a local variable (assigned, or a
-  block, method, or `for` parameter, anywhere earlier in the file), and a
-  heredoc otherwise (`assert_equal <<text, actual`), which then needs its
-  terminator line; elsewhere any label opens one (`text = <<text`).
+  `name <<word` is a shift when `name` is a local variable of the current
+  scope (assigned, or a block, method, or `for` parameter, earlier in a
+  scope still open there), and a heredoc otherwise
+  (`assert_equal <<text, actual`), which then needs its terminator line;
+  elsewhere any label opens one (`text = <<text`). When `name` is bound
+  only in a scope that has closed (another method or block), the file is
+  unreadable (`E-SCAN-001`), as the scopes cannot be told apart lexically.
 - **Limits**: a missing or extra `end`, an unterminated heredoc, string,
   percent literal, or regular expression (also as a method argument, such
   as `assert_match /x`, where a local variable would make the `/` a

@@ -127,6 +127,13 @@ const EXPRESSION_KEYWORDS: &[&str] = &[
     "ensure", "rescue", "if", "unless", "while", "until", "puts", "case",
 ];
 
+/// Whether a name is a local variable where it is read.
+enum Local {
+    Yes,
+    No,
+    Unsure,
+}
+
 /// A heredoc whose body starts on the next line.
 struct Pending {
     label: String,
@@ -179,7 +186,7 @@ impl Lexer<'_> {
                     .delimited_end(i + 1, byte, byte, byte != b'\'')
                     .ok_or_else(|| ExtractError::new(start, "unterminated string"))?;
                 Kind::Literal
-            } else if let Some((end, label)) = self.heredoc_start(&tokens, i) {
+            } else if let Some((end, label)) = self.heredoc_start(&tokens, i)? {
                 pending.push(label);
                 i = end;
                 Kind::Literal
@@ -422,25 +429,37 @@ impl Lexer<'_> {
 
     /// A heredoc opener (`<<~EOS`, `<<-EOS`, `<<"EOS"`, `<<EOS`) at `i`:
     /// one past it and its label.
-    fn heredoc_start(&self, tokens: &[Tok], i: usize) -> Option<(usize, Pending)> {
+    fn heredoc_start(
+        &self,
+        tokens: &[Tok],
+        i: usize,
+    ) -> Result<Option<(usize, Pending)>, ExtractError> {
         let rest = &self.source[i..];
-        let after = rest.strip_prefix("<<")?;
+        let Some(after) = rest.strip_prefix("<<") else {
+            return Ok(None);
+        };
         let (indented, after) = match after.strip_prefix(['~', '-']) {
             Some(stripped) => (true, stripped),
             None => (false, after),
         };
-        let (label, length) = match after.as_bytes().first()? {
-            quote @ (b'"' | b'\'' | b'`') => {
-                let close = after[1..].find(*quote as char)?;
+        let (label, length) = match after.as_bytes().first() {
+            Some(quote @ (b'"' | b'\'' | b'`')) => {
+                let Some(close) = after[1..].find(*quote as char) else {
+                    return Ok(None);
+                };
                 (after[1..=close].to_owned(), close + 2)
             }
-            byte if is_word_char(*byte) => {
+            Some(byte) if is_word_char(*byte) => {
                 let length = after.bytes().take_while(|b| is_word_char(*b)).count();
                 let word = &after[..length];
+                if !indented && !self.expression_position(tokens, i) {
+                    return Ok(None);
+                }
                 // After a name, `<<word` is a shift if the name is a local
-                // variable (`a = []` before `a <<b`) and a heredoc otherwise
-                // (`assert_equal <<text, actual`), as Ruby's parser decides
-                // it; a heredoc then needs its terminator line.
+                // variable in the current scope (`a = []` before `a <<b`)
+                // and a heredoc otherwise (`assert_equal <<text, actual`),
+                // as Ruby's parser decides it; a heredoc then needs its
+                // terminator line.
                 let previous = tokens
                     .iter()
                     .rev()
@@ -450,31 +469,48 @@ impl Lexer<'_> {
                             && !EXPRESSION_KEYWORDS.contains(&self.text(t))
                             && !self.source[t.end..i].contains('\n')
                     });
-                if previous.is_some_and(|name| self.is_local(tokens, self.text(name))) {
-                    return None;
-                }
-                let explicit = indented || self.expression_position(tokens, i);
-                if !explicit {
-                    return None;
+                if let Some(name) = previous {
+                    match self.local(tokens, self.text(name)) {
+                        Local::Yes => return Ok(None),
+                        Local::Unsure => {
+                            return Err(ExtractError::new(
+                                i,
+                                format!(
+                                    "cannot tell whether `{}` here is the local variable \
+                                     assigned in another scope (so `<<` shifts) or a \
+                                     method (so `<<{word}` starts a heredoc)",
+                                    self.text(name)
+                                ),
+                            ))
+                        }
+                        Local::No => {}
+                    }
                 }
                 (word.to_owned(), length)
             }
-            _ => return None,
+            _ => return Ok(None),
         };
         let end = i + (rest.len() - after.len()) + length;
-        Some((end, Pending { label, indented }))
+        Ok(Some((end, Pending { label, indented })))
     }
 
     /// Whether `name` is a local variable where the last of `tokens` is
-    /// read: an earlier token assigns it (`a = []`, `a ||= []`), or names
-    /// it as a block parameter (`|a|`, `|x, a|`), a method parameter
-    /// (`def m(a)`), or a `for` variable. Like Ruby's parser, this looks at
-    /// what comes before, but over the whole file rather than one scope.
-    fn is_local(&self, tokens: &[Tok], name: &str) -> bool {
+    /// read. An earlier token binds it if it assigns it (`a = []`,
+    /// `a ||= []`) or names it as a block parameter (`|a|`, `|x, a|`), a
+    /// method parameter (`def m(a)`), or a `for` variable. Like Ruby's
+    /// parser, a binding counts only in its own scope: `Yes` when one is
+    /// still open here (no `def`, `class`, or `module` since, and no `end`
+    /// or bracket closing what holds it), `Unsure` when every binding is in
+    /// a scope that has closed or is separated by a `def`, `class`, or
+    /// `module` (a lexical reader cannot be certain which scope applies),
+    /// and `No` when nothing binds it.
+    fn local(&self, tokens: &[Tok], name: &str) -> Local {
         let code: Vec<&Tok> = tokens.iter().filter(|t| t.kind != Kind::Comment).collect();
-        (0..code.len().saturating_sub(1)).any(|j| {
+        let depths = self.depths(&code);
+        let mut bound = false;
+        for j in 0..code.len().saturating_sub(1) {
             if code[j].kind != Kind::Word || self.text(code[j]) != name {
-                return false;
+                continue;
             }
             let next = code.get(j + 1).map(|t| (t.kind, self.text(t)));
             let previous = j.checked_sub(1).map(|p| (code[p].kind, self.text(code[p])));
@@ -482,16 +518,122 @@ impl Lexer<'_> {
                 if op.ends_with('=') && !matches!(op, "==" | "===" | "!=" | ">=" | "<="));
             let block_parameter = matches!(previous, Some((_, "|")))
                 || (matches!(previous, Some((_, ","))) && matches!(next, Some((_, "|" | ","))));
-            let line_start = self.source[..code[j].start]
-                .rfind('\n')
-                .map_or(0, |n| n + 1);
-            let method_parameter = matches!(previous, Some((_, "(" | ",")))
-                && self.source[line_start..code[j].start]
-                    .split(|c: char| !(c.is_alphanumeric() || c == '_'))
-                    .any(|word| word == "def");
+            let definition = matches!(previous, Some((_, "(" | ",")))
+                .then(|| {
+                    (0..j).rev().find(|&k| {
+                        self.text(code[k]) == "def"
+                            && !self.source[code[k].end..code[j].start].contains('\n')
+                    })
+                })
+                .flatten();
             let for_variable = matches!(previous, Some((Kind::Word, "for")));
-            assigned || block_parameter || method_parameter || for_variable
-        })
+            if !(assigned || block_parameter || definition.is_some() || for_variable) {
+                continue;
+            }
+            bound = true;
+            // A method parameter belongs to the method's body.
+            let depth = definition.map_or(depths[j], |def| depths[def] + 1);
+            let open = depths[j + 1..].iter().all(|&d| d >= depth);
+            let separated = (j + 1..code.len()).any(|k| {
+                code[k].kind == Kind::Word
+                    && matches!(self.text(code[k]), "def" | "class" | "module")
+                    && !code[k - 1..k]
+                        .iter()
+                        .any(|p| matches!(self.text(p), "." | "&." | "::" | "def"))
+            });
+            if open && !separated {
+                return Local::Yes;
+            }
+        }
+        if bound {
+            Local::Unsure
+        } else {
+            Local::No
+        }
+    }
+
+    /// For each of the code tokens `code`, and after the last, how many
+    /// brackets and `end`-closed keywords (`def`, `class`, `do`, a
+    /// statement-leading `if`, ...) are open before it.
+    fn depths(&self, code: &[&Tok]) -> Vec<isize> {
+        let mut depths = Vec::with_capacity(code.len() + 1);
+        let mut depth = 0isize;
+        let mut loop_do = false;
+        for k in 0..code.len() {
+            let token = code[k];
+            let previous = k.checked_sub(1).map(|p| code[p]);
+            let line_break =
+                previous.is_none_or(|p| self.source[p.end..token.start].contains('\n'));
+            if line_break || previous.is_some_and(|p| p.kind == Kind::Semi) {
+                loop_do = false;
+            }
+            depths.push(depth);
+            let previous_text = previous.map(|p| self.text(p));
+            let name_position = matches!(previous_text, Some("." | "&." | "::" | "def"));
+            match token.kind {
+                Kind::Open(_) => depth += 1,
+                Kind::Close(_) => depth -= 1,
+                Kind::Word if !name_position => {
+                    let starts = line_break
+                        || previous.is_some_and(|p| {
+                            matches!(p.kind, Kind::Semi | Kind::Open(_) | Kind::Op)
+                                || (p.kind == Kind::Word
+                                    && EXPRESSION_KEYWORDS.contains(&self.text(p)))
+                        });
+                    match self.text(token) {
+                        "def" if !self.endless(code, k) => depth += 1,
+                        "class" | "module" | "case" | "begin" => depth += 1,
+                        "for" => {
+                            loop_do = true;
+                            depth += 1;
+                        }
+                        "if" | "unless" if starts => depth += 1,
+                        "while" | "until" if starts => {
+                            loop_do = true;
+                            depth += 1;
+                        }
+                        "do" if loop_do => loop_do = false,
+                        "do" => depth += 1,
+                        "end" => depth -= 1,
+                        _ => {}
+                    }
+                }
+                _ => {}
+            }
+        }
+        depths.push(depth);
+        depths
+    }
+
+    /// Whether the `def` at `code[k]` is endless (`def name(args) = expr`).
+    fn endless(&self, code: &[&Tok], k: usize) -> bool {
+        let text = |j: usize| code.get(j).map(|t| self.text(t));
+        let mut j = k + 1;
+        if code.get(j).is_some_and(|t| t.kind == Kind::Word) && text(j + 1) == Some(".") {
+            j += 2;
+        }
+        j += if text(j) == Some("[") { 2 } else { 1 };
+        if text(j) == Some("@") {
+            j += 1;
+        }
+        if text(j) == Some("=") && code[j - 1].end == code[j].start {
+            j += 1;
+        }
+        if text(j) == Some("(") {
+            let mut depth = 0usize;
+            while let Some(token) = code.get(j) {
+                match token.kind {
+                    Kind::Open(_) => depth += 1,
+                    Kind::Close(_) => depth = depth.saturating_sub(1),
+                    _ => {}
+                }
+                j += 1;
+                if depth == 0 {
+                    break;
+                }
+            }
+        }
+        text(j) == Some("=") && !self.source[code[j - 1].end..code[j].start].contains('\n')
     }
 
     /// Skips the bodies of the pending heredocs, which start at `i`,
@@ -1221,7 +1363,7 @@ end
     /// @vtest.id TEST-ADAPTER-RUBY-ARGUMENT-LITERALS-ENCLOSING-ENDS-AND-OPERATOR-NAMES
     /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
     /// @vtest.target crates/vtest-adapter-lexical/src/ruby.rs::Reader::statement_end
-    /// @vtest.intent verifies that a lower-case heredoc passed as a method argument hides its body from the code while `<<b` after a local variable is a shift that keeps the Tests after it, even with a later `b` line, that an unterminated literal passed as a method argument and an expression cut off by the enclosing `end` or `}` are not read as a whole Test, that an endless range may end an endless method, and that `[]=` and singleton unary operator methods keep their names
+    /// @vtest.intent verifies that a lower-case heredoc passed as a method argument hides its body from the code while `<<b` after a local variable of the current scope is a shift that keeps the Tests after it, even with a later `b` line, and a local of another scope makes the file unreadable, that an unterminated literal passed as a method argument and an expression cut off by the enclosing `end` or `}` are not read as a whole Test, that an endless range may end an endless method, and that `[]=` and singleton unary operator methods keep their names
     #[test]
     fn argument_literals_enclosing_ends_and_operator_names() {
         let declare = "# @vtest.id TEST-X\n# @vtest.covers VO-X\n# @vtest.intent review\n";
@@ -1250,6 +1392,34 @@ end
                 outcome.diagnostics
             );
             assert!(outcome.tests[0].construct_text.starts_with("def test_f"));
+        }
+        // A local whose scope has not closed, across nested blocks.
+        let nested = format!(
+            "a = []\nif ready\n  run\nend\nx = a <<b\n\n{declare}def test_f\n  assert true\nend\n\nb\n"
+        );
+        assert_eq!(
+            discover_text(&Ruby, "fixture.rb", &nested, "demo")
+                .tests
+                .len(),
+            1
+        );
+        // A local of another scope cannot decide it: rejected, so neither a
+        // heredoc's text nor the code after a shift is read as a Test.
+        for setup in [
+            "def setup\n  assert_equal = 1\nend\n",
+            "def setup\n  assert_equal = 1 if ready\nend\n",
+            "items.each do |assert_equal|\nend\n",
+            "def setup(assert_equal)\nend\n",
+        ] {
+            for tail in ["text\n", ""] {
+                let source = format!(
+                    "{setup}assert_equal <<text, actual\n{declare}def fake\n  1\nend\n{tail}"
+                );
+                let outcome = discover_text(&Ruby, "fixture.rb", &source, "demo");
+                assert_eq!(outcome.diagnostics.len(), 1, "{source:?}");
+                assert_eq!(outcome.diagnostics[0].code.as_str(), "E-SCAN-001");
+                assert!(outcome.tests.is_empty(), "{source:?}");
+            }
         }
         // Without one it is a heredoc, which needs its terminator line.
         for source in [
