@@ -31,6 +31,7 @@ use vtest_store::{
     AdapterConfig, ProjectConfig, RelationRecord, StoreError, VerifyLayout,
 };
 
+pub mod forms;
 pub mod operations;
 pub use operations::*;
 
@@ -1381,7 +1382,7 @@ fn validate_vo_record(
 /// vo_record_from_yaml`'s, for how the record layer now hands this case
 /// here intact — `vo_record_combination_entry_with_a_duplicate_dimension_
 /// key_reaches_scan_as_e_scan_017` locks that in).
-fn invalid_vo_combinations(record: &VoRecord) -> Option<String> {
+pub fn invalid_vo_combinations(record: &VoRecord) -> Option<String> {
     if !matches!(record.coverage_policy, Some(CoveragePolicy::Explicit)) {
         if !record.combinations.is_empty() {
             return Some("has combinations but coverage_policy is not `explicit`".to_owned());

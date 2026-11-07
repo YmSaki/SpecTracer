@@ -453,3 +453,33 @@ fn edit_body_file_replaces_a_one_line_body_with_non_ascii_text() {
     );
     fs::remove_dir_all(root).unwrap();
 }
+
+/// @vtest.id TEST-CLI-INIT-WRITES-ADAPTER-BUILT-IN-FORMS
+/// @vtest.covers VO-STORE-INIT-PROJECT-CANONICAL-LAYOUT, VO-FORM-KIND-UNIQUE-OWNER-DECLARED
+/// @vtest.target crates/vtest-cli/src/ops/init.rs::execute
+/// @vtest.intent vtest init writes the registered adapter's built-in Form Schemas into .verify/forms/, each declaring its owner adapter
+#[test]
+fn init_writes_the_adapters_built_in_forms_with_their_owner() {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let root = std::env::temp_dir().join(format!(
+        "vtest-test-op-init-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+    fs::create_dir_all(&root).unwrap();
+    let output = vtest(&root, &["init"]);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    for kind in ["rust-unit-function", "rust-integration"] {
+        let schema =
+            fs::read_to_string(root.join(".verify/forms").join(format!("{kind}.yaml"))).unwrap();
+        let parsed = vtest_store::parse_form_schema(&schema).unwrap();
+        assert_eq!(parsed.kind, kind);
+        assert_eq!(parsed.adapter.as_deref(), Some("rust-cargo"));
+    }
+    fs::remove_dir_all(root).unwrap();
+}

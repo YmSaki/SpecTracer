@@ -1,0 +1,11 @@
+id: VO-MCP-VO-UPSERT-COMBINATIONS-OMITTED-KEEPS
+parent: null
+derives_from:
+  - doc: DS-1225
+claim: "`vo_upsert` で `combinations` を省略した更新は既存値を保持し、空 list を明示した更新は既存値を空にする。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T12:00:00+09:00
+updated: 2026-11-03T12:00:00+09:00

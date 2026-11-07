@@ -114,43 +114,78 @@ pub enum Command {
     /// there is no separate persisted registry record.
     #[command(subcommand)]
     Doc(DocCommand),
-    /// Static audit (SPEC-297/SPEC-387): recomputed on request, written to
-    /// stdout and `.verify/cache/`, never a canonical record.
-    #[command(subcommand)]
-    Audit(AuditCommand),
     /// Structured Test Operation (SPEC-385 / SPEC-386, BD-077): create or
     /// edit one Test through its adapter's Structured Test capability.
     #[command(subcommand)]
     Test(TestCommand),
+    /// Static audit (SPEC-297/SPEC-387): recomputed on request, written to
+    /// stdout and `.verify/cache/`, never a canonical record.
+    #[command(subcommand)]
+    Audit(AuditCommand),
+    /// Verification Obligation records (別紙A §12.2, DS-1021〜DS-1048).
+    #[command(subcommand)]
+    Vo(VoCommand),
 }
 
+/// `vtest vo …` (DS-1021). `add` / `edit` take their field arguments as a
+/// raw list because DS-1027〜DS-1029 bind each `--anchor` / `--note` to the
+/// `--derives-from` right before it; put global options (`--format`,
+/// `--project`, `--quiet`) before `vo`.
 #[derive(Subcommand, Debug)]
-pub enum AuditCommand {
-    /// Rule-by-rule verdicts (FAIL / UNKNOWN / NO_VIOLATION) with evidence
-    /// spans; DA-002 / DA-003 are reported per target.
-    Static {
-        #[arg(long = "test", value_name = "TEST_ID", conflicts_with = "all")]
-        test: Option<String>,
+pub enum VoCommand {
+    /// `vo add --id VO-X --claim <c> --derives-from DOC-X [--anchor <t>]
+    /// [--note <t>] ... [--parent VO-Y] [--dimension <name>=<p1>,<p2>]...
+    /// [--policy <independent-axes|full-product|explicit|null>]
+    /// [--combination <dim>=<part>[,<dim>=<part>]...]...`
+    Add {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true, num_args = 0..)]
+        args: Vec<String>,
+    },
+    /// `vo edit VO-X [--claim ...] [--derives-from DOC-X [--anchor <t>]
+    /// [--note <t>]]... [--parent ...] [--dimension ...]... [--policy ...]
+    /// [--combination ...]... [--clear-combinations]`. Given
+    /// `--derives-from` / `--dimension` / `--combination` sets replace the
+    /// stored ones (desired state, DS-1035).
+    Edit {
+        id: String,
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true, num_args = 0..)]
+        args: Vec<String>,
+    },
+    /// DS-1026/DS-1047: list VOs, optionally downstream of one document node
+    /// or with one effective approval state.
+    List {
         #[arg(long)]
-        all: bool,
+        tree: bool,
+        #[arg(long)]
+        doc: Option<String>,
+        #[arg(long)]
+        status: Option<String>,
     },
-    /// Judgment bundle (SPEC-391, DS-692): hands a subject the machine
-    /// cannot decide to an external judge, written to
-    /// `.verify/cache/bundles/<id>.json`.
-    Bundle {
-        #[arg(long = "test", value_name = "TEST_ID", conflicts_with = "vo")]
-        test: Option<String>,
-        #[arg(long = "vo", value_name = "VO_ID")]
-        vo: Option<String>,
-        /// test-semantic / impl-consistency / case-coverage.
-        #[arg(long = "kind")]
-        kind: Option<String>,
+    /// DS-1030/DS-1047: the record, its effective approval state, and the
+    /// Tests that cover it.
+    Show { id: String },
+    /// DS-1041〜DS-1044: materialize child VOs from `dimensions`.
+    Expand {
+        id: String,
+        #[arg(long = "dry-run")]
+        dry_run: bool,
     },
-    /// Judgment submission (SPEC-391, DS-715〜DS-723): checks the result
-    /// against its bundle and appends `.verify/decisions/<id>.yaml`.
-    Submit {
-        #[arg(long = "file", value_name = "PATH")]
-        file: String,
+    /// DS-1045: alias of `approval create --subject-type vo --subject-id
+    /// VO-X`.
+    Approve {
+        id: String,
+        #[arg(long = "state", value_enum)]
+        state: ApprovedStateArg,
+        #[arg(long = "approver-kind", value_enum)]
+        approver_kind: ApproverKindArg,
+        #[arg(long = "approver-id")]
+        approver_id: String,
+        #[arg(long)]
+        model: Option<String>,
+        #[arg(long = "basis")]
+        basis: Vec<String>,
+        #[arg(long = "supersedes")]
+        supersedes: Vec<String>,
     },
 }
 
@@ -185,6 +220,36 @@ pub enum TestCommand {
         body_file: Option<PathBuf>,
         #[arg(long = "dry-run")]
         dry_run: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AuditCommand {
+    /// Rule-by-rule verdicts (FAIL / UNKNOWN / NO_VIOLATION) with evidence
+    /// spans; DA-002 / DA-003 are reported per target.
+    Static {
+        #[arg(long = "test", value_name = "TEST_ID", conflicts_with = "all")]
+        test: Option<String>,
+        #[arg(long)]
+        all: bool,
+    },
+    /// Judgment bundle (SPEC-391, DS-692): hands a subject the machine
+    /// cannot decide to an external judge, written to
+    /// `.verify/cache/bundles/<id>.json`.
+    Bundle {
+        #[arg(long = "test", value_name = "TEST_ID", conflicts_with = "vo")]
+        test: Option<String>,
+        #[arg(long = "vo", value_name = "VO_ID")]
+        vo: Option<String>,
+        /// test-semantic / impl-consistency / case-coverage.
+        #[arg(long = "kind")]
+        kind: Option<String>,
+    },
+    /// Judgment submission (SPEC-391, DS-715〜DS-723): checks the result
+    /// against its bundle and appends `.verify/decisions/<id>.yaml`.
+    Submit {
+        #[arg(long = "file", value_name = "PATH")]
+        file: String,
     },
 }
 
@@ -283,9 +348,8 @@ impl ApproverKindArg {
 #[derive(Subcommand, Debug)]
 pub enum ApprovalCommand {
     /// DS-1050/1051/1052: the sole way承認レコード are created.
-    /// `vtest vo approve` (not yet ported to this canonical CLI in this
-    /// slice) is documented as an alias of this command (BD-074, DS-1045);
-    /// it is not a second, independent implementation.
+    /// `vtest vo approve` is an alias of this command (BD-074, DS-1045)
+    /// that calls the same operation; it is not a second implementation.
     Create {
         #[arg(long = "subject-type", value_enum)]
         subject_type: SubjectTypeArg,
@@ -349,6 +413,7 @@ pub fn run(cli: Cli) -> ExitCode {
         } => run_run(&cli.project, test, vo, all, fast, cli.format, cli.quiet),
         Command::Approval(command) => run_approval(&cli.project, command, cli.format, cli.quiet),
         Command::Doc(command) => run_doc(&cli.project, command, cli.format, cli.quiet),
+        Command::Test(command) => run_test(&cli.project, command, cli.format, cli.quiet),
         Command::Audit(AuditCommand::Static { test, all }) => {
             run_audit_static(&cli.project, test.as_deref(), all, cli.format, cli.quiet)
         }
@@ -363,7 +428,7 @@ pub fn run(cli: Cli) -> ExitCode {
         Command::Audit(AuditCommand::Submit { file }) => {
             run_audit_submit(&cli.project, &file, cli.format, cli.quiet)
         }
-        Command::Test(command) => run_test(&cli.project, command, cli.format, cli.quiet),
+        Command::Vo(command) => run_vo(&cli.project, command, cli.format, cli.quiet),
         Command::Verify {
             items,
             doc,
@@ -820,6 +885,221 @@ fn approval_error_exit(
         }
         ApprovalOpError::Store(error) => record_error_exit(error, format, quiet),
     }
+}
+
+// ---------------------------------------------------------------------------
+// vo
+// ---------------------------------------------------------------------------
+
+fn run_vo(project: &Path, command: VoCommand, format: OutputFormat, quiet: bool) -> ExitCode {
+    let root = match resolve_root(project, format, quiet) {
+        Ok(root) => root,
+        Err(code) => return code,
+    };
+    let layout = VerifyLayout::new(&root);
+    match command {
+        VoCommand::Add { args } => {
+            let result = ops::vo::parse_vo_args(&args).and_then(|args| ops::vo::add(&layout, args));
+            vo_write_result(result, format, quiet)
+        }
+        VoCommand::Edit { id, args } => {
+            let result = ops::vo::parse_vo_args(&args).and_then(|mut args| {
+                if args.id.is_some() {
+                    return Err(ops::vo::VoOpError::Usage(
+                        "vo edit takes the VO id once, as its first argument".to_owned(),
+                    ));
+                }
+                args.id = Some(id);
+                ops::vo::edit(&layout, args)
+            });
+            vo_write_result(result, format, quiet)
+        }
+        VoCommand::List { tree, doc, status } => {
+            match ops::vo::list(&layout, doc.as_deref(), status.as_deref()) {
+                Ok(entries) => {
+                    let envelope =
+                        JsonEnvelope::new(true, serde_json::json!({ "vos": entries }), Vec::new());
+                    emit(format, quiet, &envelope, |_| render_vo_list(&entries, tree));
+                    ExitCode::Ok
+                }
+                Err(error) => vo_error_exit(&error, format, quiet),
+            }
+        }
+        VoCommand::Show { id } => {
+            let registry = match resolve_registry(format, quiet) {
+                Ok(registry) => registry,
+                Err(code) => return code,
+            };
+            let scan = match scan_project(&root, &registry) {
+                Ok(scan) => scan,
+                Err(error) => return scan_error_exit(&error, format, quiet),
+            };
+            match ops::vo::show(&layout, &scan, &id) {
+                Ok(view) => {
+                    let envelope = JsonEnvelope::new(true, &view, Vec::new());
+                    emit(format, quiet, &envelope, |_| render_vo_show(&view));
+                    ExitCode::Ok
+                }
+                Err(error) => vo_error_exit(&error, format, quiet),
+            }
+        }
+        VoCommand::Expand { id, dry_run } => match ops::vo::expand(&layout, &id, dry_run) {
+            Ok(result) => {
+                let envelope = JsonEnvelope::new(true, &result, Vec::new());
+                emit(format, quiet, &envelope, |_| {
+                    let verb = if result.dry_run {
+                        "would create"
+                    } else {
+                        "created"
+                    };
+                    let mut out = format!(
+                        "vo expand {id}: {verb} {} child VO(s)\n",
+                        result.children.len()
+                    );
+                    for child in &result.children {
+                        out.push_str(&format!("  {}\n", child.id.as_str()));
+                    }
+                    out
+                });
+                ExitCode::Ok
+            }
+            Err(error) => vo_error_exit(&error, format, quiet),
+        },
+        VoCommand::Approve {
+            id,
+            state,
+            approver_kind,
+            approver_id,
+            model,
+            basis,
+            supersedes,
+        } => {
+            // DS-1045: identical to `approval create --subject-type vo`, so
+            // the result and every rejection go through the same reporter.
+            let result = ops::approval::create(
+                &layout,
+                ops::approval::CreateArgs {
+                    subject_type: "vo".to_owned(),
+                    subject_id: id,
+                    approved_state: state.as_str().to_owned(),
+                    approver_kind: approver_kind.as_str().to_owned(),
+                    approver_id,
+                    approver_model: model,
+                    basis,
+                    supersedes,
+                },
+            );
+            approval_result(result, format, quiet)
+        }
+    }
+}
+
+fn vo_write_result(
+    result: Result<ops::vo::VoWriteResult, ops::vo::VoOpError>,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    match result {
+        Ok(result) => {
+            let envelope = JsonEnvelope::new(true, &result, Vec::new());
+            emit(format, quiet, &envelope, |_| {
+                let verb = if result.created { "created" } else { "updated" };
+                let mut out = format!("vo {verb}: {}\n", result.record.id.as_str());
+                for warning in &result.warnings {
+                    out.push_str(&format!("warning: {warning}\n"));
+                }
+                out
+            });
+            ExitCode::Ok
+        }
+        Err(error) => vo_error_exit(&error, format, quiet),
+    }
+}
+
+fn vo_error_exit(error: &ops::vo::VoOpError, format: OutputFormat, quiet: bool) -> ExitCode {
+    use ops::vo::VoOpError;
+    match error {
+        VoOpError::Store(error) => record_error_exit(error, format, quiet),
+        VoOpError::Approval(error) => approval_error_exit(error, format, quiet),
+        VoOpError::Usage(_) | VoOpError::InvalidCombinations(_) => usage_failure(
+            format,
+            quiet,
+            error.code().unwrap_or("E-OP-001"),
+            &error.message(),
+        ),
+    }
+}
+
+fn render_vo_list(entries: &[ops::vo::VoSummary], tree: bool) -> String {
+    if !tree {
+        return entries
+            .iter()
+            .map(|entry| format!("{}\t{}\t{}\n", entry.id, entry.status, entry.claim))
+            .collect();
+    }
+    let ids: std::collections::BTreeSet<&str> = entries.iter().map(|e| e.id.as_str()).collect();
+    let mut out = String::new();
+    fn walk(
+        entries: &[ops::vo::VoSummary],
+        id: &str,
+        depth: usize,
+        seen: &mut std::collections::BTreeSet<String>,
+        out: &mut String,
+    ) {
+        let Some(entry) = entries.iter().find(|entry| entry.id == id) else {
+            return;
+        };
+        out.push_str(&format!(
+            "{}{} [{}]\n",
+            "  ".repeat(depth),
+            entry.id,
+            entry.status
+        ));
+        if !seen.insert(entry.id.clone()) {
+            return;
+        }
+        for child in entries
+            .iter()
+            .filter(|child| child.parent.as_deref() == Some(id))
+        {
+            walk(entries, &child.id, depth + 1, seen, out);
+        }
+    }
+    let mut seen = std::collections::BTreeSet::new();
+    for entry in entries.iter().filter(|entry| {
+        entry
+            .parent
+            .as_deref()
+            .is_none_or(|parent| !ids.contains(parent))
+    }) {
+        walk(entries, &entry.id, 0, &mut seen, &mut out);
+    }
+    out
+}
+
+fn render_vo_show(view: &ops::vo::VoView) -> String {
+    let mut out = format!(
+        "{} [{}]\nclaim: {}\n",
+        view.record.id.as_str(),
+        view.status,
+        view.record.claim
+    );
+    for entry in &view.record.derives_from {
+        out.push_str(&format!("derives_from: {}", entry.doc.as_str()));
+        if let Some(anchor) = &entry.anchor {
+            out.push_str(&format!(" anchor={anchor}"));
+        }
+        if let Some(note) = &entry.note {
+            out.push_str(&format!(" note={note}"));
+        }
+        out.push('\n');
+    }
+    if view.covered_by.is_empty() {
+        out.push_str("covered by: (no Test)\n");
+    } else {
+        out.push_str(&format!("covered by: {}\n", view.covered_by.join(", ")));
+    }
+    out
 }
 
 // ---------------------------------------------------------------------------
@@ -1493,8 +1773,28 @@ fn run_verify(
             }
             exit
         }
-        Err(ops::verify::VerifyOpError::Usage { code, message }) => {
-            usage_failure(format, quiet, code, &message)
+        // DS-1154/DS-1563: the defined gate names are in `message` and, for
+        // `--format json`, in `diagnostics[].candidates` exactly as the MCP
+        // tool returns them (the same envelope function builds both).
+        Err(ops::verify::VerifyOpError::Usage {
+            code,
+            message,
+            candidates,
+        }) => {
+            if format == OutputFormat::Json {
+                if !quiet {
+                    let value = ops::verify::usage_envelope(code, &message, candidates.as_deref());
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&value).unwrap_or_else(|error| format!(
+                            "{{\"ok\":false,\"data\":null,\"diagnostics\":[\"{error}\"]}}"
+                        ))
+                    );
+                }
+                ExitCode::Usage
+            } else {
+                usage_failure(format, quiet, code, &message)
+            }
         }
         Err(ops::verify::VerifyOpError::Scan(error)) => scan_error_exit(&error, format, quiet),
         Err(ops::verify::VerifyOpError::Internal { message }) => {

@@ -403,6 +403,28 @@ pub trait StructuredTestAdapter {
     /// The variants of every enum named `type_name` declared in `source`
     /// (nested modules included). `None` when `source` does not parse.
     fn enum_variants(&self, source: &str, type_name: &str) -> Option<Vec<String>>;
+
+    /// DES-373: the built-in Form kinds this adapter owns, each with its
+    /// Form Schema text (§14). Core never names a built-in Form itself
+    /// (DS-1549); it resolves kinds through these declarations.
+    fn built_in_forms(&self) -> &'static [BuiltInForm];
+
+    /// DES-373 / DES-490: the compatibility matcher for a user-defined Form
+    /// Schema that declares no `adapter`. Decides from the schema text alone
+    /// whether this adapter can own it. The default accepts nothing, so only
+    /// the built-in kind declarations above resolve such a schema.
+    fn accepts_form_schema(&self, _schema_text: &str) -> bool {
+        false
+    }
+}
+
+/// One built-in Form an adapter declares (DES-373).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct BuiltInForm {
+    /// The repository-global Form `kind` (DS-1545).
+    pub kind: &'static str,
+    /// The Form Schema text, in the `.verify/forms/<kind>.yaml` format.
+    pub schema: &'static str,
 }
 
 /// 本冊 §5.2「adapter capabilityは `SourceDiscoveryAdapter`、
