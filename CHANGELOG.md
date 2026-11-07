@@ -20,13 +20,29 @@ and uses semantic version tags for releases.
   adapter, and a test-only synthetic adapter.
 - MCP stdio server with nine tools (`scan`, `run_tests`, `verify`,
   `approval_create`, `approval_withdraw`, `approval_get`, `doc_upsert`,
-  `doc_list`, `doc_get`) sharing the CLI's operation layer.
+  `doc_list`, `doc_get`) sharing the CLI's operation layer, started with
+  `vtest mcp`.
+- `verify --gate` evaluates the gate's approval roles against the scoped
+  subjects.
+- Experimental framework-neutral discovery engine (`vtest-adapter-lexical`)
+  with a Java adapter. It discovers Tests and Source Targets only; execution
+  and coverage stay `NO_EVIDENCE`.
+- The `TestWireCodec` capability and the `rust-cargo` wire codec.
+- Informational self-verify workflow that runs `vtest run --all` and
+  `vtest verify` on this repository nightly and on demand.
 
 ### Changed
 
 - Canonical record schema failures in CLI/MCP operations now report
   `E-SCAN-010` (CLI exit 2); structured test operations preserve config
   and adapter diagnostic codes instead of masking them as internal errors.
+- Internal errors report `E-INTERNAL-001`.
+- Verification fails closed on more inputs: an invalid latest Evidence record
+  is never replaced by an older one, every declared target's coverage is
+  measured and judged, and broken approval sets, supersedes graphs, and
+  closures are not treated as approved.
+- `verify` returns its scope as a top-level JSON field, and MCP `run_tests`
+  rejects combined target axes with `E-OP-001`.
 
 - The README, roadmap, and architecture notes now describe the canonical
   four-check model, the commands and MCP tools that actually exist, and the
@@ -37,6 +53,7 @@ and uses semantic version tags for releases.
 - The retired eleven-item verification surface (`spec add`, `req add`,
   `vo add`, `audit static`, and the `m1`–`m9` acceptance suites) is no longer
   part of the CLI.
+- The legacy `.verify/audits/` records and `AuditRecord`.
 
 There is no published version tag yet. The first release entry will be moved from
 `[Unreleased]` into a dated `vMAJOR.MINOR.PATCH` section when that tag is created.

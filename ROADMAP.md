@@ -10,16 +10,18 @@ item and an implementation detail differ.
   replaced the earlier eleven-item surface with four checks and five states.
   The M1–M9 rows in `tests/ACCEPTANCE.md` record the retired surface and are
   not evidence for the current model.
-- Implemented CLI commands: `init`, `scan`, `doctor`, `run`, `verify`
-  (including `--gate`), `approval`, and `doc`. Not provided yet: `vo`,
+- Implemented CLI commands: `init`, `scan`, `doctor`, `mcp`, `run`, `verify`
+  (including `--gate` with approval-role evaluation), `approval`, and `doc`. Not provided yet: `vo`,
   `audit`, `report`, and judgment records.
-- The MCP stdio server advertises nine tools that share the CLI's operation
-  layer; the `vtest mcp` launch subcommand and the remaining tools are open
-  work.
+- The MCP stdio server starts with `vtest mcp` and advertises nine tools that
+  share the CLI's operation layer; the remaining tools are open work.
 - The adapter API, registry, Rust adapter, and synthetic adapter exist; the
-  v0.2 separation is in progress.
+  v0.2 separation is in progress. An experimental, discovery-only Java adapter
+  is built on the framework-neutral `vtest-adapter-lexical` engine
+  ([docs/adapters/](docs/adapters/lexical.md)).
 - GitHub Actions runs the main/develop CI gate and publishes tagged binary
-  releases. The first live release still requires a maintainer-created version
+  releases. A self-verify workflow runs `vtest run --all` and `vtest verify`
+  on this repository nightly and on demand. The first live release still requires a maintainer-created version
   tag.
 - Progress is tracked with GitHub
   [milestones](https://github.com/YmSaki/SpecTracer/milestones) and

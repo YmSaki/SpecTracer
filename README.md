@@ -16,8 +16,10 @@
 
 SpecTracer's verification model is language- and test-runner-agnostic by design.
 The current implementation ships one production adapter, Rust/Cargo
-(`vtest-adapter-rust`), behind a language-neutral adapter API; adapters for
-TypeScript, JavaScript, Go, C#, and other ecosystems are future work.
+(`vtest-adapter-rust`), behind a language-neutral adapter API. An experimental
+Java discovery adapter (`vtest-adapter-lexical`) traces Tests without running
+them; adapters for TypeScript, JavaScript, Go, C#, and other ecosystems are
+future work.
 
 **The current CLI binary is `vtest`.**
 
@@ -96,6 +98,10 @@ ecosystem-specific machinery used to discover and execute tests.
   Rust symbol resolution (canonical Locators), Cargo test execution, and
   `cargo-llvm-cov` target measurement. `vtest-adapter-synthetic` is a test-only
   adapter that proves the core does not depend on Rust.
+- **Experimental adapter:** `vtest-adapter-lexical` is a framework-neutral
+  discovery engine for other languages. Java (`java`) is its only registered
+  language today. It declares only `source_discovery`, so execution and
+  coverage stay `NO_EVIDENCE`.
 - **Intended expansion:** TypeScript/JavaScript, Go, C#, and other languages and
   test runners through explicit adapters that declare their capabilities
   (source discovery, static analysis, test runner, coverage, ...). A missing
@@ -326,7 +332,7 @@ The verification layer therefore favors:
 - **machine-readable JSON** for agent and CI integration,
 - **conservative UNKNOWN** over unjustified certainty.
 
-The MCP stdio server (`vtest-mcp`) exposes the same core operations to AI agents instead of creating a second behavior model: each tool calls the same shared operation as the CLI and returns the same envelope. It currently advertises nine tools: `scan`, `run_tests`, `verify`, `approval_create`, `approval_withdraw`, `approval_get`, `doc_upsert`, `doc_list`, and `doc_get`. The remaining tools in the specification (for example `form_get`, `test_create`, and `report`) are not provided yet. Launching the server through a `vtest mcp` subcommand is tracked as an open issue; today `vtest-mcp` is a library crate without its own binary.
+The MCP stdio server (`vtest-mcp`) exposes the same core operations to AI agents instead of creating a second behavior model: each tool calls the same shared operation as the CLI and returns the same envelope. Start it with `vtest mcp`. It currently advertises nine tools: `scan`, `run_tests`, `verify`, `approval_create`, `approval_withdraw`, `approval_get`, `doc_upsert`, `doc_list`, and `doc_get`. The remaining tools in the specification (for example `form_get`, `test_create`, and `report`) are not provided yet.
 
 ---
 
@@ -345,11 +351,13 @@ Current state:
 
 | Area | State |
 |---|---|
-| `init`, `scan`, `doctor`, `run`, `verify`, `approval`, `doc` CLI | Implemented; acceptance tests under `crates/vtest-cli/tests/` |
+| `init`, `scan`, `doctor`, `mcp`, `run`, `verify`, `approval`, `doc` CLI | Implemented; acceptance tests under `crates/vtest-cli/tests/` |
 | Four checks / five states / fail-closed aggregation | Implemented (`vtest-verify`) |
-| Phase gates (`verify --gate`) | Implemented; approval-role evaluation is open work |
+| Phase gates (`verify --gate`) | Implemented, including approval-role evaluation of the scoped subjects |
 | Adapter API, registry, Rust and synthetic adapters | Implemented; separation (v0.2) still in progress |
-| MCP stdio server | Nine tools; launch subcommand and remaining tools are open work |
+| Java discovery adapter (`vtest-adapter-lexical`) | Experimental; discovery only, no runner or coverage |
+| MCP stdio server (`vtest mcp`) | Nine tools; the remaining tools are open work |
+| Self-verify CI (`vtest run --all` + `verify` on this repository) | Nightly and on demand; informational, not a required check |
 | `vo`, `audit`, `report`, judgment records | Not provided yet |
 
 Work is tracked with GitHub
@@ -364,7 +372,7 @@ Next steps, in the order the open issues track them:
 
 1. finish the v0.2 adapter separation and its acceptance matrix;
 2. bring the CLI and MCP surfaces to the canonical command and tool lists
-   (`vo`, `audit`, `report`, `form_get`, `test_create`, `vtest mcp`);
+   (`vo`, `audit`, `report`, `form_get`, `test_create`);
 3. add judgment records and the semantic audit flow; and
 4. publish the first tagged release with documentation that matches it.
 
@@ -441,6 +449,7 @@ crates/
 ├── vtest-store              # canonical record persistence
 ├── vtest-adapter-api        # adapter traits, capabilities, registry
 ├── vtest-adapter-rust       # Rust/Cargo adapter
+├── vtest-adapter-lexical    # framework-neutral discovery for other languages (experimental: Java)
 ├── vtest-adapter-synthetic  # test-only adapter proving language neutrality
 ├── vtest-scan               # scan orchestration and structured test operations
 ├── vtest-exec               # test execution and Evidence

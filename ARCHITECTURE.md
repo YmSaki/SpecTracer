@@ -16,7 +16,7 @@ vtest-cli (CLI + shared `ops` layer)
     |
 vtest-verify / vtest-exec / vtest-scan
     |
-vtest-adapter-rust / vtest-adapter-synthetic
+vtest-adapter-rust / vtest-adapter-lexical / vtest-adapter-synthetic
     |
 vtest-adapter-api
     |
@@ -32,7 +32,8 @@ vtest-model
   the registry. The core resolves adapters only through the registry.
 - `vtest-adapter-rust` implements Rust discovery, Locators, Cargo test
   execution, and coverage. `vtest-adapter-synthetic` is a test-only adapter
-  that proves the core does not assume Rust.
+  that proves the core does not assume Rust. `vtest-adapter-lexical` is the
+  experimental, discovery-only engine for other languages (see below).
 - `vtest-scan` orchestrates discovery and implements structured test
   operations (which still parse Rust directly; tracked as open work).
 - `vtest-exec` runs tests through the adapter runner and records Evidence.
@@ -41,7 +42,10 @@ vtest-model
 - `vtest-cli` is the non-interactive command-line entrypoint and owns the
   shared `ops` layer that both interfaces call.
 - `vtest-mcp` exposes the MCP stdio tools by calling the same `ops`
-  functions and returning the same JSON envelope.
+  functions and returning the same JSON envelope. `vtest mcp` starts it: the
+  `vtest` binary compiles `vtest-mcp`'s source in through a `#[path]` module,
+  because `vtest-mcp` already depends on `vtest-cli` and a package dependency
+  would be circular.
 
 The CLI composition root (`vtest_cli::adapters::builtin_registry`) is the only
 place adapters are instantiated.
