@@ -346,6 +346,8 @@ impl Reader<'_> {
             let header_end = member.body.unwrap_or(member.end);
             match self.declares(index, header_end) {
                 Declares::Scope(name) => match member.body {
+                    // An enum body holds only its constants.
+                    Some(_) if self.text(self.first_keyword(index, header_end)) == "enum" => {}
                     Some(open) => {
                         let restore = scope.len();
                         scope.extend(name);
@@ -386,9 +388,12 @@ impl Reader<'_> {
             .unwrap_or(start)
     }
 
-    /// What the member header `tokens[start..end]` declares.
+    /// What the member header `tokens[start..end]` declares. A `(` that
+    /// begins the header or follows a modifier is a tuple type
+    /// (`public (int, int) F()`), not the parameter list.
     fn declares(&self, start: usize, end: usize) -> Declares {
-        let mut index = self.skip_attributes(start, end);
+        let first = self.skip_attributes(start, end);
+        let mut index = first;
         while index < end {
             match self.tokens[index].kind {
                 Kind::Word
@@ -405,13 +410,47 @@ impl Reader<'_> {
                     };
                 }
                 Kind::Punct('=') => return Declares::Other,
-                Kind::Open('(') => return self.method_name(start, index),
+                Kind::Open('(') if !self.starts_type(first, index) => {
+                    return self.method_name(start, index)
+                }
                 Kind::Open(_) => index = self.partner(index),
                 _ => {}
             }
             index += 1;
         }
         Declares::Other
+    }
+
+    /// Whether the `(` at `paren` starts a type: it is the first token of
+    /// the header after its attributes, or it follows a modifier.
+    fn starts_type(&self, first: usize, paren: usize) -> bool {
+        let previous = (first..paren)
+            .rev()
+            .find(|&i| !self.tokens[i].kind.is_trivia());
+        previous.is_none_or(|p| {
+            self.tokens[p].kind == Kind::Word
+                && matches!(
+                    self.text(p),
+                    "public"
+                        | "private"
+                        | "protected"
+                        | "internal"
+                        | "static"
+                        | "virtual"
+                        | "override"
+                        | "abstract"
+                        | "sealed"
+                        | "async"
+                        | "extern"
+                        | "unsafe"
+                        | "new"
+                        | "readonly"
+                        | "partial"
+                        | "ref"
+                        | "file"
+                        | "required"
+                )
+        })
     }
 
     /// The name before the parameter list at `paren`: `Add`, `Max<T>`,
@@ -663,5 +702,36 @@ public class CalculatorTests
             )),
             "int[] Make() => new[] { 1, 2 };"
         );
+    }
+    /// @vtest.id TEST-ADAPTER-CSHARP-TUPLE-RETURNS-AND-ENUMS
+    /// @vtest.covers VO-ADAPTER-LEXICAL-NORMALIZES-DECLARATION
+    /// @vtest.target crates/vtest-adapter-lexical/src/csharp.rs::Reader::declares
+    /// @vtest.intent verifies a tuple return type is not taken for the parameter list, so the method keeps its name and SRC ID, and an enum's constants do not make the rest of the file unreadable
+    #[test]
+    fn tuple_returns_and_enums() {
+        let source = "enum E { A, B }\nenum F { X = 1, Y = 2, }\nclass C {\n  // @vtest.src-id SRC-CS-F\n  (int, int) F() { return (1, 2); }\n  public static (int a, int b) G() => (1, 2);\n  int H() { return 1; }\n  C() : this(1) { }\n}\n";
+        let outcome = discover_text(&CSharp, "src/C.cs", source, "demo");
+        assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+        let sources = outcome
+            .sources
+            .iter()
+            .map(|source| source.locator.value.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            sources,
+            vec![
+                "src/C.cs::C::F",
+                "src/C.cs::C::G",
+                "src/C.cs::C::H",
+                "src/C.cs::C::C"
+            ]
+        );
+        assert_eq!(
+            outcome.sources[0].src_id.as_ref().map(|id| id.as_str()),
+            Some("SRC-CS-F")
+        );
+        let test = "class T {\n  // @vtest.id TEST-X\n  // @vtest.covers VO-X\n  // @vtest.intent check\n  (int, int) Pair() { return (1, 2); }\n}\n";
+        let outcome = discover_text(&CSharp, "src/T.cs", test, "demo");
+        assert_eq!(outcome.tests[0].location.locator, "T::Pair");
     }
 }
