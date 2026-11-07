@@ -2027,6 +2027,70 @@ mod tests {
         }
     }
 
+    /// Discovers Rust Tests through `rust-cargo` but declares no Structured
+    /// Test capability, so the Test's `location.adapter` resolves to an
+    /// adapter that cannot parse or render it.
+    struct DiscoveryOnly(RustCargoAdapter);
+
+    impl vtest_adapter_api::Adapter for DiscoveryOnly {
+        fn descriptor(&self) -> vtest_adapter_api::AdapterDescriptor {
+            vtest_adapter_api::AdapterDescriptor {
+                id: "rust-cargo".to_owned(),
+                languages: vec!["rust".to_owned()],
+                capabilities: vec![vtest_adapter_api::Capability::SourceDiscovery],
+                config_namespace: "rust-cargo".to_owned(),
+            }
+        }
+        fn as_source_discovery(&self) -> Option<&dyn vtest_adapter_api::SourceDiscoveryAdapter> {
+            vtest_adapter_api::Adapter::as_source_discovery(&self.0)
+        }
+    }
+
+    fn tree_snapshot(root: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
+        let mut files = BTreeMap::new();
+        let mut pending = vec![root.to_owned()];
+        while let Some(dir) = pending.pop() {
+            for entry in fs::read_dir(&dir).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    pending.push(path);
+                } else {
+                    files.insert(path.clone(), fs::read(&path).unwrap());
+                }
+            }
+        }
+        files
+    }
+
+    /// @vtest.id TEST-STRUCTURED-OP-NO-WRITE-WITHOUT-CAPABILITY
+    /// @vtest.covers VO-ADAPTER-STRUCTURED-TEST-CAPABILITY-REQUIRED
+    /// @vtest.target crates/vtest-scan/src/operations.rs::edit_test
+    /// @vtest.intent create and edit through an adapter that discovers the Test but lacks Structured Test fail with E-ADAPTER-004 and leave every file unchanged (DS-1555)
+    #[test]
+    fn structured_operations_without_capability_write_nothing() {
+        let root = rescan_fixture(RESCAN_FIXTURE_TEST);
+        let before = tree_snapshot(&root);
+        let mut registry = AdapterRegistry::new();
+        registry
+            .register(Box::new(DiscoveryOnly(RustCargoAdapter::new())))
+            .unwrap();
+        let supplied = FormAnswers {
+            form: "rust-unit".to_owned(),
+            answers: BTreeMap::new(),
+        };
+        let mut set = BTreeMap::new();
+        set.insert("intent".to_owned(), FormValue::Scalar("changed".to_owned()));
+
+        let create =
+            create_test(&root, "rust-unit", &supplied, None, false, &registry).unwrap_err();
+        let edit = edit_test(&root, "TEST-ADD", None, &set, None, false, &registry).unwrap_err();
+
+        assert_eq!(create.code, "E-ADAPTER-004");
+        assert_eq!(edit.code, "E-ADAPTER-004");
+        assert_eq!(tree_snapshot(&root), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
     /// @vtest.id TEST-SHOW-RECORD-ERROR-CODE
     /// @vtest.covers VO-SCAN-RECORD-INTEGRITY-E-SCAN-010
     /// @vtest.target crates/vtest-scan/src/operations.rs::show_test
