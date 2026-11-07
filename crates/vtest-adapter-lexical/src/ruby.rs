@@ -514,6 +514,10 @@ impl Lexer<'_> {
             }
             let next = code.get(j + 1).map(|t| (t.kind, self.text(t)));
             let previous = j.checked_sub(1).map(|p| (code[p].kind, self.text(code[p])));
+            // `obj.name = x` calls a setter; only a bare name is a local.
+            if matches!(previous, Some((_, "." | "&." | "::"))) {
+                continue;
+            }
             let assigned = matches!(next, Some((Kind::Op, op))
                 if op.ends_with('=') && !matches!(op, "==" | "===" | "!=" | ">=" | "<="));
             let block_parameter = matches!(previous, Some((_, "|")))
@@ -1363,7 +1367,7 @@ end
     /// @vtest.id TEST-ADAPTER-RUBY-ARGUMENT-LITERALS-ENCLOSING-ENDS-AND-OPERATOR-NAMES
     /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
     /// @vtest.target crates/vtest-adapter-lexical/src/ruby.rs::Reader::statement_end
-    /// @vtest.intent verifies that a lower-case heredoc passed as a method argument hides its body from the code while `<<b` after a local variable of the current scope is a shift that keeps the Tests after it, even with a later `b` line, and a local of another scope makes the file unreadable, that an unterminated literal passed as a method argument and an expression cut off by the enclosing `end` or `}` are not read as a whole Test, that an endless range may end an endless method, and that `[]=` and singleton unary operator methods keep their names
+    /// @vtest.intent verifies that a lower-case heredoc passed as a method argument hides its body from the code while `<<b` after a local variable of the current scope is a shift that keeps the Tests after it, even with a later `b` line, a setter call such as `obj.name = 1` binds no local, and a local of another scope makes the file unreadable, that an unterminated literal passed as a method argument and an expression cut off by the enclosing `end` or `}` are not read as a whole Test, that an endless range may end an endless method, and that `[]=` and singleton unary operator methods keep their names
     #[test]
     fn argument_literals_enclosing_ends_and_operator_names() {
         let declare = "# @vtest.id TEST-X\n# @vtest.covers VO-X\n# @vtest.intent review\n";
@@ -1403,6 +1407,23 @@ end
                 .len(),
             1
         );
+        // A setter call (`obj.assert_equal = 1`) binds no local, so the
+        // method call opens a heredoc whose text is not code.
+        for setter in [
+            "obj.assert_equal = 1",
+            "obj&.assert_equal += 1",
+            "Mod::assert_equal ||= 1",
+        ] {
+            for (tail, unreadable) in [("text\n", false), ("", true)] {
+                let source = format!(
+                    "obj = Object.new\n{setter}\nassert_equal <<text\n{declare}def fake\n  1\nend\n{tail}"
+                );
+                let outcome = discover_text(&Ruby, "fixture.rb", &source, "demo");
+                assert!(outcome.tests.is_empty(), "{source:?}");
+                assert!(outcome.sources.is_empty(), "{source:?}");
+                assert_eq!(outcome.diagnostics.is_empty(), !unreadable, "{source:?}");
+            }
+        }
         // A local of another scope cannot decide it: rejected, so neither a
         // heredoc's text nor the code after a shift is read as a Test.
         for setup in [

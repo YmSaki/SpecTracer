@@ -25,7 +25,8 @@ rules shared by all framework-neutral adapters.
   that line (`<<~TEXT` ... `TEXT`) are part of it. `end` inside heredocs,
   `%w[]` literals, interpolations, and regular expressions is text. As in Ruby,
   `name <<word` is a shift when `name` is a local variable of the current
-  scope (assigned, or a block, method, or `for` parameter, earlier in a
+  scope (assigned without a receiver, so not `obj.name = x`, or a block,
+  method, or `for` parameter, earlier in a
   scope still open there), and a heredoc otherwise
   (`assert_equal <<text, actual`), which then needs its terminator line;
   elsewhere any label opens one (`text = <<text`). When `name` is bound
