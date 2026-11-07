@@ -921,9 +921,13 @@ impl Reader<'_> {
                 Kind::Semi => break,
                 Kind::Op => match self.text(index) {
                     "<" => {
-                        if let Some(close) = self
-                            .angle_close(index, end)
-                            .filter(|&close| typed || self.type_arguments(index, close))
+                        // Right after `=`, `<...>` can only be a generic
+                        // arrow's type parameters, which may have defaults.
+                        let parameters = !typed && self.is(index.wrapping_sub(1), "=");
+                        if let Some(close) =
+                            self.angle_close(index, end, parameters).filter(|&close| {
+                                typed || parameters || self.type_arguments(index, close)
+                            })
                         {
                             index = close;
                         }
@@ -946,8 +950,10 @@ impl Reader<'_> {
 
     /// The token that closes the `<` at `open` as a type's angle brackets,
     /// or `None` when no `>` can close it before a token that cannot be
-    /// part of a type (so it is a comparison).
-    fn angle_close(&self, open: usize, end: usize) -> Option<usize> {
+    /// part of a type (so it is a comparison). With `parameters`, the
+    /// brackets declare type parameters, so `=` gives a default
+    /// (`<T = number>`) instead of ending them.
+    fn angle_close(&self, open: usize, end: usize, parameters: bool) -> Option<usize> {
         let mut depth = 0usize;
         let mut index = open;
         while index < end {
@@ -962,6 +968,7 @@ impl Reader<'_> {
                             return Some(index);
                         }
                     }
+                    "=" if parameters => {}
                     "=" | "==" | "===" | "!=" | "!==" | "<=" | ">=" | "&&" | "||" | "??" => {
                         return None
                     }
@@ -1488,7 +1495,7 @@ describe("Calc", () => {
     /// @vtest.id TEST-ADAPTER-JAVASCRIPT-GENERIC-CALLS-IN-DECLARATORS
     /// @vtest.covers VO-ADAPTER-LEXICAL-NORMALIZES-DECLARATION
     /// @vtest.target crates/vtest-adapter-lexical/src/javascript.rs::Reader::declarators
-    /// @vtest.intent verifies that commas inside a generic call's type arguments do not split a variable statement, while commas after a comparison still do, so an edit to the tail of each arrow body changes its Source text
+    /// @vtest.intent verifies that commas inside a generic call's type arguments or a generic arrow's type parameters (with or without defaults) do not split a variable statement, while commas after a comparison still do, so an edit to the tail of each arrow body changes its Source text
     #[test]
     fn generic_calls_in_declarators() {
         let read = |tail: &str| {
@@ -1496,7 +1503,8 @@ describe("Calc", () => {
                 "const f = () => pick<number, string>(1, {tail}), g = () => 2;\n\
                  const h = () => wrap<Map<string, Array<number>>, number>(new Map(), {tail}), i = () => 3;\n\
                  const j = (a: number, b: number) => a < b, k = (c: number) => c > {tail};\n\
-                 const l = () => tag<string>`x${{{tail}}}`, m = () => 4;\n"
+                 const l = () => tag<string>`x${{{tail}}}`, m = () => 4;\n\
+                 const n = <T = number, U = Map<string, T>>(x: T, y: U) => {tail}, o = <V,>(v: V) => {tail}, p = () => {tail};\n"
             );
             let outcome = discover_text(&JavaScript, "src/g.ts", &source, "demo");
             assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
@@ -1534,12 +1542,18 @@ describe("Calc", () => {
                     "const l = () => tag<string>`x${1}`".to_owned()
                 ),
                 ("src/g.ts::m".to_owned(), "m = () => 4".to_owned()),
+                (
+                    "src/g.ts::n".to_owned(),
+                    "const n = <T = number, U = Map<string, T>>(x: T, y: U) => 1".to_owned()
+                ),
+                ("src/g.ts::o".to_owned(), "o = <V,>(v: V) => 1".to_owned()),
+                ("src/g.ts::p".to_owned(), "p = () => 1".to_owned()),
             ]
         );
         let after = read("9");
-        for (name, (old, new)) in ["f", "h", "k", "l"]
+        for (name, (old, new)) in ["f", "h", "k", "l", "n", "o", "p"]
             .iter()
-            .zip([0, 2, 5, 6].map(|n| (&before[n].1, &after[n].1)))
+            .zip([0, 2, 5, 6, 8, 9, 10].map(|n| (&before[n].1, &after[n].1)))
         {
             assert_ne!(old, new, "{name}");
         }
