@@ -62,6 +62,7 @@ pub mod php;
 pub mod python;
 pub mod ruby;
 pub mod shared;
+pub mod swift;
 
 use std::{
     collections::BTreeMap,
