@@ -17,9 +17,9 @@ for the declaration rules shared by all framework-neutral adapters.
   `finally` continue it). Closures, `match` arms, and attributes (`#[...]`)
   inside a statement do not end it. Inline HTML outside `<?php ... ?>` is
   not code.
-- **Limits**: heredoc/nowdoc strings and inline HTML outside `<?php ... ?>`
-  are read as code. If their brackets do not balance, the file is reported
-  as `E-SCAN-001`.
+- **Limits**: an unterminated string, heredoc, or nowdoc, or brackets that
+  do not balance in the code between `<?php` and `?>`, make the file
+  unreadable (`E-SCAN-001`).
 
 ```php
 final class CalcTest extends TestCase
