@@ -1,0 +1,11 @@
+id: VO-PENDING-JUDGMENT-ONLY-AFFECTS-CASE-COVERAGE
+parent: null
+derives_from:
+  - doc: DS-1443
+claim: "実効判断が `accepted` の場合にだけ消滅するという規則は `case-coverage` 型の項目にだけ適用し、検査に由来する `kind: unknown` の項目の生成・消滅は判断記録の有無で変わらない。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-08T12:00:00+09:00
+updated: 2026-11-08T12:00:00+09:00

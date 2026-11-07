@@ -12,11 +12,12 @@
 //! Kinds produced here:
 //!
 //! - `unknown` from a check whose state is `UNKNOWN` (DS-894), and the
-//!   per-Test `case-coverage` item (DS-888〜DS-893 / DS-1441). This
-//!   codebase has no judgment-record store on this branch, so no
-//!   `(Test, case-coverage)` effective judgment can be `accepted` and every
-//!   qualifying Test gets its item with an empty `basis` (DS-892: an
-//!   undetermined effective judgment still generates the item).
+//!   per-Test `case-coverage` item (DS-888〜DS-893 / DS-1441). The item is
+//!   dropped only when the `(Test, case-coverage)` effective judgment
+//!   (DS-724〜DS-729) is `accepted`; an undetermined, `rejected`,
+//!   `deferred` or conflicting one keeps it, with the judgment records it
+//!   looked at in `basis` (DS-891/DS-892). Judgment records never touch the
+//!   check-derived `unknown` items (DS-1443).
 //! - `unregistered` from a discovered Test construct with no management
 //!   declaration (`ManagedTestLink::Missing`, DS-560).
 //! - `unresolved` from a `MISMATCH` whose label is `MISSING` on a Test's
@@ -32,6 +33,7 @@ use std::collections::BTreeMap;
 
 use vtest_model::{DiagnosticLabel, ManagedTestLink, VerificationState, VoRecord};
 use vtest_scan::ScanResult;
+use vtest_store::{decisions::DecisionRecord, VerifyLayout};
 use vtest_verify::{check_name, CheckOutcome, NodeKind, TreeNode, VerifyOutcome};
 
 use super::verify::{state_name, GateEvaluation};
@@ -120,10 +122,79 @@ fn test_ids_in(nodes: &[TreeNode], out: &mut std::collections::BTreeSet<String>)
     }
 }
 
+/// The `(Test, case-coverage)` effective judgment (本冊 §8.5).
+#[derive(Debug, Eq, PartialEq)]
+enum CaseCoverage {
+    /// DS-729: every record of the effective set says `accepted`.
+    Accepted,
+    /// DS-728 (empty effective set), DS-725 (conflicting values), or a
+    /// single `rejected` / `deferred` value. `basis` holds the ids of the
+    /// records looked at (DS-892/DS-1442).
+    NotAccepted { basis: Vec<String> },
+}
+
+/// Derives the effective case-coverage judgment of `test_id`.
+///
+/// - V (DS-726): the records for this subject and kind that are valid
+///   (DS-724): the subject hash and the full dependency closure equal the
+///   ones computed now, the same binding `audit bundle` records.
+/// - E (DS-727): V minus the records another record of V supersedes.
+/// - Empty E is undetermined (DS-728); one shared value is that value
+///   (DS-729); differing values select none (DS-725).
+fn case_coverage_judgment(
+    layout: &VerifyLayout,
+    scan: &ScanResult,
+    test_id: &str,
+    decisions: &[DecisionRecord],
+) -> CaseCoverage {
+    let records: Vec<&DecisionRecord> = decisions
+        .iter()
+        .filter(|record| record.subject == test_id && record.judgment_kind == "case-coverage")
+        .collect();
+    if records.is_empty() {
+        return CaseCoverage::NotAccepted { basis: Vec::new() };
+    }
+    let current = super::judgment::current_binding(
+        layout,
+        scan,
+        &super::judgment::Subject::Test(test_id.to_owned()),
+    )
+    .ok();
+    let valid: Vec<&DecisionRecord> = records
+        .iter()
+        .copied()
+        .filter(|record| {
+            current.as_ref().is_some_and(|binding| {
+                binding.subject_hash == record.subject_hash
+                    && binding.dependencies == record.dependencies
+            })
+        })
+        .collect();
+    let superseded = |record: &DecisionRecord| {
+        valid
+            .iter()
+            .any(|other| other.id != record.id && other.supersedes.contains(&record.id))
+    };
+    let effective: Vec<&DecisionRecord> = valid
+        .iter()
+        .copied()
+        .filter(|record| !superseded(record))
+        .collect();
+    if !effective.is_empty() && effective.iter().all(|record| record.decision == "accepted") {
+        return CaseCoverage::Accepted;
+    }
+    // DS-892/DS-1442: `basis` carries the ids of the judgment records
+    // looked at, valid or not, in id order.
+    let basis = records.iter().map(|record| record.id.clone()).collect();
+    CaseCoverage::NotAccepted { basis }
+}
+
 /// Builds the `pending` section for one verification result.
 pub fn pending_items(
+    layout: &VerifyLayout,
     scan: &ScanResult,
     vos: &BTreeMap<String, VoRecord>,
+    decisions: &[DecisionRecord],
     outcome: &VerifyOutcome,
     gate: Option<&GateEvaluation>,
 ) -> Vec<PendingItem> {
@@ -153,14 +224,20 @@ pub fn pending_items(
             .filter_map(|vo| vos.get(vo.as_str()))
             .any(|vo| !vo.dimensions.is_empty());
         if !test.covers.is_empty() && (!test.cases.is_empty() || has_dimensions) {
-            items.push(PendingItem {
-                subject: test.id.as_str().to_owned(),
-                kind: "unknown",
-                check: None,
-                judgment_kind: Some("case-coverage"),
-                basis: Vec::new(),
-                bundle_ref: None,
-            });
+            // DS-1441: the item disappears only for an `accepted`
+            // effective judgment.
+            if let CaseCoverage::NotAccepted { basis } =
+                case_coverage_judgment(layout, scan, test.id.as_str(), decisions)
+            {
+                items.push(PendingItem {
+                    subject: test.id.as_str().to_owned(),
+                    kind: "unknown",
+                    check: None,
+                    judgment_kind: Some("case-coverage"),
+                    basis,
+                    bundle_ref: None,
+                });
+            }
         }
     }
 

@@ -247,10 +247,20 @@ pub fn evaluate(
         non_pass,
         pending: Vec::new(),
     };
-    let vos = vtest_store::approval::read_all_vos(&vtest_store::VerifyLayout::new(root))
-        .unwrap_or_default();
+    let layout = vtest_store::VerifyLayout::new(root);
+    let vos = vtest_store::approval::read_all_vos(&layout).unwrap_or_default();
+    // A judgment store that does not read (E-SCAN-010) gives no effective
+    // judgment, so every case-coverage item stays (fail-closed).
+    let decisions = vtest_store::decisions::read_all_decisions(&layout).unwrap_or_default();
     let mut data = data;
-    data.pending = super::pending::pending_items(&scan, &vos, &outcome, data.gate.as_ref());
+    data.pending = super::pending::pending_items(
+        &layout,
+        &scan,
+        &vos,
+        &decisions,
+        &outcome,
+        data.gate.as_ref(),
+    );
 
     let exit = match &data.gate {
         Some(evaluation) if evaluation.satisfied => ExitCode::Ok,

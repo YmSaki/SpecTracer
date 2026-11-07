@@ -671,3 +671,148 @@ fn verify_json_carries_the_pending_section() {
         );
     }
 }
+
+/// Generates a case-coverage bundle for TEST-A and submits `decision`
+/// against it; returns the new judgment record id.
+fn judge_case_coverage(root: &Path, decision: &str, supersedes: &[&str]) -> String {
+    let (code, bundle) = vtest(
+        root,
+        &[
+            "audit",
+            "bundle",
+            "--test",
+            "TEST-A",
+            "--kind",
+            "case-coverage",
+        ],
+    );
+    assert_eq!(code, 0, "{bundle}");
+    let submission = serde_json::json!({
+        "bundle_id": bundle["data"]["bundle_id"],
+        "subject": "TEST-A",
+        "judgment_kind": "case-coverage",
+        "decision": decision,
+        "supersedes": supersedes,
+        "actor": {"kind": "human", "id": "reviewer"}
+    });
+    let path = root.join("result.json");
+    fs::write(&path, submission.to_string()).unwrap();
+    let (code, submitted) = vtest(root, &["audit", "submit", "--file", path.to_str().unwrap()]);
+    assert_eq!(code, 0, "{submitted}");
+    submitted["data"]["decision_id"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+/// The TEST-A case-coverage item of a verify / report envelope, if any.
+fn case_coverage_item(envelope: &Value) -> Option<Value> {
+    envelope["data"]["pending"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["subject"] == "TEST-A" && item["judgment_kind"] == "case-coverage")
+        .cloned()
+}
+
+/// Everything in verify's data except `pending`: the check states that a
+/// judgment must not change (DS-693, DS-1443).
+fn checks_only(envelope: &Value) -> Value {
+    let mut data = envelope["data"].clone();
+    data.as_object_mut().unwrap().remove("pending");
+    let pending: Vec<Value> = envelope["data"]["pending"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|item| item["judgment_kind"] != "case-coverage")
+        .cloned()
+        .collect();
+    serde_json::json!({"data": data, "check_items": pending})
+}
+
+/// PR #150 review: a single valid `accepted` case-coverage judgment
+/// submitted through `audit bundle` → `audit submit` removes the Test's
+/// case-coverage item from verify and report (DS-891/DS-1441). The checks
+/// and the check-derived pending items stay as they were (DS-1443). When
+/// the Test changes afterwards the record is no longer valid (DS-724) and
+/// the item comes back with the record's id in `basis` (DS-892).
+/// @vtest.id TEST-PENDING-ACCEPTED-JUDGMENT-REMOVES-CASE-COVERAGE
+/// @vtest.covers VO-PENDING-CASE-COVERAGE-ITEM, VO-PENDING-JUDGMENT-ONLY-AFFECTS-CASE-COVERAGE, VO-JUDGMENT-VALID-RECORD-MATCHES-CURRENT-BINDING
+/// @vtest.target crates/vtest-cli/src/ops/pending.rs::pending_items
+/// @vtest.intent bundle→submitでaccepted判断を記録するとverify/reportのcase-coverage項目だけが消え、検査状態と検査由来の項目は変わらず、Test変更後は記録が無効になり、その記録IDをbasisに載せた項目が戻ることを確認する
+#[test]
+fn an_accepted_case_coverage_judgment_removes_the_item_until_it_goes_stale() {
+    let root = fixture("judgment-accepted");
+    let (_, before) = vtest(&root, &["verify"]);
+    let item = case_coverage_item(&before).expect("an undetermined judgment keeps the item");
+    assert_eq!(item["basis"], serde_json::json!([]), "{item}");
+
+    let id = judge_case_coverage(&root, "accepted", &[]);
+    for command in ["verify", "report"] {
+        let (_, after) = vtest(&root, &[command]);
+        assert!(case_coverage_item(&after).is_none(), "{command}: {after}");
+        if command == "verify" {
+            assert_eq!(checks_only(&before), checks_only(&after));
+        }
+        assert!(
+            after["data"]["pending"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|item| item["subject"] == "TEST-B"),
+            "other Tests keep their items: {after}"
+        );
+    }
+
+    // Changing TEST-A's own code changes its subject hash.
+    let tests = fs::read_to_string(root.join("tests/report.rs")).unwrap();
+    fs::write(
+        root.join("tests/report.rs"),
+        tests.replace("add(2, 3), 5", "add(3, 2), 5"),
+    )
+    .unwrap();
+    let (_, stale) = vtest(&root, &["report"]);
+    let item = case_coverage_item(&stale).expect("a STALE judgment is not effective");
+    assert_eq!(item["basis"], serde_json::json!([id]), "{item}");
+    fs::remove_dir_all(&root).ok();
+}
+
+/// A valid case-coverage judgment that is not `accepted`, or valid
+/// judgments whose values differ, keep the item and list the records in
+/// `basis` (DS-725/DS-892). A record superseded by another valid record
+/// leaves the effective set (DS-727), so `accepted` superseding `rejected`
+/// removes the item.
+/// @vtest.id TEST-PENDING-NOT-ACCEPTED-JUDGMENTS-KEEP-CASE-COVERAGE
+/// @vtest.covers VO-PENDING-CASE-COVERAGE-NOT-ACCEPTED-KEEPS-ITEM, VO-JUDGMENT-CONFLICTING-VALUES-SELECT-NONE, VO-JUDGMENT-EFFECTIVE-SET-EXCLUDES-SUPERSEDED
+/// @vtest.target crates/vtest-cli/src/ops/pending.rs::pending_items
+/// @vtest.intent rejected・deferred・値の食い違うaccepted+rejectedではcase-coverage項目が残り記録IDがbasisに載ること、rejectedをsupersedesしたacceptedでは項目が消えることを確認する
+#[test]
+fn rejected_deferred_or_conflicting_judgments_keep_the_item() {
+    for decision in ["rejected", "deferred"] {
+        let root = fixture(&format!("judgment-{decision}"));
+        let id = judge_case_coverage(&root, decision, &[]);
+        let (_, report) = vtest(&root, &["report"]);
+        let item = case_coverage_item(&report).expect(decision);
+        assert_eq!(item["basis"], serde_json::json!([id]), "{item}");
+        fs::remove_dir_all(&root).ok();
+    }
+
+    let root = fixture("judgment-conflict");
+    let accepted = judge_case_coverage(&root, "accepted", &[]);
+    let rejected = judge_case_coverage(&root, "rejected", &[]);
+    let (_, report) = vtest(&root, &["report"]);
+    let item = case_coverage_item(&report).expect("differing values select none");
+    let basis = item["basis"].to_string();
+    assert!(
+        basis.contains(&accepted) && basis.contains(&rejected),
+        "{item}"
+    );
+    fs::remove_dir_all(&root).ok();
+
+    let root = fixture("judgment-supersedes");
+    let rejected = judge_case_coverage(&root, "rejected", &[]);
+    judge_case_coverage(&root, "accepted", &[&rejected]);
+    let (_, report) = vtest(&root, &["report"]);
+    assert!(case_coverage_item(&report).is_none(), "{report}");
+    fs::remove_dir_all(&root).ok();
+}
