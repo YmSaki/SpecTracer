@@ -73,3 +73,24 @@ adapters:
 ```
 
 Each language adapter has its own page in this directory.
+
+## Adding a language
+
+A language is a `LanguageProfile` in `crates/vtest-adapter-lexical/src/<lang>.rs`:
+its comment and string syntax, file extensions, excluded directories, and a
+`classify` function that tells function definitions and named scopes from other
+statements. The profile chooses one of the block structures this crate
+provides:
+
+| `Structure` | Bodies are delimited by | Example languages |
+|---|---|---|
+| `Braces` | `{ ... }` | C, C++, Java, C#, Go, JavaScript |
+| `Indentation` | the indentation after a `:` line | Python |
+| `KeywordEnd` | an opening keyword and its `end` | Ruby |
+
+A language change adds only that file, one `pub mod <lang>;` line in
+`src/lib.rs`, and one `registry.register(...)` line in
+`crates/vtest-cli/src/adapters.rs` (the composition root, BD-007 / BD-102),
+plus its tests and documentation. If a language needs something the crate does
+not provide, such as another block structure or a lexer rule, change the crate
+first in its own change, not in the language change.
