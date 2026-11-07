@@ -23,7 +23,7 @@ use std::path::Path;
 
 use vtest_adapter_api::AdapterRegistry;
 use vtest_exec::{run_tests, ExecutionError, ExecutionResult, RunnableTest};
-use vtest_model::{Diagnostic, TargetRef, TestEntity, TestId};
+use vtest_model::{Diagnostic, SourceFunction, TargetRef, TestEntity, TestId};
 use vtest_scan::ScanResult;
 use vtest_store::{approval::read_all_vos, StoreError, VerifyLayout};
 use vtest_verify::vo_subtree_ids;
@@ -144,7 +144,7 @@ pub fn resolve_runnables(
 }
 
 /// Builds the `RunnableTest` for one `TestEntity`: resolves its declared
-/// `Locator` targets (if any) against the scan's discovered Source
+/// targets (Locator or SRC ID, if any) against the scan's discovered Source
 /// Functions to obtain their current content hashes and canonical
 /// Locators. Every resolved target is handed to the runner, so each one is
 /// measured and recorded (DS-831/DS-1411), not only the first. A Test with
@@ -155,14 +155,10 @@ fn build_runnable(entity: &TestEntity, scan: &ScanResult) -> RunnableTest {
     let mut target_hashes = Vec::new();
     let mut target_locators = Vec::new();
     for target in &entity.targets {
-        let TargetRef::Locator(locator) = target else {
-            continue;
-        };
-        if let Some(source_fn) = scan
-            .sources
-            .iter()
-            .find(|source| &source.locator == locator)
-        {
+        // `run` only builds a Test whose every target matched exactly one
+        // Source Target (`unresolved_targets`), so a Locator and a SrcId
+        // target are both recorded here; none is silently dropped.
+        if let [source_fn] = matching_sources(target, scan).as_slice() {
             target_hashes.push(source_fn.content_hash.clone());
             target_locators.push(source_fn.locator.clone());
         }
@@ -203,42 +199,51 @@ pub fn run(
 
 /// DS-1374/DS-1382/DS-1383: Evidence is generated only when every declared
 /// target resolves to exactly one Source Target. A Test with a target that
-/// resolves to none or to several is not executed, and one E-SCAN-004
-/// diagnostic per failing target is returned instead, so `run` never writes
+/// resolves to none or to several is not executed, and one error per
+/// failing target is returned instead (E-SCAN-004, or E-SCAN-011 for a
+/// SRC ID declared by several Source Targets), so `run` never writes
 /// Evidence with a partial `hashes.targets` (#127).
 fn unresolved_targets(entity: &TestEntity, scan: &ScanResult) -> Vec<Diagnostic> {
     entity
         .targets
         .iter()
         .filter_map(|target| {
-            let (spelling, matches) = match target {
-                TargetRef::Locator(locator) => (
-                    locator.value.clone(),
-                    scan.sources
-                        .iter()
-                        .filter(|source| &source.locator == locator)
-                        .count(),
-                ),
-                TargetRef::SrcId(src_id) => (
-                    src_id.as_str().to_owned(),
-                    scan.sources
-                        .iter()
-                        .filter(|source| source.src_id.as_ref() == Some(src_id))
-                        .count(),
-                ),
+            let matches = matching_sources(target, scan).len();
+            if matches == 1 {
+                return None;
+            }
+            let (code, spelling) = match target {
+                TargetRef::Locator(locator) => ("E-SCAN-004", locator.value.as_str()),
+                // A SRC ID declared by several Source Targets is a SRC ID
+                // collision, which scan already reports as E-SCAN-011 on
+                // the referring Test; it is not re-labelled E-SCAN-004.
+                TargetRef::SrcId(src_id) if matches > 1 => ("E-SCAN-011", src_id.as_str()),
+                TargetRef::SrcId(src_id) => ("E-SCAN-004", src_id.as_str()),
             };
-            (matches != 1).then(|| {
-                let reason = if matches == 0 { "no" } else { "more than one" };
+            let reason = if matches == 0 { "no" } else { "more than one" };
+            Some(
                 Diagnostic::error(
-                    "E-SCAN-004",
+                    code,
                     format!(
                         "test `{}` target `{spelling}` resolves to {reason} Source Target; the \
                          Test is not run and no Evidence is written",
                         entity.id
                     ),
                 )
-                .with_location(entity.location.clone())
-            })
+                .with_location(entity.location.clone()),
+            )
+        })
+        .collect()
+}
+
+/// The Source Targets one declared target matches: by exact Locator, or by
+/// the permanent SRC ID a Source Target declares.
+fn matching_sources<'a>(target: &TargetRef, scan: &'a ScanResult) -> Vec<&'a SourceFunction> {
+    scan.sources
+        .iter()
+        .filter(|source| match target {
+            TargetRef::Locator(locator) => &source.locator == locator,
+            TargetRef::SrcId(src_id) => source.src_id.as_ref() == Some(src_id),
         })
         .collect()
 }
