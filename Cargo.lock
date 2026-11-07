@@ -558,6 +558,7 @@ dependencies = [
  "toml",
  "vtest-adapter-api",
  "vtest-model",
+ "vtest-store",
 ]
 
 [[package]]

@@ -9,6 +9,7 @@
 pub mod approval;
 pub mod doc;
 pub mod doctor;
+pub mod form;
 pub mod init;
 pub mod run;
 pub mod scan;
