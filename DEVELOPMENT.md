@@ -82,6 +82,28 @@ Keep commits focused. Keep documentation-only changes to documentation files,
 because generated `.verify/cache/` data and unrelated sources make a diff hard to
 review; when a tool run changes `.verify/cache/`, leave that out of the commit.
 
+### Pull request scope
+
+Keep one purpose per pull request, because a reviewer must be able to tell a
+move from a change in behavior.
+
+- **Separate moves from logic.** A move PR (file moves, renames, extracting a
+  module or a crate) changes no behavior and is reviewed as `git diff -M`
+  renames; a change in behavior goes in its own PR. When a move exposes a
+  bug, open an issue citing the clause IDs instead of fixing it in the move PR.
+- **Open one PR at a time against the shared files**
+  `crates/vtest-cli/src/lib.rs`, `crates/vtest-mcp/src/lib.rs`,
+  `crates/vtest-cli/src/adapters.rs`, `crates/vtest-verify/src/lib.rs`, and
+  the workspace `Cargo.toml` / `Cargo.lock`, because parallel moves of the
+  same file re-import each other's diff on every merge. A second PR on one of
+  these files branches after the first is merged.
+- **Show that behavior is unchanged.** Build the base and head binaries and
+  compare their outputs with the procedure in
+  [`docs/reports/refactor-baseline-2026-11-07.md`](docs/reports/refactor-baseline-2026-11-07.md)
+  §6; write any difference, with its clause ID, into the PR.
+
+The design rules these steps serve are in [`AGENTS.md`](AGENTS.md) §14.
+
 ### Specification changes
 
 Change the canonical specification on `spec/<topic>` branches.

@@ -10,13 +10,19 @@ Run this set before opening or updating a pull request:
 
 ```bash
 cargo fmt --all -- --check
-cargo test --workspace --locked
+cargo test --workspace --locked --no-fail-fast
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo run --quiet -p vtest-cli --locked -- doctor
 ```
 
 The same gate runs in `.github/workflows/ci.yml` for `main`, `develop`, and their
-pull requests.
+pull requests. Pass `--no-fail-fast` locally, because without it `cargo test`
+stops at the first failing test binary and the later binaries never report.
+Without `cargo-llvm-cov` nine tests fail (`vtest-adapter-rust --lib` 2,
+`evidence_e2e` 5, `execution_state_e2e` 2); they are classified in
+[`docs/reports/refactor-baseline-2026-11-07.md`](docs/reports/refactor-baseline-2026-11-07.md)
+§2.1. Report them as `NOT_EXECUTED` in the PR and cite the CI run, which has the
+tool, as the evidence.
 
 The CI environment installs `llvm-tools-preview` and `cargo-llvm-cov` so that M7
 can distinguish measured target execution from the fail-closed unavailable
@@ -49,12 +55,12 @@ Run all CLI acceptance tests with:
 cargo test -p vtest-cli --tests --locked
 ```
 
-Not every 別紙C §18 node has a dedicated acceptance test yet: nodes covering
-product areas this slice's `crates/vtest-cli/src/ops/` does not implement
-(static audit, coverage measurement, Structured Test Operation create/edit)
-are tracked in `reports/closure-trace.md`'s gap table, because a test that asserts
-the absence of a feature passes while the feature is missing. When such a feature
-is implemented, add its acceptance test and remove its gap-table row.
+Not every 別紙C §18 node has a dedicated acceptance test yet. Record a node
+without one as a gap in [`tests/ACCEPTANCE.md`](tests/ACCEPTANCE.md) or
+[`docs/reports/adapter-acceptance-matrix.md`](docs/reports/adapter-acceptance-matrix.md)
+instead of writing a test that asserts the feature's absence, because such a
+test passes while the feature is missing. When the feature is implemented, add
+its acceptance test and remove the gap row.
 
 ## Verification behavior to preserve
 
@@ -72,6 +78,10 @@ is implemented, add its acceptance test and remove its gap-table row.
 When changing execution, aggregation, record schemas, CLI, or MCP, also run
 the applicable fixture flow (`vtest scan`, `vtest run`, and `vtest verify`)
 and record the result. (`vtest audit` and bundle/submit are not provided yet.)
+For a refactoring PR that must not change behavior, build the base and head
+binaries and compare their outputs with the procedure in
+[`docs/reports/refactor-baseline-2026-11-07.md`](docs/reports/refactor-baseline-2026-11-07.md)
+§6; write any difference, with its clause ID, into the PR.
 
 ## Release verification
 
