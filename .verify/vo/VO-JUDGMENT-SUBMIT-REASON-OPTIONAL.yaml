@@ -1,0 +1,11 @@
+id: VO-JUDGMENT-SUBMIT-REASON-OPTIONAL
+parent: null
+derives_from:
+  - doc: DS-722
+claim: "理由（`reason` / `exclusions`）の有無を提出の受理条件にしない。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00
