@@ -18,7 +18,7 @@
 | `/usr/bin/time` | 無し。wall time は `date +%s.%N` の差分。最大 RSS は未計測 |
 | CI（llvm-cov あり） | `99f7252` の push で成功（run 414、<https://github.com/YmSaki/SpecTracer/actions/runs/42406300827>） |
 
-計測後に `develop` は `fd22549` へ進んだ（#183、#184。`crates/vtest-adapter-lexical/src/swift.rs`、`crates/vtest-cli/tests/mcp_cli_equivalence.rs`、`docs/adapters/swift.md` の 3 ファイル）。基準 SHA は `99f7252` のままとする。#175 §8 の行番号はこの 3 ファイルを参照しないので影響しない。§6.2 の CLI 統合テスト行数（12,369）だけが 70 行増える。
+計測後に `develop` は `fd22549` へ進んだ（#183、#184。`crates/vtest-adapter-lexical/src/swift.rs`、`crates/vtest-cli/tests/mcp_cli_equivalence.rs`、`docs/adapters/swift.md` の 3 ファイル）。基準 SHA は `99f7252` のままとする。#175 §8 の行番号はこの 3 ファイルを参照しないので影響しない。§6.2 の規模では `swift.rs`（1,092 行）と CLI 統合テスト（12,369 行）がそれぞれ 63 行と 70 行増えるだけで、他は変わらない。
 
 ## 2. ゲートと既知失敗
 
