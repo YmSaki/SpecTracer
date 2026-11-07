@@ -272,13 +272,16 @@ fn walk(
                 }
             }
             HeaderKind::ScopeRest(name) => scope.extend(name),
-            HeaderKind::Other => {
+            // An initializer's body (`x = new Runnable() { ... }`,
+            // `int a[] = { ... }`) holds no declarations of the scope.
+            HeaderKind::Other if !header.iter().any(|token| token.is_punct('=')) => {
                 if let Some((open, close)) =
                     body.and_then(|open| Some((open, context.partners[open]?)))
                 {
                     walk(context, open + 1, close, scope, output);
                 }
             }
+            HeaderKind::Other => {}
         }
         index = end;
     }
