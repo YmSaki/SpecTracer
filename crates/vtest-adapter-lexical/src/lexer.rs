@@ -54,6 +54,8 @@ pub enum Structure {
     /// Keywords (`def`, `class`, `do`, `if`, ...) open bodies that `end`
     /// closes (Ruby).
     KeywordEnd,
+    /// Indentation delimits bodies (Python).
+    Indentation,
 }
 
 /// The lexical syntax of one language.

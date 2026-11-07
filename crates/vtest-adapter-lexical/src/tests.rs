@@ -289,3 +289,109 @@ fn declares_only_source_discovery() {
     assert!(registry.coverage("toy").is_none());
     assert!(registry.static_analysis("toy").is_none());
 }
+
+/// A profile for the non-brace structures: `def name` is a function and
+/// `class Name` a scope, as in Python and Ruby.
+struct Keyworded {
+    syntax: &'static LexicalSyntax,
+}
+
+const INDENT_SYNTAX: LexicalSyntax = LexicalSyntax {
+    line_comments: &["#"],
+    line_comment_exclusions: &[],
+    block_comments: &[],
+    nested_block_comments: false,
+    strings: &[StringSyntax::single("\"", "\"")],
+    preprocessor: false,
+    cpp_raw_strings: false,
+    word_suffix_chars: &[],
+    newline_terminates: true,
+    structure: Structure::Indentation,
+};
+
+const KEYWORD_SYNTAX: LexicalSyntax = LexicalSyntax {
+    word_suffix_chars: &['?', '!'],
+    structure: Structure::KeywordEnd,
+    ..INDENT_SYNTAX
+};
+
+impl LanguageProfile for Keyworded {
+    fn adapter_id(&self) -> &'static str {
+        "keyworded"
+    }
+
+    fn languages(&self) -> &'static [&'static str] {
+        &["keyworded"]
+    }
+
+    fn extensions(&self) -> &'static [&'static str] {
+        &["kw"]
+    }
+
+    fn syntax(&self) -> &'static LexicalSyntax {
+        self.syntax
+    }
+
+    fn classify(&self, header: &[HTok<'_>], _has_body: bool) -> HeaderKind {
+        match header {
+            [keyword, name, ..] if name.kind == lexer::TokKind::Word => {
+                if keyword.is_word("def") {
+                    HeaderKind::Function(vec![name.text.to_owned()])
+                } else if keyword.is_word("class") {
+                    HeaderKind::Scope(vec![name.text.to_owned()])
+                } else {
+                    HeaderKind::Other
+                }
+            }
+            _ => HeaderKind::Other,
+        }
+    }
+}
+
+fn structure_summary(syntax: &'static LexicalSyntax, source: &str) -> (Vec<String>, Vec<String>) {
+    let outcome = discover_text(&Keyworded { syntax }, "a.kw", source, "p");
+    assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+    let sources = outcome
+        .sources
+        .iter()
+        .map(|source| source.locator.value.clone())
+        .collect();
+    let tests = outcome
+        .tests
+        .iter()
+        .map(|test| test.construct_text.clone())
+        .collect();
+    (sources, tests)
+}
+
+/// @vtest.id TEST-ADAPTER-LEXICAL-INDENTATION-EXTENTS
+/// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
+/// @vtest.target crates/vtest-adapter-lexical/src/indent.rs::construct_end
+/// @vtest.target crates/vtest-adapter-lexical/src/indent.rs::functions
+/// @vtest.intent verifies that under the indentation structure a construct ends where its indented body ends, a decorator belongs to it, and a class qualifies the functions it indents
+#[test]
+fn indentation_structure_bounds_constructs_by_indent() {
+    let source = "class Calc:\n    def add(self, a):\n        return a\n\n# @vtest.id TEST-KW-ADD\n# @vtest.covers VO-KW-ADD\n# @vtest.intent adds\n@mark\ndef test_add():\n    assert add(1)\n\n    assert add(2)\nvalue = 1\n";
+    let (sources, tests) = structure_summary(&INDENT_SYNTAX, source);
+    assert_eq!(sources, vec!["a.kw::Calc::add", "a.kw::test_add"]);
+    assert_eq!(
+        tests,
+        vec!["@mark\ndef test_add():\n    assert add(1)\n\n    assert add(2)"]
+    );
+}
+
+/// @vtest.id TEST-ADAPTER-LEXICAL-KEYWORD-END-EXTENTS
+/// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
+/// @vtest.target crates/vtest-adapter-lexical/src/keyword.rs::construct_end
+/// @vtest.target crates/vtest-adapter-lexical/src/keyword.rs::functions
+/// @vtest.intent verifies that under the keyword/end structure a construct ends at the end that closes it, nested blocks do not end it early, a word suffix such as `?` stays part of a name but `!=` stays an operator, and a class qualifies its functions
+#[test]
+fn keyword_end_structure_pairs_openers_with_end() {
+    let source = "class Calc\n  def empty?(a)\n    a != 0\n  end\nend\n\n# @vtest.id TEST-KW-ADD\n# @vtest.covers VO-KW-ADD\n# @vtest.intent adds\ndef test_add\n  [1].each do |x|\n    if x then x end\n  end\nend\n";
+    let (sources, tests) = structure_summary(&KEYWORD_SYNTAX, source);
+    assert_eq!(sources, vec!["a.kw::Calc::empty?", "a.kw::test_add"]);
+    assert_eq!(
+        tests,
+        vec!["def test_add\n  [1].each do |x|\n    if x then x end\n  end\nend"]
+    );
+}
