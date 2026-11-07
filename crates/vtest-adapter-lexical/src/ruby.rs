@@ -1,38 +1,38 @@
 //! `ruby`: Ruby sources (`.rb`, `.rake`).
 //!
-//! Functions are `def` methods (singleton methods as `self.name`, operator
-//! and setter methods, and endless `def name = expr` methods included).
-//! `class` and `module` (`A::B` names) qualify them. Minitest methods,
-//! RSpec examples (`it "adds" do ... end`), test-unit, or any other style
-//! are discovered the same way, because a Test is whatever follows its
-//! `@vtest.` comment.
+//! A file is read in three steps, all specific to Ruby:
+//!
+//! 1. [`Lexer`] splits it into comments (`#` and `=begin`/`=end`),
+//!    literals (strings with `#{...}` interpolations, heredocs, `%w[]`-style
+//!    percent literals, regular expressions, symbols such as `:end`, and
+//!    hash labels such as `class:`), words, brackets, `;`, and operators.
+//!    The file ends at `__END__`.
+//! 2. [`Reader::walk`] pairs each `end` with the keyword it closes:
+//!    `def` (unless endless, `def name = expr`), `class`, `module`,
+//!    `case`, `begin`, `for`, `do`, and `if`/`unless`/`while`/`until` when
+//!    they start an expression (after a value on the same line they are
+//!    modifiers and close nothing). The `do` of `while x do` belongs to the
+//!    loop. The word after `def` is always the method name, so
+//!    `def end` and `range.end` close nothing. A missing or extra `end`
+//!    makes the file unreadable.
+//! 3. While pairing, it records the `def` methods that are not inside
+//!    another method, qualified by the enclosing `class` and `module`
+//!    names (`A::B` names split); blocks such as `RSpec.describe ... do`
+//!    do not qualify them. A method starts at its line's first token
+//!    (`private def secret`).
+//!
+//! A comment block attached to a statement makes it a Test (or declares
+//! its SRC ID): the statement runs to the `end` of the keywords it opens,
+//! then to the end of its line, unless the line ends with an operator or
+//! the next line starts with `.method`. Minitest methods, RSpec examples
+//! (`it "adds" do ... end`), and test-unit are discovered the same way.
 
 use crate::{
-    header::{HTok, HeaderKind},
-    lexer::{LexicalSyntax, StringSyntax, Structure, TokKind},
-    LanguageProfile, LexicalAdapter,
+    shared::{attached_comments, pair_brackets, Attached, Span},
+    Annotated, ExtractError, FileItems, Function, LanguageProfile, LexicalAdapter,
 };
 
 pub const ADAPTER_ID: &str = "ruby";
-
-const SYNTAX: LexicalSyntax = LexicalSyntax {
-    line_comments: &["#"],
-    line_comment_exclusions: &[],
-    block_comments: &[("=begin", "=end")],
-    nested_block_comments: false,
-    strings: &[
-        StringSyntax::multi("\"", "\"", true),
-        StringSyntax::multi("'", "'", true),
-        StringSyntax::multi("`", "`", true),
-    ],
-    preprocessor: false,
-    cpp_raw_strings: false,
-    word_suffix_chars: &['?', '!'],
-    newline_terminates: true,
-    structure: Structure::KeywordEnd,
-};
-
-const VISIBILITY: &[&str] = &["private", "protected", "public", "module_function"];
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Ruby;
@@ -51,86 +51,735 @@ impl LanguageProfile for Ruby {
     }
 
     fn excluded_dirs(&self) -> &'static [&'static str] {
-        &["vendor", ".bundle", "tmp", "log", "coverage"]
+        &["vendor", ".bundle", "tmp", "log"]
     }
 
-    fn syntax(&self) -> &'static LexicalSyntax {
-        &SYNTAX
-    }
-
-    /// `header` is the first line of a statement.
-    fn classify(&self, header: &[HTok<'_>], _has_body: bool) -> HeaderKind {
-        let mut header = header;
-        while header.len() > 1
-            && header[0].kind == TokKind::Word
-            && VISIBILITY.contains(&header[0].text)
-        {
-            header = &header[1..];
+    fn extract(&self, source: &str) -> Result<FileItems, ExtractError> {
+        let tokens = Lexer {
+            source,
+            bytes: source.as_bytes(),
         }
-        let Some(first) = header.first() else {
-            return HeaderKind::Other;
+        .run()?;
+        let partners = pair_brackets(tokens.iter().map(|token| match token.kind {
+            Kind::Open(c) | Kind::Close(c) => (token.start, Some(c)),
+            _ => (token.start, None),
+        }))?;
+        let mut reader = Reader {
+            source,
+            tokens: &tokens,
+            partners: &partners,
+            ends: vec![None; tokens.len()],
         };
-        if first.is_word("def") {
-            return def_name(&header[1..])
-                .map_or(HeaderKind::Other, |name| HeaderKind::Function(vec![name]));
-        }
-        if first.is_word("class") || first.is_word("module") {
-            let mut segments = Vec::new();
-            let mut index = 1;
-            while let Some(token) = header.get(index) {
-                if token.kind != TokKind::Word {
-                    break;
-                }
-                segments.push(token.text.to_owned());
-                if header.get(index + 1).is_some_and(|t| t.is_punct(':'))
-                    && header.get(index + 2).is_some_and(|t| t.is_punct(':'))
-                {
-                    index += 3;
-                } else {
-                    break;
-                }
-            }
-            if !segments.is_empty() {
-                return HeaderKind::Scope(segments);
-            }
-        }
-        HeaderKind::Other
-    }
-}
-
-/// The method name after `def`: `name`, `name?`, `self.name`, `name=`, or an
-/// operator such as `==` or `[]`.
-fn def_name(rest: &[HTok<'_>]) -> Option<String> {
-    let first = rest.first()?;
-    if first.kind == TokKind::Word {
-        if rest.get(1).is_some_and(|t| t.is_punct('.')) {
-            let name = rest.get(2).filter(|t| t.kind == TokKind::Word)?;
-            return Some(format!("{}.{}", first.text, name.text));
-        }
-        let setter = rest.get(1).is_some_and(|t| t.is_punct('='))
-            && rest.get(2).is_some_and(|t| t.is_open('('));
-        return Some(if setter {
-            format!("{}=", first.text)
-        } else {
-            first.text.to_owned()
-        });
-    }
-    let operator = rest
-        .iter()
-        .take_while(|token| {
-            matches!(
-                token.kind,
-                TokKind::Punct(_) | TokKind::Open('[') | TokKind::Close(']')
-            )
+        let functions = reader.walk()?;
+        Ok(FileItems {
+            functions,
+            annotated: reader.annotated(),
         })
-        .map(|token| token.text)
-        .collect::<String>();
-    (!operator.is_empty()).then_some(operator)
+    }
 }
 
 /// The `ruby` adapter.
 pub fn adapter() -> LexicalAdapter<Ruby> {
     LexicalAdapter::new(Ruby)
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum Kind {
+    Comment,
+    Literal,
+    Word,
+    Open(char),
+    Close(char),
+    Semi,
+    Op,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct Tok {
+    kind: Kind,
+    start: usize,
+    end: usize,
+}
+
+fn is_word_start(byte: u8) -> bool {
+    byte == b'_' || byte == b'@' || byte == b'$' || byte.is_ascii_alphabetic() || !byte.is_ascii()
+}
+
+fn is_word_char(byte: u8) -> bool {
+    byte == b'_' || byte.is_ascii_alphanumeric() || !byte.is_ascii()
+}
+
+/// Operators read as one token, longest first.
+const OPERATORS: &[&str] = &[
+    "**=", "<=>", "===", "...", "<<=", ">>=", "&&=", "||=", "==", "!=", ">=", "<=", "&&", "||",
+    "<<", ">>", "**", "=~", "!~", "+=", "-=", "*=", "/=", "%=", "|=", "&=", "^=", "::", "&.", "..",
+    "->", "=>",
+];
+
+/// Keywords after which an expression can start.
+const EXPRESSION_KEYWORDS: &[&str] = &[
+    "then", "else", "elsif", "do", "begin", "and", "or", "not", "return", "when", "in", "yield",
+    "ensure", "rescue", "if", "unless", "while", "until", "puts", "case",
+];
+
+/// A heredoc whose body starts on the next line.
+struct Pending {
+    label: String,
+    indented: bool,
+}
+
+struct Lexer<'a> {
+    source: &'a str,
+    bytes: &'a [u8],
+}
+
+impl Lexer<'_> {
+    fn run(&self) -> Result<Vec<Tok>, ExtractError> {
+        let bytes = self.bytes;
+        let mut tokens: Vec<Tok> = Vec::new();
+        let mut pending: Vec<Pending> = Vec::new();
+        let mut i = 0;
+        while i < bytes.len() {
+            let start = i;
+            let rest = &self.source[i..];
+            let byte = bytes[i];
+            let line_start = i == 0 || bytes[i - 1] == b'\n';
+            let kind = if byte == b'\n' && !pending.is_empty() {
+                i = self.heredoc_bodies(i + 1, &mut pending)?;
+                tokens.push(Tok {
+                    kind: Kind::Literal,
+                    start: start + 1,
+                    end: i,
+                });
+                continue;
+            } else if byte.is_ascii_whitespace()
+                || (byte == b'\\' && matches!(bytes.get(i + 1), Some(b'\n' | b'\r')))
+            {
+                i += 1;
+                continue;
+            } else if line_start && rest.lines().next().map(str::trim_end) == Some("__END__") {
+                break;
+            } else if line_start && rest.starts_with("=begin") {
+                let close = rest
+                    .find("\n=end")
+                    .ok_or_else(|| ExtractError::new(start, "unterminated =begin comment"))?;
+                i += close + 5;
+                i += self.source[i..].find('\n').unwrap_or(self.source.len() - i);
+                Kind::Comment
+            } else if byte == b'#' {
+                i += rest.find('\n').unwrap_or(rest.len());
+                Kind::Comment
+            } else if matches!(byte, b'"' | b'\'' | b'`') {
+                i = self
+                    .delimited_end(i + 1, byte, byte, byte != b'\'')
+                    .ok_or_else(|| ExtractError::new(start, "unterminated string"))?;
+                Kind::Literal
+            } else if let Some((end, label)) = self.heredoc_start(&tokens, i) {
+                pending.push(label);
+                i = end;
+                Kind::Literal
+            } else if byte == b':' && bytes.get(i + 1) == Some(&b'"') {
+                i = self
+                    .delimited_end(i + 2, b'"', b'"', true)
+                    .ok_or_else(|| ExtractError::new(start, "unterminated symbol"))?;
+                Kind::Literal
+            } else if byte == b':'
+                && bytes.get(i + 1).copied().is_some_and(is_word_start)
+                && !(i > 0 && bytes[i - 1] == b':')
+            {
+                i = self.word_end(i + 1);
+                Kind::Literal
+            } else if byte.is_ascii_digit() {
+                i += 1;
+                while i < bytes.len()
+                    && (is_word_char(bytes[i])
+                        || (bytes[i] == b'.' && bytes.get(i + 1).is_some_and(u8::is_ascii_digit)))
+                {
+                    i += 1;
+                }
+                Kind::Literal
+            } else if is_word_start(byte) {
+                i = self.word_end(i);
+                // `class:` in `{class: "x"}` is a hash label, not a keyword.
+                if bytes.get(i) == Some(&b':')
+                    && bytes.get(i + 1) != Some(&b':')
+                    && bytes.get(i + 1).is_none_or(u8::is_ascii_whitespace)
+                {
+                    i += 1;
+                    Kind::Literal
+                } else {
+                    Kind::Word
+                }
+            } else if let Some(end) = (byte == b'/' && self.expression_position(&tokens, i))
+                .then(|| self.delimited_end(i + 1, b'/', b'/', true))
+                .flatten()
+            {
+                i = end;
+                while i < bytes.len() && bytes[i].is_ascii_alphabetic() {
+                    i += 1;
+                }
+                Kind::Literal
+            } else if let Some(end) = (byte == b'%' && self.expression_position(&tokens, i))
+                .then(|| self.percent_end(i))
+                .flatten()
+            {
+                i = end;
+                Kind::Literal
+            } else {
+                i += 1;
+                match byte {
+                    b'(' | b'[' | b'{' => Kind::Open(byte as char),
+                    b')' | b']' | b'}' => Kind::Close(byte as char),
+                    b';' => Kind::Semi,
+                    _ => {
+                        let operator = OPERATORS.iter().find(|op| rest.starts_with(**op));
+                        i += operator.map_or(0, |op| op.len() - 1);
+                        Kind::Op
+                    }
+                }
+            };
+            tokens.push(Tok {
+                kind,
+                start,
+                end: i,
+            });
+        }
+        if let Some(open) = pending.first() {
+            return Err(ExtractError::new(
+                self.source.len(),
+                format!("unterminated heredoc `{}`", open.label),
+            ));
+        }
+        Ok(tokens)
+    }
+
+    /// One past a word at `i`, with a `?` or `!` suffix (`empty?`) when it
+    /// is not the start of `!=` or `?:`.
+    fn word_end(&self, mut i: usize) -> usize {
+        let bytes = self.bytes;
+        i += 1;
+        while i < bytes.len() && is_word_char(bytes[i]) {
+            i += 1;
+        }
+        if matches!(bytes.get(i), Some(b'?' | b'!')) && bytes.get(i + 1) != Some(&b'=') {
+            i += 1;
+        }
+        i
+    }
+
+    fn text<'t>(&'t self, token: &Tok) -> &'t str {
+        &self.source[token.start..token.end]
+    }
+
+    /// Whether a `/`, `%`, or `<<` at `i` can start a literal: after an
+    /// operator, a bracket, a keyword, or a line break, or after a method
+    /// name when spaced from it but not from what follows (`puts /x/`).
+    fn expression_position(&self, tokens: &[Tok], i: usize) -> bool {
+        let Some(previous) = tokens.iter().rev().find(|t| t.kind != Kind::Comment) else {
+            return true;
+        };
+        if self.source[previous.end..i].contains('\n') {
+            return true;
+        }
+        match previous.kind {
+            Kind::Op | Kind::Open(_) | Kind::Semi => true,
+            Kind::Word if EXPRESSION_KEYWORDS.contains(&self.text(previous)) => true,
+            Kind::Word => {
+                previous.end < i
+                    && self
+                        .bytes
+                        .get(i + 1)
+                        .is_some_and(|b| !b.is_ascii_whitespace() && *b != b'=')
+            }
+            _ => false,
+        }
+    }
+
+    /// One past the closing delimiter of a literal whose contents start at
+    /// `i`; `open`/`close` nest, and `#{...}` is read as code when
+    /// `interpolates`.
+    fn delimited_end(
+        &self,
+        mut i: usize,
+        open: u8,
+        close: u8,
+        interpolates: bool,
+    ) -> Option<usize> {
+        let mut depth = 1usize;
+        while i < self.bytes.len() {
+            let byte = self.bytes[i];
+            if byte == b'\\' {
+                i += 2;
+            } else if byte == close {
+                depth -= 1;
+                i += 1;
+                if depth == 0 {
+                    return Some(i);
+                }
+            } else if byte == open {
+                depth += 1;
+                i += 1;
+            } else if interpolates && byte == b'#' && self.bytes.get(i + 1) == Some(&b'{') {
+                i = self.interpolation_end(i + 2)?;
+            } else {
+                i += 1;
+            }
+        }
+        None
+    }
+
+    /// One past the `}` closing a `#{` interpolation whose code starts at
+    /// `i`.
+    fn interpolation_end(&self, mut i: usize) -> Option<usize> {
+        let mut depth = 1usize;
+        while i < self.bytes.len() {
+            match self.bytes[i] {
+                quote @ (b'"' | b'\'' | b'`') => {
+                    i = self.delimited_end(i + 1, quote, quote, quote != b'\'')?
+                }
+                b'{' => {
+                    depth += 1;
+                    i += 1;
+                }
+                b'}' => {
+                    depth -= 1;
+                    i += 1;
+                    if depth == 0 {
+                        return Some(i);
+                    }
+                }
+                _ => i += 1,
+            }
+        }
+        None
+    }
+
+    /// One past a percent literal (`%w[a b]`, `%q{...}`, `%(...)`) at `i`.
+    fn percent_end(&self, i: usize) -> Option<usize> {
+        let mut j = i + 1;
+        let kind = *self.bytes.get(j)?;
+        if b"qQwWiIrsx".contains(&kind) {
+            j += 1;
+        }
+        let open = *self.bytes.get(j)?;
+        if open.is_ascii_alphanumeric() || open.is_ascii_whitespace() {
+            return None;
+        }
+        let close = match open {
+            b'(' => b')',
+            b'[' => b']',
+            b'{' => b'}',
+            b'<' => b'>',
+            other => other,
+        };
+        let interpolates = !matches!(kind, b'q' | b'w' | b'i' | b's');
+        let end = self.delimited_end(j + 1, open, close, interpolates)?;
+        let mut end = end;
+        if kind == b'r' {
+            while end < self.bytes.len() && self.bytes[end].is_ascii_alphabetic() {
+                end += 1;
+            }
+        }
+        Some(end)
+    }
+
+    /// A heredoc opener (`<<~EOS`, `<<-EOS`, `<<"EOS"`, `<<EOS`) at `i`:
+    /// one past it and its label.
+    fn heredoc_start(&self, tokens: &[Tok], i: usize) -> Option<(usize, Pending)> {
+        let rest = &self.source[i..];
+        let after = rest.strip_prefix("<<")?;
+        let (indented, after) = match after.strip_prefix(['~', '-']) {
+            Some(stripped) => (true, stripped),
+            None => (false, after),
+        };
+        let (label, length) = match after.as_bytes().first()? {
+            quote @ (b'"' | b'\'' | b'`') => {
+                let close = after[1..].find(*quote as char)?;
+                (after[1..=close].to_owned(), close + 2)
+            }
+            byte if is_word_char(*byte) => {
+                let length = after.bytes().take_while(|b| is_word_char(*b)).count();
+                let word = &after[..length];
+                let explicit = indented
+                    || (word.bytes().all(|b| !b.is_ascii_lowercase())
+                        && self.expression_position(tokens, i));
+                if !explicit {
+                    return None;
+                }
+                (word.to_owned(), length)
+            }
+            _ => return None,
+        };
+        let end = i + (rest.len() - after.len()) + length;
+        Some((end, Pending { label, indented }))
+    }
+
+    /// Skips the bodies of the pending heredocs, which start at `i`,
+    /// returning one past the last terminator line's label.
+    fn heredoc_bodies(
+        &self,
+        mut i: usize,
+        pending: &mut Vec<Pending>,
+    ) -> Result<usize, ExtractError> {
+        for heredoc in pending.drain(..) {
+            loop {
+                if i >= self.source.len() {
+                    return Err(ExtractError::new(
+                        i,
+                        format!("unterminated heredoc `{}`", heredoc.label),
+                    ));
+                }
+                let line_end = self.source[i..]
+                    .find('\n')
+                    .map_or(self.source.len(), |n| i + n);
+                let line = self.source[i..line_end].trim_end_matches('\r');
+                let candidate = if heredoc.indented {
+                    line.trim_start()
+                } else {
+                    line
+                };
+                let next = (line_end + 1).min(self.source.len());
+                if candidate == heredoc.label {
+                    i = line_end;
+                    break;
+                }
+                i = next;
+            }
+        }
+        Ok(i)
+    }
+}
+
+/// A keyword waiting for its `end`.
+enum Opened {
+    Def { name: String, start: usize },
+    Scope(Vec<String>),
+    Block,
+}
+
+struct Reader<'a> {
+    source: &'a str,
+    tokens: &'a [Tok],
+    partners: &'a [Option<usize>],
+    /// For each keyword that opens a construct, the index of its `end`.
+    ends: Vec<Option<usize>>,
+}
+
+impl Reader<'_> {
+    fn text(&self, index: usize) -> &str {
+        &self.source[self.tokens[index].start..self.tokens[index].end]
+    }
+
+    fn kind(&self, index: usize) -> Option<Kind> {
+        self.tokens.get(index).map(|token| token.kind)
+    }
+
+    fn is(&self, index: usize, text: &str) -> bool {
+        index < self.tokens.len()
+            && self.tokens[index].kind != Kind::Comment
+            && self.text(index) == text
+    }
+
+    fn partner(&self, index: usize) -> usize {
+        self.partners[index].expect("brackets are balanced")
+    }
+
+    fn touching(&self, a: usize, b: usize) -> bool {
+        self.tokens[a].end == self.tokens[b].start
+    }
+
+    fn next_significant(&self, from: usize) -> Option<usize> {
+        (from..self.tokens.len()).find(|&i| self.tokens[i].kind != Kind::Comment)
+    }
+
+    fn previous_significant(&self, index: usize) -> Option<usize> {
+        (0..index)
+            .rev()
+            .find(|&i| self.tokens[i].kind != Kind::Comment)
+    }
+
+    /// Whether a line break separates `tokens[before]` and `tokens[after]`
+    /// (a `\` continuation does not count).
+    fn breaks(&self, before: usize, after: usize) -> bool {
+        self.source[self.tokens[before].end..self.tokens[after].start]
+            .replace("\\\r\n", "")
+            .replace("\\\n", "")
+            .contains('\n')
+    }
+
+    /// Whether `tokens[index]` is a method name after `.`, `&.`, or `::`.
+    fn after_dot(&self, index: usize) -> bool {
+        self.previous_significant(index)
+            .is_some_and(|p| matches!(self.text(p), "." | "&." | "::"))
+    }
+
+    /// Whether an expression starts at `tokens[index]` (so `if` there opens
+    /// a construct instead of modifying the statement before it).
+    fn starts_expression(&self, index: usize) -> bool {
+        match self.previous_significant(index) {
+            None => true,
+            Some(previous) => {
+                self.breaks(previous, index)
+                    || match self.tokens[previous].kind {
+                        Kind::Semi | Kind::Open(_) | Kind::Op => true,
+                        Kind::Word => EXPRESSION_KEYWORDS.contains(&self.text(previous)),
+                        _ => false,
+                    }
+            }
+        }
+    }
+
+    /// The first token of the line holding `tokens[index]` (`private` in
+    /// `private def secret`).
+    fn statement_start(&self, index: usize) -> usize {
+        let mut start = index;
+        while let Some(previous) = self.previous_significant(start) {
+            if self.breaks(previous, start)
+                || matches!(self.tokens[previous].kind, Kind::Semi | Kind::Open(_))
+            {
+                break;
+            }
+            start = previous;
+        }
+        start
+    }
+
+    /// The method name after the `def` at `keyword` and the index after
+    /// it: `add`, `self.create`, `==`, `[]=`, `value=`, `empty?`, `end`.
+    fn method_name(&self, keyword: usize) -> Option<(String, usize)> {
+        let mut index = self.next_significant(keyword + 1)?;
+        let mut name = String::new();
+        if self.kind(index) == Some(Kind::Word) && self.is(index + 1, ".") {
+            name.push_str(self.text(index));
+            name.push('.');
+            index += 2;
+        }
+        match self.kind(index)? {
+            Kind::Open('[') if self.partner(index) == index + 1 => {
+                name.push_str("[]");
+                index += 2;
+            }
+            Kind::Word | Kind::Op | Kind::Literal => {
+                name.push_str(self.text(index).trim_end_matches(':'));
+                index += 1;
+            }
+            _ => return None,
+        }
+        // A setter: `def value=(v)`.
+        if self.is(index, "=")
+            && self.touching(index - 1, index)
+            && self.kind(index + 1) == Some(Kind::Open('('))
+            && self.touching(index, index + 1)
+        {
+            name.push('=');
+            index += 1;
+        }
+        Some((name, index))
+    }
+
+    /// Whether the `def` whose name ends before `after` is endless
+    /// (`def name(args) = expr`).
+    fn is_endless(&self, after: usize) -> bool {
+        let mut index = after;
+        if self.kind(index) == Some(Kind::Open('(')) {
+            index = self.partner(index) + 1;
+        }
+        self.next_significant(index)
+            .is_some_and(|next| self.is(next, "=") && !self.breaks(index - 1, next))
+    }
+
+    /// Pairs every `end` with the keyword it closes and collects the
+    /// methods that are not inside another method.
+    fn walk(&mut self) -> Result<Vec<Function>, ExtractError> {
+        let mut functions = Vec::new();
+        let mut stack: Vec<(usize, Opened)> = Vec::new();
+        let mut loop_do = false;
+        let mut index = 0;
+        while index < self.tokens.len() {
+            if self.tokens[index].kind == Kind::Comment {
+                index += 1;
+                continue;
+            }
+            if self
+                .previous_significant(index)
+                .is_none_or(|p| self.breaks(p, index) || self.kind(p) == Some(Kind::Semi))
+            {
+                loop_do = false;
+            }
+            if self.tokens[index].kind != Kind::Word || self.after_dot(index) {
+                index += 1;
+                continue;
+            }
+            let in_def = stack
+                .iter()
+                .any(|(_, opened)| matches!(opened, Opened::Def { .. }));
+            match self.text(index) {
+                "def" => {
+                    let Some((name, after)) = self.method_name(index) else {
+                        index += 1;
+                        continue;
+                    };
+                    let start = self.statement_start(index);
+                    if self.is_endless(after) {
+                        if !in_def {
+                            let end = self.statement_end(start);
+                            functions.push(self.function(&stack, name, start, end - 1));
+                        }
+                    } else {
+                        stack.push((index, Opened::Def { name, start }));
+                    }
+                    index = after;
+                    continue;
+                }
+                "class" | "module" => {
+                    let mut names = Vec::new();
+                    let mut name = index + 1;
+                    while self.kind(name) == Some(Kind::Word) {
+                        names.push(self.text(name).to_owned());
+                        if self.is(name + 1, "::") {
+                            name += 2;
+                        } else {
+                            break;
+                        }
+                    }
+                    stack.push((index, Opened::Scope(names)));
+                }
+                "if" | "unless" | "while" | "until" if self.starts_expression(index) => {
+                    loop_do = matches!(self.text(index), "while" | "until");
+                    stack.push((index, Opened::Block));
+                }
+                "for" => {
+                    loop_do = true;
+                    stack.push((index, Opened::Block));
+                }
+                "case" | "begin" => stack.push((index, Opened::Block)),
+                "do" if loop_do => loop_do = false,
+                "do" => stack.push((index, Opened::Block)),
+                "end" => {
+                    let (opener, opened) = stack.pop().ok_or_else(|| {
+                        ExtractError::new(
+                            self.tokens[index].start,
+                            "`end` without an opening keyword",
+                        )
+                    })?;
+                    self.ends[opener] = Some(index);
+                    if let Opened::Def { name, start } = opened {
+                        let nested = stack
+                            .iter()
+                            .any(|(_, opened)| matches!(opened, Opened::Def { .. }));
+                        if !nested {
+                            functions.push(self.function(&stack, name, start, index));
+                        }
+                    }
+                }
+                _ => {}
+            }
+            index += 1;
+        }
+        if let Some((opener, _)) = stack.last() {
+            return Err(ExtractError::new(
+                self.tokens[*opener].start,
+                format!("`{}` without `end`", self.text(*opener)),
+            ));
+        }
+        Ok(functions)
+    }
+
+    fn function(
+        &self,
+        stack: &[(usize, Opened)],
+        name: String,
+        start: usize,
+        last: usize,
+    ) -> Function {
+        let mut qualified: Vec<String> = stack
+            .iter()
+            .filter_map(|(_, opened)| match opened {
+                Opened::Scope(names) => Some(names.clone()),
+                _ => None,
+            })
+            .flatten()
+            .collect();
+        qualified.push(name);
+        Function {
+            name: qualified,
+            start: self.tokens[start].start,
+            end: self.tokens[last].end,
+        }
+    }
+
+    /// One past the last token of the statement starting at `start` (see
+    /// the module documentation). A `}` or `)` closing the enclosing
+    /// bracket also ends it.
+    fn statement_end(&self, start: usize) -> usize {
+        let mut index = start;
+        while index < self.tokens.len() {
+            let last = match self.tokens[index].kind {
+                Kind::Comment => {
+                    index += 1;
+                    continue;
+                }
+                Kind::Close(_) => return index,
+                Kind::Semi => return index + 1,
+                Kind::Open(_) => self.partner(index),
+                _ => self.ends[index].unwrap_or(index),
+            };
+            let Some(next) = self.next_significant(last + 1) else {
+                return last + 1;
+            };
+            let continued = self.kind(last) == Some(Kind::Op)
+                || matches!(self.text(last), "and" | "or" | "not")
+                || matches!(self.text(next), "." | "&.");
+            if self.breaks(last, next) && !continued {
+                return last + 1;
+            }
+            index = next;
+        }
+        index
+    }
+
+    /// Every comment block that starts a line and is followed, on the next
+    /// line, by a statement.
+    fn annotated(&self) -> Vec<Annotated> {
+        let spans: Vec<Span> = self
+            .tokens
+            .iter()
+            .map(|token| Span {
+                start: token.start,
+                end: token.end,
+                comment: token.kind == Kind::Comment,
+            })
+            .collect();
+        attached_comments(self.source, &spans)
+            .into_iter()
+            .filter(|block| !matches!(self.tokens[block.next].kind, Kind::Close(_) | Kind::Semi))
+            .map(|Attached { first, last, next }| {
+                let end = self.statement_end(next).max(next + 1);
+                Annotated {
+                    comment_start: self.tokens[first].start,
+                    lines: (first..=last)
+                        .flat_map(|i| comment_lines(self.text(i)))
+                        .collect(),
+                    construct: Ok((self.tokens[next].start, self.tokens[end - 1].end)),
+                }
+            })
+            .collect()
+    }
+}
+
+/// The lines of a `#` or `=begin`/`=end` comment with the comment markers
+/// removed.
+fn comment_lines(comment: &str) -> Vec<String> {
+    if let Some(line) = comment.strip_prefix('#') {
+        return vec![line.to_owned()];
+    }
+    let lines: Vec<&str> = comment.lines().collect();
+    lines
+        .iter()
+        .skip(1)
+        .take(lines.len().saturating_sub(2))
+        .map(|line| (*line).to_owned())
+        .collect()
 }
 
 #[cfg(test)]
@@ -191,21 +840,24 @@ RSpec.describe Demo::Math::Calc do
 end
 "#;
 
+    fn locators(outcome: &vtest_adapter_api::DiscoveryOutcome) -> Vec<&str> {
+        outcome
+            .sources
+            .iter()
+            .map(|source| source.locator.value.as_str())
+            .collect()
+    }
+
     /// @vtest.id TEST-ADAPTER-RUBY-DISCOVERS-METHODS-AND-TESTS
     /// @vtest.covers VO-ADAPTER-RUBY-REGISTERS-WITHOUT-CORE-CHANGES, VO-ADAPTER-LEXICAL-OPAQUE-LOCATOR-SYNTAX
-    /// @vtest.target crates/vtest-adapter-lexical/src/ruby.rs::Ruby::classify
+    /// @vtest.target crates/vtest-adapter-lexical/src/ruby.rs::Ruby::extract
     /// @vtest.intent verifies Ruby methods (predicate, singleton, endless, operator, private) become module- and class-qualified Source Targets while modifier ifs, loop dos, keyword-named methods and symbols, and =begin blocks do not unbalance bodies, and an annotated RSpec example is a Test construct ending at its end
     #[test]
     fn discovers_ruby_methods_and_examples() {
         let outcome = discover_text(&Ruby, "lib/calc.rb", SOURCE, "demo");
         assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
-        let sources = outcome
-            .sources
-            .iter()
-            .map(|source| source.locator.value.as_str())
-            .collect::<Vec<_>>();
         assert_eq!(
-            sources,
+            locators(&outcome),
             vec![
                 "lib/calc.rb::Demo::Math::Calc::add",
                 "lib/calc.rb::Demo::Math::Calc::self.create",
@@ -231,5 +883,73 @@ end
             .construct_text
             .starts_with("it \"adds two numbers\" do"));
         assert!(test.construct_text.ends_with("eq(3)\n  end"));
+    }
+
+    /// @vtest.id TEST-ADAPTER-RUBY-END-IN-TEXT-IS-NOT-THE-END
+    /// @vtest.covers VO-ADAPTER-RUBY-REGISTERS-WITHOUT-CORE-CHANGES
+    /// @vtest.target crates/vtest-adapter-lexical/src/ruby.rs::Reader::walk
+    /// @vtest.intent verifies that end, do, and if inside heredocs, percent literals, interpolations, and regular expressions are not keywords, so a Test construct runs to the end that closes it and an edit to only the body's tail changes its text, and that a method chain continued on the next line belongs to the statement
+    #[test]
+    fn end_in_text_is_not_the_end() {
+        let source = |tail: &str| {
+            format!(
+                "class PickTest < Minitest::Test\n  # @vtest.id TEST-RB-PICK\n  # @vtest.covers VO-RB-ADD\n  # @vtest.intent the whole method is the construct\n  def test_pick\n    text = <<~EOS\n      end if do\n    EOS\n    words = %w[end do if]\n    label = \"#{{words.map do |w| w end}}\"\n    assert_match(/end|do/, label)\n    {tail}\n  end\n\n  def after; end\nend\n\n# @vtest.id TEST-RB-CHAIN\n# @vtest.covers VO-RB-ADD\n# @vtest.intent a chained statement is a construct\nexpect(value)\n  .to eq(1)\n"
+            )
+        };
+        let outcome = discover_text(&Ruby, "test/pick_test.rb", &source("one"), "demo");
+        assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+        assert_eq!(
+            locators(&outcome),
+            vec![
+                "test/pick_test.rb::PickTest::test_pick",
+                "test/pick_test.rb::PickTest::after",
+            ]
+        );
+        let test = &outcome.tests[0];
+        assert!(test.construct_text.starts_with("def test_pick"));
+        assert!(test.construct_text.ends_with("one\n  end"));
+        assert_eq!(
+            outcome.tests[1].construct_text,
+            "expect(value)\n  .to eq(1)"
+        );
+        let edited = discover_text(&Ruby, "test/pick_test.rb", &source("two"), "demo");
+        assert_ne!(edited.tests[0].construct_text, test.construct_text);
+    }
+
+    /// @vtest.id TEST-ADAPTER-RUBY-UNBALANCED-FILES-ARE-UNREADABLE
+    /// @vtest.covers VO-ADAPTER-RUBY-REGISTERS-WITHOUT-CORE-CHANGES
+    /// @vtest.target crates/vtest-adapter-lexical/src/ruby.rs::Reader::walk
+    /// @vtest.intent verifies that a missing end, an extra end, and an unterminated heredoc each make the file unreadable instead of producing wrong ranges
+    #[test]
+    fn unbalanced_files_are_unreadable() {
+        for source in [
+            "def open\n  1\n",
+            "def closed\nend\nend\n",
+            "x = <<~EOS\n  text\n",
+        ] {
+            let outcome = discover_text(&Ruby, "lib/broken.rb", source, "demo");
+            assert_eq!(outcome.diagnostics.len(), 1, "{source:?}");
+            assert_eq!(outcome.diagnostics[0].code.as_str(), "E-SCAN-001");
+        }
+    }
+
+    /// @vtest.id TEST-ADAPTER-RUBY-BEGIN-EXPRESSION-AND-ENDLESS-DEFS
+    /// @vtest.covers VO-ADAPTER-RUBY-REGISTERS-WITHOUT-CORE-CHANGES
+    /// @vtest.target crates/vtest-adapter-lexical/src/ruby.rs::Reader::method_name
+    /// @vtest.intent verifies that `x=begin` inside a line is an expression, not a block comment, and that an endless method `def f = (1)` is named `f` while a setter `def g=(x)` is named `g=`
+    #[test]
+    fn begin_expression_and_endless_defs() {
+        let outcome = discover_text(
+            &Ruby,
+            "fixture.rb",
+            "def f\n  x=begin\n    1\n  end\n  x\nend\ndef g = (1)\ndef h=(x)\n  x\nend\n",
+            "demo",
+        );
+        assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+        assert_eq!(
+            locators(&outcome),
+            vec!["fixture.rb::f", "fixture.rb::g", "fixture.rb::h="]
+        );
+        assert!(outcome.sources[0].construct_text.ends_with("  x\nend"));
     }
 }

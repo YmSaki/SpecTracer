@@ -35,3 +35,28 @@ fn ruby_adapter_scans_and_verifies_through_the_cli_registry() {
     assert_eq!(scan.tests[0].execution.adapter.as_str(), "ruby");
     support::assert_discovery_only_verdict(&outcome, "TEST-FIXTURE-RUBY-ADD");
 }
+
+/// @vtest.id TEST-CLI-RUBY-BODY-TAIL-CHANGES-SUBJECT-HASH
+/// @vtest.covers VO-ADAPTER-RUBY-REGISTERS-WITHOUT-CORE-CHANGES
+/// @vtest.target crates/vtest-cli/src/adapters.rs::builtin_registry
+/// @vtest.intent verifies that for a Ruby Test whose body holds a modifier if and an end inside a string, an edit to only the end of the body changes the Test's content hash, so the whole body is hashed
+#[test]
+fn ruby_body_tail_edit_changes_the_test_hash() {
+    let source = |tail: &str| {
+        format!(
+            "# @vtest.id TEST-FIXTURE-RUBY-TAIL\n# @vtest.covers VO-FIXTURE-ONE\n# @vtest.intent the body tail is hashed\nit \"keeps the tail\" do\n  marker if ready\n  label = \"end\"\n  {tail}\nend\n"
+        )
+    };
+    let hash = |tail: &str| {
+        let fixture = support::fixture(
+            "ruby",
+            &[("spec/tail_spec.rb", &source(tail))],
+            &["VO-FIXTURE-ONE"],
+        );
+        let (scan, _) = fixture.scan_and_verify();
+        assert!(!scan.has_errors(), "{:?}", scan.diagnostics);
+        assert_eq!(scan.tests.len(), 1);
+        scan.tests[0].content_hash.clone()
+    };
+    assert_ne!(hash("one"), hash("two"));
+}

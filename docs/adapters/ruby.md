@@ -18,9 +18,12 @@ rules shared by all framework-neutral adapters.
   `end` closes. Modifier forms (`return x if y`), a loop's own `do`, and
   keywords used as method names or symbols (`range.end`, `:end`, `class:`)
   do not.
-- **Limits**: heredocs, `%` literals with unbalanced brackets, and regular
-  expressions containing brackets or keywords can make a file unparseable.
-  The file is then reported as `E-SCAN-001`.
+- **Where a construct ends**: at the `end` paired with the keyword it
+  opens, then at the end of its line unless the line ends with an operator
+  or the next line starts with `.method`. `end` inside heredocs, `%w[]`
+  literals, interpolations, and regular expressions is text.
+- **Limits**: a missing or extra `end`, or an unterminated heredoc or
+  string, makes the file unreadable (`E-SCAN-001`).
 
 ```ruby
 # @vtest.id TEST-CALC-ADD
