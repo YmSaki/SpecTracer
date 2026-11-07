@@ -1076,29 +1076,14 @@ fn failure_envelope(code: &str, message: impl Into<String>) -> Value {
 }
 
 /// DS-1191/DS-1192: an input-validation tool error carries
-/// `{code, message, candidates}`. `candidates` is emitted whenever the
-/// operation layer supplied the closed set of valid alternatives (e.g.
-/// DS-1216's defined gate names, `[]` when none are defined), and omitted
-/// when the input has no such set, so a missing field never reads as "no
-/// valid value exists".
+/// `{code, message, candidates}`. The envelope is built by the same function
+/// the CLI uses for `--format json` (DS-1563).
 fn failure_envelope_with_candidates(
     code: &str,
     message: impl Into<String>,
     candidates: Option<&[String]>,
 ) -> Value {
-    let mut diagnostic = json!({
-        "code": code,
-        "severity": "error",
-        "message": message.into()
-    });
-    if let Some(candidates) = candidates {
-        diagnostic["candidates"] = json!(candidates);
-    }
-    json!({
-        "ok": false,
-        "data": null,
-        "diagnostics": [diagnostic]
-    })
+    ops::verify::usage_envelope(code, &message.into(), candidates)
 }
 
 #[cfg(test)]

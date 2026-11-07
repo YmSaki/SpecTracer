@@ -147,6 +147,104 @@ fn an_undefined_gate_error_lists_the_defined_gate_names() {
     );
 }
 
+/// Writes `gates` (in this order) into a fresh project's config.yaml.
+fn project_with_gates(name: &str, gates: &[&str]) -> PathBuf {
+    let root = temp_root(name);
+    let layout = vtest_store::init_project(&root, name).expect("init");
+    let mut config = vtest_store::load_config(&root).expect("load config");
+    for gate in gates {
+        config.gates.push(vtest_store::GateConfig {
+            name: (*gate).to_owned(),
+            require: vtest_store::GateRequirement {
+                verification: "PASS".to_owned(),
+                approvals: Vec::new(),
+            },
+        });
+    }
+    std::fs::write(layout.config(), config.to_yaml()).expect("write config");
+    root
+}
+
+/// The real `vtest verify --gate <name> --format json` process's stdout.
+fn cli_verify_gate_json(root: &Path, gate: &str) -> (Option<i32>, serde_json::Value) {
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_vtest"))
+        .arg("--project")
+        .arg(root)
+        .args(["verify", "--gate", gate, "--format", "json"])
+        .output()
+        .expect("run vtest verify");
+    let value = serde_json::from_slice(&output.stdout).expect("CLI JSON");
+    (output.status.code(), value)
+}
+
+/// The real `vtest mcp` process's `tools/call verify {"gate": <name>}` result.
+fn mcp_verify_gate(root: &Path, gate: &str) -> serde_json::Value {
+    use std::io::{BufRead, Write};
+    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_vtest"))
+        .arg("--project")
+        .arg(root)
+        .arg("mcp")
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("spawn vtest mcp");
+    {
+        let mut stdin = child.stdin.take().expect("stdin");
+        for request in [
+            serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+            serde_json::json!({"jsonrpc": "2.0", "method": "notifications/initialized"}),
+            serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": "verify", "arguments": {"gate": gate}}
+            }),
+        ] {
+            writeln!(stdin, "{request}").expect("write request");
+        }
+    }
+    let output = child.wait_with_output().expect("vtest mcp exits");
+    let response = std::io::BufReader::new(output.stdout.as_slice())
+        .lines()
+        .map(|line| serde_json::from_str::<serde_json::Value>(&line.expect("line")).unwrap())
+        .find(|response| response["id"] == 2)
+        .expect("tools/call response");
+    assert_eq!(response["result"]["isError"], true, "{response}");
+    response["result"]["structuredContent"].clone()
+}
+
+/// DS-1154/DS-1563: for an unknown gate the real CLI `--format json` and the
+/// real stdio MCP `tools/call verify` return the same envelope, including
+/// `candidates` — the defined names in config order, or `[]` when no gate
+/// is defined.
+/// @vtest.id TEST-VERIFY-UNDEFINED-GATE-CLI-MCP-SAME
+/// @vtest.covers VO-VERIFY-UNDEFINED-GATE-CANDIDATES, VO-MCP-TOOL-CLI-EQUIVALENCE
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent an unknown gate yields an identical E-CONFIG-002 envelope with the same candidates array from the real CLI JSON and the real stdio MCP verify tool, with and without defined gates
+#[test]
+fn an_undefined_gate_gives_the_same_candidates_from_cli_json_and_mcp() {
+    for (name, gates, expected) in [
+        (
+            "gate-same-defined",
+            &["release", "beta"][..],
+            serde_json::json!(["release", "beta"]),
+        ),
+        ("gate-same-none", &[][..], serde_json::json!([])),
+    ] {
+        let root = project_with_gates(name, gates);
+        let (exit, cli) = cli_verify_gate_json(&root, "Release");
+        let mcp = mcp_verify_gate(&root, "Release");
+        assert_eq!(exit, Some(2), "{name}: {cli}");
+        assert_eq!(cli, mcp, "{name}: CLI JSON and MCP must be identical");
+        assert_eq!(cli["ok"], false, "{name}");
+        assert_eq!(cli["data"], serde_json::Value::Null, "{name}");
+        let diagnostic = &cli["diagnostics"][0];
+        assert_eq!(diagnostic["code"], "E-CONFIG-002", "{name}");
+        assert_eq!(diagnostic["candidates"], expected, "{name}");
+    }
+}
+
 /// SPEC-400: the retired 12 items are not checks. Naming one is a usage
 /// error, not a silently narrowed scope.
 /// @vtest.id TEST-VERIFY-RETIRED-CHECK-NAME

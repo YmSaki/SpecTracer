@@ -110,6 +110,32 @@ pub fn scoped_envelope(
     })
 }
 
+/// DS-1154/DS-1191/DS-1563: the one failure envelope for a rejected
+/// `verify` input, shared by the CLI (`--format json`) and the MCP tool so
+/// both return the same `diagnostics`. `candidates` is emitted whenever the
+/// rejected input names one of a closed set (the defined gate names, `[]`
+/// when no gate is defined) and omitted when there is no such set, so a
+/// missing field never reads as "no valid value exists".
+pub fn usage_envelope(
+    code: &str,
+    message: &str,
+    candidates: Option<&[String]>,
+) -> serde_json::Value {
+    let mut diagnostic = serde_json::json!({
+        "code": code,
+        "severity": "error",
+        "message": message,
+    });
+    if let Some(candidates) = candidates {
+        diagnostic["candidates"] = serde_json::json!(candidates);
+    }
+    serde_json::json!({
+        "ok": false,
+        "data": null,
+        "diagnostics": [diagnostic],
+    })
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn execute(
     root: &Path,
