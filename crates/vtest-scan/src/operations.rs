@@ -5,16 +5,15 @@ use std::{
 };
 
 use serde::Serialize;
-use syn::spanned::Spanned;
-use vtest_adapter_api::{AdapterRegistry, AdapterScanConfig};
+use vtest_adapter_api::{AdapterRegistry, AdapterScanConfig, StructuredTestAdapter};
 use vtest_adapter_rust::RustLocator;
 use vtest_model::{
     test_subject_hash, ContentHash, Diagnostic, SourceLocation, TargetCoverageResult, TargetRef,
     TestEntity, TestRecord, TestResult, VerificationState, INTERNAL_ERROR_CODE,
 };
 use vtest_store::{
-    load_config, load_form_schema, read_entity_ids, read_evidence, read_record_ids, write_atomic,
-    FormAnswers, FormSchema, FormValue, VerifyLayout,
+    load_config, read_entity_ids, read_evidence, read_record_ids, write_atomic, FormAnswers,
+    FormSchema, FormValue, VerifyLayout,
 };
 
 use crate::{adapter_scan_includes, ScanResult, TestIdLookup};
@@ -49,6 +48,10 @@ pub struct TestMutationResult {
     pub start_byte: usize,
     pub end_byte: usize,
     pub rendered: String,
+    /// The source text `rendered` replaces: empty for create (an insertion),
+    /// the Test's current item text for edit. Lets callers present a diff
+    /// (DS-1206 / DS-1207) without re-reading the file.
+    pub replaced: String,
 }
 
 /// DS-929/DS-930: a rejected config is E-CONFIG-001; an unreadable one is
@@ -58,6 +61,23 @@ fn config_load_diagnostic(error: vtest_store::StoreError) -> Diagnostic {
         error.config_load_code().unwrap_or(INTERNAL_ERROR_CODE),
         error.to_string(),
     )
+}
+
+/// DS-1240/DS-1555: the Structured Test capability of `adapter`, or
+/// E-ADAPTER-004 (no file is changed).
+fn structured_test_for<'a>(
+    registry: &'a AdapterRegistry,
+    adapter: &str,
+) -> Result<&'a dyn StructuredTestAdapter, Diagnostic> {
+    registry.structured_test(adapter).ok_or_else(|| {
+        Diagnostic::error(
+            "E-ADAPTER-004",
+            format!(
+                "adapter `{adapter}` has no Structured Test capability; nothing is created or \
+                 edited and no file is changed (DS-1555)"
+            ),
+        )
+    })
 }
 
 pub fn create_test(
@@ -74,10 +94,11 @@ pub fn create_test(
             error.to_string(),
         )
     })?;
-    let layout = VerifyLayout::new(root);
-    let schema = load_form_schema(&layout, form_kind)
-        .map_err(|error| Diagnostic::error("E-OP-001", error.to_string()))?;
-    let answers = validate_form_answers(root, &schema, supplied, &scan)?;
+    // DS-1546: the Form's single owner adapter performs the operation.
+    let form = crate::forms::resolve_form(root, registry, form_kind)?;
+    let syntax = structured_test_for(registry, &form.adapter)?;
+    let schema = form.schema;
+    let answers = validate_form_answers(root, &schema, supplied, &scan, syntax)?;
     let test_id = select_test_id(&scan, &answers, explicit_id)?;
     let file = destination_file(supplied)?;
     validate_rust_file(root, &file)?;
@@ -85,7 +106,7 @@ pub fn create_test(
     let original = fs::read_to_string(&path)
         .map_err(|error| Diagnostic::error(INTERNAL_ERROR_CODE, error.to_string()))?;
     let rendered = render_form_template(&schema, &answers, &test_id)?;
-    syn::parse_str::<syn::ItemFn>(&rendered).map_err(|error| {
+    syntax.check_test_construct(&rendered).map_err(|error| {
         Diagnostic::error(
             "E-OP-001",
             format!("form rendered an invalid Rust test function: {error}"),
@@ -100,7 +121,7 @@ pub fn create_test(
     };
     let start_byte = original.len() + separator.len();
     let prospective = format!("{original}{separator}{rendered}");
-    syn::parse_file(&prospective).map_err(|error| {
+    syntax.check_source_file(&prospective).map_err(|error| {
         Diagnostic::error(
             "E-OP-001",
             format!("test insertion would make `{file}` invalid Rust: {error}"),
@@ -114,6 +135,7 @@ pub fn create_test(
         start_byte,
         end_byte: prospective.len(),
         rendered,
+        replaced: String::new(),
     };
     if dry_run {
         return Ok(result);
@@ -221,17 +243,30 @@ pub fn edit_test(
             ))
         }
     };
+    let syntax = structured_test_for(registry, current.location.adapter.as_str())?;
     let mut desired = DesiredTest::from_current(&current);
     if let Some(supplied) = supplied {
-        let layout = VerifyLayout::new(root);
-        let schema = load_form_schema(&layout, &supplied.form)
-            .map_err(|error| Diagnostic::error("E-OP-001", error.to_string()))?;
-        let answers = validate_form_answers_for(root, &schema, supplied, &scan, Some(test_id))?;
+        let form = crate::forms::resolve_form(root, registry, &supplied.form)?;
+        // DS-1546: a Form owned by another adapter cannot describe this Test.
+        if form.adapter != current.location.adapter.as_str() {
+            return Err(Diagnostic::error(
+                "E-ADAPTER-001",
+                format!(
+                    "Form `{}` is owned by `{}`, but Test `{test_id}` belongs to `{}` (DS-1547)",
+                    supplied.form,
+                    form.adapter,
+                    current.location.adapter.as_str()
+                ),
+            ));
+        }
+        let schema = form.schema;
+        let answers =
+            validate_form_answers_for(root, &schema, supplied, &scan, Some(test_id), syntax)?;
         desired.apply_complete_answers(&answers)?;
     } else {
         desired.apply_sets(set)?;
     }
-    validate_desired_test(root, &scan, &current, &desired)?;
+    validate_desired_test(root, &scan, &current, &desired, syntax)?;
 
     let path = root.join(Path::new(current.location.path.as_str()));
     let original = fs::read_to_string(&path)
@@ -309,7 +344,8 @@ pub fn edit_test(
     })?;
     let indent = line_indent(&original, start_byte);
     let normalized_current = deindent(current_slice, &indent);
-    let normalized_replacement = render_edited_test(&normalized_current, &current, &desired, body)?;
+    let normalized_replacement =
+        render_edited_test(&normalized_current, &current, &desired, body, syntax)?;
     let rendered = indent_multiline(&normalized_replacement, &indent);
     let prospective = format!(
         "{}{}{}",
@@ -317,7 +353,7 @@ pub fn edit_test(
         rendered,
         &original[end_byte..]
     );
-    syn::parse_file(&prospective).map_err(|error| {
+    syntax.check_source_file(&prospective).map_err(|error| {
         Diagnostic::error(
             "E-OP-003",
             format!("edited Test `{test_id}` would make the file invalid: {error}"),
@@ -332,6 +368,7 @@ pub fn edit_test(
         start_byte,
         end_byte: start_byte + rendered.len(),
         rendered,
+        replaced: current_slice.to_owned(),
     };
     if dry_run || !changed {
         return Ok(result);
@@ -481,13 +518,29 @@ struct DesiredTest {
     kind: Option<String>,
     cases: Vec<String>,
     related: Vec<String>,
+    /// The test function's own identifier: what `fn_name` answers and
+    /// `--set fn_name=` name, and what a rename replaces.
     fn_name: String,
+    /// The module path in front of `fn_name` in the execution selector
+    /// (`tests::` for a Test inside `mod tests`, empty at file level). An
+    /// edit never moves a Test between modules, so it is kept as is.
+    module_prefix: String,
     file: String,
+}
+
+/// Splits an execution selector (`tests::adds`) into its module prefix
+/// (`tests::`) and the function identifier (`adds`).
+fn split_selector(selector: &str) -> (String, String) {
+    match selector.rsplit_once("::") {
+        Some((module, name)) => (format!("{module}::"), name.to_owned()),
+        None => (String::new(), selector.to_owned()),
+    }
 }
 
 impl DesiredTest {
     fn from_current(test: &TestEntity) -> Self {
         let targets = test.targets.iter().map(target_string).collect();
+        let (module_prefix, fn_name) = split_selector(&test.execution.selector);
         Self {
             id: test.id.as_str().to_owned(),
             covers: test
@@ -506,9 +559,15 @@ impl DesiredTest {
                 .iter()
                 .map(|id| id.as_str().to_owned())
                 .collect(),
-            fn_name: test.execution.selector.clone(),
+            fn_name,
+            module_prefix,
             file: test.location.path.as_str().to_owned(),
         }
+    }
+
+    /// The execution selector this desired state yields.
+    fn selector(&self) -> String {
+        format!("{}{}", self.module_prefix, self.fn_name)
     }
 
     fn apply_complete_answers(
@@ -607,6 +666,7 @@ fn validate_desired_test(
     scan: &ScanResult,
     current: &TestEntity,
     desired: &DesiredTest,
+    syntax: &dyn StructuredTestAdapter,
 ) -> Result<(), Diagnostic> {
     if desired.id != current.id.as_str() {
         return Err(Diagnostic::error(
@@ -674,6 +734,40 @@ fn validate_desired_test(
     // `suite_for` into `ExecutionDescriptor.suite`, which `TestDraft`'s
     // `execution` field carries — unrelated to this cardinality question.
     for target in &desired.targets {
+        // DS-505/DS-511: `SRC-` names a permanent SRC ID (the same split the
+        // rust-cargo discovery makes for `@vtest.target`). It is resolved
+        // through the scanned SRC index and written back with its declared
+        // spelling, never rewritten to a locator.
+        if target.starts_with("SRC-") {
+            let declared = scan
+                .sources
+                .iter()
+                .filter(|source| {
+                    source
+                        .src_id
+                        .as_ref()
+                        .is_some_and(|id| id.as_str() == target)
+                })
+                .count();
+            if declared != 1 {
+                let known = scan
+                    .sources
+                    .iter()
+                    .filter_map(|source| source.src_id.as_ref())
+                    .map(|id| id.as_str().to_owned())
+                    .collect::<Vec<_>>();
+                let reason = if declared == 0 {
+                    "is not declared by any Source Target"
+                } else {
+                    "is declared by more than one Source Target"
+                };
+                return Err(
+                    Diagnostic::error("E-OP-001", format!("SRC ID `{target}` {reason}"))
+                        .with_candidates(id_candidates(&known, target)),
+                );
+            }
+            continue;
+        }
         let Some(locator) = RustLocator::parse(target).map(|parsed| parsed.to_locator()) else {
             return Err(Diagnostic::error(
                 "E-OP-001",
@@ -692,23 +786,24 @@ fn validate_desired_test(
     if desired.intent.trim().is_empty() {
         return Err(Diagnostic::error("E-OP-001", "intent must not be empty"));
     }
-    if syn::parse_str::<syn::Ident>(&desired.fn_name).is_err() {
+    if !syntax.is_identifier(&desired.fn_name) {
         return Err(Diagnostic::error(
             "E-OP-001",
             format!("`{}` is not a Rust identifier", desired.fn_name),
         ));
     }
+    let desired_selector = desired.selector();
     if scan.sources.iter().any(|source| {
         source.location.path.as_str() == desired.file
             && RustLocator::parse(&source.locator.value)
-                .is_some_and(|parsed| parsed.item_path == desired.fn_name)
+                .is_some_and(|parsed| parsed.item_path == desired_selector)
             && !same_construct(&source.location, &current.location)
     }) {
         return Err(Diagnostic::error(
             "E-OP-001",
             format!(
                 "function `{}` already exists in `{}`",
-                desired.fn_name, desired.file
+                desired_selector, desired.file
             ),
         ));
     }
@@ -732,6 +827,7 @@ fn render_edited_test(
     current: &TestEntity,
     desired: &DesiredTest,
     body: Option<&str>,
+    syntax: &dyn StructuredTestAdapter,
 ) -> Result<String, Diagnostic> {
     let mut free_before = Vec::new();
     let mut free_after = Vec::new();
@@ -763,8 +859,9 @@ fn render_edited_test(
         ));
     }
     let mut function = tail.join("\n");
-    if desired.fn_name != current.execution.selector {
-        let from = format!("fn {}", current.execution.selector);
+    let (_, current_fn_name) = split_selector(&current.execution.selector);
+    if desired.fn_name != current_fn_name {
+        let from = format!("fn {current_fn_name}");
         let to = format!("fn {}", desired.fn_name);
         if !function.contains(&from) {
             return Err(Diagnostic::error(
@@ -778,25 +875,14 @@ fn render_edited_test(
         function = function.replacen(&from, &to, 1);
     }
     if let Some(body) = body {
-        let body = normalize_body(body)?;
-        let parsed = syn::parse_str::<syn::ItemFn>(&function).map_err(|error| {
+        let body = normalize_body(body, syntax)?;
+        let range = syntax.body_range(&function).map_err(|error| {
             Diagnostic::error(
                 "E-OP-002",
                 format!("Test function could not be reparsed before body edit: {error}"),
             )
         })?;
-        let span = parsed.block.span();
-        let start = source_offset(&function, span.start().line, span.start().column)
-            .ok_or_else(|| Diagnostic::error("E-OP-002", "Test body start is out of range"))?;
-        let end = source_offset(&function, span.end().line, span.end().column)
-            .ok_or_else(|| Diagnostic::error("E-OP-002", "Test body end is out of range"))?;
-        if start >= end || function.get(start..end).is_none() {
-            return Err(Diagnostic::error(
-                "E-OP-002",
-                "Test function body range is invalid",
-            ));
-        }
-        function.replace_range(start..end, &body);
+        function.replace_range(range, &body);
     }
 
     let mut lines = free_before;
@@ -826,14 +912,14 @@ fn render_edited_test(
     Ok(lines.join("\n"))
 }
 
-fn normalize_body(body: &str) -> Result<String, Diagnostic> {
+fn normalize_body(body: &str, syntax: &dyn StructuredTestAdapter) -> Result<String, Diagnostic> {
     let body = body.trim();
     let body = if body.starts_with('{') && body.ends_with('}') {
         body.to_owned()
     } else {
         format!("{{\n{body}\n}}")
     };
-    syn::parse_str::<syn::Block>(&body).map_err(|error| {
+    syntax.check_body(&body).map_err(|error| {
         Diagnostic::error(
             "E-OP-001",
             format!("body file does not contain a valid Rust block: {error}"),
@@ -919,25 +1005,13 @@ fn test_matches_desired(test: &TestEntity, desired: &DesiredTest) -> bool {
                 .iter()
                 .map(String::as_str)
                 .collect::<Vec<_>>()
-        && test.execution.selector == desired.fn_name
+        && test.execution.selector == desired.selector()
         && test.location.path.as_str() == desired.file
 }
 
 fn line_indent(source: &str, byte: usize) -> String {
     let line_start = source[..byte].rfind('\n').map_or(0, |index| index + 1);
     source[line_start..byte].to_owned()
-}
-
-fn source_offset(source: &str, line: usize, column: usize) -> Option<usize> {
-    let mut offset = 0;
-    for (index, current) in source.split_inclusive('\n').enumerate() {
-        if index + 1 == line {
-            let body = current.strip_suffix('\n').unwrap_or(current);
-            return (column <= body.len()).then_some(offset + column);
-        }
-        offset += current.len();
-    }
-    None
 }
 
 fn deindent(source: &str, indent: &str) -> String {
@@ -1115,8 +1189,9 @@ pub fn validate_form_answers(
     schema: &FormSchema,
     supplied: &FormAnswers,
     scan: &ScanResult,
+    syntax: &dyn StructuredTestAdapter,
 ) -> Result<BTreeMap<String, FormValue>, Diagnostic> {
-    validate_form_answers_for(root, schema, supplied, scan, None)
+    validate_form_answers_for(root, schema, supplied, scan, None, syntax)
 }
 
 fn validate_form_answers_for(
@@ -1125,6 +1200,7 @@ fn validate_form_answers_for(
     supplied: &FormAnswers,
     scan: &ScanResult,
     edited_test_id: Option<&str>,
+    syntax: &dyn StructuredTestAdapter,
 ) -> Result<BTreeMap<String, FormValue>, Diagnostic> {
     if supplied.form != schema.kind {
         return Err(Diagnostic::error(
@@ -1165,7 +1241,7 @@ fn validate_form_answers_for(
             ));
         }
         let Some(value) = value else { continue };
-        validate_value_shape(field, value)?;
+        validate_value_shape(field, value, syntax)?;
         for validator in &field.validate {
             match validator.as_str() {
                 "symbol-exists" => {
@@ -1232,7 +1308,7 @@ fn validate_form_answers_for(
                     validate_rust_file(root, relative)?;
                 }
                 "enum-variant-exists" => {
-                    validate_enum_variant(root, scalar(value, &field.name)?)?;
+                    validate_enum_variant(root, scalar(value, &field.name)?, syntax)?;
                 }
                 unknown => {
                     return Err(Diagnostic::error(
@@ -1508,6 +1584,7 @@ fn rollback(path: &Path, original: &str, diagnostic: Diagnostic) -> Result<(), D
 fn validate_value_shape(
     field: &vtest_store::FormField,
     value: &FormValue,
+    syntax: &dyn StructuredTestAdapter,
 ) -> Result<(), Diagnostic> {
     let list_type = matches!(field.field_type.as_str(), "symbol-list" | "vo-ref-list");
     if list_type != matches!(value, FormValue::List(_)) {
@@ -1561,7 +1638,7 @@ fn validate_value_shape(
         }
         "ident" => {
             let value = scalar(value, &field.name)?;
-            if syn::parse_str::<syn::Ident>(value).is_err() {
+            if !syntax.is_identifier(value) {
                 return Err(Diagnostic::error(
                     "E-OP-001",
                     format!("answer `{}` is not a Rust identifier", field.name),
@@ -1689,14 +1766,16 @@ fn validate_rust_file(root: &Path, relative: &str) -> Result<(), Diagnostic> {
     Ok(())
 }
 
-fn validate_enum_variant(root: &Path, value: &str) -> Result<(), Diagnostic> {
+fn validate_enum_variant(
+    root: &Path,
+    value: &str,
+    syntax: &dyn StructuredTestAdapter,
+) -> Result<(), Diagnostic> {
     let Some((type_path, variant)) = value.rsplit_once("::") else {
         return Ok(());
     };
     let type_name = type_path.rsplit("::").next().unwrap_or(type_path);
-    if syn::parse_str::<syn::Ident>(type_name).is_err()
-        || syn::parse_str::<syn::Ident>(variant).is_err()
-    {
+    if !syntax.is_identifier(type_name) || !syntax.is_identifier(variant) {
         return Ok(());
     }
     let config = load_config(root).map_err(config_load_diagnostic)?;
@@ -1717,10 +1796,10 @@ fn validate_enum_variant(root: &Path, value: &str) -> Result<(), Diagnostic> {
         let Ok(source) = fs::read_to_string(file) else {
             continue;
         };
-        let Ok(parsed) = syn::parse_file(&source) else {
+        let Some(found) = syntax.enum_variants(&source, type_name) else {
             continue;
         };
-        collect_enum_variants(&parsed.items, type_name, &mut variants);
+        variants.extend(found);
     }
     if variants.is_empty() || variants.iter().any(|candidate| candidate == variant) {
         return Ok(());
@@ -1743,7 +1822,7 @@ fn validate_enum_variant(root: &Path, value: &str) -> Result<(), Diagnostic> {
 // に個々の `DirEntry` が `Err` を返すと、そのディレクトリ／エントリを
 // 無診断でスキップする）だが、意図的に塞いでいない: 呼び出し元
 // `validate_enum_variant` は `type_name` の Rust 識別子としての妥当性
-// チェック（1445-1448行）や `syn::parse_file` の失敗（1469-1471行）も同じ
+// チェック（1445-1448行）や adapter の `enum_variants` による parse 失敗も同じ
 // 「見つけられなければ検証をスキップし `Ok(())` を返す」扱いを既にしており
 // （1474行 `variants.is_empty()`）、これは `enum-variant-exists` Structured
 // Operation 入力検証のベストエフォート設計そのもの — I/O 失敗だけを
@@ -1767,27 +1846,6 @@ fn collect_rust_files(directory: &Path, files: &mut Vec<std::path::PathBuf>) {
             }
         } else if path.extension().and_then(|value| value.to_str()) == Some("rs") {
             files.push(path);
-        }
-    }
-}
-
-fn collect_enum_variants(items: &[syn::Item], type_name: &str, variants: &mut Vec<String>) {
-    for item in items {
-        match item {
-            syn::Item::Enum(item_enum) if item_enum.ident == type_name => {
-                variants.extend(
-                    item_enum
-                        .variants
-                        .iter()
-                        .map(|variant| variant.ident.to_string()),
-                );
-            }
-            syn::Item::Mod(item_mod) => {
-                if let Some((_, items)) = &item_mod.content {
-                    collect_enum_variants(items, type_name, variants);
-                }
-            }
-            _ => {}
         }
     }
 }
@@ -1875,6 +1933,7 @@ fn edit_distance(left: &str, right: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use vtest_adapter_rust::structured_test::RustStructuredTest;
     use vtest_adapter_rust::RustCargoAdapter;
 
     /// この crate 自身は adapter を生成しない（composition root は cli/mcp）
@@ -1885,6 +1944,29 @@ mod tests {
             .register(Box::new(RustCargoAdapter::new()))
             .expect("rust-cargo must register cleanly in a fresh registry");
         registry
+    }
+
+    /// @vtest.id TEST-STRUCTURED-OP-CAPABILITY-REQUIRED
+    /// @vtest.covers VO-ADAPTER-STRUCTURED-TEST-CAPABILITY-REQUIRED
+    /// @vtest.target crates/vtest-scan/src/operations.rs::structured_test_for
+    /// @vtest.intent create/edit resolve their syntax only from an adapter that declares the Structured Test capability (DS-1555)
+    #[test]
+    fn structured_operations_require_structured_test_capability() {
+        let empty = AdapterRegistry::new();
+        let error = structured_test_for(&empty, "rust-cargo")
+            .err()
+            .expect("an unregistered adapter has no Structured Test capability");
+        assert_eq!(error.code, "E-ADAPTER-004");
+
+        let registry = test_registry();
+        let error = structured_test_for(&registry, "python-pytest")
+            .err()
+            .expect("an adapter without the capability must be rejected");
+        assert_eq!(error.code, "E-ADAPTER-004");
+
+        let owner =
+            structured_test_for(&registry, "rust-cargo").expect("rust-cargo owns Structured Test");
+        assert!(owner.is_identifier("Widget"));
     }
 
     /// @vtest.id TEST-STRUCTURED-OP-SCAN-ERROR-CODE
@@ -1996,6 +2078,85 @@ mod tests {
             assert_eq!(fs::read(root.join("tests/calc.rs")).unwrap(), before);
             fs::remove_dir_all(root).unwrap();
         }
+    }
+
+    /// Discovers Rust Tests through `rust-cargo` but declares no Structured
+    /// Test capability, so the Test's `location.adapter` resolves to an
+    /// adapter that cannot parse or render it.
+    struct DiscoveryOnly(RustCargoAdapter);
+
+    impl vtest_adapter_api::Adapter for DiscoveryOnly {
+        fn descriptor(&self) -> vtest_adapter_api::AdapterDescriptor {
+            vtest_adapter_api::AdapterDescriptor {
+                id: "rust-cargo".to_owned(),
+                languages: vec!["rust".to_owned()],
+                capabilities: vec![vtest_adapter_api::Capability::SourceDiscovery],
+                config_namespace: "rust-cargo".to_owned(),
+            }
+        }
+        fn as_source_discovery(&self) -> Option<&dyn vtest_adapter_api::SourceDiscoveryAdapter> {
+            vtest_adapter_api::Adapter::as_source_discovery(&self.0)
+        }
+    }
+
+    fn tree_snapshot(root: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
+        let mut files = BTreeMap::new();
+        let mut pending = vec![root.to_owned()];
+        while let Some(dir) = pending.pop() {
+            for entry in fs::read_dir(&dir).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    pending.push(path);
+                } else {
+                    files.insert(path.clone(), fs::read(&path).unwrap());
+                }
+            }
+        }
+        files
+    }
+
+    /// @vtest.id TEST-STRUCTURED-OP-NO-WRITE-WITHOUT-CAPABILITY
+    /// @vtest.covers VO-ADAPTER-STRUCTURED-TEST-CAPABILITY-REQUIRED
+    /// @vtest.target crates/vtest-scan/src/operations.rs::edit_test
+    /// @vtest.intent create and edit through an adapter that discovers the Test but lacks Structured Test fail with E-ADAPTER-004 and leave every file unchanged (DS-1555)
+    #[test]
+    fn structured_operations_without_capability_write_nothing() {
+        let root = rescan_fixture(RESCAN_FIXTURE_TEST);
+        // DS-1547: the Form names `rust-cargo` as its owner, which here lacks
+        // the Structured Test capability.
+        fs::create_dir_all(root.join(".verify/forms")).unwrap();
+        fs::write(
+            root.join(".verify/forms/rust-unit-function.yaml"),
+            vtest_adapter_rust::structured_test::RUST_UNIT_FUNCTION_FORM,
+        )
+        .unwrap();
+        let before = tree_snapshot(&root);
+        let mut registry = AdapterRegistry::new();
+        registry
+            .register(Box::new(DiscoveryOnly(RustCargoAdapter::new())))
+            .unwrap();
+        let supplied = FormAnswers {
+            form: "rust-unit-function".to_owned(),
+            answers: BTreeMap::new(),
+        };
+        let mut set = BTreeMap::new();
+        set.insert("intent".to_owned(), FormValue::Scalar("changed".to_owned()));
+
+        let create = create_test(
+            &root,
+            "rust-unit-function",
+            &supplied,
+            None,
+            false,
+            &registry,
+        )
+        .unwrap_err();
+        let edit = edit_test(&root, "TEST-ADD", None, &set, None, false, &registry).unwrap_err();
+
+        assert_eq!(create.code, "E-ADAPTER-004");
+        assert_eq!(edit.code, "E-ADAPTER-004");
+        assert_eq!(tree_snapshot(&root), before);
+        fs::remove_dir_all(root).unwrap();
     }
 
     /// @vtest.id TEST-SHOW-RECORD-ERROR-CODE
@@ -2349,7 +2510,7 @@ fn adds() { assert_eq!(2, 1 + 1); }
     fn vo_ref_field_does_not_enforce_an_id_prefix() {
         let field = field("covers", "vo-ref");
         let value = FormValue::Scalar("WIDGET-ADD".to_owned());
-        assert!(validate_value_shape(&field, &value).is_ok());
+        assert!(validate_value_shape(&field, &value, &RustStructuredTest).is_ok());
     }
 
     /// @vtest.id TEST-SCAN-VO-REF-LIST-FIELD-NO-PREFIX-ENFORCED
@@ -2360,7 +2521,7 @@ fn adds() { assert_eq!(2, 1 + 1); }
     fn vo_ref_list_field_does_not_enforce_an_id_prefix() {
         let field = field("covers", "vo-ref-list");
         let value = FormValue::List(vec!["WIDGET-ADD".to_owned(), "GADGET-ADD".to_owned()]);
-        assert!(validate_value_shape(&field, &value).is_ok());
+        assert!(validate_value_shape(&field, &value, &RustStructuredTest).is_ok());
     }
 
     /// @vtest.id TEST-SCAN-TEST-REF-FIELD-NO-PREFIX-ENFORCED
@@ -2371,14 +2532,14 @@ fn adds() { assert_eq!(2, 1 + 1); }
     fn test_ref_field_does_not_enforce_an_id_prefix() {
         let field = field("related", "test-ref");
         let value = FormValue::Scalar("WIDGET-CHECK".to_owned());
-        assert!(validate_value_shape(&field, &value).is_ok());
+        assert!(validate_value_shape(&field, &value, &RustStructuredTest).is_ok());
     }
 
     #[test]
     fn vo_ref_field_still_rejects_an_empty_scalar() {
         let field = field("covers", "vo-ref");
         let value = FormValue::Scalar(String::new());
-        assert!(validate_value_shape(&field, &value).is_err());
+        assert!(validate_value_shape(&field, &value, &RustStructuredTest).is_err());
     }
 
     // レビュー round 2 項目【J】は "vo-ref-list" のアーム削除
@@ -2396,7 +2557,7 @@ fn adds() { assert_eq!(2, 1 + 1); }
     fn vo_ref_list_field_rejects_a_scalar() {
         let field = field("covers", "vo-ref-list");
         let value = FormValue::Scalar("WIDGET-ADD".to_owned());
-        assert!(validate_value_shape(&field, &value).is_err());
+        assert!(validate_value_shape(&field, &value, &RustStructuredTest).is_err());
     }
 
     fn temp_root(name: &str) -> std::path::PathBuf {
@@ -2439,7 +2600,7 @@ fn adds() { assert_eq!(2, 1 + 1); }
             "DesiredTest::from_current must not synthesize a target"
         );
         let scan = sample_scan(vec![current.clone()]);
-        let result = validate_desired_test(&root, &scan, &current, &desired);
+        let result = validate_desired_test(&root, &scan, &current, &desired, &RustStructuredTest);
         assert!(
             result.is_ok(),
             "a Test with 0 declared targets must not be rejected by Structured Edit: {result:?}"
@@ -2454,13 +2615,15 @@ fn adds() { assert_eq!(2, 1 + 1); }
     /// `targets`（`required: true`）まで弱めていないことを固定する。
     /// @vtest.id TEST-SCAN-RUST-INTEGRATION-FORM-REJECTS-EMPTY-TARGETS
     /// @vtest.covers VO-SCAN-RUST-INTEGRATION-TARGETS-REQUIRED
-    /// @vtest.target crates/vtest-store/src/forms.rs::RUST_INTEGRATION_FORM
+    /// @vtest.target crates/vtest-adapter-rust/src/structured_test.rs::RUST_INTEGRATION_FORM
     /// @vtest.intent verifies the rust-integration Form rejects an empty targets list with E-OP-001 (DS-1247)
     #[test]
     fn rust_integration_form_rejects_an_empty_targets_list() {
         let root = temp_root("empty-targets-form");
-        let schema =
-            vtest_store::parse_form_schema(vtest_store::RUST_INTEGRATION_FORM).expect("parse form");
+        let schema = vtest_store::parse_form_schema(
+            vtest_adapter_rust::structured_test::RUST_INTEGRATION_FORM,
+        )
+        .expect("parse form");
         let mut answers = BTreeMap::new();
         answers.insert("targets".to_owned(), FormValue::List(Vec::new()));
         answers.insert(
@@ -2490,7 +2653,7 @@ fn adds() { assert_eq!(2, 1 + 1); }
             answers,
         };
         let scan = sample_scan(Vec::new());
-        let result = validate_form_answers(&root, &schema, &supplied, &scan);
+        let result = validate_form_answers(&root, &schema, &supplied, &scan, &RustStructuredTest);
         let error = result.expect_err("an empty required `targets` list must be rejected");
         assert_eq!(error.code, "E-OP-001");
         let _ = fs::remove_dir_all(&root);

@@ -1,0 +1,11 @@
+id: VO-ARCH-ADAPTER-API-LANGUAGE-INDEPENDENT
+parent: null
+derives_from:
+  - doc: BD-112
+claim: '`vtest-adapter-api` は `vtest-model` 以外の言語実装・Cargo実装へ依存しない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00

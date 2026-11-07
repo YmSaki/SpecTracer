@@ -807,11 +807,31 @@ pub fn vo_record_from_yaml(
 }
 
 /// Reads the canonical VO record `<id>.yaml` from `.verify/vo/`.
+/// Whether `id` can name a VO record file inside `.verify/vo/`: one path
+/// component of ASCII letters, digits, `-`, `_` and `.` that does not start
+/// with `.`. This rules out `..`, a separator (`/`, `\\`), an absolute or
+/// drive path, and control characters, so `{id}.yaml` can never resolve
+/// outside the VO directory. Every canonical VO id (`VO-…`) satisfies it.
+pub fn is_valid_vo_id(id: &str) -> bool {
+    let mut bytes = id.bytes();
+    matches!(bytes.next(), Some(first) if first.is_ascii_alphanumeric() || first == b'-' || first == b'_')
+        && bytes.all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
+}
+
+/// The shared storage boundary for VO ids: a VO record path is built only
+/// from an id [`is_valid_vo_id`] accepts, on read and on write alike.
+fn vo_record_path(layout: &VerifyLayout, id: &str) -> Result<std::path::PathBuf, StoreError> {
+    if !is_valid_vo_id(id) {
+        return Err(StoreError::InvalidVoId(id.to_owned()));
+    }
+    Ok(layout.vo_dir().join(format!("{id}.yaml")))
+}
+
 pub fn read_vo_record(
     layout: &VerifyLayout,
     id: &str,
 ) -> Result<(VoRecord, Vec<Diagnostic>), StoreError> {
-    let path = layout.vo_dir().join(format!("{id}.yaml"));
+    let path = vo_record_path(layout, id)?;
     let text = read_text(&path)?;
     vo_record_from_yaml(&text, id)
 }
@@ -828,7 +848,7 @@ pub fn read_vo_record(
 pub fn write_vo_record(layout: &VerifyLayout, record: &VoRecord) -> Result<(), StoreError> {
     require_at_least_one_derives_from(&record.derives_from)?;
     require_no_duplicate_combination_dimension_names(&record.combinations)?;
-    let path = layout.vo_dir().join(format!("{}.yaml", record.id.as_str()));
+    let path = vo_record_path(layout, record.id.as_str())?;
     write_atomic(&path, &vo_record_to_yaml(record))
 }
 
@@ -2166,5 +2186,71 @@ updated: 2026-08-08
             vo_record_from_yaml(&yaml, record.id.as_str()).unwrap().0,
             record
         );
+    }
+
+    /// @vtest.id TEST-STORE-VO-ID-PATH-BOUNDARY
+    /// @vtest.covers VO-STORE-VO-ID-IS-ITS-FILE-NAME
+    /// @vtest.target crates/vtest-store/src/canonical.rs::write_vo_record
+    /// @vtest.intent write_vo_record/read_vo_recordが..・区切り文字・絶対パスを含むVO IDをInvalidVoIdで拒否し、.verify/vo外に書かず、通常のVO IDは受理することを確認する
+    #[test]
+    fn vo_record_paths_never_leave_the_vo_directory() {
+        for valid in ["VO-ONE", "VO-X-POSITIVE", "VO-A.B_C", "vo-lower-1"] {
+            assert!(is_valid_vo_id(valid), "{valid}");
+        }
+        for invalid in [
+            "",
+            "..",
+            ".",
+            ".hidden",
+            "../config",
+            "VO/X",
+            "VO\\X",
+            "/abs",
+            "C:VO",
+            "VO X",
+            "VO\u{0}X",
+            "VO-\u{e9}",
+        ] {
+            assert!(!is_valid_vo_id(invalid), "{invalid:?}");
+        }
+        let root =
+            std::env::temp_dir().join(format!("vtest-store-vo-id-boundary-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let layout = crate::init_project(&root, "vo-id").unwrap();
+        let config_before = std::fs::read(layout.config()).unwrap();
+        let record = VoRecord {
+            id: VoId::new("../config"),
+            parent: None,
+            derives_from: vec![DerivesFrom {
+                doc: DocumentId::new("ROOT-001"),
+                anchor: None,
+                note: None,
+            }],
+            claim: "overwrite".to_owned(),
+            dimensions: Vec::new(),
+            coverage_policy: None,
+            combinations: Vec::new(),
+            representative_cases: Vec::new(),
+            created: "2026-01-01T00:00:00Z".to_owned(),
+            updated: "2026-01-01T00:00:00Z".to_owned(),
+        };
+        assert!(matches!(
+            write_vo_record(&layout, &record),
+            Err(StoreError::InvalidVoId(_))
+        ));
+        assert!(matches!(
+            read_vo_record(&layout, "../config"),
+            Err(StoreError::InvalidVoId(_))
+        ));
+        assert!(matches!(
+            crate::records::read_vo(&layout, "../config"),
+            Err(StoreError::InvalidVoId(_))
+        ));
+        assert_eq!(std::fs::read(layout.config()).unwrap(), config_before);
+        let mut ok = record.clone();
+        ok.id = VoId::new("VO-ONE");
+        write_vo_record(&layout, &ok).unwrap();
+        assert_eq!(read_vo_record(&layout, "VO-ONE").unwrap().0.id, ok.id);
+        std::fs::remove_dir_all(&root).ok();
     }
 }

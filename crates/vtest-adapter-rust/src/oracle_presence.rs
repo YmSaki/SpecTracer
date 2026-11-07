@@ -42,7 +42,9 @@
 //!   a false `Fail`.
 
 use syn::{spanned::Spanned, visit::Visit};
-use vtest_adapter_api::{StaticAnalysisAdapter, StaticAnalysisInput, StaticAnalysisVerdict};
+use vtest_adapter_api::{
+    RuleOutcome, RuleVerdict, StaticAnalysisAdapter, StaticAnalysisInput, StaticAnalysisVerdict,
+};
 use vtest_model::{Diagnostic, Locator, TargetRef};
 
 use crate::ADAPTER_ID;
@@ -185,6 +187,78 @@ impl StaticAnalysisAdapter for RustCargoStaticAnalysisAdapter {
         } else {
             StaticAnalysisVerdict::Pass(basis)
         }
+    }
+
+    /// SPEC-387/DS-1208: DA-001/004/005/006 are Test-scoped; DA-002 and
+    /// DA-003 are reported once per declared target (DS-630).
+    ///
+    /// DA-002 (static reachability, DS-622) is not implemented by this
+    /// adapter, so every target reports `UNKNOWN` for it — the analysis
+    /// boundary, never "not called" (DS-612). `SrcId` targets are not
+    /// resolved to a symbol here, so their DA-003 is `UNKNOWN` too.
+    fn audit_rules(&self, input: StaticAnalysisInput<'_>) -> Vec<RuleVerdict> {
+        let symbols: Vec<String> = input
+            .test
+            .targets
+            .iter()
+            .filter_map(|target| match target {
+                TargetRef::Locator(locator) => Some(target_symbol(locator)),
+                TargetRef::SrcId(_) => None,
+            })
+            .collect();
+        let whole = analyze(input.construct_text, &symbols, input.extra_assertion_macros);
+        let mut out = Vec::new();
+        let push = |out: &mut Vec<RuleVerdict>,
+                    rule: &str,
+                    target: Option<String>,
+                    verdict: &DaVerdict| {
+            let (outcome, reason) = match verdict {
+                DaVerdict::Fail(reason) => (RuleOutcome::Fail, (*reason).to_owned()),
+                DaVerdict::Unknown(reason) => (RuleOutcome::Unknown, reason.clone()),
+                DaVerdict::NoViolation => (RuleOutcome::NoViolation, String::new()),
+            };
+            out.push(RuleVerdict {
+                rule: rule.to_owned(),
+                target,
+                outcome,
+                reason,
+            });
+        };
+        push(&mut out, "DA-001", None, &whole.da_001);
+        for target in &input.test.targets {
+            let label = match target {
+                TargetRef::Locator(locator) => locator.value.clone(),
+                TargetRef::SrcId(src_id) => src_id.as_str().to_owned(),
+            };
+            push(
+                &mut out,
+                "DA-002",
+                Some(label.clone()),
+                &DaVerdict::Unknown(
+                    "static target reachability (DA-002) is not implemented by rust-cargo; only \
+                     runtime measurement can establish it (DS-612/DS-613)"
+                        .to_owned(),
+                ),
+            );
+            let da_003 = match target {
+                TargetRef::Locator(locator) => {
+                    analyze(
+                        input.construct_text,
+                        &[target_symbol(locator)],
+                        input.extra_assertion_macros,
+                    )
+                    .da_003
+                }
+                TargetRef::SrcId(_) => DaVerdict::Unknown(
+                    "a SrcId target is not resolved to a call symbol by this analysis".to_owned(),
+                ),
+            };
+            push(&mut out, "DA-003", Some(label), &da_003);
+        }
+        push(&mut out, "DA-004", None, &whole.da_004);
+        push(&mut out, "DA-005", None, &whole.da_005);
+        push(&mut out, "DA-006", None, &whole.da_006);
+        out
     }
 }
 

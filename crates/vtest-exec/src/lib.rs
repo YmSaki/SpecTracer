@@ -465,7 +465,7 @@ pub fn run_tests_with_runner(
     })
 }
 
-fn git_revision(root: &Path) -> Revision {
+pub fn git_revision(root: &Path) -> Revision {
     let commit = Command::new("git")
         .current_dir(root)
         .args(["rev-parse", "HEAD"])
