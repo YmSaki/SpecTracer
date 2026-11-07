@@ -251,11 +251,17 @@ impl Reader<'_> {
         while let Some(start) = self.next_significant(index) {
             let end = self.statement_end(start).max(start + 1);
             if self.kind(start) == Some(Kind::Word) && self.text(start) == "func" {
-                if let Some(name) = self.function_name(start, end) {
+                // An explicit `;` after the body (`func f() {};`) is not part
+                // of the function.
+                let mut last = end - 1;
+                while last > start && self.kind(last) == Some(Kind::Semi) {
+                    last -= 1;
+                }
+                if let Some(name) = self.function_name(start, last + 1) {
                     output.push(Function {
                         name,
                         start: self.tokens[start].start,
-                        end: self.tokens[end - 1].end,
+                        end: self.tokens[last].end,
                     });
                 }
             }
@@ -515,5 +521,31 @@ func TestAdd(t *testing.T) {
         );
         assert_eq!(broken.diagnostics.len(), 1);
         assert_eq!(broken.diagnostics[0].code.as_str(), "E-SCAN-001");
+    }
+    /// @vtest.id TEST-ADAPTER-GO-EXPLICIT-SEMICOLON
+    /// @vtest.covers VO-ADAPTER-LEXICAL-NORMALIZES-DECLARATION
+    /// @vtest.target crates/vtest-adapter-lexical/src/go.rs::Reader::function_name
+    /// @vtest.intent verifies a function followed by an explicit semicolon is found with the same name and SRC ID as one ended by a newline
+    #[test]
+    fn explicit_semicolon_after_a_body() {
+        for source in [
+            "package p\n// @vtest.src-id SRC-GO-F\nfunc f() {}\n",
+            "package p;\n// @vtest.src-id SRC-GO-F\nfunc f() {};\n",
+            "package p\n// @vtest.src-id SRC-GO-F\nfunc f() {}; func g() {}\n",
+        ] {
+            let outcome = discover_text(&Go, "p/p.go", source, "demo");
+            assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+            assert_eq!(outcome.sources[0].locator.value, "p/p.go::f", "{source}");
+            let range = &outcome.sources[0].location.byte_range;
+            assert!(
+                source[range.start as usize..range.end as usize].ends_with("{}"),
+                "{source}"
+            );
+            assert_eq!(
+                outcome.sources[0].src_id.as_ref().map(|id| id.as_str()),
+                Some("SRC-GO-F"),
+                "{source}"
+            );
+        }
     }
 }
