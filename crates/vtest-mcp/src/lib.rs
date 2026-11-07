@@ -1665,6 +1665,72 @@ mod tests {
         assert_eq!(unknown["diagnostics"][0]["code"], "E-OP-001");
     }
 
+    /// @vtest.id TEST-MCP-FORM-GET-IGNORES-UNRELATED-SCAN-ERROR
+    /// @vtest.covers VO-MCP-FORM-GET-OWNER, VO-MCP-TOOL-CLI-EQUIVALENCE
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::tools_call_result
+    /// @vtest.intent a tools/call form_get returns the same Form Schema as ops::form::get while another Test has a scan error (E-SCAN-003, E-SCAN-004), and an unknown kind still reaches E-OP-001 instead of the scan diagnostic
+    #[test]
+    fn mcp_tools_call_form_get_ignores_an_unrelated_scan_error() {
+        let root = temp_root("form-get-broken");
+        structured_test_fixture(&root);
+        let registry = vtest_cli::adapters::builtin_registry().expect("builtin registry");
+        let mut rescan = MtimeRescan::default();
+        let mut call = |kind: &str| {
+            tools_call_result(
+                &root,
+                &json!({"name": "form_get", "arguments": {"kind": kind}}),
+                &mut rescan,
+            )["structuredContent"]
+                .clone()
+        };
+        let healthy = call("rust-unit-function");
+        assert_eq!(healthy["ok"], true, "{healthy}");
+
+        for (field, broken) in [
+            (
+                "covers",
+                "/// @vtest.covers VO-MISSING\n/// @vtest.target src/lib.rs::add\n",
+            ),
+            (
+                "target",
+                "/// @vtest.covers VO-MCP-APPROVAL\n/// @vtest.target src/lib.rs::missing\n",
+            ),
+        ] {
+            fs::write(
+                root.join("tests/calc.rs"),
+                format!(
+                    "/// @vtest.id TEST-OTHER\n{broken}/// @vtest.intent unrelated\n\
+                     #[test]\nfn other() {{}}\n"
+                ),
+            )
+            .unwrap();
+            let (_, scan) = ops::scan::execute(&root, &registry);
+            assert_eq!(
+                scan["ok"], false,
+                "the {field} fixture must be broken: {scan}"
+            );
+            let before = fs::read(root.join("tests/calc.rs")).unwrap();
+
+            let envelope = call("rust-unit-function");
+            assert_eq!(envelope, healthy, "{field}: {envelope}");
+            assert_eq!(
+                envelope,
+                ops::form::get(&root, &registry, "rust-unit-function").1
+            );
+            let unknown = call("rust-unit");
+            assert_eq!(unknown["ok"], false);
+            assert_eq!(
+                unknown["diagnostics"][0]["code"], "E-OP-001",
+                "{field}: {unknown}"
+            );
+            assert_eq!(fs::read(root.join("tests/calc.rs")).unwrap(), before);
+        }
+
+        fs::write(root.join("tests/calc.rs"), "").unwrap();
+        assert_eq!(call("rust-unit-function"), healthy);
+        fs::remove_dir_all(root).unwrap();
+    }
+
     fn fixture_vo_project(root: &Path) {
         use vtest_model::{
             DerivesFrom, DocumentFile, DocumentId, NodeSource, RootNode, SentenceNode, VoId,
