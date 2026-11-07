@@ -23,9 +23,10 @@ all framework-neutral adapters.
   `extends` is a TypeScript type, so `function f(): { x: number } {` takes
   the second brace as the body. Template literals, regular expressions, and
   JSX elements are read as literals.
-- **Limits**: regular-expression literals that contain unbalanced brackets
-  (`/[{]/`) can make a file unparseable, and the file is then reported as
-  `E-SCAN-001`. Functions nested inside other functions or inside call
+- **Limits**: a `/` is read as a regular expression only where an
+  expression can start, so a regular expression after `)` (rare outside
+  `if (x) /re/.test(y)`) is read as division; if its brackets then do not
+  balance, the file is reported as `E-SCAN-001`. Functions nested inside other functions or inside call
   arguments (such as helpers defined in a `describe` callback) are not Source
   Targets, and neither are methods of object literals assigned to a
   variable.
