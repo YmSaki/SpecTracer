@@ -1,0 +1,11 @@
+id: VO-JUDGMENT-EFFECTIVE-SET-EXCLUDES-SUPERSEDED
+parent: null
+derives_from:
+  - doc: DS-727
+claim: "実効集合Eは、Vから、V内の他レコードのsupersedesに名指しされたものを除いた集合とする。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-08T12:00:00+09:00
+updated: 2026-11-08T12:00:00+09:00
