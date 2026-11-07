@@ -12,6 +12,13 @@ shared by all framework-neutral adapters.
 - **Tests**: any construct right after a `@vtest.` comment. That can be an
   XCTest method, a Swift Testing `@Test` function (the attribute is part of
   the construct), or a Quick `it("...") { ... }` block.
+- **Where a construct ends**: after the `{}` body of a `func`, `init`,
+  `deinit`, or type, or a property's accessor block; otherwise at a `;` or a
+  newline, judged by Swift's operator whitespace (a line ending with `x!` is
+  complete, one ending with `a +` is not; a next line starting with a spaced
+  operator or `.member` continues it). A function's body is the first `{`
+  after its parameter list, so a default argument closure
+  (`func f(x: () -> Int = { 1 })`) is not the body.
 - **Limits**: overloads (including several `init`s) share a locator, so use
   `@vtest.src-id` to target one of them. `#if` lines are skipped, and every
   branch is scanned.

@@ -39,3 +39,28 @@ fn swift_adapter_scans_and_verifies_through_the_cli_registry() {
     assert_eq!(scan.tests[0].execution.adapter.as_str(), "swift");
     support::assert_discovery_only_verdict(&outcome, "TEST-FIXTURE-SWIFT-ADD");
 }
+
+/// @vtest.id TEST-CLI-SWIFT-BODY-TAIL-CHANGES-SUBJECT-HASH
+/// @vtest.covers VO-ADAPTER-SWIFT-REGISTERS-WITHOUT-CORE-CHANGES
+/// @vtest.target crates/vtest-cli/src/adapters.rs::builtin_registry
+/// @vtest.intent verifies that for a Swift Test with a default argument closure, an edit to only the end of the function body changes the Test's content hash, so the whole body is hashed
+#[test]
+fn swift_body_tail_edit_changes_the_test_hash() {
+    let source = |tail: &str| {
+        format!(
+            "// @vtest.id TEST-FIXTURE-SWIFT-TAIL\n// @vtest.covers VO-FIXTURE-ONE\n// @vtest.intent the body tail is hashed\n@Test\nfunc tail(make: () -> Int = {{ 1 }}) {{\n    marker()\n    {tail}\n}}\n"
+        )
+    };
+    let hash = |tail: &str| {
+        let fixture = support::fixture(
+            "swift",
+            &[("Tests/TailTests.swift", &source(tail))],
+            &["VO-FIXTURE-ONE"],
+        );
+        let (scan, _) = fixture.scan_and_verify();
+        assert!(!scan.has_errors(), "{:?}", scan.diagnostics);
+        assert_eq!(scan.tests.len(), 1);
+        scan.tests[0].content_hash.clone()
+    };
+    assert_ne!(hash("one()"), hash("two()"));
+}
