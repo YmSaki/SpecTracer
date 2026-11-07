@@ -282,20 +282,17 @@ fn tools_call_result(root: &Path, params: &Value, mtime_rescan: &mut MtimeRescan
     if let Err(error) = validate_tool_arguments(name, arguments) {
         return tool_result(error);
     }
-    // Every tool re-scans internally via `ops::*::execute` (which itself
-    // calls `scan_project`), so — unlike the predecessor transport that
-    // shelled out to a separately-scanning CLI process per call — no
-    // freshness check is needed before dispatch. It is kept only to expose
-    // an explicit `scan` no-op fast path for a caller that wants a single
-    // freshness probe without paying for a `verify`/`run`.
-    // `test_create` / `test_edit` are exempt as well: they scan and validate
-    // the project themselves, and a scan error is often exactly what the
-    // edit repairs (a `covers` naming a missing VO, E-SCAN-003). Gating them
-    // here would refuse a repair the CLI performs (DS-1563).
-    if !matches!(name, "scan" | "test_create" | "test_edit") {
-        if let Some(scan) = rescan_if_changed(root, mtime_rescan) {
-            return tool_result(scan);
-        }
+    // DES-483: the mtime-based rescan judgment runs at the start of each
+    // call, but its result never stops the call. An entry point holds no
+    // business rule (AGENTS.md §12): each operation applies its own checks,
+    // exactly as the CLI does, so the same input gives the same `ok` /
+    // `data` / `diagnostics` over both (DS-1563). Returning the rescan's
+    // failure here made an unrelated Test's scan error (e.g. E-SCAN-004)
+    // reject operations the CLI accepts, and replaced an operation's own
+    // check order and codes (#178). A failed rescan leaves the snapshot
+    // stale, so the next call judges again.
+    if name != "scan" {
+        let _ = rescan_if_changed(root, mtime_rescan);
     }
     let envelope = dispatch_tool(root, name, &Value::Object(arguments.clone()));
     if name == "scan" && envelope.get("ok") == Some(&Value::Bool(true)) {
