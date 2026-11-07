@@ -27,8 +27,9 @@ shared by all framework-neutral adapters.
   branch is scanned. A file that ends while a declaration is incomplete
   (`func f() ->`, `let a =`, a `func` without its body) is unreadable
   (`E-SCAN-001`). A declaration that the `}` of its enclosing block cuts
-  off the same way is not read as a whole construct either; a `func`
-  without a body there is a protocol requirement.
+  off the same way is not read as a whole construct either. A `func`,
+  `init`, or `subscript` without a body is complete only directly in a
+  `protocol` (a requirement); anywhere else it is incomplete.
 
 ```swift
 // @vtest.id TEST-CALC-ADD
