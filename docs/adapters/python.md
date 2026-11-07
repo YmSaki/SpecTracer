@@ -24,8 +24,9 @@ framework-neutral adapters.
   (a `case` clause of a `match`, not a statement such as `case = 2`).
 - **Limits**: declarations are read from `#` comments, not from docstrings.
   A tab advances to the next multiple of eight columns, as in Python. The
-  block structure is checked as Python's parser does: a `def`, `class`,
-  `if`, ... without its `:`, a `:` with no indented block after it (a file
+  block structure is checked as Python's parser does: a `def` without its
+  name and parameter list (`def f:`), a `class` without its name, a `def`,
+  `class`, `if`, ... without its `:`, a `:` with no indented block after it (a file
   cut off after `def f():`), an unexpected indent, or a dedent to no
   enclosing level makes the file unreadable (`E-SCAN-001`). f-string
   fields are read as code, comments and nested f-strings included.

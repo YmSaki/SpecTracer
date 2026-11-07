@@ -381,6 +381,11 @@ fn check_blocks(source: &str, tokens: &[Tok], lines: &[Line]) -> Result<(), Extr
         if BLOCK_KEYWORDS.contains(&text(keyword)) && !colon {
             return error("a compound statement without its `:`");
         }
+        if matches!(text(keyword), "def" | "class")
+            && !definition_header(source, tokens, keyword, line.last)
+        {
+            return error("a `def` or `class` without its name and parameters");
+        }
         opens = text(line.last) == ":";
         if opens && n + 1 == lines.len() {
             return Err(ExtractError::new(
@@ -390,6 +395,39 @@ fn check_blocks(source: &str, tokens: &[Tok], lines: &[Line]) -> Result<(), Extr
         }
     }
     Ok(())
+}
+
+/// Whether the `def` or `class` at `keyword` (on a line ending at `last`)
+/// has the header Python requires: a name, optional type parameters
+/// (`[T]`), and then a parameter list for `def`, or a base list or the `:`
+/// for `class`.
+fn definition_header(source: &str, tokens: &[Tok], keyword: usize, last: usize) -> bool {
+    let text = |index: usize| &source[tokens[index].start..tokens[index].end];
+    let name = keyword + 1;
+    if name > last || tokens[name].kind != Kind::Word {
+        return false;
+    }
+    let mut next = name + 1;
+    if next <= last && tokens[next].kind == Kind::Open('[') {
+        let mut depth = 0usize;
+        while next <= last {
+            match tokens[next].kind {
+                Kind::Open(_) => depth += 1,
+                Kind::Close(_) => depth -= 1,
+                _ => {}
+            }
+            next += 1;
+            if depth == 0 {
+                break;
+            }
+        }
+    }
+    next <= last
+        && match tokens[next].kind {
+            Kind::Open('(') => true,
+            Kind::Op => text(keyword) == "class" && text(next) == ":",
+            _ => false,
+        }
 }
 
 /// Compound statements whose suites stay in the enclosing scope.
@@ -756,7 +794,7 @@ x = 1
     /// @vtest.id TEST-ADAPTER-PYTHON-BLOCK-STRUCTURE-CASE-NAMES-AND-FSTRING-FIELDS
     /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
     /// @vtest.target crates/vtest-adapter-lexical/src/python.rs::check_blocks
-    /// @vtest.intent verifies that a def without its colon or suite, or with a dedent to no enclosing level, makes the file unreadable instead of yielding a Test, that a statement named case after a function is not part of it so editing it leaves the Test text unchanged, and that comments and nested f-strings inside f-string fields are read as code
+    /// @vtest.intent verifies that a def without its name, parameter list, colon, or suite, a class without its name, or with a dedent to no enclosing level, makes the file unreadable instead of yielding a Test, that a statement named case after a function is not part of it so editing it leaves the Test text unchanged, and that comments and nested f-strings inside f-string fields are read as code
     #[test]
     fn block_structure_case_names_and_fstring_fields() {
         let declare =
@@ -767,6 +805,11 @@ x = 1
             "def f():\n        a = 1\n    b = 2\n",
             "if x:\ny = 1\n",
             "    x = 1\n",
+            "def f:\n    assert 1 == 1\n",
+            "async def f:\n    assert 1 == 1\n",
+            "def (x):\n    assert 1 == 1\n",
+            "def f[T]:\n    assert 1 == 1\n",
+            "class:\n    pass\n",
         ] {
             let outcome = discover_text(
                 &Python,
@@ -786,6 +829,20 @@ x = 1
             assert_eq!(outcome.tests.len(), 1);
             outcome.tests[0].construct_text.clone()
         };
+        for header in [
+            "def f[T](x: T):",
+            "async def f():",
+            "class C:\n    def f(self):",
+            "class C[T](Base):\n    def f(self):",
+        ] {
+            let source = format!("{declare}{header}\n        assert 1 == 1\n");
+            let source = if header.contains('\n') {
+                source
+            } else {
+                source.replace("        assert", "    assert")
+            };
+            assert!(text(&source).ends_with("assert 1 == 1"), "{header:?}");
+        }
         let one = format!("{declare}def f():\n    assert 1 == 1\ncase = 2\n");
         assert_eq!(text(&one), "def f():\n    assert 1 == 1");
         assert_eq!(text(&one), text(&one.replace("case = 2", "case = 999")));
