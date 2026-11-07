@@ -4,12 +4,13 @@
 use std::{
     collections::BTreeSet,
     fs,
+    io::{BufRead, Write},
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Stdio},
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use serde_json::Value;
+use serde_json::{json, Value};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -227,4 +228,130 @@ fn a_colliding_test_id_is_rejected_without_a_cache() {
             "{args:?}: no derived cache for a rejected operation"
         );
     }
+}
+
+/// One `tools/call` through the real `vtest mcp` stdio server; returns the
+/// tool's `structuredContent` envelope.
+fn mcp(root: &Path, name: &str, arguments: Value) -> Value {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_vtest"))
+        .arg("--project")
+        .arg(root)
+        .arg("mcp")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    {
+        let mut stdin = child.stdin.take().unwrap();
+        for request in [
+            json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+            json!({
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": name, "arguments": arguments}
+            }),
+        ] {
+            writeln!(stdin, "{request}").unwrap();
+        }
+    }
+    let output = child.wait_with_output().unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let responses: Vec<Value> = output
+        .stdout
+        .lines()
+        .map(|line| serde_json::from_str(&line.unwrap()).unwrap())
+        .collect();
+    assert_eq!(responses.len(), 2, "{responses:?}");
+    responses[1]["result"]["structuredContent"].clone()
+}
+
+/// Runs the same audit over the CLI and over `tools/call`, each on a clean
+/// cache, and asserts the same `ok` / `data` / `diagnostics` and the same
+/// cache outcome. Returns the CLI envelope.
+fn assert_cli_and_mcp_agree(root: &Path, cli_args: &[&str], arguments: Value) -> Value {
+    let cache = root.join(".verify/cache/audit-static.json");
+    let _ = fs::remove_file(&cache);
+    let (_, via_cli) = vtest(root, cli_args);
+    let cli_cache = fs::read_to_string(&cache).ok();
+    let _ = fs::remove_file(&cache);
+    let via_mcp = mcp(root, "audit_static", arguments);
+    let mcp_cache = fs::read_to_string(&cache).ok();
+    assert_eq!(
+        via_cli["ok"], via_mcp["ok"],
+        "{cli_args:?}\nCLI {via_cli}\nMCP {via_mcp}"
+    );
+    assert_eq!(via_cli["data"], via_mcp["data"], "{cli_args:?}");
+    assert_eq!(
+        via_cli["diagnostics"], via_mcp["diagnostics"],
+        "{cli_args:?}"
+    );
+    assert_eq!(cli_cache, mcp_cache, "{cli_args:?}: same cache outcome");
+    if via_cli["ok"] == true {
+        assert!(
+            cli_cache.is_some(),
+            "{cli_args:?}: success writes the cache"
+        );
+    } else {
+        assert!(
+            cli_cache.is_none(),
+            "{cli_args:?}: rejection writes nothing"
+        );
+    }
+    via_cli
+}
+
+/// @vtest.id TEST-AUDIT-STATIC-CLI-MCP-TRANSPORT-EQUIVALENCE
+/// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE
+/// @vtest.target crates/vtest-cli/src/ops/audit.rs::audit_static
+/// @vtest.intent 無関係なTestに未解決target(E-SCAN-004)がある状態での正常Testの監査、未解決targetを持つTest自身の監査、--all、Test ID重複(E-SCAN-002)のそれぞれで、CLIのaudit staticと実際のvtest mcp stdioのtools/callのaudit_staticが同じok・data・diagnostics・cache作成有無になることを確認する
+#[test]
+fn audit_static_gives_the_same_result_over_cli_and_the_mcp_transport() {
+    let root = fixture("transport");
+    fs::write(
+        root.join("tests/unrelated.rs"),
+        "/// @vtest.id TEST-UNRESOLVED\n/// @vtest.covers VO-X\n\
+         /// @vtest.target src/lib.rs::missing\n/// @vtest.intent nothing\n\
+         #[test]\nfn unresolved() {\n    assert_eq!(audit_fixture::add(1, 1), 2);\n}\n",
+    )
+    .unwrap();
+
+    // An unrelated Test's scan error does not stop the requested audit.
+    let good = assert_cli_and_mcp_agree(
+        &root,
+        &["audit", "static", "--test", "TEST-GOOD"],
+        json!({"test": "TEST-GOOD"}),
+    );
+    assert_eq!(good["ok"], true, "{good}");
+    assert_eq!(good["data"]["tests"][0]["test"], "TEST-GOOD", "{good}");
+
+    // The requested Test itself has the unresolved target.
+    assert_cli_and_mcp_agree(
+        &root,
+        &["audit", "static", "--test", "TEST-UNRESOLVED"],
+        json!({"test": "TEST-UNRESOLVED"}),
+    );
+    assert_cli_and_mcp_agree(&root, &["audit", "static", "--all"], json!({"all": true}));
+
+    // A colliding Test ID is rejected the same way over both.
+    fs::write(
+        root.join("tests/duplicate.rs"),
+        "/// @vtest.id TEST-GOOD\n/// @vtest.covers VO-X\n/// @vtest.target src/lib.rs::add\n\
+         /// @vtest.intent nothing\n#[test]\nfn duplicate() {}\n",
+    )
+    .unwrap();
+    let collided = assert_cli_and_mcp_agree(
+        &root,
+        &["audit", "static", "--test", "TEST-GOOD"],
+        json!({"test": "TEST-GOOD"}),
+    );
+    assert_eq!(
+        collided["diagnostics"][0]["code"], "E-SCAN-002",
+        "{collided}"
+    );
 }
