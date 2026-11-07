@@ -200,10 +200,17 @@ impl Lexer<'_> {
                 Kind::Literal
             } else if is_word_start(byte) {
                 i = self.word_end(i);
-                // `class:` in `{class: "x"}` is a hash label, not a keyword.
+                // `class:` in `{class: "x"}` or `{if:1}` is a hash label, not
+                // a keyword. Without a space after the `:`, the word may
+                // instead be a ternary's middle operand (`c ? a:b`).
+                let ternary = tokens
+                    .iter()
+                    .rev()
+                    .find(|t: &&Tok| t.kind != Kind::Comment)
+                    .is_some_and(|t| self.text(t) == "?");
                 if bytes.get(i) == Some(&b':')
                     && bytes.get(i + 1) != Some(&b':')
-                    && bytes.get(i + 1).is_none_or(u8::is_ascii_whitespace)
+                    && (bytes.get(i + 1).is_none_or(u8::is_ascii_whitespace) || !ternary)
                 {
                     i += 1;
                     Kind::Literal
@@ -592,6 +599,9 @@ impl Reader<'_> {
     /// methods that are not inside another method.
     fn walk(&mut self) -> Result<Vec<Function>, ExtractError> {
         let mut functions = Vec::new();
+        // Endless defs, whose end is found once every keyword is paired
+        // with its `end` (`def f = if x then 1 else 2 end`).
+        let mut endless: Vec<(Vec<String>, String, usize)> = Vec::new();
         let mut stack: Vec<(usize, Opened)> = Vec::new();
         let mut loop_do = false;
         let mut index = 0;
@@ -622,8 +632,7 @@ impl Reader<'_> {
                     let start = self.statement_start(index);
                     if self.is_endless(after) {
                         if !in_def {
-                            let end = self.statement_end(start);
-                            functions.push(self.function(&stack, name, start, end - 1));
+                            endless.push((scopes(&stack), name, start));
                         }
                     } else {
                         stack.push((index, Opened::Def { name, start }));
@@ -682,6 +691,16 @@ impl Reader<'_> {
                 format!("`{}` without `end`", self.text(*opener)),
             ));
         }
+        for (mut qualified, name, start) in endless {
+            let last = self.statement_end(start) - 1;
+            qualified.push(name);
+            functions.push(Function {
+                name: qualified,
+                start: self.tokens[start].start,
+                end: self.tokens[last].end,
+            });
+        }
+        functions.sort_by_key(|function| function.start);
         Ok(functions)
     }
 
@@ -692,14 +711,7 @@ impl Reader<'_> {
         start: usize,
         last: usize,
     ) -> Function {
-        let mut qualified: Vec<String> = stack
-            .iter()
-            .filter_map(|(_, opened)| match opened {
-                Opened::Scope(names) => Some(names.clone()),
-                _ => None,
-            })
-            .flatten()
-            .collect();
+        let mut qualified = scopes(stack);
         qualified.push(name);
         Function {
             name: qualified,
@@ -779,6 +791,18 @@ fn comment_lines(comment: &str) -> Vec<String> {
         .skip(1)
         .take(lines.len().saturating_sub(2))
         .map(|line| (*line).to_owned())
+        .collect()
+}
+
+/// The `class`/`module` names on `stack`, outermost first.
+fn scopes(stack: &[(usize, Opened)]) -> Vec<String> {
+    stack
+        .iter()
+        .filter_map(|(_, opened)| match opened {
+            Opened::Scope(names) => Some(names.clone()),
+            _ => None,
+        })
+        .flatten()
         .collect()
 }
 
@@ -951,5 +975,41 @@ end
             vec!["fixture.rb::f", "fixture.rb::g", "fixture.rb::h="]
         );
         assert!(outcome.sources[0].construct_text.ends_with("  x\nend"));
+    }
+    /// @vtest.id TEST-ADAPTER-RUBY-ENDLESS-EXPRESSIONS-AND-LABELS
+    /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
+    /// @vtest.target crates/vtest-adapter-lexical/src/ruby.rs::Reader::walk
+    /// @vtest.intent verifies an endless method whose body is an if, case, or begin expression runs to that expression's end so a change at its end changes the Source, and a hash label written without a space is not a keyword while a ternary without spaces still parses
+    #[test]
+    fn endless_expressions_and_labels() {
+        let range = |source: &str| {
+            let outcome = discover_text(&Ruby, "lib/a.rb", source, "demo");
+            assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+            let found = &outcome.sources[0];
+            assert_eq!(found.locator.value, "lib/a.rb::f");
+            let range = &found.location.byte_range;
+            source[range.start as usize..range.end as usize].to_owned()
+        };
+        for source in [
+            "def f = if true\n  1\nelse\n  2\nend\n",
+            "def f = case x\nwhen 1 then 1\nelse 2\nend\n",
+            "def f = begin\n  1\nrescue\n  2\nend\n",
+        ] {
+            assert!(range(source).ends_with("end"), "{source:?}");
+            assert_ne!(
+                range(source),
+                range(&source.replace('2', "3")),
+                "{source:?}"
+            );
+        }
+        for source in [
+            "def f\n  {if:1}\nend\n",
+            "def f\n  {if: 1}\nend\n",
+            "def f\n  {class:\"x\", while:2}\nend\n",
+            "def f\n  x ? a:b\n  if y then 1 end\nend\n",
+            "def f\n  [:if, :class]\nend\n",
+        ] {
+            assert!(range(source).ends_with("end"), "{source:?}");
+        }
     }
 }
