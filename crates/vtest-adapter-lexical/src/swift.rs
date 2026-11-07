@@ -579,10 +579,13 @@ impl Reader<'_> {
                 }
                 Kind::Close(_) => {
                     // The enclosing block ends the declaration, which must be
-                    // able to stop there, as at a line break. A `func`
-                    // without its body may (a protocol requirement).
+                    // able to stop there, as at a line break.
                     return match self.previous_significant(start, index) {
-                        Some(last) if !self.completes(last) || self.in_modifiers(start, last) => {
+                        Some(last)
+                            if !self.completes(last)
+                                || self.in_modifiers(start, last)
+                                || (shape == Shape::Bodied && !self.in_protocol(start)) =>
+                        {
                             None
                         }
                         _ => Some(index),
@@ -617,6 +620,7 @@ impl Reader<'_> {
             if self.line_breaks(last, next) > 0
                 && self.completes(last)
                 && !self.in_modifiers(start, last)
+                && (shape != Shape::Bodied || self.in_protocol(start))
                 && !self.continues(next, shape == Shape::Bodied)
                 && !self.labeled_closure(last, next)
             {
@@ -625,6 +629,38 @@ impl Reader<'_> {
             index = next;
         }
         None
+    }
+
+    /// Whether the declaration at `start` is directly in a `protocol` body,
+    /// where a `func`, `init`, or `subscript` requirement has no body. In
+    /// any other type, function, or file scope, a declaration that needs a
+    /// body is incomplete without one.
+    fn in_protocol(&self, start: usize) -> bool {
+        let mut index = start;
+        let open = loop {
+            let Some(previous) = index.checked_sub(1) else {
+                return false;
+            };
+            match self.tokens[previous].kind {
+                Kind::Close(_) => index = self.partner(previous),
+                Kind::Open('{') => break previous,
+                _ => index = previous,
+            }
+        };
+        // The declaration that owns the `{`: back to the previous statement
+        // boundary.
+        let mut index = open;
+        while let Some(previous) = index.checked_sub(1) {
+            match self.tokens[previous].kind {
+                Kind::Open(_) | Kind::Semi | Kind::Close('}') => return false,
+                Kind::Close(_) => index = self.partner(previous),
+                Kind::Word if self.text(previous) == "protocol" && !self.after_dot(previous) => {
+                    return true
+                }
+                _ => index = previous,
+            }
+        }
+        false
     }
 
     /// Whether `word` at `index` declares a type (`class Calc`, not the
@@ -1049,7 +1085,7 @@ func adds() {
     /// @vtest.id TEST-ADAPTER-SWIFT-LABELED-CLOSURES-AND-ENCLOSING-BLOCK-ENDS
     /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
     /// @vtest.target crates/vtest-adapter-lexical/src/swift.rs::Reader::declaration_end
-    /// @vtest.intent verifies that a labeled trailing closure on the next line, with or without spaces around its `:`, is part of the call's Test construct, so an edit to it changes the construct, that a declaration cut off by the `}` of its enclosing block (`let a =`, `func f() ->`, a bare modifier) is not read as a whole Test, and that a protocol requirement without a body still ends at that `}`
+    /// @vtest.intent verifies that a labeled trailing closure on the next line, with or without spaces around its `:`, is part of the call's Test construct, so an edit to it changes the construct, that a declaration cut off by the `}` of its enclosing block (`let a =`, `func f() ->`, a bare modifier) is not read as a whole Test, and that a `func` without a body ends there only as a protocol requirement, while in a struct, class, or function it is not read as a whole Test
     #[test]
     fn labeled_closures_and_enclosing_block_ends() {
         let declare = "// @vtest.id TEST-X\n// @vtest.covers VO-X\n// @vtest.intent check\n";
@@ -1088,5 +1124,30 @@ func adds() {
             "demo",
         );
         assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+
+        // A requirement in a protocol has no body; a `func` anywhere else
+        // needs one, even after a protocol earlier in the file.
+        let requirement = discover_text(
+            &Swift,
+            "Sources/P.swift",
+            &format!("protocol P {{\n{declare}    func f() -> Int\n    func g()\n}}\n"),
+            "demo",
+        );
+        assert!(
+            requirement.diagnostics.is_empty(),
+            "{:?}",
+            requirement.diagnostics
+        );
+        assert_eq!(requirement.tests[0].construct_text, "func f() -> Int");
+        for source in [
+            format!("struct S {{\n{declare}    func f() -> Int\n}}\n"),
+            format!("protocol Q {{}}\nstruct S {{\n{declare}    func f() -> Int\n}}\n"),
+            format!("class C {{\n{declare}    func f() -> Int\n    var x = 1\n}}\n"),
+            format!("func outer() {{\n{declare}    func inner()\n}}\n"),
+        ] {
+            let outcome = discover_text(&Swift, "Sources/S.swift", &source, "demo");
+            assert!(outcome.tests.is_empty(), "{source:?}");
+            assert!(!outcome.diagnostics.is_empty(), "{source:?}");
+        }
     }
 }
