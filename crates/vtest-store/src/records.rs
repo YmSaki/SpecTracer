@@ -815,6 +815,9 @@ pub fn read_req(layout: &VerifyLayout, id: &str) -> Result<ReqRecord, StoreError
 }
 
 pub fn read_vo(layout: &VerifyLayout, id: &str) -> Result<VoRecord, StoreError> {
+    if !crate::canonical::is_valid_vo_id(id) {
+        return Err(StoreError::InvalidVoId(id.to_owned()));
+    }
     let path = layout.vo_dir().join(format!("{id}.yaml"));
     let text = read_text(&path)?;
     Ok(VoRecord::from_yaml(&text, id))

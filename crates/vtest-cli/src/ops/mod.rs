@@ -7,9 +7,14 @@
 //! asymmetry: `verify`/`scan`/`doctor`/`init` were not refactored to match.
 
 pub mod approval;
+pub mod audit;
 pub mod doc;
 pub mod doctor;
+pub mod form;
 pub mod init;
+pub mod judgment;
 pub mod run;
 pub mod scan;
+pub mod test_op;
 pub mod verify;
+pub mod vo;

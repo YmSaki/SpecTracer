@@ -348,10 +348,9 @@ adapter設定を黙って受理せず、登録adapterへ検証を委譲する。
 製品能力の依存順、実装スケジュールはstatus / evidence台帳であり、W0〜W8と競合する
 別のmigration sequenceとして使用しない。
 
-| Wave | Current status | 開始条件 |
-|---|---|---|
-| W0 | IN_REVIEW | Ownerによる仕様PRのreview中 |
-| W1〜W8 | NOT_STARTED | W0のOwner承認・mergeとacceptance成果物の独立確定 |
+各ウェーブの進捗は本文に表として持たず、GitHub の
+[milestones](https://github.com/YmSaki/SpecTracer/milestones)（M2 adapter 分離）と
+[issues](https://github.com/YmSaki/SpecTracer/issues) で追跡する。
 
 ### W0 仕様と受入契約の確定
 
