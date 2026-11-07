@@ -84,6 +84,7 @@ const TOOL_NAMES: &[&str] = &[
     "test_create",
     "test_edit",
     "form_get",
+    "audit_static",
     "vo_list",
     "vo_get",
     "vo_upsert",
@@ -494,6 +495,10 @@ fn tool_input_schema(name: &str) -> Value {
             }),
             vec!["id", "state", "approver"],
         ),
+        "audit_static" => (
+            json!({"test": {"type": "string"}, "all": {"type": "boolean"}}),
+            Vec::new(),
+        ),
         "approval_withdraw" => (
             json!({
                 "approval_id": {"type": "string"},
@@ -598,6 +603,7 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
         "test_create" => &["form", "answers", "id", "dry_run"],
         "test_edit" => &["id", "answers", "set", "body", "dry_run"],
         "form_get" => &["kind"],
+        "audit_static" => &["test", "all"],
         "vo_list" => &["doc", "status"],
         "vo_get" => &["id"],
         "vo_upsert" => &[
@@ -694,6 +700,10 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
             optional_nonempty_string(args, "id")?;
             optional_nonempty_string(args, "parent").map(|_| ())
         }
+        "audit_static" => {
+            optional_nonempty_string(args, "test")?;
+            optional_bool(args, "all")
+        }
         _ => Ok(()),
     }
 }
@@ -777,6 +787,7 @@ fn dispatch_tool(root: &Path, name: &str, args: &Value) -> Value {
         "vo_upsert" => vo_upsert_tool(root, args),
         "vo_expand" => vo_expand_tool(root, args),
         "vo_approve" => vo_approve_tool(root, args),
+        "audit_static" => audit_static_tool(root, args),
         _ => failure_envelope("E-OP-001", format!("unknown MCP tool `{name}`")),
     }
 }
@@ -1047,6 +1058,37 @@ fn vo_approve_tool(root: &Path, args: &Value) -> Value {
         object.insert("subject".to_owned(), json!({"type": "vo", "id": id}));
     }
     approval_create_tool(root, &forwarded)
+}
+
+/// DS-1208/DS-1209/DS-1227: the same `ops::audit::audit_static` the CLI
+/// `vtest audit static` calls. No canonical record, no audit record id.
+fn audit_static_tool(root: &Path, args: &Value) -> Value {
+    if let Err(error) = vtest_store::load_config(root) {
+        return vtest_cli::config_error_result(&error).1;
+    }
+    let registry = match resolve_registry() {
+        Ok(registry) => registry,
+        Err(envelope) => return envelope,
+    };
+    let scan = match vtest_scan::scan_project(root, &registry) {
+        Ok(scan) => scan,
+        Err(error) => {
+            return failure_envelope(
+                error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE),
+                error.to_string(),
+            )
+        }
+    };
+    match ops::audit::audit_static(
+        root,
+        &scan,
+        &registry,
+        string_arg(args, "test"),
+        bool_arg(args, "all"),
+    ) {
+        Ok((data, diagnostics)) => success_envelope(true, data, &diagnostics),
+        Err(error) => failure_envelope(error.code(), error.to_string()),
+    }
 }
 
 /// BD-305: `approval_create`（`subject: { type, id }`）— the same canonical
@@ -1817,6 +1859,81 @@ mod tests {
             expanded["diagnostics"][0]["code"], "E-OP-001",
             "no dimensions: nothing to expand"
         );
+    }
+
+    /// @vtest.id TEST-MCP-AUDIT-STATIC
+    /// @vtest.covers VO-AUDIT-STATIC-NO-CANONICAL-RECORD
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent the MCP audit_static tool returns the shared operation's data without an audit record id and rejects a missing selector with E-OP-001
+    #[test]
+    fn audit_static_tool_matches_the_shared_operation() {
+        let root = temp_root("audit-static");
+        vtest_store::init_project(&root, "audit-static").unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"audit\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("src/lib.rs"),
+            "pub fn f() -> i32 { 1 }\n/// @vtest.id TEST-F\n/// @vtest.covers VO-F\n\
+             /// @vtest.target src/lib.rs::f\n/// @vtest.intent f\n#[test]\nfn t() {}\n",
+        )
+        .unwrap();
+        let via_mcp = dispatch_tool(&root, "audit_static", &json!({"all": true}));
+        assert_eq!(via_mcp["ok"], true, "{via_mcp}");
+        let registry = vtest_cli::adapters::builtin_registry().unwrap();
+        let scan = vtest_scan::scan_project(&root, &registry).unwrap();
+        let (data, _) = ops::audit::audit_static(&root, &scan, &registry, None, true).unwrap();
+        assert_eq!(via_mcp["data"], serde_json::to_value(&data).unwrap());
+        assert!(via_mcp["data"].get("id").is_none());
+
+        let missing = dispatch_tool(&root, "audit_static", &json!({}));
+        assert_eq!(missing["diagnostics"][0]["code"], "E-OP-001");
+    }
+
+    /// @vtest.id TEST-MCP-AUDIT-STATIC-COLLIDING-TEST-ID
+    /// @vtest.covers VO-AUDIT-STATIC-COLLIDING-TEST-ID-E-SCAN-002
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
+    /// @vtest.intent the MCP audit_static tool rejects a Test ID declared by two constructs (one clean, one empty) with E-SCAN-002, returns no data, and writes no cache for both test and all
+    #[test]
+    fn audit_static_tool_rejects_a_colliding_test_id() {
+        for args in [json!({"test": "TEST-A"}), json!({"all": true})] {
+            let root = temp_root("audit-static-collision");
+            vtest_store::init_project(&root, "audit-static-collision").unwrap();
+            std::fs::write(
+                root.join("Cargo.toml"),
+                "[package]\nname = \"audit\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+            )
+            .unwrap();
+            std::fs::create_dir_all(root.join("src")).unwrap();
+            std::fs::create_dir_all(root.join("tests")).unwrap();
+            std::fs::write(root.join("src/lib.rs"), "pub fn f() -> i32 { 1 }\n").unwrap();
+            std::fs::write(
+                root.join("tests/a.rs"),
+                "/// @vtest.id TEST-A\n/// @vtest.covers VO-F\n/// @vtest.target src/lib.rs::f\n\
+                 /// @vtest.intent f\n#[test]\nfn a() { assert_eq!(audit::f(), 1); }\n",
+            )
+            .unwrap();
+            std::fs::write(
+                root.join("tests/b.rs"),
+                "/// @vtest.id TEST-A\n/// @vtest.covers VO-F\n/// @vtest.target src/lib.rs::f\n\
+                 /// @vtest.intent f\n#[test]\nfn b() {}\n",
+            )
+            .unwrap();
+            let envelope = dispatch_tool(&root, "audit_static", &args);
+            assert_eq!(envelope["ok"], false, "{args}: {envelope}");
+            assert_eq!(envelope["data"], Value::Null, "{args}: {envelope}");
+            assert_eq!(
+                envelope["diagnostics"][0]["code"], "E-SCAN-002",
+                "{args}: {envelope}"
+            );
+            assert!(
+                !root.join(".verify/cache/audit-static.json").exists(),
+                "{args}: no derived cache for a rejected operation"
+            );
+        }
     }
 
     /// @vtest.id TEST-MCP-RECORD-ERROR-CODES

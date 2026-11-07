@@ -515,12 +515,51 @@ pub enum StaticAnalysisVerdict {
     Unknown(Vec<String>),
 }
 
+/// SPEC-387/DS-1208: one rule's verdict for `vtest audit static`.
+/// `NoViolation` is "違反なし", deliberately not `Pass`: a rule reporting
+/// no violation is not by itself a verification `PASS`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RuleOutcome {
+    Fail,
+    Unknown,
+    NoViolation,
+}
+
+impl RuleOutcome {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Fail => "FAIL",
+            Self::Unknown => "UNKNOWN",
+            Self::NoViolation => "NO_VIOLATION",
+        }
+    }
+}
+
+/// One rule verdict. `target` is set for target-scoped rules (DA-002 /
+/// DA-003, DS-630/DS-1208) and names the declared target it applies to.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RuleVerdict {
+    pub rule: String,
+    pub target: Option<String>,
+    pub outcome: RuleOutcome,
+    pub reason: String,
+}
+
 /// 本冊 §5.2 `StaticAnalysisAdapter`（DES-408、`oracle_presence`の
 /// dispatch先）。
 pub trait StaticAnalysisAdapter {
     fn id(&self) -> &'static str;
 
     fn analyze(&self, input: StaticAnalysisInput<'_>) -> StaticAnalysisVerdict;
+
+    /// SPEC-387/DS-1208: the rule-by-rule verdicts behind `analyze`, for
+    /// `vtest audit static`. The default is empty, which callers must
+    /// report as "this adapter gives no rule-level breakdown" and never as
+    /// "no violation".
+    fn audit_rules(&self, input: StaticAnalysisInput<'_>) -> Vec<RuleVerdict> {
+        let _ = input;
+        Vec::new()
+    }
 }
 
 /// DES-350/351「各adapterは一意なID、languages、capabilities、config
