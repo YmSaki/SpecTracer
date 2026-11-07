@@ -63,6 +63,7 @@
 
 pub mod annotation;
 pub mod braces;
+pub mod cpp;
 pub mod header;
 pub mod lexer;
 
