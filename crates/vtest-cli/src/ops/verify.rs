@@ -37,6 +37,9 @@ pub struct VerifyData {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub tree: Vec<TreeNode>,
     pub non_pass: usize,
+    /// DS-1147/DS-1214: unsettled facts and matters needing an outside
+    /// judgment, gathered across the whole result (`ops::pending`).
+    pub pending: Vec<super::pending::PendingItem>,
 }
 
 /// DES-554「`--gate` を指定した `verify` / `report` の JSON は `data.gate`
@@ -147,6 +150,31 @@ pub fn execute(
     summary: bool,
     registry: &AdapterRegistry,
 ) -> Result<(ExitCode, VerifyData, Vec<Diagnostic>), VerifyOpError> {
+    evaluate(root, items, doc, vo, test, gate, summary, registry)
+        .map(|evaluated| (evaluated.exit, evaluated.data, evaluated.diagnostics))
+}
+
+/// One verification run plus the scan it ran on, so `report` can build its
+/// projection from the same inputs `verify` aggregated (SPEC-401).
+pub struct Evaluated {
+    pub exit: ExitCode,
+    pub data: VerifyData,
+    pub diagnostics: Vec<Diagnostic>,
+    pub scan: ScanResult,
+}
+
+/// The shared core of `verify` and `report`.
+#[allow(clippy::too_many_arguments)]
+pub fn evaluate(
+    root: &Path,
+    items: &[String],
+    doc: Option<String>,
+    vo: Option<String>,
+    test: Option<String>,
+    gate: Option<&str>,
+    summary: bool,
+    registry: &AdapterRegistry,
+) -> Result<Evaluated, VerifyOpError> {
     let entity = entity_scope(doc, vo, test).map_err(|message| VerifyOpError::Usage {
         code: "E-OP-001",
         message,
@@ -217,7 +245,22 @@ pub fn execute(
             outcome.tree.clone()
         },
         non_pass,
+        pending: Vec::new(),
     };
+    let layout = vtest_store::VerifyLayout::new(root);
+    let vos = vtest_store::approval::read_all_vos(&layout).unwrap_or_default();
+    // A judgment store that does not read (E-SCAN-010) gives no effective
+    // judgment, so every case-coverage item stays (fail-closed).
+    let decisions = vtest_store::decisions::read_all_decisions(&layout).unwrap_or_default();
+    let mut data = data;
+    data.pending = super::pending::pending_items(
+        &layout,
+        &scan,
+        &vos,
+        &decisions,
+        &outcome,
+        data.gate.as_ref(),
+    );
 
     let exit = match &data.gate {
         Some(evaluation) if evaluation.satisfied => ExitCode::Ok,
@@ -226,7 +269,12 @@ pub fn execute(
         None => ExitCode::VerificationFailed,
     };
 
-    Ok((exit, data, diagnostics))
+    Ok(Evaluated {
+        exit,
+        data,
+        diagnostics,
+        scan,
+    })
 }
 
 fn entity_scope(

@@ -1,0 +1,11 @@
+id: VO-REPORT-PARENT-VO-BREAKDOWN
+parent: null
+derives_from:
+  - doc: DS-1505
+claim: "`--vo <親VO>` および `--from <親VO> --direction down` が親 VO の代表値と配下の子 VO・Test の内訳を同一出力で返し、出力に Feature 名・Feature ID の field を含めない。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00
