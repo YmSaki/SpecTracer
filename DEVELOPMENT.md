@@ -97,10 +97,12 @@ move from a change in behavior.
   the workspace `Cargo.toml` / `Cargo.lock`, because parallel moves of the
   same file re-import each other's diff on every merge. A second PR on one of
   these files branches after the first is merged.
-- **Show that behavior is unchanged.** Build the base and head binaries and
-  compare their outputs with the procedure in
-  [`docs/reports/refactor-baseline-2026-11-07.md`](docs/reports/refactor-baseline-2026-11-07.md)
-  §6; write any difference, with its clause ID, into the PR.
+- **Show that behavior is unchanged.** The evidence is the gate in
+  [`TESTING.md`](TESTING.md), run by CI with `cargo-llvm-cov` installed, and
+  the existing acceptance and equivalence tests: a move PR adds no test and
+  reports the same test count and results as its base. A PR that touches text
+  rendering, exit codes or record formats also runs the base and head binaries
+  on the same input and writes any difference, with its clause ID, into the PR.
 
 The design rules these steps serve are in [`AGENTS.md`](AGENTS.md) §14.
 

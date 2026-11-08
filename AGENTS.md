@@ -545,7 +545,7 @@ crates/<crate>/
 3. **1 つの PR は 1 つの目的に限る。** 機能追加、仕様変更、既知の不具合の修正、依存の更新、リファクタリングを同じ PR に混ぜない。
 4. **移動（ファイルの移動、名前の変更）と論理の変更は別の PR にする。** 移動の PR は差分が大きく、論理の差分が埋もれるためです。移動の PR は `git diff -M` で rename として見える形にする。
 5. **共有ファイルを変える PR は同時に 1 本だけ開く。** 対象は `vtest-cli/src/lib.rs`、`vtest-mcp/src/lib.rs`、`adapters.rs`、workspace の `Cargo.toml` と `Cargo.lock`、`vtest-verify/src/lib.rs`。並行すると、移動の差分の取り込みが繰り返されるためです（#175 §10）。手順は `DEVELOPMENT.md` の「Pull request scope」。
-6. **既存の振る舞いを変えない。** リファクタリングは、外部契約（第 1.2 節の 3）を変えずに行い、変更前後の出力を比較して PR に書く（比較手順は `docs/reports/refactor-baseline-2026-11-07.md` §6）。振る舞いを変える必要がある場合は、別の Issue と PR にする。
+6. **既存の振る舞いを変えない。** リファクタリングは、外部契約（第 1.2 節の 3）を変えずに行う。証拠は CI のゲートと既存のテスト（`TESTING.md`）で、text 描画・終了コード・record の形式に触れる PR は変更前後の出力の比較も PR に書く。振る舞いを変える必要がある場合は、別の Issue と PR にする。
 7. **足りない基盤と露出した問題は別の Issue にする。** 作業中に仕組みの不足、既存の不具合、仕様の欠陥や矛盾を見つけたら、再現条件、影響、条項 ID を書いた Issue にする（仕様の問題は `needs-owner`）。作業中の PR に混ぜず、コードで回避もしない。回避すると、仕様の欠陥が次の実装者に残るためです。
 8. **仕様の変更は `spec/*` ブランチで行う。** spec path（`docs/canonical/**`（`export/` を除く）と `.verify/doc/**`）は `spec/*` でだけ変え、`spec/*` では `crates/` と `tests/` を変えない。spec PR は同時に 1 本だけ。CI の `spec-guard` が検査する。詳細は `DEVELOPMENT.md` の「Specification changes」を読む。
 9. Definition of Done:

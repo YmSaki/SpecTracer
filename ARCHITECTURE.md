@@ -8,10 +8,8 @@ the verification contract is intentionally language-independent.
 
 The workspace has eleven crates. Lower crates own canonical data and
 verification rules; upper crates delegate to them. The table is the current
-state at `develop` `fd22549` (2026-11-07). The refactoring baseline that
-every move PR compares against is
-[`docs/reports/refactor-baseline-2026-11-07.md`](docs/reports/refactor-baseline-2026-11-07.md);
-the rules behind the table are [`AGENTS.md`](AGENTS.md) §3–§4.
+state at `develop` `fd22549` (2026-11-07); the rules behind the table are
+[`AGENTS.md`](AGENTS.md) §3–§4.
 
 | Crate | Layer | Owns | Depends on (`vtest-*`) |
 | --- | --- | --- | --- |
