@@ -58,7 +58,7 @@ pub fn fixture(adapter_id: &str, files: &[(&str, &str)], vo_ids: &[&str]) -> Fix
 impl Fixture {
     /// Scans and verifies through the CLI's built-in registry.
     pub fn scan_and_verify(&self) -> (ScanResult, VerifyOutcome) {
-        let registry = vtest_cli::adapters::builtin_registry().expect("builtin registry");
+        let registry = vtest_ops::registry::builtin_registry().expect("builtin registry");
         let scan = scan_project(&self.root, &registry).expect("scan succeeds");
         let outcome = verify_project(&self.root, &scan, None, None, &registry);
         (scan, outcome)

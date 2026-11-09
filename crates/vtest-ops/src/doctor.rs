@@ -11,7 +11,7 @@ use vtest_store::load_config;
 pub fn execute(root: &Path, registry: &AdapterRegistry) -> (ExitCode, serde_json::Value) {
     let config = match load_config(root) {
         Ok(config) => config,
-        Err(error) => return crate::config_error_result(&error),
+        Err(error) => return crate::envelope::config_error_result(&error),
     };
     match scan_project(root, registry) {
         Ok(result) => {
@@ -21,7 +21,7 @@ pub fn execute(root: &Path, registry: &AdapterRegistry) -> (ExitCode, serde_json
                 "adapters": config.adapters.iter().map(|a| a.id.clone()).collect::<Vec<_>>(),
                 "gates": config.gates.iter().map(|g| g.name.clone()).collect::<Vec<_>>(),
             });
-            let envelope = crate::envelope_json(!has_errors, data, &result.diagnostics);
+            let envelope = crate::envelope::envelope_json(!has_errors, data, &result.diagnostics);
             let exit = if has_errors {
                 ExitCode::VerificationFailed
             } else {
@@ -29,6 +29,6 @@ pub fn execute(root: &Path, registry: &AdapterRegistry) -> (ExitCode, serde_json
             };
             (exit, envelope)
         }
-        Err(error) => crate::scan_error_result(&error),
+        Err(error) => crate::envelope::scan_error_result(&error),
     }
 }

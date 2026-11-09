@@ -23,7 +23,7 @@ void test_add(void)
 
 /// @vtest.id TEST-CLI-C-ADAPTER-SCAN-AND-VERIFY
 /// @vtest.covers VO-ADAPTER-C-REGISTERS-WITHOUT-CORE-CHANGES
-/// @vtest.target crates/vtest-cli/src/adapters.rs::builtin_registry
+/// @vtest.target crates/vtest-ops/src/registry.rs::builtin_registry
 /// @vtest.intent verifies the c adapter is in the built-in registry and a declared C Test is scanned, linked to its VO and target, and verified with chain_integrity and orphan_detection PASS and the runner-dependent checks NO_EVIDENCE
 #[test]
 fn c_adapter_scans_and_verifies_through_the_cli_registry() {
@@ -38,7 +38,7 @@ fn c_adapter_scans_and_verifies_through_the_cli_registry() {
 
 /// @vtest.id TEST-CLI-C-BODY-TAIL-CHANGES-SUBJECT-HASH
 /// @vtest.covers VO-ADAPTER-C-REGISTERS-WITHOUT-CORE-CHANGES
-/// @vtest.target crates/vtest-cli/src/adapters.rs::builtin_registry
+/// @vtest.target crates/vtest-ops/src/registry.rs::builtin_registry
 /// @vtest.intent verifies that for a C Test whose parameter list holds braces, an edit to only the end of the function body changes the Test's content hash, so the whole body is hashed
 #[test]
 fn c_body_tail_edit_changes_the_test_hash() {

@@ -8,13 +8,11 @@
 //! 撤去そのものは移行チェーンの最終段（旧系撤去）の仕事であり、ここでは
 //! `verify` を動かすために必要な範囲だけを先行して落としている。
 
-pub mod adapters;
-pub mod ops;
-
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
 use vtest_model::{Diagnostic, ExitCode, JsonEnvelope};
+use vtest_ops as ops;
 use vtest_scan::scan_project;
 use vtest_store::{load_config, VerifyLayout};
 use vtest_verify::{check_name, CheckOutcome, TreeNode};
@@ -1663,41 +1661,6 @@ fn doc_error_exit(error: &ops::doc::DocOpError, format: OutputFormat, quiet: boo
     }
 }
 
-// ---------------------------------------------------------------------------
-// Shared envelope construction — `ops::*` modules build the same
-// `JsonEnvelope` shape the CLI's own `emit`/`emit_failure` produce, so a
-// caller (CLI text renderer or `vtest-mcp`'s tool handler) sees identical
-// `ok` / `data` / `diagnostics` for identical input (DS-1563).
-// ---------------------------------------------------------------------------
-
-/// Builds the same JSON shape `JsonEnvelope::new` serializes to, without
-/// requiring the caller to hold a typed `Diagnostic` slice reference.
-pub(crate) fn envelope_json<T: serde::Serialize>(
-    ok: bool,
-    data: T,
-    diagnostics: &[Diagnostic],
-) -> serde_json::Value {
-    serde_json::to_value(JsonEnvelope::new(ok, data, diagnostics.to_vec()))
-        .unwrap_or_else(|error| serde_json::json!({"ok": false, "data": null, "diagnostics": [{"code": vtest_model::INTERNAL_ERROR_CODE, "severity": "error", "message": error.to_string()}]}))
-}
-
-/// The config-load failure result shared by `scan` / `doctor` / `run`
-/// (CLI and MCP): a rejected config is E-CONFIG-001 with exit 2 (DS-929,
-/// DS-935); a config file that cannot be read at all is E-INTERNAL-001 with
-/// exit 3 (DS-930, DS-1689/DS-1690).
-pub fn config_error_result(error: &vtest_store::StoreError) -> (ExitCode, serde_json::Value) {
-    let (exit, code) = match error.config_load_code() {
-        Some(code) => (ExitCode::Usage, code),
-        None => (ExitCode::Internal, vtest_model::INTERNAL_ERROR_CODE),
-    };
-    let envelope = envelope_json(
-        false,
-        serde_json::Value::Null,
-        &[Diagnostic::error(code, error.to_string())],
-    );
-    (exit, envelope)
-}
-
 fn config_error_exit(
     error: &vtest_store::StoreError,
     format: OutputFormat,
@@ -1715,23 +1678,6 @@ fn config_error_exit(
             ExitCode::Internal
         }
     }
-}
-
-/// DS-935「`vtest scan` / `vtest doctor`では、registry・config・adapter契約の
-/// 検証またはadapter呼出しがE-ADAPTER-* / E-CONFIG-*で拒否された場合は2とする」。
-pub(crate) fn scan_error_result(error: &vtest_scan::ScanError) -> (ExitCode, serde_json::Value) {
-    let code = error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE);
-    let exit = if error.code().is_some() {
-        ExitCode::Usage
-    } else {
-        ExitCode::Internal
-    };
-    let envelope = envelope_json(
-        false,
-        serde_json::Value::Null,
-        &[Diagnostic::error(code, error.to_string())],
-    );
-    (exit, envelope)
 }
 
 /// Prints a `serde_json::Value` envelope the way [`emit`] prints a typed
@@ -2198,7 +2144,7 @@ fn absolute_path(path: &Path) -> PathBuf {
 
 /// Walk upwards looking for a `.verify/` directory, so the CLI works from a
 /// subdirectory of the project.
-/// composition root（`crate::adapters::builtin_registry`）を呼び、失敗
+/// composition root（`vtest_ops::registry::builtin_registry`）を呼び、失敗
 /// （DES-351/DS-1569/DS-1663、理論上は固定1件の登録なので到達しない）を
 /// E-ADAPTER-001 の usage failure として報告する。すべての `run_*` 入口が
 /// これを1回だけ呼ぶ — `vtest-scan`/`vtest-verify`/`vtest-exec` は自分で
@@ -2207,7 +2153,7 @@ fn resolve_registry(
     format: OutputFormat,
     quiet: bool,
 ) -> Result<vtest_adapter_api::AdapterRegistry, ExitCode> {
-    adapters::builtin_registry()
+    vtest_ops::registry::builtin_registry()
         .map_err(|error| usage_failure(format, quiet, "E-ADAPTER-001", &error.to_string()))
 }
 

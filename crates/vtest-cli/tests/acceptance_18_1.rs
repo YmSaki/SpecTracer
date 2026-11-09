@@ -74,7 +74,7 @@ fn cli(root: &std::path::Path, command: Command) -> Cli {
 /// (there is no fixture-only bypass that skips the domain check).
 /// @vtest.id TEST-ACCEPTANCE-18-1-APPROVAL-STATE-DOMAIN
 /// @vtest.covers VO-ACCEPTANCE-FIXTURE-DOES-NOT-RELAX-INVARIANTS
-/// @vtest.target crates/vtest-cli/src/ops/approval.rs::create
+/// @vtest.target crates/vtest-ops/src/approval.rs::create
 /// @vtest.intent an out-of-domain approved_state is rejected through the full CLI path, even when clap's type check is bypassed
 #[test]
 fn approval_state_domain_is_not_relaxed_for_fixtures() {
@@ -166,9 +166,9 @@ fn approval_state_domain_is_not_relaxed_for_fixtures() {
     // enforced (`ApprovalRecord::validate`, DS-1054/1463), not merely the
     // CLI's own convenience-level type check.
     let layout = vtest_store::VerifyLayout::new(&root);
-    let out_of_domain = vtest_cli::ops::approval::create(
+    let out_of_domain = vtest_ops::approval::create(
         &layout,
-        vtest_cli::ops::approval::CreateArgs {
+        vtest_ops::approval::CreateArgs {
             subject_type: "vo".to_owned(),
             subject_id: "VO-ACCEPTANCE-18-1".to_owned(),
             approved_state: "bogus-state".to_owned(),

@@ -122,7 +122,7 @@ fn code_of(envelope: &Value) -> &str {
 
 /// @vtest.id TEST-CLI-VO-ANCHOR-BINDING
 /// @vtest.covers VO-CLI-VO-ANCHOR-BINDING
-/// @vtest.target crates/vtest-cli/src/ops/vo.rs::parse_vo_args
+/// @vtest.target crates/vtest-ops/src/vo.rs::parse_vo_args
 /// @vtest.intent each --anchor/--note binds to the preceding --derives-from; an unbound or second --anchor is exit 2 with no record written
 #[test]
 fn anchors_bind_to_the_preceding_derives_from() {
@@ -195,7 +195,7 @@ fn anchors_bind_to_the_preceding_derives_from() {
 
 /// @vtest.id TEST-CLI-VO-INVALID-COMBINATIONS-REJECTED
 /// @vtest.covers VO-CLI-VO-COMBINATIONS-REJECTED
-/// @vtest.target crates/vtest-cli/src/ops/vo.rs::add
+/// @vtest.target crates/vtest-ops/src/vo.rs::add
 /// @vtest.intent vo add and vo edit with combinations invalid for the declared dimensions are E-SCAN-017 / exit 2 and leave the records unchanged
 #[test]
 fn invalid_combinations_are_rejected_without_writing() {
@@ -274,7 +274,7 @@ fn invalid_combinations_are_rejected_without_writing() {
 
 /// @vtest.id TEST-CLI-VO-EDIT-COMBINATIONS-DESIRED-STATE
 /// @vtest.covers VO-CLI-VO-COMBINATIONS-DESIRED-STATE
-/// @vtest.target crates/vtest-cli/src/ops/vo.rs::edit
+/// @vtest.target crates/vtest-ops/src/vo.rs::edit
 /// @vtest.intent vo edit --combination replaces the stored set, omitting it keeps the set, and --clear-combinations empties it
 #[test]
 fn edit_combinations_is_desired_state() {
@@ -337,7 +337,7 @@ fn edit_combinations_is_desired_state() {
 
 /// @vtest.id TEST-CLI-VO-EXPAND-POLICIES
 /// @vtest.covers VO-CLI-VO-EXPAND-MATERIALIZATION
-/// @vtest.target crates/vtest-cli/src/ops/vo.rs::expand
+/// @vtest.target crates/vtest-ops/src/vo.rs::expand
 /// @vtest.intent vo expand yields 6 children for independent-axes, 8 for full-product and one per tuple for explicit, named by upper-cased partitions in dimension order; --dry-run writes nothing
 #[test]
 fn expand_materializes_each_policy() {
@@ -421,7 +421,7 @@ fn expand_materializes_each_policy() {
 
 /// @vtest.id TEST-CLI-VO-EXPAND-NO-PARTIAL
 /// @vtest.covers VO-CLI-VO-EXPAND-NO-PARTIAL
-/// @vtest.target crates/vtest-cli/src/ops/vo.rs::expand
+/// @vtest.target crates/vtest-ops/src/vo.rs::expand
 /// @vtest.intent vo expand on a VO with invalid combinations is E-SCAN-017 / exit 2, and an existing child id aborts the whole expansion, so no child is ever written partially
 #[test]
 fn expand_never_generates_partially() {
@@ -489,7 +489,7 @@ fn snapshot_tree(root: &Path) -> Vec<(PathBuf, Vec<u8>)> {
 /// `vo add --id ../config` used to overwrite `.verify/config.yaml`.
 /// @vtest.id TEST-CLI-VO-ID-PATH-TRAVERSAL-REJECTED
 /// @vtest.covers VO-STORE-VO-ID-IS-ITS-FILE-NAME
-/// @vtest.target crates/vtest-cli/src/ops/vo.rs::add
+/// @vtest.target crates/vtest-ops/src/vo.rs::add
 /// @vtest.intent vo add/edit/expandで..・区切り文字・絶対パスを含むVO IDや子IDを E-OP-001 / exit 2 で拒否し、vo show/approveも失敗して、既存config・VO・承認・外部ファイルの内容が一切変わらないことを確認する
 #[test]
 fn vo_ids_that_are_not_a_file_name_are_rejected_without_writing() {
@@ -594,7 +594,7 @@ fn vo_ids_that_are_not_a_file_name_are_rejected_without_writing() {
 
 /// @vtest.id TEST-CLI-VO-ID-CASE-VARIANT-REJECTED
 /// @vtest.covers VO-STORE-VO-ID-IS-ITS-FILE-NAME
-/// @vtest.target crates/vtest-cli/src/ops/vo.rs::add
+/// @vtest.target crates/vtest-ops/src/vo.rs::add
 /// @vtest.intent 既存VOと大文字小文字だけが違うIDのvo addと、そうした子IDを生むvo expandをE-OP-001 / exit 2で拒否し、大文字小文字を区別しないファイルシステムでも既存VOのファイルを上書きしないことを確認する
 #[test]
 fn vo_ids_that_differ_only_in_case_are_rejected_without_writing() {
@@ -734,7 +734,7 @@ fn vo_approve_is_approval_create() {
 
 /// @vtest.id TEST-CLI-VO-EDIT-APPROVED-WARNS
 /// @vtest.covers VO-CLI-VO-EDIT-APPROVED-WARNS
-/// @vtest.target crates/vtest-cli/src/ops/vo.rs::edit
+/// @vtest.target crates/vtest-ops/src/vo.rs::edit
 /// @vtest.intent editing an approved VO succeeds with a warning; a claim edit lapses the approval to draft while an anchor-only edit keeps it approved
 #[test]
 fn editing_an_approved_vo_warns_and_lapses_by_hash() {
@@ -791,7 +791,7 @@ fn editing_an_approved_vo_warns_and_lapses_by_hash() {
 
 /// @vtest.id TEST-CLI-VO-LIST-STATUS
 /// @vtest.covers VO-CLI-VO-STATUS-DERIVED
-/// @vtest.target crates/vtest-cli/src/ops/vo.rs::list
+/// @vtest.target crates/vtest-ops/src/vo.rs::list
 /// @vtest.intent vo list --status filters by the effective approval state derived from approval records, so a rejected record returns a VO to draft
 #[test]
 fn list_status_uses_the_effective_approval_state() {
@@ -838,7 +838,7 @@ fn list_status_uses_the_effective_approval_state() {
 
 /// @vtest.id TEST-CLI-VO-LIST-DOC-FILTER
 /// @vtest.covers VO-CLI-VO-LIST-DOC-FILTER
-/// @vtest.target crates/vtest-cli/src/ops/vo.rs::list
+/// @vtest.target crates/vtest-ops/src/vo.rs::list
 /// @vtest.intent vo list --doc keeps only the VOs downstream of that document node, including child VOs by parent
 #[test]
 fn list_doc_keeps_downstream_vos() {

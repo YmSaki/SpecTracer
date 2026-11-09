@@ -10,6 +10,7 @@ members = [
     "crates/vtest-scan",
     "crates/vtest-exec",
     "crates/vtest-verify",
+    "crates/vtest-ops",
     "crates/vtest-cli",
     "crates/vtest-mcp",
 ]

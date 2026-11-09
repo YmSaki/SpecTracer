@@ -15,12 +15,12 @@
 
 use std::path::PathBuf;
 
-use vtest_cli::ops;
 use vtest_model::ExitCode;
+use vtest_ops as ops;
 use vtest_store::init_project;
 
 fn registry() -> vtest_adapter_api::AdapterRegistry {
-    vtest_cli::adapters::builtin_registry().expect("builtin registry must register cleanly")
+    vtest_ops::registry::builtin_registry().expect("builtin registry must register cleanly")
 }
 
 fn temp_root(name: &str) -> PathBuf {
@@ -44,7 +44,7 @@ fn temp_root(name: &str) -> PathBuf {
 /// `scope.requested.items` / `scope.requested.entities` field names.
 /// @vtest.id TEST-ACCEPTANCE-18-3-8-OMITTED-ITEMS
 /// @vtest.covers VO-VERIFY-SCOPE-REQUESTED-WIRE-SHAPE
-/// @vtest.target crates/vtest-cli/src/ops/verify.rs::execute
+/// @vtest.target crates/vtest-ops/src/verify.rs::execute
 /// @vtest.intent omitting --items and the entity axis lists all four checks and an empty entities list in scope.requested
 #[test]
 fn omitted_items_and_entity_report_the_full_axis_in_scope_requested() {
@@ -83,7 +83,7 @@ fn omitted_items_and_entity_report_the_full_axis_in_scope_requested() {
 /// sets `scope.unverified_outside_scope`.
 /// @vtest.id TEST-ACCEPTANCE-18-3-8-ENTITY-SCOPE
 /// @vtest.covers VO-VERIFY-SCOPE-REQUESTED-WIRE-SHAPE
-/// @vtest.target crates/vtest-cli/src/ops/verify.rs::execute
+/// @vtest.target crates/vtest-ops/src/verify.rs::execute
 /// @vtest.intent an entity-limited scope populates scope.requested.entities and sets unverified_outside_scope
 #[test]
 fn an_entity_scope_populates_requested_entities_and_marks_outside_scope_unverified() {
@@ -138,7 +138,7 @@ fn verify_json(root: &std::path::Path, args: &[&str]) -> (i32, serde_json::Value
 /// four or an entity is named.
 /// @vtest.id TEST-ACCEPTANCE-18-3-8-TOP-LEVEL-SCOPE
 /// @vtest.covers VO-VERIFY-SCOPE-TOP-LEVEL-FIELD, VO-VERIFY-SCOPE-REQUESTED-WIRE-SHAPE
-/// @vtest.target crates/vtest-cli/src/ops/verify.rs::scoped_envelope
+/// @vtest.target crates/vtest-ops/src/verify.rs::scoped_envelope
 /// @vtest.intent the CLI verify JSON carries a top-level scope with {kind,id} entities for full, item-limited and entity-limited runs
 #[test]
 fn cli_verify_json_carries_the_requested_scope_at_the_top_level() {

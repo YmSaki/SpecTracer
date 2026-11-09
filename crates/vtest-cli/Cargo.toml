@@ -8,22 +8,22 @@ license.workspace = true
 clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-thiserror.workspace = true
 vtest-adapter-api = { path = "../vtest-adapter-api" }
-vtest-adapter-lexical = { path = "../vtest-adapter-lexical" }
-vtest-adapter-rust = { path = "../vtest-adapter-rust" }
-vtest-exec = { path = "../vtest-exec" }
+vtest-mcp = { path = "../vtest-mcp" }
 vtest-model = { path = "../vtest-model" }
+vtest-ops = { path = "../vtest-ops" }
 vtest-scan = { path = "../vtest-scan" }
 vtest-store = { path = "../vtest-store" }
 vtest-verify = { path = "../vtest-verify" }
 
 [dev-dependencies]
+vtest-adapter-rust = { path = "../vtest-adapter-rust" }
 vtest-adapter-synthetic = { path = "../vtest-adapter-synthetic" }
+vtest-exec = { path = "../vtest-exec" }
 
 [[bin]]
 name = "vtest"
 path = "src/main.rs"
-# The binary includes `vtest-mcp`'s module source (see src/main.rs); its
-# unit tests already run in the vtest-mcp package.
+# The binary is a thin entry point (parse, run, exit) with no unit tests of
+# its own; the library and the integration tests carry the coverage.
 test = false

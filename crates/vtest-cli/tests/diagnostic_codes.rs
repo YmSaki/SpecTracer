@@ -128,7 +128,7 @@ fn invalid_config_is_a_usage_error() {
 /// error, the same contract `RunTarget::from_axes` gives the MCP tool.
 /// @vtest.id TEST-CLI-RUN-EXCLUSIVE-AXES
 /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE, VO-RUN-UNRESOLVED-SELECTOR-REJECTED
-/// @vtest.target crates/vtest-cli/src/ops/run.rs::RunTarget::from_axes
+/// @vtest.target crates/vtest-ops/src/run.rs::RunTarget::from_axes
 /// @vtest.intent the CLI rejects every run target-axis combination with exit 2 and from_axes accepts each axis alone
 #[test]
 fn run_rejects_combined_target_axes() {
@@ -146,7 +146,7 @@ fn run_rejects_combined_target_axes() {
             .unwrap();
         assert_eq!(output.status.code(), Some(2), "{args:?}");
     }
-    use vtest_cli::ops::run::RunTarget;
+    use vtest_ops::run::RunTarget;
     assert!(RunTarget::from_axes(vec!["T".into()], None, true).is_err());
     assert!(RunTarget::from_axes(vec!["T".into()], Some("V".into()), false).is_err());
     assert!(RunTarget::from_axes(Vec::new(), Some("V".into()), true).is_err());

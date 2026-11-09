@@ -141,7 +141,7 @@ fn find_edge<'a>(projection: &'a Value, from: &str, relation: &str, to: &str) ->
 
 /// @vtest.id TEST-REPORT-SAME-AGGREGATION-AS-VERIFY
 /// @vtest.covers VO-REPORT-SAME-AGGREGATION-AS-VERIFY
-/// @vtest.target crates/vtest-cli/src/ops/report.rs::execute
+/// @vtest.target crates/vtest-ops/src/report.rs::execute
 /// @vtest.intent report returns the same scope, state, result, tree, structural checks, non-PASS count, pending section and exit code as verify for the same input
 #[test]
 fn report_runs_the_same_aggregation_as_verify() {
@@ -274,7 +274,7 @@ fn mcp_report_over_stdio_matches_the_cli_when_the_scan_has_errors() {
 
 /// @vtest.id TEST-REPORT-DOC-DOWN-PAIRS
 /// @vtest.covers VO-REPORT-DOC-DOWN-DERIVES-FROM-PAIRS, VO-REPORT-ANCHOR-OMITTED-WHEN-ABSENT
-/// @vtest.target crates/vtest-cli/src/ops/report.rs::project
+/// @vtest.target crates/vtest-ops/src/report.rs::project
 /// @vtest.intent report --from a document node --direction down returns each derives_from edge as from / relation / to with the entry's anchor and note, and omits anchor when the entry has none
 #[test]
 fn a_document_traced_down_lists_derives_from_pairs_with_anchors() {
@@ -299,7 +299,7 @@ fn a_document_traced_down_lists_derives_from_pairs_with_anchors() {
 
 /// @vtest.id TEST-REPORT-PARENT-VO-BREAKDOWN
 /// @vtest.covers VO-REPORT-PARENT-VO-BREAKDOWN, VO-REPORT-DEPTH-LIMIT
-/// @vtest.target crates/vtest-cli/src/ops/report.rs::project
+/// @vtest.target crates/vtest-ops/src/report.rs::project
 /// @vtest.intent a parent VO traced down lists every child VO and Test with its state and no Feature field, and --depth limits the number of steps followed
 #[test]
 fn a_parent_vo_traced_down_gives_the_feature_breakdown() {
@@ -337,7 +337,7 @@ fn a_parent_vo_traced_down_gives_the_feature_breakdown() {
 
 /// @vtest.id TEST-REPORT-VIEW-PRESETS
 /// @vtest.covers VO-REPORT-VIEW-PRESET
-/// @vtest.target crates/vtest-cli/src/ops/report.rs::project
+/// @vtest.target crates/vtest-ops/src/report.rs::project
 /// @vtest.intent --view pm keeps documents and VOs, tester keeps VOs, Tests and targets, coder traces a target up to its document, and an unknown view or start node is E-OP-001
 #[test]
 fn view_presets_select_node_kinds() {
@@ -399,12 +399,12 @@ fn view_presets_select_node_kinds() {
 /// other; a bare `--from` value that both share is rejected as ambiguous.
 /// @vtest.id TEST-REPORT-SRC-NODES-KEYED-BY-ADAPTER
 /// @vtest.covers VO-REPORT-SRC-NODE-IS-CANONICAL-LOCATOR
-/// @vtest.target crates/vtest-cli/src/ops/report.rs::project
+/// @vtest.target crates/vtest-ops/src/report.rs::project
 /// @vtest.intent adapterだけが異なる同値Locatorの2 Sourceが別ノードとして残り、各Testからのtargets辺が独立に残ること、共有する素のlocator値の--fromは曖昧として拒否し、adapter付きidでは辿れることを確認する
 #[test]
 fn sources_of_two_adapters_with_the_same_locator_value_stay_distinct() {
     let root = fixture("mixed-adapters");
-    let registry = vtest_cli::adapters::builtin_registry().unwrap();
+    let registry = vtest_ops::registry::builtin_registry().unwrap();
     let mut scan = vtest_scan::scan_project(&root, &registry).unwrap();
     let rust = scan
         .sources
@@ -426,16 +426,15 @@ fn sources_of_two_adapters_with_the_same_locator_value_stay_distinct() {
     scan.tests.push(test);
 
     let layout = VerifyLayout::new(&root);
-    let args = |from: Option<&str>| vtest_cli::ops::report::ProjectionArgs {
+    let args = |from: Option<&str>| vtest_ops::report::ProjectionArgs {
         from: from.map(str::to_owned),
         view: None,
         depth: from.map(|_| 1),
         direction: None,
     };
-    let projection = serde_json::to_value(
-        vtest_cli::ops::report::project(&layout, &scan, &[], &args(None)).unwrap(),
-    )
-    .unwrap();
+    let projection =
+        serde_json::to_value(vtest_ops::report::project(&layout, &scan, &[], &args(None)).unwrap())
+            .unwrap();
     let ids = node_ids(&projection);
     for id in ["rust-cargo::src/lib.rs::add", "synthetic::src/lib.rs::add"] {
         assert!(ids.contains(&id.to_owned()), "{id} missing from {ids:?}");
@@ -453,14 +452,13 @@ fn sources_of_two_adapters_with_the_same_locator_value_stay_distinct() {
         "synthetic::src/lib.rs::add",
     );
 
-    let ambiguous =
-        vtest_cli::ops::report::project(&layout, &scan, &[], &args(Some("src/lib.rs::add")));
+    let ambiguous = vtest_ops::report::project(&layout, &scan, &[], &args(Some("src/lib.rs::add")));
     assert!(
         ambiguous.is_err(),
         "a value two adapters share is ambiguous"
     );
     let from_synthetic = serde_json::to_value(
-        vtest_cli::ops::report::project(
+        vtest_ops::report::project(
             &layout,
             &scan,
             &[],
@@ -481,7 +479,7 @@ fn sources_of_two_adapters_with_the_same_locator_value_stay_distinct() {
 /// the scan lists the colliding Sources in, and still shows both Sources.
 /// @vtest.id TEST-REPORT-SRC-ID-COLLISION-DRAWS-NO-TARGETS-EDGE
 /// @vtest.covers VO-REPORT-SRC-ID-COLLISION-LEAVES-TARGET-UNRESOLVED
-/// @vtest.target crates/vtest-cli/src/ops/report.rs::project
+/// @vtest.target crates/vtest-ops/src/report.rs::project
 /// @vtest.intent 2つのSourceが同じ@vtest.src-idを宣言し、TestがそのSRC IDをtargetにしたとき、E-SCAN-011を保ったままprojectionが先頭Sourceへのtargets辺を作らず、Source順を入れ替えても投影が変わらないことを確認する
 #[test]
 fn a_duplicated_src_id_draws_no_targets_edge() {
@@ -500,7 +498,7 @@ fn a_duplicated_src_id_draws_no_targets_edge() {
     )
     .unwrap();
 
-    let registry = vtest_cli::adapters::builtin_registry().unwrap();
+    let registry = vtest_ops::registry::builtin_registry().unwrap();
     let mut scan = vtest_scan::scan_project(&root, &registry).unwrap();
     assert!(
         scan.diagnostics
@@ -510,17 +508,16 @@ fn a_duplicated_src_id_draws_no_targets_edge() {
         scan.diagnostics
     );
     let layout = VerifyLayout::new(&root);
-    let args = vtest_cli::ops::report::ProjectionArgs {
+    let args = vtest_ops::report::ProjectionArgs {
         from: None,
         view: None,
         depth: None,
         direction: None,
     };
     let mut projected = || {
-        let projection = serde_json::to_value(
-            vtest_cli::ops::report::project(&layout, &scan, &[], &args).unwrap(),
-        )
-        .unwrap();
+        let projection =
+            serde_json::to_value(vtest_ops::report::project(&layout, &scan, &[], &args).unwrap())
+                .unwrap();
         scan.sources.reverse();
         projection
     };
@@ -557,7 +554,7 @@ fn a_duplicated_src_id_draws_no_targets_edge() {
 /// is shown as invalid; the older PASS is never offered as the basis.
 /// @vtest.id TEST-REPORT-EVIDENCE-SAME-SELECTION-AS-VERIFY
 /// @vtest.covers VO-REPORT-SAME-AGGREGATION-AS-VERIFY
-/// @vtest.target crates/vtest-cli/src/ops/report.rs::execute
+/// @vtest.target crates/vtest-ops/src/report.rs::execute
 /// @vtest.intent 新しい不正Evidenceと古い正常PASSがあるとき、reportのevidence参照が古いPASSへ戻らず不正な最新を示し、状態・diagnosticsもverifyと一致することを確認する
 #[test]
 fn report_evidence_does_not_fall_back_to_an_older_pass() {
@@ -625,7 +622,7 @@ fn report_evidence_does_not_fall_back_to_an_older_pass() {
 
 /// @vtest.id TEST-PENDING-SECTION
 /// @vtest.covers VO-PENDING-SECTION-IN-JSON, VO-PENDING-CASE-COVERAGE-ITEM, VO-PENDING-UNKNOWN-FROM-CHECK
-/// @vtest.target crates/vtest-cli/src/ops/pending.rs::pending_items
+/// @vtest.target crates/vtest-ops/src/pending.rs::pending_items
 /// @vtest.intent verify --format json carries a pending section with one case-coverage item (check null) per Test with cases and an unknown item for each UNKNOWN check, and report carries the same section
 #[test]
 fn verify_json_carries_the_pending_section() {
@@ -736,7 +733,7 @@ fn checks_only(envelope: &Value) -> Value {
 /// the item comes back with the record's id in `basis` (DS-892).
 /// @vtest.id TEST-PENDING-ACCEPTED-JUDGMENT-REMOVES-CASE-COVERAGE
 /// @vtest.covers VO-PENDING-CASE-COVERAGE-ITEM, VO-PENDING-JUDGMENT-ONLY-AFFECTS-CASE-COVERAGE, VO-JUDGMENT-VALID-RECORD-MATCHES-CURRENT-BINDING
-/// @vtest.target crates/vtest-cli/src/ops/pending.rs::pending_items
+/// @vtest.target crates/vtest-ops/src/pending.rs::pending_items
 /// @vtest.intent bundle→submitでaccepted判断を記録するとverify/reportのcase-coverage項目だけが消え、検査状態と検査由来の項目は変わらず、Test変更後は記録が無効になり、その記録IDをbasisに載せた項目が戻ることを確認する
 #[test]
 fn an_accepted_case_coverage_judgment_removes_the_item_until_it_goes_stale() {
@@ -782,7 +779,7 @@ fn an_accepted_case_coverage_judgment_removes_the_item_until_it_goes_stale() {
 /// removes the item.
 /// @vtest.id TEST-PENDING-NOT-ACCEPTED-JUDGMENTS-KEEP-CASE-COVERAGE
 /// @vtest.covers VO-PENDING-CASE-COVERAGE-NOT-ACCEPTED-KEEPS-ITEM, VO-JUDGMENT-CONFLICTING-VALUES-SELECT-NONE, VO-JUDGMENT-EFFECTIVE-SET-EXCLUDES-SUPERSEDED
-/// @vtest.target crates/vtest-cli/src/ops/pending.rs::pending_items
+/// @vtest.target crates/vtest-ops/src/pending.rs::pending_items
 /// @vtest.intent rejected・deferred・値の食い違うaccepted+rejectedではcase-coverage項目が残り記録IDがbasisに載ること、rejectedをsupersedesしたacceptedでは項目が消えることを確認する
 #[test]
 fn rejected_deferred_or_conflicting_judgments_keep_the_item() {
@@ -932,7 +929,7 @@ fn conflicting_judgments_report_w_store_004() {
 /// W-STORE-003 and leaves the other records effective (DS-446/DS-1455).
 /// @vtest.id TEST-PENDING-JUDGMENT-STORE-READ-FAILURES
 /// @vtest.covers VO-PENDING-UNREADABLE-JUDGMENTS-INTERNAL-ERROR, VO-PENDING-JUDGMENT-SCHEMA-VIOLATION-E-SCAN-010, VO-JUDGMENT-KINDLESS-RECORD-W-STORE-003
-/// @vtest.target crates/vtest-cli/src/ops/verify.rs::evaluate
+/// @vtest.target crates/vtest-ops/src/verify.rs::evaluate
 /// @vtest.intent .verify/decisionsがファイルのときE-INTERNAL-001・exit 3、余剰fieldの記録でE-SCAN-010と項目の残存、judgment_kindを欠く互換記録でW-STORE-003を出しつつ他のaccepted記録は有効なままであることを、CLIと実MCPで確認する
 #[test]
 fn judgment_store_read_failures_are_reported_not_emptied() {
