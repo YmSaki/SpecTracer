@@ -7,9 +7,11 @@
 //! 本冊:644-654, 688, §9.2). Discovery of these records and the cardinality
 //! rules on `targets` belong to the adapter and to `vtest-scan`.
 //!
-//! Clauses: 本冊:788-805 (`DiscoveredTest`, `ManagedTestLink`), 本冊:898
-//! (`Multiple` → `chain_integrity = MISMATCH`), 基本:412 (Test ID
-//! collisions are a separate condition).
+//! Clauses: DES-240 to DES-253 (`TestEntity`), DES-260 to DES-265 and
+//! DES-281 (`ExecutionDescriptor`, `TestSuite`), DES-337 to DES-343
+//! (`DiscoveredTest`, `ManagedTestLink`; 本冊:788-805), DS-561 (`Multiple`
+//! → `chain_integrity = MISMATCH`; 本冊:898), 基本:412 (Test ID collisions
+//! are a separate condition).
 
 use crate::{AdapterId, ContentHash, SourceLocation, TargetRef, TestId, VoId};
 use serde::{Deserialize, Serialize};
@@ -67,7 +69,8 @@ pub struct TestSuite {
 /// A managed Test after core materialization: the canonical metadata of
 /// [`TestRecord`] joined with where the construct is (`location`), its Test
 /// subject hash (`content_hash`) and its opaque execution coordinate
-/// (`execution`). `vtest-scan` builds it from a [`DiscoveredTest`];
+/// (`execution`). `vtest-scan` builds it from the `TestDraft` an adapter
+/// returns (`vtest-adapter-api`), alongside the matching [`DiscoveredTest`];
 /// `vtest-verify` evaluates the four checks against it (本冊:617-630).
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TestEntity {

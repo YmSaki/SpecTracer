@@ -67,8 +67,9 @@ pub struct ScanSummary {
 mod tests {
     use super::*;
 
-    // The target is `JsonEnvelope::new` because a `@vtest.target` locator
-    // names a function; the assertion is on the serialized shape (DS-941).
+    // The target is `JsonEnvelope::new` because that is the code this test
+    // runs to build the envelope; the assertion is on the serialized shape
+    // (DS-941).
 
     /// @vtest.id TEST-MODEL-JSON-ENVELOPE-SHAPE
     /// @vtest.covers VO-MODEL-JSON-ENVELOPE-SHAPE

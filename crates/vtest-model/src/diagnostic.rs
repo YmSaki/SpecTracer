@@ -39,9 +39,9 @@ pub struct Diagnostic {
     pub candidates: Vec<String>,
     /// Where the diagnostic points, when it has a location. Boxed so that a
     /// `Diagnostic` without one stays small: diagnostics travel by value in
-    /// `Result` errors and inside `vtest-store::StoreError` /
-    /// `vtest-scan::ScanError`, where an inline `SourceLocation` would widen
-    /// every such value. The serialized form is unaffected.
+    /// `Vec<Diagnostic>` lists and as `Result` errors (for example Form
+    /// resolution in `vtest-scan`), where an inline `SourceLocation` would
+    /// widen every such value. The serialized form is unaffected.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub location: Option<Box<SourceLocation>>,
 }

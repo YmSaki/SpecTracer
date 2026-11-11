@@ -1,11 +1,12 @@
 //! Source-side model: the adapter-owned `Locator`, the `TargetRef` a Test
 //! points at, and the physical `SourceLocation` of a discovered construct.
 //!
-//! Boundary: core compares locator and path strings for exact equality and
-//! never parses them; their internal syntax belongs to the adapter named in
-//! `adapter` (詳細設計 v0.1 本冊:521-522, 632-642; DES-217). Resolving a
-//! locator to a construct is delegated through the adapter registry
-//! (`vtest-adapter-api`), not done here.
+//! Boundary: by contract (DES-217; 詳細設計 v0.1 本冊:521-522, 632-642)
+//! locator and path strings are opaque to core, which compares them for
+//! exact equality; their internal syntax belongs to the adapter named in
+//! `adapter`. Nothing in this crate parses one. Resolving a locator to a
+//! construct is the adapter's job, reached through the adapter registry
+//! (`vtest-adapter-api`).
 
 use crate::{AdapterId, ContentHash, SrcId};
 use serde::{Deserialize, Serialize};
