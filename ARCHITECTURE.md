@@ -9,7 +9,8 @@ the verification contract is intentionally language-independent.
 The workspace has eleven crates. Lower crates own canonical data and
 verification rules; upper crates delegate to them. The table is the current
 state at `develop` `fd22549` (2026-11-07); the rules behind the table are
-[`AGENTS.md`](AGENTS.md) §3–§4.
+[`AGENTS.md`](AGENTS.md) §3–§4. The last column lists normal dependencies
+only; dev-dependencies, which only tests use, are left out.
 
 | Crate | Layer | Owns | Depends on (`vtest-*`) |
 | --- | --- | --- | --- |
@@ -22,7 +23,7 @@ state at `develop` `fd22549` (2026-11-07); the rules behind the table are
 | `vtest-scan` | orchestration | discovery delegation, output validation, deterministic merge by adapter id, record integrity, Structured Test Operations | `adapter-api`, `store`, `model` (and `adapter-rust`; see deviations) |
 | `vtest-exec` | orchestration | running tests through the adapter runner, target-coverage attribution, Evidence recording | `adapter-api`, `store`, `model` |
 | `vtest-verify` | orchestration | rebuilding the declaration chain, the four checks, Evidence freshness, scope, fail-closed aggregation | `scan`, `adapter-api`, `store`, `model` |
-| `vtest-cli` | entrypoint | the `vtest` binary, clap definitions, text rendering, exit codes; today also the `ops` layer and the adapter registry (`adapters::builtin_registry`) | orchestration, all adapters, `store`, `model` |
+| `vtest-cli` | entrypoint | the `vtest` binary, clap definitions, text rendering, exit codes; today also the `ops` layer and the adapter registry (`adapters::builtin_registry`) | orchestration, `adapter-api`, `adapter-rust`, `adapter-lexical`, `store`, `model` |
 | `vtest-mcp` | entrypoint | MCP stdio transport, tool schemas, argument validation, calling the same `ops` functions and returning the same envelope | `cli`, orchestration, `adapter-api`, `store`, `model` |
 
 The target layering (#175 D1; D2 approved 2026-11-07) moves the `ops` layer
@@ -46,10 +47,10 @@ Known deviations from the target, each tracked by a child issue of #175:
 - `vtest-mcp` depends on `vtest-cli` for the `ops` layer, so the `vtest`
   binary compiles `vtest-mcp`'s source in through a `#[path]` module instead
   of a package dependency, which would be circular (R2, #187).
-- `vtest-mcp` also calls `vtest-scan`, `vtest-store`, `vtest-exec` and
-  `vtest-verify` directly in places instead of going through `ops` (R3, #188).
-- `vtest-scan` has a normal dependency on `vtest-adapter-rust` and `syn` for
-  Structured Test Operations (R6, #191).
+- `vtest-mcp` also calls `vtest-scan` and `vtest-store` directly in places
+  instead of going through `ops` (R3, #188).
+- `vtest-scan` has a normal dependency on `vtest-adapter-rust` for Structured
+  Test Operations (R17, #209).
 - Evidence YAML is written by `vtest-exec`, while the record format belongs to
   `vtest-store` (R9, #194).
 

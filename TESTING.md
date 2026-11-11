@@ -32,8 +32,10 @@ and `coverage::tests::real_llvm_cov_measures_trait_impl_and_cfg_locators_separat
 `execution_state_e2e`
 `a_relocated_target_directory_inside_the_root_still_records_evidence` and
 `an_unchanged_environment_still_reaches_pass`. Report them as `NOT_EXECUTED`
-in the PR and cite the CI run, which has the tool, as the evidence. Any other
-failure is a regression.
+in the PR and cite the CI run, which has the tool, as the evidence. For any
+other failure, run the same test on the base branch: one that also fails
+there is an environment difference to report as such, and one that fails only
+on the PR branch is a regression.
 
 The CI environment installs `llvm-tools-preview` and `cargo-llvm-cov` so that M7
 can distinguish measured target execution from the fail-closed unavailable
@@ -88,7 +90,7 @@ its acceptance test and remove the gap row.
 
 When changing execution, aggregation, record schemas, CLI, or MCP, also run
 the applicable fixture flow (`vtest scan`, `vtest run`, and `vtest verify`)
-and record the result. (`vtest audit` and bundle/submit are not provided yet.)
+and record the result.
 For a refactoring PR that must not change behavior, the gate above and the
 existing acceptance and equivalence tests are the evidence; report the same
 test count and results as the base. When the PR touches text rendering, exit
