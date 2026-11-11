@@ -426,9 +426,16 @@ pub fn edit(layout: &VerifyLayout, args: VoArgs) -> Result<VoWriteResult, VoOpEr
         CombinationsUpdate::Replace(entries) => record.combinations = entries,
         CombinationsUpdate::Clear => record.combinations = Vec::new(),
     }
-    record.updated = vtest_store::records::now_rfc3339();
+    // `updated` is itself part of the subject hash, so it moves only when
+    // the rest of the subject does. An edit that changes only `anchor` or
+    // `note`, or nothing, keeps `updated`, the hash and therefore the
+    // approval (DS-1031), however long after the last change it runs.
+    let subject_changed = vtest_model::vo_subject_hash(&record) != before;
+    if subject_changed {
+        record.updated = vtest_store::records::now_rfc3339();
+    }
     validate_record(&record)?;
-    let approval_invalidated = was_approved && vtest_model::vo_subject_hash(&record) != before;
+    let approval_invalidated = was_approved && subject_changed;
     write_vo_record(layout, &record)?;
 
     let mut warnings = Vec::new();
