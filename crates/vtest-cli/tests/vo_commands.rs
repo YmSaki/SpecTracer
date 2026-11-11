@@ -735,11 +735,25 @@ fn vo_approve_is_approval_create() {
 /// @vtest.id TEST-CLI-VO-EDIT-APPROVED-WARNS
 /// @vtest.covers VO-CLI-VO-EDIT-APPROVED-WARNS
 /// @vtest.target crates/vtest-ops/src/vo.rs::edit
-/// @vtest.intent editing an approved VO succeeds with a warning; a claim edit lapses the approval to draft while an anchor-only edit keeps it approved
+/// @vtest.intent editing an approved VO succeeds with a warning; a claim edit lapses the approval to draft while an anchor-only edit keeps it approved, however long after the last change it runs
 #[test]
 fn editing_an_approved_vo_warns_and_lapses_by_hash() {
     let root = fixture("edit-approved");
     add_basic(&root, "VO-A", "R-001");
+    // Date the VO in the past, so the edits below never share a clock second
+    // with its last change and the result cannot depend on how fast the test
+    // runs (#215).
+    let dated_at = "2026-01-01T00:00:00Z";
+    let vo_path = root.join(".verify/vo/VO-A.yaml");
+    let dated: String = fs::read_to_string(&vo_path)
+        .unwrap()
+        .lines()
+        .map(|line| match line.split_once(": ") {
+            Some((key @ ("created" | "updated"), _)) => format!("{key}: {dated_at}\n"),
+            _ => format!("{line}\n"),
+        })
+        .collect();
+    fs::write(&vo_path, dated).unwrap();
     let approve = |root: &Path| {
         let (code, envelope) = vtest(
             root,
@@ -778,6 +792,14 @@ fn editing_an_approved_vo_warns_and_lapses_by_hash() {
     assert_eq!(anchor_only["data"]["approval_invalidated"], false);
     assert_eq!(anchor_only["data"]["warnings"].as_array().unwrap().len(), 1);
     assert_eq!(
+        anchor_only["data"]["record"]["derives_from"][0]["anchor"],
+        "§2"
+    );
+    assert_eq!(
+        anchor_only["data"]["record"]["updated"], dated_at,
+        "`updated` is part of the subject hash and must not move on an anchor-only edit"
+    );
+    assert_eq!(
         status(&root),
         "approved",
         "DS-1031: anchor is outside the subject hash"
@@ -786,6 +808,7 @@ fn editing_an_approved_vo_warns_and_lapses_by_hash() {
     let (code, claim_edit) = vtest(&root, &["vo", "edit", "VO-A", "--claim", "changed"]);
     assert_eq!(code, 0);
     assert_eq!(claim_edit["data"]["approval_invalidated"], true);
+    assert_ne!(claim_edit["data"]["record"]["updated"], dated_at);
     assert_eq!(status(&root), "draft");
 }
 
