@@ -23,6 +23,8 @@ framework-neutral adapters.
   `else`, `except`, `finally`, and `case` clauses at its own indentation
   (a `case` clause of a `match`, not a statement such as `case = 2`).
 - **Limits**: declarations are read from `#` comments, not from docstrings.
+  Python hard keywords are rejected as function or class names (`E-SCAN-001`);
+  soft keywords (`match`, `case`, `type`, `_`) remain valid names.
   A tab advances to the next multiple of eight columns, as in Python. The
   block structure is checked as Python's parser does: a `def` without its
   name and parameter list (`def f:`), a `class` without its name, a `def`,

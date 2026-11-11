@@ -28,6 +28,15 @@ use crate::{
 
 pub const ADAPTER_ID: &str = "python";
 
+// Hard keywords cannot name definitions; reject them before producing
+// discovery metadata (DES-102). Soft keywords remain valid names.
+const HARD_KEYWORDS: &[&str] = &[
+    "False", "None", "True", "and", "as", "assert", "async", "await", "break", "class", "continue",
+    "def", "del", "elif", "else", "except", "finally", "for", "from", "global", "if", "import",
+    "in", "is", "lambda", "nonlocal", "not", "or", "pass", "raise", "return", "try", "while",
+    "with", "yield",
+];
+
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Python;
 
@@ -404,7 +413,7 @@ fn check_blocks(source: &str, tokens: &[Tok], lines: &[Line]) -> Result<(), Extr
 fn definition_header(source: &str, tokens: &[Tok], keyword: usize, last: usize) -> bool {
     let text = |index: usize| &source[tokens[index].start..tokens[index].end];
     let name = keyword + 1;
-    if name > last || tokens[name].kind != Kind::Word {
+    if name > last || tokens[name].kind != Kind::Word || HARD_KEYWORDS.contains(&text(name)) {
         return false;
     }
     let mut next = name + 1;
@@ -621,6 +630,72 @@ impl Reader<'_> {
 mod tests {
     use super::*;
     use crate::discover_text;
+
+    /// @vtest.id TEST-ADAPTER-PYTHON-HARD-KEYWORD-NAMES-REJECTED
+    /// @vtest.covers VO-ADAPTER-LEXICAL-UNPARSEABLE-DECLARATION-MISSING
+    /// @vtest.target crates/vtest-adapter-lexical/src/python.rs::definition_header
+    /// @vtest.intent verifies all 35 hard keywords are rejected as function, async function, and class names without extracting Tests or Sources
+    #[test]
+    fn hard_keyword_names_are_not_extracted() {
+        let keywords = "False None True and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield";
+        assert_eq!(keywords.split_whitespace().count(), 35);
+        for keyword in keywords.split_whitespace() {
+            for header in [
+                format!("def {keyword}():"),
+                format!("async def {keyword}():"),
+                format!("class {keyword}:"),
+            ] {
+                let source = format!(
+                    "# @vtest.id TEST-X\n# @vtest.covers VO-X\n# @vtest.intent complete construct\n{header}\n    assert 1 == 1\n"
+                );
+                let outcome = discover_text(&Python, "Probe.py", &source, "demo");
+                assert!(outcome.tests.is_empty(), "{header}");
+                assert!(outcome.sources.is_empty(), "{header}");
+                assert_eq!(outcome.diagnostics.len(), 1, "{header}");
+                assert_eq!(outcome.diagnostics[0].code.as_str(), "E-SCAN-001");
+            }
+        }
+    }
+
+    /// @vtest.id TEST-ADAPTER-PYTHON-SOFT-KEYWORD-AND-VALID-NAMES-PRESERVED
+    /// @vtest.covers VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
+    /// @vtest.target crates/vtest-adapter-lexical/src/python.rs::definition_header
+    /// @vtest.intent verifies soft keyword function and class names, generic def and class, and async def preserve their Test text and Source locators
+    #[test]
+    fn soft_keyword_and_valid_definitions_are_preserved() {
+        for name in ["match", "case", "type", "_"] {
+            for (body, locator) in [
+                (format!("def {name}():\n    pass"), name.to_owned()),
+                (
+                    format!("class {name}:\n    def f(self):\n        pass"),
+                    format!("{name}::f"),
+                ),
+            ] {
+                let source = format!(
+                    "# @vtest.id TEST-X\n# @vtest.covers VO-X\n# @vtest.intent complete construct\n{body}\n"
+                );
+                let outcome = discover_text(&Python, "Probe.py", &source, "demo");
+                assert!(outcome.diagnostics.is_empty(), "{body}");
+                assert_eq!(outcome.tests.len(), 1, "{body}");
+                assert_eq!(outcome.tests[0].construct_text, body);
+                assert_eq!(locators(&outcome), vec![format!("Probe.py::{locator}")]);
+            }
+        }
+        for (body, locator) in [
+            ("def f[T](x: T):\n    return x", "f"),
+            ("class C[T](Base):\n    def f(self):\n        pass", "C::f"),
+            ("async def f():\n    pass", "f"),
+        ] {
+            let source = format!(
+                "# @vtest.id TEST-X\n# @vtest.covers VO-X\n# @vtest.intent complete construct\n{body}\n"
+            );
+            let outcome = discover_text(&Python, "Probe.py", &source, "demo");
+            assert!(outcome.diagnostics.is_empty(), "{body}");
+            assert_eq!(outcome.tests.len(), 1, "{body}");
+            assert_eq!(outcome.tests[0].construct_text, body);
+            assert_eq!(locators(&outcome), vec![format!("Probe.py::{locator}")]);
+        }
+    }
 
     const SOURCE: &str = r#""""Module docstring with a stray { brace."""
 import pytest
