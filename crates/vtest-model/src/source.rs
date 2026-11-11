@@ -20,6 +20,16 @@ pub struct Locator {
     pub value: String,
 }
 
+/// The canonical spelling `<adapter>::<value>` under which a resolved
+/// Locator is recorded and compared as a target identity (DS-590, DS-1412):
+/// Evidence `target_coverage.targets[].target` and the report projection's
+/// Source node id. `value` is written verbatim; nothing here parses it.
+impl std::fmt::Display for Locator {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{}::{}", self.adapter, self.value)
+    }
+}
+
 /// References a source-level verification target.
 ///
 /// A target can be identified either by its source locator or by a registered
@@ -146,5 +156,31 @@ mod tests {
         assert_eq!(left, same);
         assert_ne!(left, different_value);
         assert_ne!(left, different_adapter);
+    }
+
+    /// @vtest.id TEST-MODEL-LOCATOR-CANONICAL-SPELLING
+    /// @vtest.covers VO-MODEL-LOCATOR-OPAQUE-VALUE-EQUALITY
+    /// @vtest.target crates/vtest-model/src/source.rs::Locator
+    /// @vtest.intent verifies a Locator is spelled `<adapter>::<value>` with the opaque value written verbatim, so two adapters sharing a value stay distinct (DES-217, DS-1412)
+    #[test]
+    fn locator_is_spelled_as_adapter_then_verbatim_value() {
+        let rust = Locator {
+            adapter: AdapterId::new("rust-cargo"),
+            value: "src/parser.rs::Parser::parse".to_owned(),
+        };
+        let other = Locator {
+            adapter: AdapterId::new("other-lang"),
+            value: "src/parser.rs::Parser::parse".to_owned(),
+        };
+        let odd = Locator {
+            adapter: AdapterId::new("ruby-minitest"),
+            value: "lib/a b.rb#Parser.parse ''".to_owned(),
+        };
+        assert_eq!(rust.to_string(), "rust-cargo::src/parser.rs::Parser::parse");
+        assert_eq!(
+            other.to_string(),
+            "other-lang::src/parser.rs::Parser::parse"
+        );
+        assert_eq!(odd.to_string(), "ruby-minitest::lib/a b.rb#Parser.parse ''");
     }
 }
