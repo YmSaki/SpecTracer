@@ -421,6 +421,23 @@ fn break_config(root: &Path) {
     fs::write(root.join(".verify/config.yaml"), "version: 2\nproject: [\n").unwrap();
 }
 
+/// Makes the config unreadable (not rejected): a directory where the file
+/// should be, an I/O failure no diagnostic code is assigned to.
+fn make_config_unreadable(root: &Path) {
+    let config = root.join(".verify/config.yaml");
+    fs::remove_file(&config).unwrap();
+    fs::create_dir(&config).unwrap();
+}
+
+/// Adds a VO record the store rejects: a field outside the schema.
+fn write_malformed_vo(root: &Path) {
+    fs::write(
+        root.join(".verify/vo/VO-BAD.yaml"),
+        "id: VO-BAD\nnot_a_field: 1\n",
+    )
+    .unwrap();
+}
+
 /// Commits the fixture, lockfile included, so `vtest run` sees the same
 /// Execution State before and after the run. The commit date is fixed so the
 /// revision recorded in Evidence is the same for both surfaces.
@@ -587,6 +604,13 @@ const NOT_OK: Expect = Expect {
     ok: false,
     exit: 1,
     code: None,
+};
+
+/// The tool itself failed: E-INTERNAL-001 with exit 3 (DS-1690).
+const INTERNAL: Expect = Expect {
+    ok: false,
+    exit: 3,
+    code: Some("E-INTERNAL-001"),
 };
 
 /// The input or the operation was rejected with `code` (exit 2).
@@ -1458,7 +1482,7 @@ fn bundle_and_submission(root: &Path, change: &dyn Fn(&mut Value)) -> Value {
 /// @vtest.id TEST-MCP-TRANSPORT-AUDIT-TOOLS-MATCH-CLI
 /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE
 /// @vtest.target crates/vtest-mcp/src/lib.rs::tools_call_result
-/// @vtest.intent audit_static・audit_bundle・audit_submitについて、全Testと単一Testの静的監査、Test・VOのbundle生成、判定の受理、対象未指定・未知のTest・不正なkind(E-OP-001)、存在しないbundle(E-AUDIT-001)、bundle生成後に変わったsubject(E-AUDIT-002)、bundleと合わないsubject(E-AUDIT-003)、不正なdecision(E-AUDIT-004)、読めないconfig(E-CONFIG-001)のそれぞれで、CLIのJSONと実際のvtest mcp stdioのtools/callが同じok・data・diagnosticsを返し、判定レコードの作成有無も同じになることを確認する
+/// @vtest.intent audit_static・audit_bundle・audit_submitについて、全Testと単一Testの静的監査、Test・VOのbundle生成、判定の受理、対象未指定・未知のTest・不正なkind(E-OP-001)、存在しないbundle(E-AUDIT-001)、bundle生成後に変わったsubject(E-AUDIT-002)、bundleと合わないsubject(E-AUDIT-003)、不正なdecision(E-AUDIT-004)、スキーマ違反のVOレコード(E-SCAN-010)、読めないconfig(E-CONFIG-001)のそれぞれで、CLIのJSONと実際のvtest mcp stdioのtools/callが同じok・data・diagnosticsを返し、判定レコードの作成有無も同じになることを確認する
 #[test]
 fn audit_tools_match_their_cli_commands() {
     assert_same(
@@ -1525,6 +1549,21 @@ fn audit_tools_match_their_cli_commands() {
         "audit_bundle",
         json!({"vo": "VO-X", "kind": "case-coverage"}),
         ACCEPTED,
+    );
+    assert_same_after(
+        "audit-bundle-malformed-vo",
+        &write_malformed_vo,
+        &[
+            "audit",
+            "bundle",
+            "--vo",
+            "VO-BAD",
+            "--kind",
+            "case-coverage",
+        ],
+        "audit_bundle",
+        json!({"vo": "VO-BAD", "kind": "case-coverage"}),
+        rejected("E-SCAN-010"),
     );
     assert_same(
         "audit-bundle-unknown-test",
@@ -1612,7 +1651,7 @@ fn audit_tools_match_their_cli_commands() {
 /// @vtest.id TEST-MCP-TRANSPORT-VO-TOOLS-MATCH-CLI
 /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE
 /// @vtest.target crates/vtest-mcp/src/lib.rs::tools_call_result
-/// @vtest.intent vo_list・vo_get・vo_upsert・vo_expandについて、一覧と絞り込み、照会、追加、編集、dimensionsの展開とdry-run、不正なstatus・未知のVO・不正なpolicy・dimensionsのないVOの展開(E-OP-001)、読めないconfig(E-CONFIG-001)のそれぞれで、CLIのJSONと実際のvtest mcp stdioのtools/callが同じok・data・diagnosticsを返し、VOレコードも同じになることを確認する
+/// @vtest.intent vo_list・vo_get・vo_upsert・vo_expandについて、一覧と絞り込み、照会、追加、編集、dimensionsの展開とdry-run、不正なstatus・未知のVO・不正なpolicy・dimensionsのないVOの展開(E-OP-001)、解釈できないconfig(E-CONFIG-001)、I/Oとして読めないconfig(E-INTERNAL-001)のそれぞれで、CLIのJSONと実際のvtest mcp stdioのtools/callが同じok・data・diagnosticsを返し、VOレコードも同じになることを確認する
 #[test]
 fn vo_tools_match_their_cli_commands() {
     assert_same("vo-list", &["vo", "list"], "vo_list", json!({}), ACCEPTED);
@@ -1659,6 +1698,14 @@ fn vo_tools_match_their_cli_commands() {
         "vo_get",
         json!({"id": "VO-X"}),
         rejected("E-CONFIG-001"),
+    );
+    assert_same_after(
+        "vo-show-unreadable-config",
+        &make_config_unreadable,
+        &["vo", "show", "VO-X"],
+        "vo_get",
+        json!({"id": "VO-X"}),
+        INTERNAL,
     );
 
     assert_same(
