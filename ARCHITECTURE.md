@@ -8,7 +8,7 @@ the verification contract is intentionally language-independent.
 
 The workspace has eleven crates. Lower crates own canonical data and
 verification rules; upper crates delegate to them. The table is the current
-state at `develop` `fd22549` (2026-11-07); the rules behind the table are
+state at `develop` `e22f3d8` (2026-11-12); the rules behind the table are
 [`AGENTS.md`](AGENTS.md) §3–§4. The last column lists normal dependencies
 only; dev-dependencies, which only tests use, are left out.
 
@@ -20,7 +20,7 @@ only; dev-dependencies, which only tests use, are left out.
 | `vtest-adapter-rust` | adapter | the `rust-cargo` adapter: Rust discovery with `syn`, Cargo test execution, `cargo llvm-cov` coverage, static oracle analysis | `adapter-api`, `model` |
 | `vtest-adapter-lexical` | adapter | framework-neutral, discovery-only adapters for eleven other languages (experimental; see below) | `adapter-api`, `model` |
 | `vtest-adapter-synthetic` | adapter | a test-only adapter proving the core assumes nothing about Rust; not registered in the product | `adapter-api`, `model` |
-| `vtest-scan` | orchestration | discovery delegation, output validation, deterministic merge by adapter id, record integrity, Structured Test Operations | `adapter-api`, `store`, `model` (and `adapter-rust`; see deviations) |
+| `vtest-scan` | orchestration | discovery delegation, output validation, deterministic merge by adapter id, record integrity, Structured Test Operations | `adapter-api`, `store`, `model` |
 | `vtest-exec` | orchestration | running tests through the adapter runner, target-coverage attribution, Evidence recording | `adapter-api`, `store`, `model` |
 | `vtest-verify` | orchestration | rebuilding the declaration chain, the four checks, Evidence freshness, scope, fail-closed aggregation | `scan`, `adapter-api`, `store`, `model` |
 | `vtest-cli` | entrypoint | the `vtest` binary, clap definitions, text rendering, exit codes; today also the `ops` layer and the adapter registry (`adapters::builtin_registry`) | orchestration, `adapter-api`, `adapter-rust`, `adapter-lexical`, `store`, `model` |
@@ -49,8 +49,6 @@ Known deviations from the target, each tracked by a child issue of #175:
   of a package dependency, which would be circular (R2, #187).
 - `vtest-mcp` also calls `vtest-scan` and `vtest-store` directly in places
   instead of going through `ops` (R3, #188).
-- `vtest-scan` has a normal dependency on `vtest-adapter-rust` for Structured
-  Test Operations (R17, #209).
 - Evidence YAML is written by `vtest-exec`, while the record format belongs to
   `vtest-store` (R9, #194).
 
