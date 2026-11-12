@@ -17,11 +17,14 @@ pub fn get(root: &Path, registry: &AdapterRegistry, kind: &str) -> (ExitCode, se
                 "adapter": form.adapter,
                 "schema": form.schema,
             });
-            (ExitCode::Ok, crate::envelope_json(true, data, &[]))
+            (
+                ExitCode::Ok,
+                crate::envelope::envelope_json(true, data, &[]),
+            )
         }
         Err(diagnostic) => (
             ExitCode::Usage,
-            crate::envelope_json(false, serde_json::Value::Null, &[diagnostic]),
+            crate::envelope::envelope_json(false, serde_json::Value::Null, &[diagnostic]),
         ),
     }
 }

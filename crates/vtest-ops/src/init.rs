@@ -9,12 +9,12 @@ use vtest_store::init_project_with_forms;
 /// DS-985 / BD-153: `vtest init` writes the built-in Form Schemas of the
 /// registered Structured Test adapters (DES-373); core names none itself.
 pub fn execute(root: &Path, project_name: &str) -> (ExitCode, serde_json::Value) {
-    let registry = match crate::adapters::builtin_registry() {
+    let registry = match crate::registry::builtin_registry() {
         Ok(registry) => registry,
         Err(error) => {
             return (
                 ExitCode::Usage,
-                crate::envelope_json(
+                crate::envelope::envelope_json(
                     false,
                     serde_json::Value::Null,
                     &[vtest_model::Diagnostic::error(
@@ -36,10 +36,13 @@ pub fn execute(root: &Path, project_name: &str) -> (ExitCode, serde_json::Value)
     match init_project_with_forms(root, project_name, &forms) {
         Ok(_) => {
             let data = serde_json::json!({ "project": root, "initialized": true });
-            (ExitCode::Ok, crate::envelope_json(true, data, &[]))
+            (
+                ExitCode::Ok,
+                crate::envelope::envelope_json(true, data, &[]),
+            )
         }
         // A rejected init (e.g. `.verify/` already exists) is E-CONFIG-001
         // / exit 2; a filesystem failure writing the layout is internal.
-        Err(error) => crate::config_error_result(&error),
+        Err(error) => crate::envelope::config_error_result(&error),
     }
 }

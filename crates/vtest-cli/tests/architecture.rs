@@ -127,7 +127,7 @@ fn core_crates_have_no_direct_rust_syntax_dependency() {
 
 /// @vtest.id TEST-ARCH-CORE-HAS-NO-LANGUAGE-ADAPTER-DEPENDENCY
 /// @vtest.covers VO-ARCH-CORE-NO-RUST-SYNTAX-OWNERSHIP
-/// @vtest.intent cargo metadata shows no core crate (model, adapter-api, store, scan, exec, verify) with a normal dependency on a language adapter crate, so core cannot reach Rust syntax through vtest-adapter-rust either, while vtest-cli still registers the adapters (#209)
+/// @vtest.intent cargo metadata shows no core crate (model, adapter-api, store, scan, exec, verify) with a normal dependency on a language adapter crate, so core cannot reach Rust syntax through vtest-adapter-rust either, while vtest-ops still registers the adapters (#209)
 // No `@vtest.target`, for the same reason as the test above.
 #[test]
 fn core_crates_have_no_normal_dependency_on_a_language_adapter() {
@@ -148,13 +148,13 @@ fn core_crates_have_no_normal_dependency_on_a_language_adapter() {
             "{core} depends on language adapters {forbidden:?}"
         );
     }
-    // The check must be able to see a violation: the CLI is the composition
-    // root that links the adapters.
-    let (_, cli) = packages
+    // The check must be able to see a violation: the operation layer is the
+    // composition root that links the adapters (`vtest-ops/src/registry.rs`).
+    let (_, ops) = packages
         .iter()
-        .find(|(name, _)| name == "vtest-cli")
-        .expect("workspace must contain vtest-cli");
-    assert!(cli.iter().any(|dependency| is_language_adapter(dependency)));
+        .find(|(name, _)| name == "vtest-ops")
+        .expect("workspace must contain vtest-ops");
+    assert!(ops.iter().any(|dependency| is_language_adapter(dependency)));
 }
 
 /// @vtest.id TEST-ARCH-ADAPTER-API-DEPENDS-ONLY-ON-MODEL

@@ -576,13 +576,13 @@ dependencies = [
  "clap",
  "serde",
  "serde_json",
- "thiserror",
  "vtest-adapter-api",
- "vtest-adapter-lexical",
  "vtest-adapter-rust",
  "vtest-adapter-synthetic",
  "vtest-exec",
+ "vtest-mcp",
  "vtest-model",
+ "vtest-ops",
  "vtest-scan",
  "vtest-store",
  "vtest-verify",
@@ -607,9 +607,9 @@ dependencies = [
  "serde",
  "serde_json",
  "vtest-adapter-api",
- "vtest-cli",
  "vtest-exec",
  "vtest-model",
+ "vtest-ops",
  "vtest-scan",
  "vtest-store",
  "vtest-verify",
@@ -622,6 +622,23 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+]
+
+[[package]]
+name = "vtest-ops"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+ "vtest-adapter-api",
+ "vtest-adapter-lexical",
+ "vtest-adapter-rust",
+ "vtest-exec",
+ "vtest-model",
+ "vtest-scan",
+ "vtest-store",
+ "vtest-verify",
 ]
 
 [[package]]

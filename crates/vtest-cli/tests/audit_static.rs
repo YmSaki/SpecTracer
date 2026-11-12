@@ -98,7 +98,7 @@ fn verdict<'a>(test: &'a Value, rule: &str, target: Option<&str>) -> &'a str {
 
 /// @vtest.id TEST-AUDIT-STATIC-RULE-VERDICTS
 /// @vtest.covers VO-AUDIT-STATIC-RULE-VERDICTS
-/// @vtest.target crates/vtest-cli/src/ops/audit.rs::audit_static
+/// @vtest.target crates/vtest-ops/src/audit.rs::audit_static
 /// @vtest.intent audit static --all reports per-rule FAIL / UNKNOWN / NO_VIOLATION verdicts with the Test's evidence span and writes the same data to cache/
 #[test]
 fn audit_static_reports_rule_verdicts_with_spans() {
@@ -133,7 +133,7 @@ fn audit_static_reports_rule_verdicts_with_spans() {
 
 /// @vtest.id TEST-AUDIT-STATIC-PER-TARGET
 /// @vtest.covers VO-AUDIT-STATIC-TARGET-SCOPED-VERDICTS
-/// @vtest.target crates/vtest-cli/src/ops/audit.rs::audit_static
+/// @vtest.target crates/vtest-ops/src/audit.rs::audit_static
 /// @vtest.intent DA-002 and DA-003 are reported once per declared target; DA-003 distinguishes a verified target call from an unverified one and DA-002 stays UNKNOWN at the analysis boundary
 #[test]
 fn target_scoped_rules_are_reported_per_target() {
@@ -157,7 +157,7 @@ fn target_scoped_rules_are_reported_per_target() {
 
 /// @vtest.id TEST-AUDIT-STATIC-NO-CANONICAL-RECORD
 /// @vtest.covers VO-AUDIT-STATIC-NO-CANONICAL-RECORD
-/// @vtest.target crates/vtest-cli/src/ops/audit.rs::audit_static
+/// @vtest.target crates/vtest-ops/src/audit.rs::audit_static
 /// @vtest.intent audit static creates no canonical record and returns no audit record id; selector misuse is E-OP-001 / exit 2
 #[test]
 fn audit_static_writes_no_canonical_record() {
@@ -204,7 +204,7 @@ fn colliding_fixture(name: &str) -> PathBuf {
 
 /// @vtest.id TEST-AUDIT-STATIC-COLLIDING-TEST-ID
 /// @vtest.covers VO-AUDIT-STATIC-COLLIDING-TEST-ID-E-SCAN-002
-/// @vtest.target crates/vtest-cli/src/ops/audit.rs::audit_static
+/// @vtest.target crates/vtest-ops/src/audit.rs::audit_static
 /// @vtest.intent a Test ID declared by two constructs (one clean, one empty) makes audit static --test and --all fail with E-SCAN-002 / exit 2, audit neither construct, and write no cache
 #[test]
 fn a_colliding_test_id_is_rejected_without_a_cache() {
@@ -308,7 +308,7 @@ fn assert_cli_and_mcp_agree(root: &Path, cli_args: &[&str], arguments: Value) ->
 
 /// @vtest.id TEST-AUDIT-STATIC-CLI-MCP-TRANSPORT-EQUIVALENCE
 /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE
-/// @vtest.target crates/vtest-cli/src/ops/audit.rs::audit_static
+/// @vtest.target crates/vtest-ops/src/audit.rs::audit_static
 /// @vtest.intent 無関係なTestに未解決target(E-SCAN-004)がある状態での正常Testの監査、未解決targetを持つTest自身の監査、--all、Test ID重複(E-SCAN-002)のそれぞれで、CLIのaudit staticと実際のvtest mcp stdioのtools/callのaudit_staticが同じok・data・diagnostics・cache作成有無になることを確認する
 #[test]
 fn audit_static_gives_the_same_result_over_cli_and_the_mcp_transport() {

@@ -5,11 +5,10 @@
 //! BD-102「core verifierを変更せずに別adapterを登録できる境界を要求する」
 //! に従い、`vtest-scan` / `vtest-verify` / `vtest-exec`（core）は自分で
 //! adapter を生成しない。`vtest-cli`・`vtest-mcp` が唯一の呼び出し元で
-//! あり、`vtest-mcp` は `vtest-cli` に既に依存している（このcrateのdoc
-//! comment・Cargo.toml参照）ため、ここを cli と mcp が共有する composition
-//! root の唯一の場所とする — cli/mcp が `vtest-adapter-rust` へ依存する
-//! こと自体は BD-118「cli / mcp が adapter-rust に依存するのは可」が
-//! 許す。
+//! あり、両者はこの crate（`vtest-ops`）に依存するため、ここを cli と mcp
+//! が共有する composition root の唯一の場所とする — この crate が
+//! `vtest-adapter-rust` へ依存すること自体は BD-118「cli / mcp が
+//! adapter-rust に依存するのは可」が許す。
 //!
 //! `AdapterRegistry::register` が返す `Err`（DES-351/DS-1569/DS-1663:
 //! adapter IDの重複、または宣言capabilityと実装の不一致）は、この

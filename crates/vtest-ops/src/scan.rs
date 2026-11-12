@@ -16,7 +16,7 @@ pub fn execute(root: &Path, registry: &AdapterRegistry) -> (ExitCode, serde_json
     // config の拒否は操作拒否（E-CONFIG-001、DS-935）。読めない config は
     // 内部エラー（E-INTERNAL-001、DS-930）。
     if let Err(error) = load_config(root) {
-        return crate::config_error_result(&error);
+        return crate::envelope::config_error_result(&error);
     }
     match scan_project(root, registry) {
         Ok(result) => {
@@ -27,7 +27,7 @@ pub fn execute(root: &Path, registry: &AdapterRegistry) -> (ExitCode, serde_json
                 "sources": result.summary.sources,
                 "discovered": result.discovered.len(),
             });
-            let envelope = crate::envelope_json(!has_errors, data, &result.diagnostics);
+            let envelope = crate::envelope::envelope_json(!has_errors, data, &result.diagnostics);
             let exit = if has_errors {
                 ExitCode::VerificationFailed
             } else {
@@ -35,6 +35,6 @@ pub fn execute(root: &Path, registry: &AdapterRegistry) -> (ExitCode, serde_json
             };
             (exit, envelope)
         }
-        Err(error) => crate::scan_error_result(&error),
+        Err(error) => crate::envelope::scan_error_result(&error),
     }
 }

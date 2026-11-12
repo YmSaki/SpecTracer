@@ -29,7 +29,7 @@ use vtest_store::{init_project, write_document_file, write_vo_record};
 use vtest_verify::verify_project;
 
 fn registry() -> vtest_adapter_api::AdapterRegistry {
-    vtest_cli::adapters::builtin_registry().expect("builtin registry must register cleanly")
+    vtest_ops::registry::builtin_registry().expect("builtin registry must register cleanly")
 }
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -607,7 +607,7 @@ fn a_test_that_reaches_only_one_of_two_declared_targets_is_not_pass() {
 /// only a basis string.
 /// @vtest.id TEST-E2E-EVIDENCE-AGGREGATE-CONTRADICTION-DIAGNOSTIC
 /// @vtest.covers VO-VERIFY-EVIDENCE-TARGET-ENTRY-CONTRADICTION-E-SCAN-010
-/// @vtest.target crates/vtest-cli/src/ops/verify.rs::execute
+/// @vtest.target crates/vtest-ops/src/verify.rs::execute
 /// @vtest.intent aggregateをUNKNOWNへ書き換えたEvidenceで、vtest verifyのJSON envelopeのdiagnosticsにE-SCAN-010が入り、target_bindingがNO_EVIDENCE(NOT_EXECUTED)になることを確認する
 #[test]
 fn verify_reports_e_scan_010_for_an_aggregate_that_contradicts_its_entries() {
@@ -744,7 +744,7 @@ fn an_invalid_latest_evidence_record_does_not_fall_back_to_an_older_pass() {
             outcome.diagnostics
         );
         let (_, _, diagnostics) =
-            vtest_cli::ops::verify::execute(&root, &[], None, None, None, None, false, &registry())
+            vtest_ops::verify::execute(&root, &[], None, None, None, None, false, &registry())
                 .unwrap_or_else(|_| panic!("{name}: verify operation"));
         assert!(
             diagnostics
@@ -832,7 +832,7 @@ const RUN_TARGET_LIB: &str = "pub fn double(x: i32) -> i32 { x * 2 }\n\
 /// zero, one or several resolvable targets still run and get Evidence.
 /// @vtest.id TEST-RUN-UNRESOLVED-TARGET-NO-EVIDENCE
 /// @vtest.covers VO-RUN-UNRESOLVED-TARGET-NO-EVIDENCE
-/// @vtest.target crates/vtest-cli/src/ops/run.rs::run
+/// @vtest.target crates/vtest-ops/src/run.rs::run
 /// @vtest.intent run skips a Test with an unresolved target with E-SCAN-004 and still runs the resolvable ones
 #[test]
 fn run_writes_no_evidence_for_a_test_with_an_unresolved_target() {
@@ -846,11 +846,11 @@ fn run_writes_no_evidence_for_a_test_with_an_unresolved_target() {
     let scan = scan_project(&root, &registry()).expect("scan the fixture project");
     let layout = vtest_store::VerifyLayout::new(&root);
     clear_outer_coverage_environment();
-    let result = vtest_cli::ops::run::run(
+    let result = vtest_ops::run::run(
         &root,
         &layout,
         &scan,
-        &vtest_cli::ops::run::RunTarget::All,
+        &vtest_ops::run::RunTarget::All,
         true,
         &registry(),
     )

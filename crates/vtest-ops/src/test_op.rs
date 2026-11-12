@@ -26,7 +26,7 @@ pub fn create(
     dry_run: bool,
 ) -> (ExitCode, serde_json::Value) {
     if let Err(error) = load_config(root) {
-        return crate::config_error_result(&error);
+        return crate::envelope::config_error_result(&error);
     }
     result_envelope(create_test(
         root,
@@ -49,7 +49,7 @@ pub fn edit(
     dry_run: bool,
 ) -> (ExitCode, serde_json::Value) {
     if let Err(error) = load_config(root) {
-        return crate::config_error_result(&error);
+        return crate::envelope::config_error_result(&error);
     }
     result_envelope(edit_test(
         root, test_id, answers, set, body, dry_run, registry,
@@ -80,7 +80,10 @@ fn result_envelope(
                 "changed": result.changed,
                 "diff": unified_diff(&result.file, &result.replaced, &result.rendered),
             });
-            (ExitCode::Ok, crate::envelope_json(true, data, &[]))
+            (
+                ExitCode::Ok,
+                crate::envelope::envelope_json(true, data, &[]),
+            )
         }
         Err(diagnostic) => failure(diagnostic),
     }
@@ -95,7 +98,7 @@ fn failure(diagnostic: Diagnostic) -> (ExitCode, serde_json::Value) {
     };
     (
         exit,
-        crate::envelope_json(false, serde_json::Value::Null, &[diagnostic]),
+        crate::envelope::envelope_json(false, serde_json::Value::Null, &[diagnostic]),
     )
 }
 
