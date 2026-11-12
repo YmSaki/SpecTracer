@@ -1,24 +1,21 @@
-//! Composition root: the one place `rust-cargo` (and any other built-in
-//! adapter) is registered.
+//! Composition root: the one place the built-in adapters are instantiated
+//! and registered.
 //!
-//! BD-007「CLI・MCP・検証coreはadapter registryを介して能力を選択する」・
-//! BD-102「core verifierを変更せずに別adapterを登録できる境界を要求する」
-//! に従い、`vtest-scan` / `vtest-verify` / `vtest-exec`（core）は自分で
-//! adapter を生成しない。`vtest-cli`・`vtest-mcp` が唯一の呼び出し元で
-//! あり、両者はこの crate（`vtest-ops`）に依存するため、ここを cli と mcp
-//! が共有する composition root の唯一の場所とする — この crate が
-//! `vtest-adapter-rust` へ依存すること自体は BD-118「cli / mcp が
-//! adapter-rust に依存するのは可」が許す。
+//! The core crates (`vtest-scan`, `vtest-exec`, `vtest-verify`) never create
+//! an adapter themselves; they receive this registry and select capabilities
+//! through it (BD-007), so another adapter can be registered without
+//! changing the core verifier (BD-102). `vtest-cli` and `vtest-mcp` both
+//! obtain the registry here, which is why they use the same one (BD-100).
 //!
-//! `AdapterRegistry::register` が返す `Err`（DES-351/DS-1569/DS-1663:
-//! adapter IDの重複、または宣言capabilityと実装の不一致）は、この
-//! composition root が唯一の登録者であるため理論上は到達しない
-//! （固定1件の登録）。到達すればそれは実装のバグであり、`Result` を
-//! `unimplemented!`/黙殺せず呼び出し元へ伝播させ、E-ADAPTER-001として
-//! usage failure にする。
+//! `AdapterRegistry::register` rejects a duplicate adapter id and a declared
+//! capability the implementation does not provide (DES-351, DS-1569,
+//! DS-1663). With a fixed list that is an implementation bug, and it is
+//! still reported, as E-ADAPTER-001, instead of being ignored.
 
 use vtest_adapter_api::{AdapterRegistrationError, AdapterRegistry};
 use vtest_adapter_rust::RustCargoAdapter;
+
+use crate::envelope::Failure;
 
 /// v0.1 の組込 production adapter一覧を登録した registry を返す
 /// （基本仕様 §27「組込 production adapter は `rust-cargo` とし
@@ -39,4 +36,10 @@ pub fn builtin_registry() -> Result<AdapterRegistry, AdapterRegistrationError> {
     registry.register(Box::new(vtest_adapter_lexical::ruby::adapter()))?;
     registry.register(Box::new(vtest_adapter_lexical::swift::adapter()))?;
     Ok(registry)
+}
+
+/// The built-in registry, or the E-ADAPTER-001 usage failure both
+/// entrypoints report when it cannot be composed.
+pub fn resolve_registry() -> Result<AdapterRegistry, Failure> {
+    builtin_registry().map_err(|error| Failure::usage("E-ADAPTER-001", error.to_string()))
 }

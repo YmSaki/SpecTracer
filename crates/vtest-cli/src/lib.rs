@@ -1,12 +1,11 @@
-//! Minimal canonical v0.1 CLI: `init`, `scan`, `verify`, `doctor`.
+//! The `vtest` command line: clap definitions, the `run_*` wrapper of each
+//! subcommand, text rendering and the process exit code.
 //!
-//! この slice の CLI は正典 v0.1 モデルの上でだけ動く。前身モデルの
-//! サブコマンド（`spec` / `req` / `audit` / `vo` / `test` / `run` /
-//! `approval` / `mcp` / `report`）はこの版から外してある — それらは
-//! `CheckValue` / `CheckItem` / `audits/` を前提としており、正典モデル上で
-//! 意味を持たない（SPEC-400「旧モデルの12項目…は検査として存在しない」）。
-//! 撤去そのものは移行チェーンの最終段（旧系撤去）の仕事であり、ここでは
-//! `verify` を動かすために必要な範囲だけを先行して落としている。
+//! A wrapper resolves the project root, calls the operation in `vtest-ops`
+//! and prints the result as text or, with `--format json`, as the common
+//! envelope. It holds no verification rule of its own: `vtest-mcp` calls the
+//! same operations, which is what keeps the two outputs equal (DS-1563).
+//! `vtest mcp` itself is served by the binary (`src/main.rs`).
 
 use std::path::{Path, PathBuf};
 
@@ -14,7 +13,7 @@ use clap::{Parser, Subcommand};
 use vtest_model::{Diagnostic, ExitCode, JsonEnvelope};
 use vtest_ops as ops;
 use vtest_scan::scan_project;
-use vtest_store::{load_config, VerifyLayout};
+use vtest_store::VerifyLayout;
 use vtest_verify::{check_name, CheckOutcome, TreeNode};
 
 #[derive(Parser, Debug)]
@@ -711,16 +710,9 @@ fn run_run(
         Ok(root) => root,
         Err(code) => return code,
     };
-    if let Err(error) = load_config(&root) {
-        return config_error_exit(&error, format, quiet);
-    }
-    let registry = match resolve_registry(format, quiet) {
-        Ok(registry) => registry,
-        Err(code) => return code,
-    };
-    let scan = match scan_project(&root, &registry) {
-        Ok(scan) => scan,
-        Err(error) => return scan_error_exit(&error, format, quiet),
+    let (scan, registry) = match ops::project::load_scanned(&root) {
+        Ok(scanned) => scanned,
+        Err(failure) => return failure_exit(&failure, format, quiet),
     };
     let layout = VerifyLayout::new(&root);
     let target = match ops::run::RunTarget::from_axes(test_ids, vo, all) {
@@ -775,17 +767,6 @@ fn run_run(
         }
         Err(ops::run::RunOpError::Store(error)) => record_error_exit(&error, format, quiet),
     }
-}
-
-fn scan_error_exit(error: &vtest_scan::ScanError, format: OutputFormat, quiet: bool) -> ExitCode {
-    let code = error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE);
-    let exit = if error.code().is_some() {
-        ExitCode::Usage
-    } else {
-        ExitCode::Internal
-    };
-    emit_failure(format, quiet, code, &error.to_string());
-    exit
 }
 
 // ---------------------------------------------------------------------------
@@ -984,7 +965,9 @@ fn run_vo(project: &Path, command: VoCommand, format: OutputFormat, quiet: bool)
             };
             let scan = match scan_project(&root, &registry) {
                 Ok(scan) => scan,
-                Err(error) => return scan_error_exit(&error, format, quiet),
+                Err(error) => {
+                    return failure_exit(&ops::envelope::scan_failure(&error), format, quiet)
+                }
             };
             match ops::vo::show(&layout, &scan, &id) {
                 Ok(view) => {
@@ -1169,16 +1152,9 @@ fn run_audit_static(
         Ok(root) => root,
         Err(code) => return code,
     };
-    if let Err(error) = load_config(&root) {
-        return config_error_exit(&error, format, quiet);
-    }
-    let registry = match resolve_registry(format, quiet) {
-        Ok(registry) => registry,
-        Err(code) => return code,
-    };
-    let scan = match scan_project(&root, &registry) {
-        Ok(scan) => scan,
-        Err(error) => return scan_error_exit(&error, format, quiet),
+    let (scan, registry) = match ops::project::load_scanned(&root) {
+        Ok(scanned) => scanned,
+        Err(failure) => return failure_exit(&failure, format, quiet),
     };
     match ops::audit::audit_static(&root, &scan, &registry, test, all) {
         Ok((data, diagnostics)) => {
@@ -1229,12 +1205,8 @@ fn scanned_project(
     ExitCode,
 > {
     let root = resolve_root(project, format, quiet)?;
-    if let Err(error) = load_config(&root) {
-        return Err(config_error_exit(&error, format, quiet));
-    }
-    let registry = resolve_registry(format, quiet)?;
-    let scan =
-        scan_project(&root, &registry).map_err(|error| scan_error_exit(&error, format, quiet))?;
+    let (scan, registry) = ops::project::load_scanned(&root)
+        .map_err(|failure| failure_exit(&failure, format, quiet))?;
     Ok((root, scan, registry))
 }
 
@@ -1661,25 +1633,6 @@ fn doc_error_exit(error: &ops::doc::DocOpError, format: OutputFormat, quiet: boo
     }
 }
 
-fn config_error_exit(
-    error: &vtest_store::StoreError,
-    format: OutputFormat,
-    quiet: bool,
-) -> ExitCode {
-    match error.config_load_code() {
-        Some(code) => usage_failure(format, quiet, code, &error.to_string()),
-        None => {
-            emit_failure(
-                format,
-                quiet,
-                vtest_model::INTERNAL_ERROR_CODE,
-                &error.to_string(),
-            );
-            ExitCode::Internal
-        }
-    }
-}
-
 /// Prints a `serde_json::Value` envelope the way [`emit`] prints a typed
 /// [`JsonEnvelope`] — used by wrappers whose operation body now lives in
 /// `ops::*` and returns pre-built JSON rather than a typed struct.
@@ -1783,7 +1736,11 @@ fn run_verify(
         }) => {
             if format == OutputFormat::Json {
                 if !quiet {
-                    let value = ops::verify::usage_envelope(code, &message, candidates.as_deref());
+                    let value = ops::envelope::failure_envelope_with_candidates(
+                        code,
+                        message.as_str(),
+                        candidates.as_deref(),
+                    );
                     println!(
                         "{}",
                         serde_json::to_string_pretty(&value).unwrap_or_else(|error| format!(
@@ -1796,7 +1753,9 @@ fn run_verify(
                 usage_failure(format, quiet, code, &message)
             }
         }
-        Err(ops::verify::VerifyOpError::Scan(error)) => scan_error_exit(&error, format, quiet),
+        Err(ops::verify::VerifyOpError::Scan(error)) => {
+            failure_exit(&ops::envelope::scan_failure(&error), format, quiet)
+        }
         Err(ops::verify::VerifyOpError::Internal { message }) => {
             emit_failure(format, quiet, vtest_model::INTERNAL_ERROR_CODE, &message);
             ExitCode::Internal
@@ -1839,7 +1798,11 @@ fn run_report(
         }) => {
             if format == OutputFormat::Json {
                 if !quiet {
-                    let value = ops::verify::usage_envelope(code, &message, candidates.as_deref());
+                    let value = ops::envelope::failure_envelope_with_candidates(
+                        code,
+                        message.as_str(),
+                        candidates.as_deref(),
+                    );
                     println!(
                         "{}",
                         serde_json::to_string_pretty(&value).unwrap_or_else(|error| format!(
@@ -1852,7 +1815,9 @@ fn run_report(
                 usage_failure(format, quiet, code, &message)
             }
         }
-        Err(ops::verify::VerifyOpError::Scan(error)) => scan_error_exit(&error, format, quiet),
+        Err(ops::verify::VerifyOpError::Scan(error)) => {
+            failure_exit(&ops::envelope::scan_failure(&error), format, quiet)
+        }
         Err(ops::verify::VerifyOpError::Internal { message }) => {
             emit_failure(format, quiet, "E-INTERNAL-001", &message);
             ExitCode::Internal
@@ -2132,6 +2097,17 @@ fn usage_failure(format: OutputFormat, quiet: bool, code: &str, message: &str) -
     ExitCode::Usage
 }
 
+/// Prints a rejection the operation layer mapped and returns its exit code.
+fn failure_exit(failure: &ops::envelope::Failure, format: OutputFormat, quiet: bool) -> ExitCode {
+    emit_failure(
+        format,
+        quiet,
+        &failure.diagnostic.code,
+        &failure.diagnostic.message,
+    );
+    failure.exit
+}
+
 fn absolute_path(path: &Path) -> PathBuf {
     if path.is_absolute() {
         path.to_owned()
@@ -2142,19 +2118,14 @@ fn absolute_path(path: &Path) -> PathBuf {
     }
 }
 
-/// Walk upwards looking for a `.verify/` directory, so the CLI works from a
-/// subdirectory of the project.
-/// composition root（`vtest_ops::registry::builtin_registry`）を呼び、失敗
-/// （DES-351/DS-1569/DS-1663、理論上は固定1件の登録なので到達しない）を
-/// E-ADAPTER-001 の usage failure として報告する。すべての `run_*` 入口が
-/// これを1回だけ呼ぶ — `vtest-scan`/`vtest-verify`/`vtest-exec` は自分で
-/// adapter を生成しない（BD-007/BD-102）。
+/// The built-in adapter registry (`vtest_ops::registry`), with its
+/// E-ADAPTER-001 failure printed. Every `run_*` wrapper that needs adapters
+/// gets them here.
 fn resolve_registry(
     format: OutputFormat,
     quiet: bool,
 ) -> Result<vtest_adapter_api::AdapterRegistry, ExitCode> {
-    vtest_ops::registry::builtin_registry()
-        .map_err(|error| usage_failure(format, quiet, "E-ADAPTER-001", &error.to_string()))
+    ops::registry::resolve_registry().map_err(|failure| failure_exit(&failure, format, quiet))
 }
 
 /// The project root (the nearest ancestor holding `.verify/`) for `cli`,
@@ -2163,6 +2134,8 @@ pub fn project_root(cli: &Cli) -> Result<PathBuf, ExitCode> {
     resolve_root(&cli.project, cli.format, cli.quiet)
 }
 
+/// Walk upwards looking for a `.verify/` directory, so the CLI works from a
+/// subdirectory of the project.
 fn resolve_root(project: &Path, format: OutputFormat, quiet: bool) -> Result<PathBuf, ExitCode> {
     let start = absolute_path(project);
     let mut current = start.as_path();

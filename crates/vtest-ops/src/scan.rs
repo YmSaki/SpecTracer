@@ -16,7 +16,7 @@ pub fn execute(root: &Path, registry: &AdapterRegistry) -> (ExitCode, serde_json
     // config の拒否は操作拒否（E-CONFIG-001、DS-935）。読めない config は
     // 内部エラー（E-INTERNAL-001、DS-930）。
     if let Err(error) = load_config(root) {
-        return crate::envelope::config_error_result(&error);
+        return crate::envelope::config_failure(&error).result();
     }
     match scan_project(root, registry) {
         Ok(result) => {
@@ -35,6 +35,6 @@ pub fn execute(root: &Path, registry: &AdapterRegistry) -> (ExitCode, serde_json
             };
             (exit, envelope)
         }
-        Err(error) => crate::envelope::scan_error_result(&error),
+        Err(error) => crate::envelope::scan_failure(&error).result(),
     }
 }

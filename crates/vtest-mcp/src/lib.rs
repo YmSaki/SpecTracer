@@ -1,59 +1,17 @@
-//! MCP stdio transport over the canonical v0.1 operations.
+//! The MCP server (`vtest mcp`): JSON-RPC over stdio, the tool list and
+//! input schemas, argument validation, and one handler per tool.
 //!
-//! ROOT-027 / R-1「MCP インターフェースは飾りではなく本体側」— MCP is not a
-//! thin wrapper kept in sync by convention: every tool handler here calls
-//! the exact same `vtest_ops::*::execute` function the CLI's `run_*`
-//! wrappers call, so DS-1563「別紙A（§12〜§15）が定める全 MCP tool が同じ
-//! 入力に対する CLI JSON と同じ data / diagnostics を返す」holds by
-//! construction rather than by two independently written code paths.
+//! A handler turns the tool arguments into a call of the operation in
+//! `vtest-ops` that the CLI's `run_*` wrapper also calls, and returns its
+//! result as the common envelope, so a tool and the CLI's `--format json`
+//! report the same `data` and `diagnostics` for the same input (DS-1563).
+//! The envelope and the mapping of a rejection to its diagnostic code come
+//! from `vtest_ops::envelope`; this crate holds no verification rule.
 //!
-//! 別紙A §13.2 defines a 23-tool MCP taxonomy (DS-1193〜DS-1229, confirmed by
-//! direct citation search, team-lead ruling 2026-09-10 / レビュー #15). This
-//! slice implements the 9 whose canonical operation already exists in the
-//! current CLI: `scan` (DS-1193), `doc_list`/`doc_get`/`doc_upsert`
-//! (DS-1194/1195 — note the canonical names: not `doc_list`/`doc_show`/
-//! `doc_add`, which this module used before the rename this review round
-//! corrected), `approval_create`/`approval_withdraw`/`approval_get`
-//! (DS-1196/1197/1198), `run_tests` (DS-1213, not `run`), `verify`
-//! (DS-1214). Tool **names** are taken verbatim from these nodes, not
-//! invented to mirror the CLI subcommand name.
-//!
-//! `init`/`doctor` are **not** in 別紙A §13.2's 23-tool list at all — they
-//! stay CLI-only (`vtest-cli`'s own subcommands) and are not exposed as MCP
-//! tools here (previously they were, wrongly; removed this review round).
-//!
-//! `test_create` / `test_edit` (DS-1206 / DS-1207) call the same
-//! `vtest_ops::test_op` functions as `vtest test create` / `vtest test
-//! edit` (#85). `form_get` (DS-1205) resolves a kind through the Form
-//! registry to its schema and owner adapter (#109).
-//!
-//! The remaining canonical tools this slice does not implement
-//! (`vo_list`/`vo_get`/`vo_upsert`/`vo_expand`/`vo_approve`, `test_query`/
-//! `test_get`, `audit_static`/
-//! `audit_bundle`/`audit_submit`, `report`) have no corresponding CLI
-//! subcommand to mirror in this slice — building the underlying `ops::*`
-//! for them is out of this task's declared scope, not an invented
-//! deviation. Reported in `reports/closure-trace.md`'s unimplemented table.
-//!
-//! `approval_create`'s `subject_type: "judgment"` is rejected with the same
-//! disclosed error the CLI uses (`vtest_ops::approval`'s module doc
-//! comment) — no judgment-record domain exists in this codebase.
-//!
-//! An MCP-only Structured-Edit tool with an apply/re-verify/rollback
-//! contract (別紙A §15.2/§15.4, E-OP-003: apply-then-verify failure —
-//! unparseable result, generated declaration mismatched against desired
-//! state, or a change exceeding one Test's range — rolls back to the
-//! pre-apply byte sequence and aborts, leaving no Test ID / Evidence /
-//! judgment-record side effect) is a real, non-empty citation in
-//! `docs/canonical/specification.json` (confirmed present at commit
-//! `58d03fb`; an earlier version of this comment, checked against `79e43fa`,
-//! wrongly reported it absent — see `reports/closure-trace.md` for the
-//! correction). It is not implemented here: it is a Create/Edit tool over
-//! Structured Test Operations, a CLI/MCP surface this closure-slice's
-//! declared scope (parity with `vtest-cli`'s existing `init`/`scan`/
-//! `doctor`/`run`/`verify`/`doc`/`approval` subcommands) does not cover —
-//! `vtest-cli` itself has no `create`/`edit` subcommand to mirror. Reported
-//! as declined (out of this task's scope), not as an upstream silence.
+//! Tool names are the ones 別紙A §13.2 defines (DS-1193〜DS-1229), not the
+//! CLI subcommand names: `run_tests` for `vtest run`, `doc_get` /
+//! `doc_upsert` for `doc show` / `doc add`. `init` and `doctor` are not in
+//! that list and stay CLI-only. `form_get` (DS-1205) has no CLI command.
 
 use std::{
     fs,
@@ -65,12 +23,9 @@ use std::{
 use serde_json::{json, Map, Value};
 use vtest_model::ExitCode;
 use vtest_ops as ops;
+use vtest_ops::envelope::{envelope_json, failure_envelope, failure_envelope_with_candidates};
 
-/// 正本 別紙A §13.2 の23 tool taxonomy のうち、この closure-slice が実装する
-/// 9件（DS-1193/1194/1195/1196/1197/1198/1213/1214 相当）。`init`/`doctor`
-/// は正本の23 tool一覧に無いため、CLI には残しつつ MCP からは外した（team-
-/// lead ruling 2026-09-10, レビュー #15）。未登録14 tool は
-/// `reports/closure-trace.md` の未実装表に開示している。
+/// The tools this server offers, by the names 別紙A §13.2 gives them.
 const TOOL_NAMES: &[&str] = &[
     "scan",
     "run_tests",
@@ -988,7 +943,7 @@ fn vo_error_envelope(error: &ops::vo::VoOpError) -> Value {
 fn vo_list_tool(root: &Path, args: &Value) -> Value {
     let layout = vtest_store::VerifyLayout::new(root);
     match ops::vo::list(&layout, string_arg(args, "doc"), string_arg(args, "status")) {
-        Ok(entries) => success_envelope(true, json!({ "vos": entries }), &[]),
+        Ok(entries) => envelope_json(true, json!({ "vos": entries }), &[]),
         Err(error) => vo_error_envelope(&error),
     }
 }
@@ -1009,7 +964,7 @@ fn vo_get_tool(root: &Path, args: &Value) -> Value {
     };
     let layout = vtest_store::VerifyLayout::new(root);
     match ops::vo::show(&layout, &scan, id) {
-        Ok(view) => success_envelope(true, view, &[]),
+        Ok(view) => envelope_json(true, view, &[]),
         Err(error) => vo_error_envelope(&error),
     }
 }
@@ -1127,7 +1082,7 @@ fn vo_upsert_args(args: &Value) -> Result<ops::vo::VoArgs, ops::vo::VoOpError> {
 fn vo_upsert_tool(root: &Path, args: &Value) -> Value {
     let layout = vtest_store::VerifyLayout::new(root);
     match vo_upsert_args(args).and_then(|args| ops::vo::upsert(&layout, args)) {
-        Ok(result) => success_envelope(true, result, &[]),
+        Ok(result) => envelope_json(true, result, &[]),
         Err(error) => vo_error_envelope(&error),
     }
 }
@@ -1138,7 +1093,7 @@ fn vo_expand_tool(root: &Path, args: &Value) -> Value {
     };
     let layout = vtest_store::VerifyLayout::new(root);
     match ops::vo::expand(&layout, id, bool_arg(args, "dry_run")) {
-        Ok(result) => success_envelope(true, result, &[]),
+        Ok(result) => envelope_json(true, result, &[]),
         Err(error) => vo_error_envelope(&error),
     }
 }
@@ -1160,21 +1115,9 @@ fn vo_approve_tool(root: &Path, args: &Value) -> Value {
 /// DS-1208/DS-1209/DS-1227: the same `ops::audit::audit_static` the CLI
 /// `vtest audit static` calls. No canonical record, no audit record id.
 fn audit_static_tool(root: &Path, args: &Value) -> Value {
-    if let Err(error) = vtest_store::load_config(root) {
-        return vtest_ops::envelope::config_error_result(&error).1;
-    }
-    let registry = match resolve_registry() {
-        Ok(registry) => registry,
-        Err(envelope) => return envelope,
-    };
-    let scan = match vtest_scan::scan_project(root, &registry) {
-        Ok(scan) => scan,
-        Err(error) => {
-            return failure_envelope(
-                error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE),
-                error.to_string(),
-            )
-        }
+    let (scan, registry) = match ops::project::load_scanned(root) {
+        Ok(scanned) => scanned,
+        Err(failure) => return failure.envelope(),
     };
     match ops::audit::audit_static(
         root,
@@ -1183,25 +1126,9 @@ fn audit_static_tool(root: &Path, args: &Value) -> Value {
         string_arg(args, "test"),
         bool_arg(args, "all"),
     ) {
-        Ok((data, diagnostics)) => success_envelope(true, data, &diagnostics),
+        Ok((data, diagnostics)) => envelope_json(true, data, &diagnostics),
         Err(error) => failure_envelope(error.code(), error.to_string()),
     }
-}
-
-fn scanned(
-    root: &Path,
-) -> Result<(vtest_scan::ScanResult, vtest_adapter_api::AdapterRegistry), Value> {
-    if let Err(error) = vtest_store::load_config(root) {
-        return Err(vtest_ops::envelope::config_error_result(&error).1);
-    }
-    let registry = resolve_registry()?;
-    let scan = vtest_scan::scan_project(root, &registry).map_err(|error| {
-        failure_envelope(
-            error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE),
-            error.to_string(),
-        )
-    })?;
-    Ok((scan, registry))
 }
 
 fn judgment_failure(error: &ops::judgment::JudgmentOpError) -> Value {
@@ -1213,9 +1140,9 @@ fn judgment_failure(error: &ops::judgment::JudgmentOpError) -> Value {
 
 /// DS-1210: the same `ops::judgment::bundle` `vtest audit bundle` calls.
 fn audit_bundle_tool(root: &Path, args: &Value) -> Value {
-    let (scan, registry) = match scanned(root) {
+    let (scan, registry) = match ops::project::load_scanned(root) {
         Ok(found) => found,
-        Err(envelope) => return envelope,
+        Err(failure) => return failure.envelope(),
     };
     let subject = match (string_arg(args, "test"), string_arg(args, "vo")) {
         (Some(test), None) => ops::judgment::Subject::Test(test.to_owned()),
@@ -1228,7 +1155,7 @@ fn audit_bundle_tool(root: &Path, args: &Value) -> Value {
         }
     };
     match ops::judgment::bundle(root, &scan, &registry, &subject, string_arg(args, "kind")) {
-        Ok(body) => success_envelope(true, body, &[]),
+        Ok(body) => envelope_json(true, body, &[]),
         Err(error) => judgment_failure(&error),
     }
 }
@@ -1237,12 +1164,12 @@ fn audit_bundle_tool(root: &Path, args: &Value) -> Value {
 /// calls; acceptance returns the judgment record id and changes no
 /// verification state.
 fn audit_submit_tool(root: &Path, args: &Value) -> Value {
-    let (scan, _registry) = match scanned(root) {
+    let (scan, _registry) = match ops::project::load_scanned(root) {
         Ok(found) => found,
-        Err(envelope) => return envelope,
+        Err(failure) => return failure.envelope(),
     };
     match ops::judgment::submit(root, &scan, args) {
-        Ok(result) => success_envelope(true, result, &[]),
+        Ok(result) => envelope_json(true, result, &[]),
         Err(error) => judgment_failure(&error),
     }
 }
@@ -1325,7 +1252,7 @@ fn approval_record_envelope(
     result: Result<vtest_store::records::ApprovalRecord, ops::approval::ApprovalOpError>,
 ) -> Value {
     match result {
-        Ok(record) => success_envelope(
+        Ok(record) => envelope_json(
             true,
             json!({
                 "id": record.id,
@@ -1375,7 +1302,7 @@ fn approval_get_tool(root: &Path, args: &Value) -> Value {
                 vtest_store::approval::EffectiveApprovalState::Draft => "draft",
                 vtest_store::approval::EffectiveApprovalState::Approved => "approved",
             };
-            success_envelope(
+            envelope_json(
                 true,
                 json!({
                     "records": result.records.iter().map(|record| json!({
@@ -1442,7 +1369,7 @@ fn doc_add_tool(root: &Path, args: &Value) -> Value {
             update,
         },
     ) {
-        Ok(view) => success_envelope(true, doc_view_json(&view), &[]),
+        Ok(view) => envelope_json(true, doc_view_json(&view), &[]),
         Err(error) => doc_error_envelope(&error),
     }
 }
@@ -1485,7 +1412,7 @@ fn doc_list_tool(root: &Path, args: &Value) -> Value {
                     data["document_chain"] = json!(result.document_chain);
                 }
             }
-            success_envelope(true, data, &[])
+            envelope_json(true, data, &[])
         }
         Err(error) => doc_error_envelope(&error),
     }
@@ -1538,7 +1465,7 @@ fn doc_show_tool(root: &Path, args: &Value) -> Value {
                     Err(error) => return doc_error_envelope(&error),
                 }
             }
-            success_envelope(true, data, &[])
+            envelope_json(true, data, &[])
         }
         Err(error) => doc_error_envelope(&error),
     }
@@ -1592,22 +1519,9 @@ fn run_tool(root: &Path, args: &Value) -> Value {
     let all = bool_arg(args, "all");
     let fast = bool_arg(args, "fast");
 
-    // Mirrors `vtest-cli`'s `run_run`: resolve config + scan, then hand the
-    // same `ops::run::run` the CLI calls the resolved scan and target.
-    let config = vtest_store::load_config(root);
-    if let Err(error) = config {
-        return vtest_ops::envelope::config_error_result(&error).1;
-    }
-    let registry = match resolve_registry() {
-        Ok(registry) => registry,
-        Err(envelope) => return envelope,
-    };
-    let scan = match vtest_scan::scan_project(root, &registry) {
-        Ok(scan) => scan,
-        Err(error) => {
-            let code = error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE);
-            return failure_envelope(code, error.to_string());
-        }
+    let (scan, registry) = match ops::project::load_scanned(root) {
+        Ok(scanned) => scanned,
+        Err(failure) => return failure.envelope(),
     };
     let layout = vtest_store::VerifyLayout::new(root);
     let target = match ops::run::RunTarget::from_axes(test_ids, vo, all) {
@@ -1622,7 +1536,7 @@ fn run_tool(root: &Path, args: &Value) -> Value {
                 "evidence_ids": result.evidence.iter().map(|record| record.id.clone()).collect::<Vec<_>>(),
                 "fast": fast,
             });
-            success_envelope(!has_errors, data, &result.diagnostics)
+            envelope_json(!has_errors, data, &result.diagnostics)
         }
         Err(
             error @ (ops::run::RunOpError::UnknownTestId(_)
@@ -1718,7 +1632,7 @@ fn report_tool(root: &Path, args: &Value) -> Value {
         &projection,
         &registry,
     ) {
-        Ok((exit, data, diagnostics)) => success_envelope(exit == ExitCode::Ok, data, &diagnostics),
+        Ok((exit, data, diagnostics)) => envelope_json(exit == ExitCode::Ok, data, &diagnostics),
         Err(ops::verify::VerifyOpError::Usage {
             code,
             message,
@@ -1733,18 +1647,6 @@ fn report_tool(root: &Path, args: &Value) -> Value {
     }
 }
 
-fn success_envelope<T: serde::Serialize>(
-    ok: bool,
-    data: T,
-    diagnostics: &[vtest_model::Diagnostic],
-) -> Value {
-    json!({
-        "ok": ok,
-        "data": data,
-        "diagnostics": diagnostics
-    })
-}
-
 fn string_arg<'a>(args: &'a Value, key: &str) -> Option<&'a str> {
     args.get(key).and_then(Value::as_str)
 }
@@ -1753,29 +1655,10 @@ fn bool_arg(args: &Value, key: &str) -> bool {
     args.get(key).and_then(Value::as_bool).unwrap_or(false)
 }
 
-/// composition root（`vtest_ops::registry::builtin_registry`）を呼ぶ MCP側
-/// の入口。cli の `resolve_registry` と同じ理由（BD-007/BD-102、
-/// `vtest-scan`/`vtest-verify`/`vtest-exec` は自分で adapter を生成しない）
-/// で、MCP tool 側もこの1箇所だけで registry を組み立てる。失敗
-/// （理論上は固定1件の登録なので到達しない）は E-ADAPTER-001 として返す。
+/// The built-in adapter registry (`vtest_ops::registry`), or the envelope
+/// of its E-ADAPTER-001 failure.
 fn resolve_registry() -> Result<vtest_adapter_api::AdapterRegistry, Value> {
-    vtest_ops::registry::builtin_registry()
-        .map_err(|error| failure_envelope("E-ADAPTER-001", error.to_string()))
-}
-
-fn failure_envelope(code: &str, message: impl Into<String>) -> Value {
-    failure_envelope_with_candidates(code, message, None)
-}
-
-/// DS-1191/DS-1192: an input-validation tool error carries
-/// `{code, message, candidates}`. The envelope is built by the same function
-/// the CLI uses for `--format json` (DS-1563).
-fn failure_envelope_with_candidates(
-    code: &str,
-    message: impl Into<String>,
-    candidates: Option<&[String]>,
-) -> Value {
-    ops::verify::usage_envelope(code, &message.into(), candidates)
+    ops::registry::resolve_registry().map_err(|failure| failure.envelope())
 }
 
 #[cfg(test)]
@@ -2807,7 +2690,7 @@ mod tests {
             vtest_store::approval::EffectiveApprovalState::Draft => "draft",
             vtest_store::approval::EffectiveApprovalState::Approved => "approved",
         };
-        let direct_envelope = success_envelope(
+        let direct_envelope = envelope_json(
             true,
             json!({
                 "records": direct.records.iter().map(|record| json!({
@@ -2879,7 +2762,7 @@ mod tests {
         let mut direct_data = doc_view_json(&direct.view);
         direct_data["freshness"] = json!(direct.freshness);
         direct_data["approval_states"] = json!(direct.approval_states);
-        let direct_envelope = success_envelope(true, direct_data, &[]);
+        let direct_envelope = envelope_json(true, direct_data, &[]);
         let mcp_envelope = dispatch_tool(&root, "doc_get", &json!({"id": "DOC-BASIC-001"}));
 
         // DS-1563: same root, same registered document -- content_hash is
@@ -3283,7 +3166,7 @@ mod tests {
         // DS-1563: byte-identical input on both roots, so the full
         // envelope must match exactly, normalising only `path` (each
         // root's own absolute temp-directory path).
-        let mut direct_envelope = success_envelope(true, doc_view_json(&direct), &[]);
+        let mut direct_envelope = envelope_json(true, doc_view_json(&direct), &[]);
         for envelope in [&mut mcp_envelope, &mut direct_envelope] {
             envelope["data"]["path"] = json!("<path>");
         }
@@ -3417,7 +3300,7 @@ mod tests {
             vec!["ROOT-001".to_owned()],
             "direct ops::doc::add must have written derives_from onto the request-layer node"
         );
-        let mut direct_envelope = success_envelope(true, doc_view_json(&direct), &[]);
+        let mut direct_envelope = envelope_json(true, doc_view_json(&direct), &[]);
         for envelope in [&mut mcp_envelope, &mut direct_envelope] {
             envelope["data"]["path"] = json!("<path>");
         }
@@ -3465,7 +3348,7 @@ mod tests {
         // CLI's own `render_doc_list_text` view-switching. Neither given
         // -> flat `records` (+ always-present `unresolved_derives_from`),
         // no `roots`/`document_chain`.
-        let default_envelope = success_envelope(
+        let default_envelope = envelope_json(
             true,
             json!({
                 "records": direct_records,
@@ -3483,7 +3366,7 @@ mod tests {
         );
 
         // `tree: true` -> `records` + `document_chain`, no `roots`.
-        let tree_envelope = success_envelope(
+        let tree_envelope = envelope_json(
             true,
             json!({
                 "records": direct_records,
@@ -3503,7 +3386,7 @@ mod tests {
         // `roots: true` -> only `roots` (mirrors the CLI's own early
         // return for --roots, which does not also render the record
         // list).
-        let roots_envelope = success_envelope(
+        let roots_envelope = envelope_json(
             true,
             json!({
                 "unresolved_derives_from": direct.unresolved,
