@@ -109,3 +109,14 @@ pub fn scan_failure(error: &vtest_scan::ScanError) -> Failure {
         None => Failure::internal(error.to_string()),
     }
 }
+
+/// A canonical record that cannot be read or written: an invalid record
+/// rejects the requested operation with the code the store assigns it
+/// (exit 2); a filesystem failure is E-INTERNAL-001 with exit 3 (DS-1676,
+/// DS-929, DS-930).
+pub fn record_failure(error: &vtest_store::StoreError) -> Failure {
+    match error.record_read_code() {
+        Some(code) => Failure::usage(code, error.to_string()),
+        None => Failure::internal(error.to_string()),
+    }
+}

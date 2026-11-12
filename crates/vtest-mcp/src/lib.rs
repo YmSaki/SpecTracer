@@ -854,7 +854,7 @@ fn test_create_tool(root: &Path, args: &Value) -> Value {
         return failure_envelope("E-OP-001", "test_create requires answers");
     };
     let answers = match ops::test_op::form_values_from_json(answers, "answers") {
-        Ok(answers) => vtest_store::FormAnswers {
+        Ok(answers) => ops::FormAnswers {
             form: form.to_owned(),
             answers,
         },
@@ -892,7 +892,7 @@ fn test_edit_tool(root: &Path, args: &Value) -> Value {
             };
             let values = answers.get("answers").cloned().unwrap_or(Value::Null);
             match ops::test_op::form_values_from_json(&values, "answers.answers") {
-                Ok(values) => Some(vtest_store::FormAnswers {
+                Ok(values) => Some(ops::FormAnswers {
                     form: form.to_owned(),
                     answers: values,
                 }),
@@ -929,22 +929,11 @@ fn test_edit_tool(root: &Path, args: &Value) -> Value {
 // `ops::vo` function as the matching `vtest vo` subcommand.
 // ---------------------------------------------------------------------------
 
-fn vo_error_envelope(error: &ops::vo::VoOpError) -> Value {
-    use ops::vo::VoOpError;
-    match error {
-        VoOpError::Store(error) => record_error_envelope(error),
-        VoOpError::Approval(error) => approval_error_envelope(error),
-        VoOpError::Usage(_) | VoOpError::InvalidCombinations(_) => {
-            failure_envelope(error.code().unwrap_or("E-OP-001"), error.message())
-        }
-    }
-}
-
 fn vo_list_tool(root: &Path, args: &Value) -> Value {
-    let layout = vtest_store::VerifyLayout::new(root);
+    let layout = ops::VerifyLayout::new(root);
     match ops::vo::list(&layout, string_arg(args, "doc"), string_arg(args, "status")) {
         Ok(entries) => envelope_json(true, json!({ "vos": entries }), &[]),
-        Err(error) => vo_error_envelope(&error),
+        Err(error) => error.failure().envelope(),
     }
 }
 
@@ -952,18 +941,14 @@ fn vo_get_tool(root: &Path, args: &Value) -> Value {
     let Some(id) = string_arg(args, "id") else {
         return failure_envelope("E-OP-001", "vo_get requires id");
     };
-    let registry = match resolve_registry() {
-        Ok(registry) => registry,
-        Err(envelope) => return envelope,
+    let (scan, _registry) = match ops::project::scanned(root) {
+        Ok(scanned) => scanned,
+        Err(failure) => return failure.envelope(),
     };
-    let scan = match vtest_scan::scan_project(root, &registry) {
-        Ok(scan) => scan,
-        Err(error) => return ops::envelope::scan_failure(&error).envelope(),
-    };
-    let layout = vtest_store::VerifyLayout::new(root);
+    let layout = ops::VerifyLayout::new(root);
     match ops::vo::show(&layout, &scan, id) {
         Ok(view) => envelope_json(true, view, &[]),
-        Err(error) => vo_error_envelope(&error),
+        Err(error) => error.failure().envelope(),
     }
 }
 
@@ -1078,10 +1063,10 @@ fn vo_upsert_args(args: &Value) -> Result<ops::vo::VoArgs, ops::vo::VoOpError> {
 }
 
 fn vo_upsert_tool(root: &Path, args: &Value) -> Value {
-    let layout = vtest_store::VerifyLayout::new(root);
+    let layout = ops::VerifyLayout::new(root);
     match vo_upsert_args(args).and_then(|args| ops::vo::upsert(&layout, args)) {
         Ok(result) => envelope_json(true, result, &[]),
-        Err(error) => vo_error_envelope(&error),
+        Err(error) => error.failure().envelope(),
     }
 }
 
@@ -1089,10 +1074,10 @@ fn vo_expand_tool(root: &Path, args: &Value) -> Value {
     let Some(id) = string_arg(args, "id") else {
         return failure_envelope("E-OP-001", "vo_expand requires id");
     };
-    let layout = vtest_store::VerifyLayout::new(root);
+    let layout = ops::VerifyLayout::new(root);
     match ops::vo::expand(&layout, id, bool_arg(args, "dry_run")) {
         Ok(result) => envelope_json(true, result, &[]),
-        Err(error) => vo_error_envelope(&error),
+        Err(error) => error.failure().envelope(),
     }
 }
 
@@ -1125,18 +1110,7 @@ fn audit_static_tool(root: &Path, args: &Value) -> Value {
         bool_arg(args, "all"),
     ) {
         Ok((data, diagnostics)) => envelope_json(true, data, &diagnostics),
-        Err(error) => failure_envelope(error.code(), error.to_string()),
-    }
-}
-
-fn judgment_failure(error: &ops::judgment::JudgmentOpError) -> Value {
-    match error {
-        // The record's own message, as the CLI reports it (DS-1563).
-        ops::judgment::JudgmentOpError::Store(error) => record_error_envelope(error),
-        other => failure_envelope(
-            other.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE),
-            other.to_string(),
-        ),
+        Err(error) => error.failure().envelope(),
     }
 }
 
@@ -1158,7 +1132,7 @@ fn audit_bundle_tool(root: &Path, args: &Value) -> Value {
     };
     match ops::judgment::bundle(root, &scan, &registry, &subject, string_arg(args, "kind")) {
         Ok(body) => envelope_json(true, body, &[]),
-        Err(error) => judgment_failure(&error),
+        Err(error) => error.failure().envelope(),
     }
 }
 
@@ -1172,14 +1146,14 @@ fn audit_submit_tool(root: &Path, args: &Value) -> Value {
     };
     match ops::judgment::submit(root, &scan, args) {
         Ok(result) => envelope_json(true, result, &[]),
-        Err(error) => judgment_failure(&error),
+        Err(error) => error.failure().envelope(),
     }
 }
 
 /// BD-305: `approval_create`（`subject: { type, id }`）— the same canonical
 /// creation path `vtest approval create` calls (`ops::approval::create`).
 fn approval_create_tool(root: &Path, args: &Value) -> Value {
-    let layout = vtest_store::VerifyLayout::new(root);
+    let layout = ops::VerifyLayout::new(root);
     let Some(subject_type) = args.pointer("/subject/type").and_then(Value::as_str) else {
         return failure_envelope("E-OP-001", "approval_create requires subject.type");
     };
@@ -1221,7 +1195,7 @@ fn approval_create_tool(root: &Path, args: &Value) -> Value {
 /// BD-307: `approval_withdraw` — same canonical path as `vtest approval
 /// withdraw`.
 fn approval_withdraw_tool(root: &Path, args: &Value) -> Value {
-    let layout = vtest_store::VerifyLayout::new(root);
+    let layout = ops::VerifyLayout::new(root);
     let Some(approval_id) = string_arg(args, "approval_id") else {
         return failure_envelope("E-OP-001", "approval_withdraw requires approval_id");
     };
@@ -1251,47 +1225,18 @@ fn approval_withdraw_tool(root: &Path, args: &Value) -> Value {
 }
 
 fn approval_record_envelope(
-    result: Result<vtest_store::records::ApprovalRecord, ops::approval::ApprovalOpError>,
+    result: Result<ops::approval::ApprovalRecord, ops::approval::ApprovalOpError>,
 ) -> Value {
     match result {
-        Ok(record) => envelope_json(
-            true,
-            json!({
-                "id": record.id,
-                "subject_type": record.subject_type,
-                "subject": record.subject,
-                "approved_state": record.approved_state,
-                "supersedes": record.supersedes,
-                "approved_at": record.approved_at,
-            }),
-            &[],
-        ),
-        Err(error) => approval_error_envelope(&error),
-    }
-}
-
-fn approval_error_envelope(error: &ops::approval::ApprovalOpError) -> Value {
-    use ops::approval::ApprovalOpError;
-    match error {
-        // DS-1058: see the identical CLI-side comment in
-        // `vtest_cli::approval_error_exit` — this is DS-1058's unresolved-
-        // subject case (E-APPROVAL-001), not an E-OP-001 input-validation
-        // failure.
-        ApprovalOpError::JudgmentSubjectTypeUnsupported => {
-            failure_envelope("E-APPROVAL-001", error.to_string())
-        }
-        ApprovalOpError::UnresolvedSubject(_) => {
-            failure_envelope("E-APPROVAL-001", error.to_string())
-        }
-        ApprovalOpError::InvalidRequest(_) => failure_envelope("E-APPROVAL-002", error.to_string()),
-        ApprovalOpError::Store(error) => record_error_envelope(error),
+        Ok(record) => envelope_json(true, ops::approval::record_json(&record), &[]),
+        Err(error) => error.failure().envelope(),
     }
 }
 
 /// BD-308: `approval_get` — the subject's full record history plus its
 /// current effective承認 state.
 fn approval_get_tool(root: &Path, args: &Value) -> Value {
-    let layout = vtest_store::VerifyLayout::new(root);
+    let layout = ops::VerifyLayout::new(root);
     let Some(subject_type) = args.pointer("/subject/type").and_then(Value::as_str) else {
         return failure_envelope("E-OP-001", "approval_get requires subject.type");
     };
@@ -1299,28 +1244,8 @@ fn approval_get_tool(root: &Path, args: &Value) -> Value {
         return failure_envelope("E-OP-001", "approval_get requires subject.id");
     };
     match ops::approval::show(&layout, subject_type, subject_id) {
-        Ok(result) => {
-            let effective = match result.effective_state {
-                vtest_store::approval::EffectiveApprovalState::Draft => "draft",
-                vtest_store::approval::EffectiveApprovalState::Approved => "approved",
-            };
-            envelope_json(
-                true,
-                json!({
-                    "records": result.records.iter().map(|record| json!({
-                        "id": record.id,
-                        "subject_type": record.subject_type,
-                        "subject": record.subject,
-                        "approved_state": record.approved_state,
-                        "supersedes": record.supersedes,
-                        "approved_at": record.approved_at,
-                    })).collect::<Vec<_>>(),
-                    "effective_state": effective,
-                }),
-                &result.diagnostics,
-            )
-        }
-        Err(error) => approval_error_envelope(&error),
+        Ok(result) => envelope_json(true, ops::approval::show_json(&result), &result.diagnostics),
+        Err(error) => error.failure().envelope(),
     }
 }
 
@@ -1329,7 +1254,7 @@ fn approval_get_tool(root: &Path, args: &Value) -> Value {
 /// `--derives-from` (repeatable flag) shape rather than the retired
 /// `[{doc, anchor?, note?}]` per-registry-record shape.
 fn doc_add_tool(root: &Path, args: &Value) -> Value {
-    let layout = vtest_store::VerifyLayout::new(root);
+    let layout = ops::VerifyLayout::new(root);
     let Some(id) = string_arg(args, "id") else {
         return failure_envelope("E-OP-001", "doc_add requires id");
     };
@@ -1371,8 +1296,8 @@ fn doc_add_tool(root: &Path, args: &Value) -> Value {
             update,
         },
     ) {
-        Ok(view) => envelope_json(true, doc_view_json(&view), &[]),
-        Err(error) => doc_error_envelope(&error),
+        Ok(view) => envelope_json(true, ops::doc::view_json(&view), &[]),
+        Err(error) => error.failure().envelope(),
     }
 }
 
@@ -1391,7 +1316,7 @@ fn doc_add_tool(root: &Path, args: &Value) -> Value {
 /// list_text` always appends it after the tree/flat/roots branch), so it
 /// is always present here too.
 fn doc_list_tool(root: &Path, args: &Value) -> Value {
-    let layout = vtest_store::VerifyLayout::new(root);
+    let layout = ops::VerifyLayout::new(root);
     let want_tree = bool_arg(args, "tree");
     let want_roots = bool_arg(args, "roots");
     match ops::doc::list(&layout) {
@@ -1407,7 +1332,7 @@ fn doc_list_tool(root: &Path, args: &Value) -> Value {
                     .map(|view| view.id.clone())
                     .collect::<Vec<_>>());
             } else {
-                let records: Vec<_> = result.records.iter().map(doc_view_json).collect();
+                let records: Vec<_> = result.records.iter().map(ops::doc::view_json).collect();
                 data["records"] = json!(records);
                 data["freshness"] = json!(result.freshness);
                 if want_tree {
@@ -1416,7 +1341,7 @@ fn doc_list_tool(root: &Path, args: &Value) -> Value {
             }
             envelope_json(true, data, &[])
         }
-        Err(error) => doc_error_envelope(&error),
+        Err(error) => error.failure().envelope(),
     }
 }
 
@@ -1429,7 +1354,7 @@ fn doc_list_tool(root: &Path, args: &Value) -> Value {
 /// full current root set (there being no single document's "own" root set
 /// to narrow it to).
 fn doc_show_tool(root: &Path, args: &Value) -> Value {
-    let layout = vtest_store::VerifyLayout::new(root);
+    let layout = ops::VerifyLayout::new(root);
     let Some(id) = string_arg(args, "id") else {
         return failure_envelope("E-OP-001", "doc_show requires id");
     };
@@ -1437,7 +1362,7 @@ fn doc_show_tool(root: &Path, args: &Value) -> Value {
     let want_roots = bool_arg(args, "roots");
     match ops::doc::show(&layout, id) {
         Ok(result) => {
-            let mut data = doc_view_json(&result.view);
+            let mut data = ops::doc::view_json(&result.view);
             // DS-1017 new: `freshness` is not part of `doc_view_json`'s
             // base shape at all (see that function's own doc comment) --
             // this is the one place that actually computed it, via
@@ -1464,41 +1389,12 @@ fn doc_show_tool(root: &Path, args: &Value) -> Value {
                                 .collect::<Vec<_>>());
                         }
                     }
-                    Err(error) => return doc_error_envelope(&error),
+                    Err(error) => return error.failure().envelope(),
                 }
             }
             envelope_json(true, data, &[])
         }
-        Err(error) => doc_error_envelope(&error),
-    }
-}
-
-// DS-1017 new/DS-1194: `freshness` is deliberately not part of this base
-// JSON shape -- see the identical CLI-side comment on `vtest_cli`'s own
-// `doc_view_json`.
-fn doc_view_json(view: &vtest_store::doc_registry::DocView) -> Value {
-    json!({
-        "id": view.id,
-        "path": view.path.to_string_lossy(),
-        "content_hash": view.content_hash.as_str(),
-        "derives_from": view.derives_from,
-        "root": view.is_root,
-    })
-}
-
-fn record_error_envelope(error: &vtest_store::StoreError) -> Value {
-    failure_envelope(
-        error
-            .record_read_code()
-            .unwrap_or(vtest_model::INTERNAL_ERROR_CODE),
-        error.to_string(),
-    )
-}
-
-fn doc_error_envelope(error: &ops::doc::DocOpError) -> Value {
-    match error {
-        ops::doc::DocOpError::Usage(_) => failure_envelope("E-OP-001", error.to_string()),
-        ops::doc::DocOpError::Store(error) => record_error_envelope(error),
+        Err(error) => error.failure().envelope(),
     }
 }
 
@@ -1525,36 +1421,21 @@ fn run_tool(root: &Path, args: &Value) -> Value {
         Ok(scanned) => scanned,
         Err(failure) => return failure.envelope(),
     };
-    let layout = vtest_store::VerifyLayout::new(root);
+    let layout = ops::VerifyLayout::new(root);
     let target = match ops::run::RunTarget::from_axes(test_ids, vo, all) {
         Ok(target) => target,
-        Err(error) => return failure_envelope("E-OP-001", error.to_string()),
+        Err(error) => return error.failure().envelope(),
     };
     match ops::run::run(root, &layout, &scan, &target, fast, &registry) {
         Ok(result) => {
             let has_errors = result.has_errors();
-            let data = json!({
-                "evidence": result.evidence.len(),
-                "evidence_ids": result.evidence.iter().map(|record| record.id.clone()).collect::<Vec<_>>(),
-                "fast": fast,
-            });
-            envelope_json(!has_errors, data, &result.diagnostics)
+            envelope_json(
+                !has_errors,
+                ops::run::data_json(&result, fast),
+                &result.diagnostics,
+            )
         }
-        Err(
-            error @ (ops::run::RunOpError::UnknownTestId(_)
-            | ops::run::RunOpError::UnknownVoId(_)
-            | ops::run::RunOpError::ConflictingTargets(_)),
-        ) => failure_envelope("E-OP-001", error.to_string()),
-        Err(ref error @ ops::run::RunOpError::Execution(ref inner)) => {
-            // DS-745/DS-923 (E-ADAPTER-003) — mirrors the CLI's `run_run`
-            // mapping (`vtest-cli/src/lib.rs`) so MCP and CLI report the
-            // same code for the same input (DS-1563).
-            match inner.code() {
-                Some(code) => failure_envelope(code, error.to_string()),
-                None => failure_envelope(vtest_model::INTERNAL_ERROR_CODE, error.to_string()),
-            }
-        }
-        Err(ops::run::RunOpError::Store(error)) => record_error_envelope(&error),
+        Err(error) => error.failure().envelope(),
     }
 }
 
@@ -1659,7 +1540,7 @@ fn bool_arg(args: &Value, key: &str) -> bool {
 
 /// The built-in adapter registry (`vtest_ops::registry`), or the envelope
 /// of its E-ADAPTER-001 failure.
-fn resolve_registry() -> Result<vtest_adapter_api::AdapterRegistry, Value> {
+fn resolve_registry() -> Result<ops::AdapterRegistry, Value> {
     ops::registry::resolve_registry().map_err(|failure| failure.envelope())
 }
 
@@ -2761,7 +2642,7 @@ mod tests {
 
         let direct =
             ops::doc::show(&layout, "DOC-BASIC-001").expect("direct ops::doc::show must succeed");
-        let mut direct_data = doc_view_json(&direct.view);
+        let mut direct_data = ops::doc::view_json(&direct.view);
         direct_data["freshness"] = json!(direct.freshness);
         direct_data["approval_states"] = json!(direct.approval_states);
         let direct_envelope = envelope_json(true, direct_data, &[]);
@@ -3168,7 +3049,7 @@ mod tests {
         // DS-1563: byte-identical input on both roots, so the full
         // envelope must match exactly, normalising only `path` (each
         // root's own absolute temp-directory path).
-        let mut direct_envelope = envelope_json(true, doc_view_json(&direct), &[]);
+        let mut direct_envelope = envelope_json(true, ops::doc::view_json(&direct), &[]);
         for envelope in [&mut mcp_envelope, &mut direct_envelope] {
             envelope["data"]["path"] = json!("<path>");
         }
@@ -3302,7 +3183,7 @@ mod tests {
             vec!["ROOT-001".to_owned()],
             "direct ops::doc::add must have written derives_from onto the request-layer node"
         );
-        let mut direct_envelope = envelope_json(true, doc_view_json(&direct), &[]);
+        let mut direct_envelope = envelope_json(true, ops::doc::view_json(&direct), &[]);
         for envelope in [&mut mcp_envelope, &mut direct_envelope] {
             envelope["data"]["path"] = json!("<path>");
         }
@@ -3344,7 +3225,7 @@ mod tests {
         .expect("add must succeed against a real node-tree file");
 
         let direct = ops::doc::list(&layout).expect("direct ops::doc::list must succeed");
-        let direct_records: Vec<_> = direct.records.iter().map(doc_view_json).collect();
+        let direct_records: Vec<_> = direct.records.iter().map(ops::doc::view_json).collect();
 
         // DS-1194: `tree`/`roots` shape which fields appear, matching the
         // CLI's own `render_doc_list_text` view-switching. Neither given

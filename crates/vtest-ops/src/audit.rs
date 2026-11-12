@@ -16,6 +16,8 @@ use vtest_model::{Diagnostic, TestEntity};
 use vtest_scan::{ScanResult, TestIdLookup};
 use vtest_store::VerifyLayout;
 
+use crate::envelope::Failure;
+
 #[derive(Debug, thiserror::Error)]
 pub enum AuditOpError {
     /// E-OP-001: neither or both of `--test` / `--all`, or an unknown Test.
@@ -59,6 +61,14 @@ impl AuditOpError {
                 vtest_model::ExitCode::Usage
             }
             Self::Cache { .. } => vtest_model::ExitCode::Internal,
+        }
+    }
+
+    /// The exit code and diagnostic both entrypoints report.
+    pub fn failure(&self) -> Failure {
+        Failure {
+            exit: self.exit_code(),
+            diagnostic: Diagnostic::error(self.code(), self.to_string()),
         }
     }
 }

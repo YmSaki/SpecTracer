@@ -24,6 +24,8 @@ use serde_json::{json, Value};
 use vtest_adapter_api::AdapterRegistry;
 use vtest_model::{ContentHash, SectionNode, TargetRef, TestEntity, VoRecord};
 use vtest_scan::ScanResult;
+
+use crate::envelope::{record_failure, Failure};
 use vtest_store::{
     approval::{build_document_node_index, read_all_vos, DocumentNodeIndex},
     decisions::{
@@ -70,6 +72,17 @@ impl JudgmentOpError {
             Self::Unresolved { code, .. } | Self::Rejected { code, .. } => Some(code),
             Self::Store(error) => error.record_read_code(),
             Self::Cache { .. } => None,
+        }
+    }
+
+    /// The exit code and diagnostic both entrypoints report.
+    pub fn failure(&self) -> Failure {
+        match self {
+            Self::Store(error) => record_failure(error),
+            other => match other.code() {
+                Some(code) => Failure::usage(code, other.to_string()),
+                None => Failure::internal(other.to_string()),
+            },
         }
     }
 }

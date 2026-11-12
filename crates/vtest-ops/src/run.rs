@@ -28,6 +28,8 @@ use vtest_scan::ScanResult;
 use vtest_store::{approval::read_all_vos, StoreError, VerifyLayout};
 use vtest_verify::vo_subtree_ids;
 
+use crate::envelope::{record_failure, Failure};
+
 #[derive(Debug, thiserror::Error)]
 pub enum RunOpError {
     /// DS-744/DS-1563: `test`, `vo` and `all` are mutually exclusive target
@@ -43,6 +45,27 @@ pub enum RunOpError {
     Execution(#[from] ExecutionError),
     #[error("store error: {0}")]
     Store(#[from] StoreError),
+}
+
+impl RunOpError {
+    /// The exit code and diagnostic both entrypoints report.
+    ///
+    /// DS-745/DS-923: a registered adapter whose runner cannot interpret the
+    /// Test's execution descriptor is a rejection with the code
+    /// `ExecutionError::code` assigns (E-ADAPTER-003); an execution failure
+    /// with no assigned code is an internal error (DS-1689/DS-1690).
+    pub fn failure(&self) -> Failure {
+        match self {
+            Self::UnknownTestId(_) | Self::UnknownVoId(_) | Self::ConflictingTargets(_) => {
+                Failure::usage("E-OP-001", self.to_string())
+            }
+            Self::Execution(error) => match error.code() {
+                Some(code) => Failure::usage(code, self.to_string()),
+                None => Failure::internal(self.to_string()),
+            },
+            Self::Store(error) => record_failure(error),
+        }
+    }
 }
 
 /// DS-744's three target axes. Exactly one applies at a time — the CLI/MCP
@@ -246,4 +269,13 @@ fn matching_sources<'a>(target: &TargetRef, scan: &'a ScanResult) -> Vec<&'a Sou
             TargetRef::SrcId(src_id) => source.src_id.as_ref() == Some(src_id),
         })
         .collect()
+}
+
+/// The `data` of `run` / `run_tests`.
+pub fn data_json(result: &ExecutionResult, fast: bool) -> serde_json::Value {
+    serde_json::json!({
+        "evidence": result.evidence.len(),
+        "evidence_ids": result.evidence.iter().map(|record| record.id.clone()).collect::<Vec<_>>(),
+        "fast": fast,
+    })
 }
