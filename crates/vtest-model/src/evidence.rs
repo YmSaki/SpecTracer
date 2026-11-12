@@ -1,3 +1,18 @@
+//! Execution Evidence: the `EvidenceRecord` persisted as
+//! `.verify/evidence/<ULID>.yaml`, with its revision, Execution State
+//! subject, content hashes, runner info and target coverage.
+//!
+//! Boundary: this module stores what the runner reported and never
+//! re-judges a result (DS-470, DS-471). Writing and reading the YAML belong
+//! to `vtest-exec` / `vtest-store`; deriving `target_binding` states and
+//! diagnostic labels from a record belongs to `vtest-verify` (DS-472,
+//! DS-473, DS-832).
+//!
+//! Clauses: DS-S077 (record), DES-097 / DES-101 / DES-184 (Execution
+//! State), DES-187 / DES-188 / DS-1410 (target coverage domain), DS-265 /
+//! DS-1629 (adapter match), DS-475 (missing Execution State → STALE),
+//! DS-476 (E-SCAN-010).
+
 use crate::{AdapterId, ContentHash, TestId};
 use serde::{Deserialize, Serialize};
 
@@ -146,20 +161,27 @@ pub struct ExecutionState {
 /// Records execution evidence for a single managed test.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct EvidenceRecord {
-    // CHECKME: Should evidence IDs use a dedicated EvidenceId type?
+    /// The record's ULID, also its file name under `.verify/evidence/`
+    /// (DS-S077). A plain `String`: readers compare ids only for equality
+    /// and lexical order (`vtest-verify` keeps the greater id as a Test's
+    /// latest record), so no dedicated type is needed.
     pub id: String,
     pub test_id: TestId,
     /// DS-265 validity input: the adapter that produced this record must
     /// match the Test's current adapter for the record to be reusable.
     pub adapter: AdapterId,
     pub result: TestResult,
-    // CHECKME: Should execution timestamps use a validated timestamp type?
+    /// RFC 3339 timestamp written by `vtest-exec` at execution time. Stored
+    /// and re-emitted verbatim; `vtest-scan` orders history by its string
+    /// order and nothing parses it, so it stays a `String`.
     pub executed_at: String,
     pub revision: Revision,
     pub execution_state: ExecutionState,
     pub hashes: EvidenceHashes,
     pub runner: RunnerInfo,
     pub target_coverage: TargetCoverage,
-    // CHECKME: Should log references have a dedicated type?
+    /// `.verify/`-relative path of the runner log (`cache/logs/<id>.log`),
+    /// written by `vtest-exec`. Core stores it and does not read the log
+    /// back, so it stays a `String`.
     pub log_ref: String,
 }

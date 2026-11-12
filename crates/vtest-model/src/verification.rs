@@ -1,3 +1,14 @@
+//! Verification vocabulary: the four checks, the five states, the four
+//! diagnostic labels, and the `VerificationResult` that joins them.
+//!
+//! Boundary: no check is evaluated here; `vtest-verify` produces these
+//! values. The enums carry no precedence: the states have no order
+//! (DS-873), labels are co-reported and never decide a verdict (DS-847,
+//! DS-872), and the checks are peers (SPEC-054).
+//!
+//! Clauses: SPEC-053 (four checks), REQ-034 (check names), REQ-085 (five
+//! states), DS-847 (label names).
+
 use serde::{Deserialize, Serialize};
 
 /// Canonical result state of a verification check.

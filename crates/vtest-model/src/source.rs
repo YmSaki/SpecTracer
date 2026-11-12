@@ -1,3 +1,13 @@
+//! Source-side model: the adapter-owned `Locator`, the `TargetRef` a Test
+//! points at, and the physical `SourceLocation` of a discovered construct.
+//!
+//! Boundary: by contract (DES-217; 詳細設計 v0.1 本冊:521-522, 632-642)
+//! locator and path strings are opaque to core, which compares them for
+//! exact equality; their internal syntax belongs to the adapter named in
+//! `adapter`. Nothing in this crate parses one. Resolving a locator to a
+//! construct is the adapter's job, reached through the adapter registry
+//! (`vtest-adapter-api`).
+
 use crate::{AdapterId, ContentHash, SrcId};
 use serde::{Deserialize, Serialize};
 
@@ -51,10 +61,13 @@ pub enum TargetRef {
 pub struct ProjectPath(pub String);
 
 impl ProjectPath {
+    /// Wraps an already-normalized, project-relative path without validating
+    /// it.
     pub fn new(value: impl Into<String>) -> Self {
         Self(value.into())
     }
 
+    /// The path as a string slice.
     pub fn as_str(&self) -> &str {
         &self.0
     }
