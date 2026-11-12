@@ -823,7 +823,7 @@ fn dispatch_tool(root: &Path, name: &str, args: &Value) -> Value {
         "approval_withdraw" => approval_withdraw_tool(root, args),
         "approval_get" => approval_get_tool(root, args),
         "doc_upsert" => doc_add_tool(root, args),
-        "doc_list" => doc_list_tool(root, args),
+        "doc_list" => doc_list_tool(root),
         "doc_get" => doc_show_tool(root, args),
         "test_create" => test_create_tool(root, args),
         "test_edit" => test_edit_tool(root, args),
@@ -1301,46 +1301,13 @@ fn doc_add_tool(root: &Path, args: &Value) -> Value {
     }
 }
 
-/// DS-1194: `tree`/`roots` are an input axis, not decoration -- the CLI's
-/// own `doc list --tree`/`--roots` (`render_doc_list_text`) switch what is
-/// rendered rather than always rendering everything, and this tool must
-/// do the same instead of unconditionally emitting every field regardless
-/// of what was asked for.
-///
-/// `roots: true` -> only `roots` (mirrors the CLI's own early return for
-/// `--roots`, which does not also render the record list). `tree: true`
-/// -> `records` + `document_chain` (the tree view needs both: the chain
-/// to draw, the records to know every registered id). Neither given ->
-/// the CLI's own default flat listing, `records` alone. `unresolved_
-/// derives_from` (DS-1018) is not view-gated in the CLI (`render_doc_
-/// list_text` always appends it after the tree/flat/roots branch), so it
-/// is always present here too.
-fn doc_list_tool(root: &Path, args: &Value) -> Value {
+/// DS-1194, DS-1563: the same `data` as the CLI's `doc list` JSON. `tree`
+/// and `roots` are accepted as the CLI accepts `--tree` / `--roots`; there
+/// they choose what the text output shows, so here they change nothing.
+fn doc_list_tool(root: &Path) -> Value {
     let layout = ops::VerifyLayout::new(root);
-    let want_tree = bool_arg(args, "tree");
-    let want_roots = bool_arg(args, "roots");
     match ops::doc::list(&layout) {
-        Ok(result) => {
-            let mut data = json!({
-                "unresolved_derives_from": result.unresolved,
-            });
-            if want_roots {
-                data["roots"] = json!(result
-                    .records
-                    .iter()
-                    .filter(|view| view.is_root)
-                    .map(|view| view.id.clone())
-                    .collect::<Vec<_>>());
-            } else {
-                let records: Vec<_> = result.records.iter().map(ops::doc::view_json).collect();
-                data["records"] = json!(records);
-                data["freshness"] = json!(result.freshness);
-                if want_tree {
-                    data["document_chain"] = json!(result.document_chain);
-                }
-            }
-            envelope_json(true, data, &[])
-        }
+        Ok(result) => envelope_json(true, ops::doc::list_json(&result), &[]),
         Err(error) => error.failure().envelope(),
     }
 }
@@ -3202,7 +3169,7 @@ mod tests {
     /// @vtest.id TEST-MCP-DOC-LIST-MATCHES-CLI
     /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE
     /// @vtest.target crates/vtest-mcp/src/lib.rs::dispatch_tool
-    /// @vtest.intent MCP `doc_list` returns the same envelope as `ops::doc::list`, which the CLI `doc list` wrapper also calls, across the default/tree/roots (DS-1194) shapes.
+    /// @vtest.intent MCP `doc_list` returns the five keys of the CLI `doc list` JSON (records, roots, unresolved_derives_from, document_chain, freshness) built from `ops::doc::list`, whatever `tree` / `roots` (DS-1194) are given.
     #[test]
     fn mcp_doc_list_tool_matches_the_ops_doc_list_operation() {
         let root = temp_root("doc-list-equivalence");
@@ -3227,66 +3194,37 @@ mod tests {
         let direct = ops::doc::list(&layout).expect("direct ops::doc::list must succeed");
         let direct_records: Vec<_> = direct.records.iter().map(ops::doc::view_json).collect();
 
-        // DS-1194: `tree`/`roots` shape which fields appear, matching the
-        // CLI's own `render_doc_list_text` view-switching. Neither given
-        // -> flat `records` (+ always-present `unresolved_derives_from`),
-        // no `roots`/`document_chain`.
-        let default_envelope = envelope_json(
+        // The CLI's `doc list` JSON carries all five keys whatever `--tree` /
+        // `--roots` say (they choose the text view), so `doc_list` returns
+        // the same for every combination of `tree` / `roots` (#207).
+        let expected = envelope_json(
             true,
             json!({
                 "records": direct_records,
-                "unresolved_derives_from": direct.unresolved.clone(),
-                "freshness": direct.freshness.clone(),
-            }),
-            &[],
-        );
-        let mcp_default = dispatch_tool(&root, "doc_list", &json!({}));
-        assert_eq!(
-            mcp_default, default_envelope,
-            "MCP `doc_list` (no tree/roots) must return the same envelope (data + diagnostics) \
-             as the shared `ops::doc::list` the CLI `doc list` wrapper also calls, matching the \
-             CLI's own default flat view"
-        );
-
-        // `tree: true` -> `records` + `document_chain`, no `roots`.
-        let tree_envelope = envelope_json(
-            true,
-            json!({
-                "records": direct_records,
-                "unresolved_derives_from": direct.unresolved.clone(),
-                "freshness": direct.freshness.clone(),
-                "document_chain": direct.document_chain,
-            }),
-            &[],
-        );
-        let mcp_tree = dispatch_tool(&root, "doc_list", &json!({"tree": true}));
-        assert_eq!(
-            mcp_tree, tree_envelope,
-            "MCP `doc_list` with tree:true must include document_chain, matching the CLI's own \
-             --tree view"
-        );
-
-        // `roots: true` -> only `roots` (mirrors the CLI's own early
-        // return for --roots, which does not also render the record
-        // list).
-        let roots_envelope = envelope_json(
-            true,
-            json!({
-                "unresolved_derives_from": direct.unresolved,
                 "roots": direct
                     .records
                     .iter()
                     .filter(|view| view.is_root)
                     .map(|view| view.id.clone())
                     .collect::<Vec<_>>(),
+                "unresolved_derives_from": direct.unresolved,
+                "document_chain": direct.document_chain,
+                "freshness": direct.freshness,
             }),
             &[],
         );
-        let mcp_roots = dispatch_tool(&root, "doc_list", &json!({"roots": true}));
-        assert_eq!(
-            mcp_roots, roots_envelope,
-            "MCP `doc_list` with roots:true must return only roots (+ unresolved_derives_from), \
-             matching the CLI's own --roots early-return view, not also the record list"
-        );
+        for arguments in [
+            json!({}),
+            json!({"tree": true}),
+            json!({"roots": true}),
+            json!({"tree": true, "roots": true}),
+        ] {
+            assert_eq!(
+                dispatch_tool(&root, "doc_list", &arguments),
+                expected,
+                "MCP `doc_list` with {arguments} must return the envelope the CLI's `doc list` \
+                 JSON carries"
+            );
+        }
     }
 }
