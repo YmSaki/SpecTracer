@@ -245,7 +245,7 @@ adapter はコンポジションルート（`crates/vtest-ops/src/registry.rs` �
 | --- | --- | --- |
 | CLI の JSON 出力と MCP の tool 結果（envelope、DS-941） | `vtest-model::protocol` と操作層 | `vtest-cli` の出力、`vtest-mcp` の envelope |
 | MCP の tool 名と入力スキーマ | `vtest-mcp`（名前は正典の tool 一覧から取る） | 操作層の引数 |
-| 正典 record（`.verify/**`） | `vtest-store`（読み手と書き手を同じ crate に置く） | `vtest-exec` の Evidence 書き込み（#175 R9 で store に移す） |
+| 正典 record（`.verify/**`） | `vtest-store`（読み手と書き手を同じ crate に置く） | 書く側の crate は `vtest-store` の関数を呼ぶ（Evidence は `vtest-exec` が `write_evidence` を呼ぶ） |
 | adapter と core の DTO、Test のワイヤー形式 | `vtest-adapter-api`（`wire.rs`） | 各 adapter の `wire_codec` |
 | 仕様の文書 | `docs/canonical/specification.schema.json` | `.verify/doc/` の射影、`vtest-store` の document file |
 
@@ -284,7 +284,7 @@ module 間の依存も、判定の module からファイル I/O の module へ�
 | 複数の言語で意味が同じと確認できた処理 | 言語族の共通 module（`vtest-adapter-lexical/src/shared.rs`、`annotation.rs`） | 第 9.3 節の手順で比較してから置く |
 | 正典 record の読み書きと形式 | `vtest-store` の record 種別ごとの module | 読み手と書き手を同じ module に置く |
 | 判定（4 検査、鮮度、スコープ、集約）。スコープの 2 軸の扱いは第 1.1 節 | `vtest-verify`（`src/lib.rs`） | 入力を受け取って結果を返す、副作用のない関数 |
-| 外部プロセスの起動 | 実行は adapter の runner、git の読み取りは 1 か所（#175 R9） | 引数は配列で渡し、文字列結合でコマンドを組み立てない |
+| 外部プロセスの起動 | 実行は adapter の runner、git の読み取りは 1 か所（`vtest-store` の `git_head_commit`） | 引数は配列で渡し、文字列結合でコマンドを組み立てない |
 | ドメインの型 | `vtest-model` の領域ごとのファイル | `serde` の derive。不変条件は型とコンストラクターで守る |
 | 定数 | 利用する module の先頭。複数の crate が使うものは所有する crate の公開定数 | `const`。値の根拠（条項 ID）をコメントに書く |
 | ユーティリティ | その契約を所有する層（#175 D7）。例: Locator の文字列化 → `vtest-model`、YAML の quoting → `vtest-store`、envelope → 操作層、fixture 生成 → `tests/support` | 何でも入る `utils` module や crate は作らない |
