@@ -807,7 +807,7 @@ fn resolve_targets(tests: &[TestEntity], sources: &[SourceFunction]) -> Vec<Diag
 /// list全体の不在は同じ読みに当てはまらない。したがってこの関数の戻り値
 /// （`Err(String)`）はどのコードにも割り当てず、呼び出し元に委ねる:
 /// `scan_project_with_config`（コードなしの `ScanError::Config`）と、
-/// `operations.rs` の `validate_rust_file` / `validate_enum_variant`
+/// `operations.rs` の `validate_source_file` / `validate_enum_variant`
 /// （それぞれが属する Structured Operation 候補検証の失敗コード
 /// E-OP-001、本冊:1641・別紙A:539/541）。両者のコードの違いは呼び出し
 /// 文脈（scan全体の起動拒否 vs. Structured Operationの入力検証）が異なる
