@@ -50,6 +50,13 @@ fn temp_root(name: &str) -> PathBuf {
 /// Every workspace package with the names of its direct dependencies (all
 /// kinds: normal, dev and build), from `cargo metadata`.
 fn workspace_direct_dependencies() -> Vec<(String, Vec<String>)> {
+    workspace_dependencies(true)
+}
+
+/// Every workspace package with the names of its direct dependencies, from
+/// `cargo metadata`. `every_kind: false` keeps only normal dependencies, the
+/// ones a release build links.
+fn workspace_dependencies(every_kind: bool) -> Vec<(String, Vec<String>)> {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../Cargo.toml");
     let output = Command::new(env!("CARGO"))
         .args([
@@ -79,6 +86,7 @@ fn workspace_direct_dependencies() -> Vec<(String, Vec<String>)> {
                 .as_array()
                 .expect("package lists dependencies")
                 .iter()
+                .filter(|dependency| every_kind || dependency["kind"].is_null())
                 .map(|dependency| dependency["name"].as_str().unwrap().to_owned())
                 .collect();
             (package["name"].as_str().unwrap().to_owned(), dependencies)
@@ -115,6 +123,38 @@ fn core_crates_have_no_direct_rust_syntax_dependency() {
         .find(|(name, _)| name == "vtest-adapter-rust")
         .expect("workspace must contain vtest-adapter-rust");
     assert!(rust_adapter.iter().any(|dependency| dependency == "syn"));
+}
+
+/// @vtest.id TEST-ARCH-CORE-HAS-NO-LANGUAGE-ADAPTER-DEPENDENCY
+/// @vtest.covers VO-ARCH-CORE-NO-RUST-SYNTAX-OWNERSHIP
+/// @vtest.intent cargo metadata shows no core crate (model, adapter-api, store, scan, exec, verify) with a normal dependency on a language adapter crate, so core cannot reach Rust syntax through vtest-adapter-rust either, while vtest-ops still registers the adapters (#209)
+// No `@vtest.target`, for the same reason as the test above.
+#[test]
+fn core_crates_have_no_normal_dependency_on_a_language_adapter() {
+    let is_language_adapter =
+        |name: &str| name.starts_with("vtest-adapter-") && name != "vtest-adapter-api";
+    let packages = workspace_dependencies(false);
+    for core in CORE_CRATES {
+        let (_, dependencies) = packages
+            .iter()
+            .find(|(name, _)| name == core)
+            .unwrap_or_else(|| panic!("workspace must contain {core}"));
+        let forbidden: Vec<_> = dependencies
+            .iter()
+            .filter(|dependency| is_language_adapter(dependency))
+            .collect();
+        assert!(
+            forbidden.is_empty(),
+            "{core} depends on language adapters {forbidden:?}"
+        );
+    }
+    // The check must be able to see a violation: the operation layer is the
+    // composition root that links the adapters (`vtest-ops/src/registry.rs`).
+    let (_, ops) = packages
+        .iter()
+        .find(|(name, _)| name == "vtest-ops")
+        .expect("workspace must contain vtest-ops");
+    assert!(ops.iter().any(|dependency| is_language_adapter(dependency)));
 }
 
 /// @vtest.id TEST-ARCH-ADAPTER-API-DEPENDS-ONLY-ON-MODEL

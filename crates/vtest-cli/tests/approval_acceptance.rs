@@ -133,7 +133,7 @@ fn create_command(subject_id: &str, state: ApprovedStateArg, supersedes: Vec<Str
 /// not a silently-written record.
 /// @vtest.id TEST-APPROVAL-UNRESOLVED-VO-SUBJECT
 /// @vtest.covers VO-APPROVAL-CREATE-UNRESOLVED-SUBJECT-REJECTED
-/// @vtest.target crates/vtest-cli/src/ops/approval.rs::create
+/// @vtest.target crates/vtest-ops/src/approval.rs::create
 /// @vtest.intent creating an approval for a VO that does not exist is a usage rejection, not a silently-written record
 #[test]
 fn create_for_an_unresolved_vo_subject_is_a_usage_error() {
@@ -156,7 +156,7 @@ fn create_for_an_unresolved_vo_subject_is_a_usage_error() {
 /// mishandled.
 /// @vtest.id TEST-APPROVAL-JUDGMENT-SUBJECT-TYPE
 /// @vtest.covers VO-APPROVAL-CREATE-UNRESOLVED-SUBJECT-REJECTED
-/// @vtest.target crates/vtest-cli/src/ops/approval.rs::create
+/// @vtest.target crates/vtest-ops/src/approval.rs::create
 /// @vtest.intent --subject-type judgment can never resolve (no judgment record domain exists yet), so create rejects it as a usage error rather than mishandling it silently
 #[test]
 fn create_with_subject_type_judgment_is_a_usage_error() {
@@ -182,7 +182,7 @@ fn create_with_subject_type_judgment_is_a_usage_error() {
 /// and exits 0.
 /// @vtest.id TEST-APPROVAL-RESOLVED-VO-SUBJECT
 /// @vtest.covers VO-APPROVAL-CREATE-VO-SUBJECT-WRITES-RECORD
-/// @vtest.target crates/vtest-cli/src/ops/approval.rs::create
+/// @vtest.target crates/vtest-ops/src/approval.rs::create
 /// @vtest.intent a successful create for a resolved VO subject writes exactly one record and exits 0
 #[test]
 fn create_for_a_resolved_vo_subject_writes_a_record_and_exits_ok() {
@@ -208,7 +208,7 @@ fn create_for_a_resolved_vo_subject_writes_a_record_and_exits_ok() {
 /// dependency closure, `show` reports effective state `approved`.
 /// @vtest.id TEST-APPROVAL-SHOW-EFFECTIVE-APPROVED
 /// @vtest.covers VO-APPROVAL-EFFECTIVE-STATE-FROM-VALID-RECORD-SET
-/// @vtest.target crates/vtest-cli/src/ops/approval.rs::show
+/// @vtest.target crates/vtest-ops/src/approval.rs::show
 /// @vtest.intent after one approved record with a current subject_hash and dependency closure, show reports effective state approved
 #[test]
 fn show_reports_approved_after_a_single_current_approved_record() {
@@ -229,7 +229,7 @@ fn show_reports_approved_after_a_single_current_approved_record() {
     ));
     assert_eq!(show_exit, ExitCode::Ok);
     let layout = vtest_store::VerifyLayout::new(&root);
-    let shown = vtest_cli::ops::approval::show(&layout, "vo", "VO-APPROVAL-DOUBLE")
+    let shown = vtest_ops::approval::show(&layout, "vo", "VO-APPROVAL-DOUBLE")
         .expect("approval show succeeds");
     assert_eq!(
         shown.effective_state,
@@ -243,7 +243,7 @@ fn show_reports_approved_after_a_single_current_approved_record() {
 /// drops back to `draft` (DS-1468/1469).
 /// @vtest.id TEST-APPROVAL-WITHDRAW-NEW-RECORD
 /// @vtest.covers VO-APPROVAL-WITHDRAW-NEW-RECORD-SUPERSEDES
-/// @vtest.target crates/vtest-cli/src/ops/approval.rs::withdraw
+/// @vtest.target crates/vtest-ops/src/approval.rs::withdraw
 /// @vtest.intent withdraw writes a new record (state withdrawn, supersedes the original id) instead of mutating the original
 #[test]
 fn withdraw_writes_a_new_record_referencing_the_original() {
@@ -307,7 +307,7 @@ fn withdraw_writes_a_new_record_referencing_the_original() {
 /// a withdrawal record bound to a stale (now-nonexistent) subject.
 /// @vtest.id TEST-APPROVAL-WITHDRAW-RE-RESOLVE
 /// @vtest.covers VO-APPROVAL-CREATE-UNRESOLVED-SUBJECT-REJECTED
-/// @vtest.target crates/vtest-cli/src/ops/approval.rs::withdraw
+/// @vtest.target crates/vtest-ops/src/approval.rs::withdraw
 /// @vtest.intent withdraw re-resolves the target's subject against its current state and fails with a usage error if the subject has become unresolvable, rather than writing a withdrawal bound to a stale subject
 #[test]
 fn withdraw_re_resolves_the_subject_and_fails_if_it_is_now_unresolvable() {
@@ -364,7 +364,7 @@ fn withdraw_re_resolves_the_subject_and_fails_if_it_is_now_unresolvable() {
 /// exercises everywhere else in this file) and writes a record.
 /// @vtest.id TEST-APPROVAL-RESOLVED-DOCUMENT-SUBJECT
 /// @vtest.covers VO-APPROVAL-DOCUMENT-SUBJECT-ID, VO-APPROVAL-DOCUMENT-DEPENDENCY-CLOSURE
-/// @vtest.target crates/vtest-cli/src/ops/approval.rs::create
+/// @vtest.target crates/vtest-ops/src/approval.rs::create
 /// @vtest.intent --subject-type document resolves against .verify/doc/*.json node ids and writes a record
 #[test]
 fn create_for_a_resolved_document_subject_writes_a_record_and_exits_ok() {
@@ -392,7 +392,7 @@ fn create_for_a_resolved_document_subject_writes_a_record_and_exits_ok() {
 /// `--subject-type document`, mirroring the `vo` case.
 /// @vtest.id TEST-APPROVAL-UNRESOLVED-DOCUMENT-SUBJECT
 /// @vtest.covers VO-APPROVAL-CREATE-UNRESOLVED-SUBJECT-REJECTED
-/// @vtest.target crates/vtest-cli/src/ops/approval.rs::create
+/// @vtest.target crates/vtest-ops/src/approval.rs::create
 /// @vtest.intent a document node id that does not exist in any registered .verify/doc/*.json file is a usage rejection under --subject-type document
 #[test]
 fn create_for_an_unresolved_document_subject_is_a_usage_error() {
@@ -419,7 +419,7 @@ fn create_for_an_unresolved_document_subject_is_a_usage_error() {
 /// exist is a usage rejection.
 /// @vtest.id TEST-APPROVAL-WITHDRAW-UNKNOWN-ID
 /// @vtest.covers VO-APPROVAL-WITHDRAW-UNKNOWN-ID-REJECTED
-/// @vtest.target crates/vtest-cli/src/ops/approval.rs::withdraw
+/// @vtest.target crates/vtest-ops/src/approval.rs::withdraw
 /// @vtest.intent withdraw naming an approval id that does not exist is a usage rejection
 #[test]
 fn withdraw_of_an_unknown_approval_id_is_a_usage_error() {
@@ -473,9 +473,9 @@ fn record_id(path: &std::path::Path) -> String {
         .into_owned()
 }
 
-fn effective(root: &std::path::Path, subject_id: &str) -> vtest_cli::ops::approval::ShowResult {
+fn effective(root: &std::path::Path, subject_id: &str) -> vtest_ops::approval::ShowResult {
     let layout = vtest_store::VerifyLayout::new(root);
-    vtest_cli::ops::approval::show(&layout, "vo", subject_id).expect("approval show succeeds")
+    vtest_ops::approval::show(&layout, "vo", subject_id).expect("approval show succeeds")
 }
 
 /// DS-1676: a schema-invalid record in the approval set (here an undeclared
@@ -484,7 +484,7 @@ fn effective(root: &std::path::Path, subject_id: &str) -> vtest_cli::ops::approv
 /// create and withdraw all fail instead.
 /// @vtest.id TEST-APPROVAL-BROKEN-RECORD-FAILS-CLOSED
 /// @vtest.covers VO-STORE-APPROVAL-UNKNOWN-FIELD-REJECTED
-/// @vtest.target crates/vtest-cli/src/ops/approval.rs::show
+/// @vtest.target crates/vtest-ops/src/approval.rs::show
 /// @vtest.intent a schema-broken withdrawal makes show, create and withdraw fail instead of reading approved
 #[test]
 fn a_schema_broken_withdrawal_fails_closed_instead_of_resurrecting_the_approval() {
@@ -516,8 +516,8 @@ fn a_schema_broken_withdrawal_fails_closed_instead_of_resurrecting_the_approval(
     fs::write(&withdrawal, text).expect("corrupt withdrawal");
 
     let layout = vtest_store::VerifyLayout::new(&root);
-    match vtest_cli::ops::approval::show(&layout, "vo", "VO-APPROVAL-DOUBLE") {
-        Err(vtest_cli::ops::approval::ApprovalOpError::Store(error)) => {
+    match vtest_ops::approval::show(&layout, "vo", "VO-APPROVAL-DOUBLE") {
+        Err(vtest_ops::approval::ApprovalOpError::Store(error)) => {
             assert_eq!(error.record_read_code(), Some("E-SCAN-010"), "{error}");
         }
         Err(other) => panic!("unexpected error: {other}"),
@@ -556,7 +556,7 @@ fn a_schema_broken_withdrawal_fails_closed_instead_of_resurrecting_the_approval(
 /// W-STORE-005 for the broken record is still reported.
 /// @vtest.id TEST-APPROVAL-INVALID-SUPERSEDES-NOT-APPROVED
 /// @vtest.covers VO-STORE-APPROVAL-SUPERSEDES-GRAPH-EXCLUDED
-/// @vtest.target crates/vtest-cli/src/ops/approval.rs::show
+/// @vtest.target crates/vtest-ops/src/approval.rs::show
 /// @vtest.intent an approval whose stored supersedes is unresolved reads as draft with W-STORE-005, and a normal re-approval recovers it
 #[test]
 fn an_approval_with_an_unresolved_stored_supersedes_is_not_approved() {
@@ -644,7 +644,7 @@ fn project_with_vos(name: &str, vos: &[VoRecord]) -> PathBuf {
 /// multi-level closure still resolves.
 /// @vtest.id TEST-APPROVAL-UNRESOLVED-DEPENDENCY-CLOSURE
 /// @vtest.covers VO-APPROVAL-CREATE-UNRESOLVED-SUBJECT-REJECTED
-/// @vtest.target crates/vtest-cli/src/ops/approval.rs::create
+/// @vtest.target crates/vtest-ops/src/approval.rs::create
 /// @vtest.intent a dangling parent or missing derives_from document rejects create and never reads approved
 #[test]
 fn create_rejects_a_vo_with_an_unresolved_dependency_closure() {
@@ -667,9 +667,9 @@ fn create_rejects_a_vo_with_an_unresolved_dependency_closure() {
     ] {
         let root = project_with_vos(name, &records);
         let layout = vtest_store::VerifyLayout::new(&root);
-        let result = vtest_cli::ops::approval::create(
+        let result = vtest_ops::approval::create(
             &layout,
-            vtest_cli::ops::approval::CreateArgs {
+            vtest_ops::approval::CreateArgs {
                 subject_type: "vo".to_owned(),
                 subject_id: "VO-CHILD".to_owned(),
                 approved_state: "approved".to_owned(),
@@ -683,7 +683,7 @@ fn create_rejects_a_vo_with_an_unresolved_dependency_closure() {
         assert!(
             matches!(
                 result,
-                Err(vtest_cli::ops::approval::ApprovalOpError::UnresolvedSubject(_))
+                Err(vtest_ops::approval::ApprovalOpError::UnresolvedSubject(_))
             ),
             "{name}"
         );
@@ -728,7 +728,7 @@ fn create_rejects_a_vo_with_an_unresolved_dependency_closure() {
 /// operation failure, never an empty or shrunken approval set.
 /// @vtest.id TEST-APPROVAL-UNREADABLE-RECORD-FAILS
 /// @vtest.covers VO-STORE-APPROVAL-UNKNOWN-FIELD-REJECTED
-/// @vtest.target crates/vtest-cli/src/ops/approval.rs::show
+/// @vtest.target crates/vtest-ops/src/approval.rs::show
 /// @vtest.intent an unreadable approval record makes show and create fail instead of being skipped
 #[test]
 fn an_unreadable_approval_record_makes_show_and_create_fail() {
@@ -749,8 +749,8 @@ fn an_unreadable_approval_record_makes_show_and_create_fail() {
     .expect("create unreadable record path");
     let layout = vtest_store::VerifyLayout::new(&root);
     assert!(matches!(
-        vtest_cli::ops::approval::show(&layout, "vo", "VO-APPROVAL-DOUBLE"),
-        Err(vtest_cli::ops::approval::ApprovalOpError::Store(_))
+        vtest_ops::approval::show(&layout, "vo", "VO-APPROVAL-DOUBLE"),
+        Err(vtest_ops::approval::ApprovalOpError::Store(_))
     ));
     assert_ne!(
         run(cli(&root, show_command("VO-APPROVAL-DOUBLE"))),

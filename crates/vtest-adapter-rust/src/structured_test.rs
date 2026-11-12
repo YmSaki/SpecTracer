@@ -2,10 +2,16 @@
 //! the Rust grammar questions `test create` / `test edit` ask. Moved here
 //! from `vtest-scan::operations` so core holds no Rust parser.
 
-use std::ops::Range;
+use std::{
+    fs,
+    ops::Range,
+    path::{Path, PathBuf},
+};
 
 use syn::spanned::Spanned;
-use vtest_adapter_api::{BuiltInForm, StructuredTestAdapter};
+use vtest_adapter_api::{BuiltInForm, ParsedLocator, StructuredTestAdapter};
+
+use crate::RustLocator;
 
 #[derive(Debug, Default)]
 pub struct RustStructuredTest;
@@ -163,6 +169,40 @@ fn collect_enum_variants(items: &[syn::Item], type_name: &str, variants: &mut Ve
     }
 }
 
+// PR #26 review round 3 要確認C-1: この `read_dir`/`entries.flatten()` は
+// `d423f8a` が `vtest-scan::validate_relations`/`validate_approval_status`
+// で塞いだのと同じ形の I/O fail-open（ディレクトリが開けない、または列挙中
+// に個々の `DirEntry` が `Err` を返すと、そのディレクトリ／エントリを
+// 無診断でスキップする）だが、意図的に塞いでいない: 呼び出し元
+// `vtest-scan::operations::validate_enum_variant` は `type_name` の Rust
+// 識別子としての妥当性チェックや `enum_variants` による parse 失敗も同じ
+// 「見つけられなければ検証をスキップし `Ok(())` を返す」扱いを既にしており
+// （`variants.is_empty()`）、これは `enum-variant-exists` Structured
+// Operation 入力検証のベストエフォート設計そのもの — I/O 失敗だけを
+// fail-closed にしても、識別子形式や parse 失敗という他の「見つからない」
+// 経路はそのまま素通りするので非対称は解消しない。影響範囲も、この関数の
+// 裁定（chain_integrity・検証状態）ではなく、`vtest scan enum-variant-exists`
+// 単体の Structured Operation 入力検証（本冊:1641、別紙A:539）に留まる:
+// I/O 失敗時に本来出すべき E-OP-001（不正な値）が見逃され得るが、それ以上
+// 状態が壊れることはない。塞ぐなら `validate_enum_variant` 全体の
+// 「見つからなければ受理する」設計を Owner 裁定で見直す必要があり、この
+// 箇所だけを個別に fail-closed にするのは非対称を悪化させるため見送った。
+fn collect_rust_files(directory: &Path, files: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(directory) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            if path.file_name().and_then(|value| value.to_str()) != Some("target") {
+                collect_rust_files(&path, files);
+            }
+        } else if path.extension().and_then(|value| value.to_str()) == Some("rs") {
+            files.push(path);
+        }
+    }
+}
+
 impl StructuredTestAdapter for RustStructuredTest {
     fn built_in_forms(&self) -> &'static [BuiltInForm] {
         BUILT_IN_FORMS
@@ -209,6 +249,29 @@ impl StructuredTestAdapter for RustStructuredTest {
         collect_enum_variants(&parsed.items, type_name, &mut variants);
         Some(variants)
     }
+
+    fn language(&self) -> &'static str {
+        "Rust"
+    }
+
+    fn source_extension(&self) -> &'static str {
+        "rs"
+    }
+
+    fn source_files(&self, directory: &Path) -> Vec<PathBuf> {
+        let mut files = Vec::new();
+        collect_rust_files(directory, &mut files);
+        files
+    }
+
+    fn parse_locator(&self, value: &str) -> Option<ParsedLocator> {
+        let parsed = RustLocator::parse(value)?;
+        Some(ParsedLocator {
+            locator: parsed.to_locator(),
+            file: parsed.path,
+            name: parsed.item_path,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -238,6 +301,51 @@ mod tests {
             Some(vec!["A".to_owned(), "B".to_owned(), "C".to_owned()])
         );
         assert_eq!(rust.enum_variants("enum {", "Kind"), None);
+    }
+
+    /// @vtest.id TEST-ADAPTER-RUST-STRUCTURED-TEST-LOCATOR-AND-FILES
+    /// @vtest.covers VO-ADAPTER-RUST-STRUCTURED-TEST-CAPABILITY
+    /// @vtest.target crates/vtest-adapter-rust/src/structured_test.rs::RustStructuredTest::parse_locator
+    /// @vtest.intent the rust-cargo Structured Test capability names its language and file extension, splits a locator into the normalized locator, file and name that discovery uses, rejects a value that is not a locator, and lists .rs files below a directory except those under target
+    #[test]
+    fn rust_structured_test_answers_the_locator_and_file_questions() {
+        let rust = RustStructuredTest;
+        assert_eq!(rust.language(), "Rust");
+        assert_eq!(rust.source_extension(), "rs");
+
+        let parsed = rust.parse_locator(r"src\lib.rs::module::function").unwrap();
+        assert_eq!(parsed.file, "src/lib.rs");
+        assert_eq!(parsed.name, "module::function");
+        assert_eq!(
+            parsed.locator,
+            crate::locator_from_declared_value("src/lib.rs::module::function")
+        );
+        assert_eq!(rust.parse_locator("src/lib.txt::function"), None);
+        assert_eq!(rust.parse_locator("function"), None);
+
+        let root = std::env::temp_dir().join(format!(
+            "vtest-adapter-rust-source-files-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("src/nested")).unwrap();
+        fs::create_dir_all(root.join("target/debug")).unwrap();
+        for file in [
+            "src/lib.rs",
+            "src/nested/mod.rs",
+            "src/notes.md",
+            "target/debug/build.rs",
+        ] {
+            fs::write(root.join(file), "").unwrap();
+        }
+        let mut files = rust.source_files(&root);
+        files.sort();
+        assert_eq!(
+            files,
+            vec![root.join("src/lib.rs"), root.join("src/nested/mod.rs")]
+        );
+        assert!(rust.source_files(&root.join("missing")).is_empty());
+        fs::remove_dir_all(root).unwrap();
     }
 
     /// @vtest.id TEST-STORE-FORM-RUST-UNIT-FUNCTION-SCHEMA-SHAPE-001

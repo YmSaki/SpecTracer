@@ -404,6 +404,22 @@ pub trait StructuredTestAdapter {
     /// (nested modules included). `None` when `source` does not parse.
     fn enum_variants(&self, source: &str, type_name: &str) -> Option<Vec<String>>;
 
+    /// The language's name as operator-facing messages spell it (`Rust`).
+    fn language(&self) -> &'static str;
+
+    /// The extension, without the dot, of the files that hold this adapter's
+    /// Test constructs (`rs`).
+    fn source_extension(&self) -> &'static str;
+
+    /// The files under `directory` whose declarations `enum_variants` may be
+    /// asked about. Unreadable directories and entries are skipped, and the
+    /// adapter leaves out its own build output.
+    fn source_files(&self, directory: &Path) -> Vec<PathBuf>;
+
+    /// `value` read as this adapter's locator syntax, or `None` when it is
+    /// not one. Core never splits a locator value itself (BD-311).
+    fn parse_locator(&self, value: &str) -> Option<ParsedLocator>;
+
     /// DES-373: the built-in Form kinds this adapter owns, each with its
     /// Form Schema text (§14). Core never names a built-in Form itself
     /// (DS-1549); it resolves kinds through these declarations.
@@ -416,6 +432,18 @@ pub trait StructuredTestAdapter {
     fn accepts_form_schema(&self, _schema_text: &str) -> bool {
         false
     }
+}
+
+/// A locator value in the parts a Structured Test Operation compares.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ParsedLocator {
+    /// The normalized locator, equal to the one discovery reports for the
+    /// same declaration.
+    pub locator: Locator,
+    /// The project-relative file the locator points into.
+    pub file: String,
+    /// The declaration's name inside that file.
+    pub name: String,
 }
 
 /// One built-in Form an adapter declares (DES-373).

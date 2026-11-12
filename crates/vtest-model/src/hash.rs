@@ -1,3 +1,14 @@
+//! Content hashing primitives of 詳細設計 v0.1 §1.3: `ContentHash`
+//! (`sha256:<hex>`), text normalization, the five subject-hash domains, and
+//! the tagged field encoding (`SubjectHashInput`, `FieldValue`).
+//!
+//! Boundary: this module hashes the bytes it is given. Which fields each
+//! subject binds is defined in `subject_hash.rs`; reading files and storing
+//! records happen outside `vtest-model`.
+//!
+//! Clauses: 本冊:83-91 (canonical input, domains, normalization), DES-598
+//! (field kind tag).
+
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -14,17 +25,21 @@ use std::{
 pub struct ContentHash(String);
 
 impl ContentHash {
+    /// Hashes `text` after [`normalize_hashed_text`] (詳細設計 v0.1 §1.3).
     pub fn from_text(text: &str) -> Self {
         let normalized = normalize_hashed_text(text);
         let digest = Sha256::digest(normalized.as_bytes());
         Self(format!("sha256:{digest:x}"))
     }
 
+    /// Reinterprets `bytes` as UTF-8 (lossily) and hashes them as text. For
+    /// canonical hash-input bytes use [`ContentHash::from_canonical_bytes`].
     pub fn from_bytes(bytes: &[u8]) -> Self {
         let text = String::from_utf8_lossy(bytes);
         Self::from_text(&text)
     }
 
+    /// The `sha256:<hex>` form.
     pub fn as_str(&self) -> &str {
         &self.0
     }

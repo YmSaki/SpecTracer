@@ -89,7 +89,7 @@ fn an_undefined_gate_name_is_rejected_before_verification_runs() {
 /// select `release`).
 /// @vtest.id TEST-VERIFY-UNDEFINED-GATE-LISTS-DEFINED
 /// @vtest.covers VO-VERIFY-UNDEFINED-GATE-CANDIDATES
-/// @vtest.target crates/vtest-cli/src/ops/verify.rs::execute
+/// @vtest.target crates/vtest-ops/src/verify.rs::execute
 /// @vtest.intent an unknown gate name yields E-CONFIG-002 whose message lists the requested and all defined gate names, with no partial result
 #[test]
 fn an_undefined_gate_error_lists_the_defined_gate_names() {
@@ -117,12 +117,12 @@ fn an_undefined_gate_error_lists_the_defined_gate_names() {
     };
     assert_eq!(run(cli(&root, command)), ExitCode::Usage);
 
-    let registry = vtest_cli::adapters::builtin_registry().expect("registry");
-    let Err(vtest_cli::ops::verify::VerifyOpError::Usage {
+    let registry = vtest_ops::registry::builtin_registry().expect("registry");
+    let Err(vtest_ops::verify::VerifyOpError::Usage {
         code,
         message,
         candidates,
-    }) = vtest_cli::ops::verify::execute(
+    }) = vtest_ops::verify::execute(
         &root,
         &[],
         None,

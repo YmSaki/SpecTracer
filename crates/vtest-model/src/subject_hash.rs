@@ -179,7 +179,7 @@ fn optional_text_fragment(value: Option<&str>) -> FieldValue {
 ///   §1.3).
 ///
 /// `metadata.targets` binds the **declared** `TargetRef` values verbatim
-/// (via [`encode_target_ref`]), never a resolved canonical Source Target
+/// (via `encode_target_ref`), never a resolved canonical Source Target
 /// Locator — DS-341: "canonical metadataの `targets` は宣言された
 /// `TargetRef` の正規化値を束縛し、解決後のcanonical Locatorへ置換しない。"
 /// This function has no parameter a *resolved* Source Target could reach —
@@ -194,7 +194,7 @@ fn optional_text_fragment(value: Option<&str>) -> FieldValue {
 /// ascending, deduplicated — DES-074), `cases` as a declaration-ordered
 /// list (DES-075), matching [`FieldValue::Set`]/[`FieldValue::Ordered`]
 /// respectively. `input`/`expect`/`kind` go through
-/// [`optional_text_fragment`] so an absent declaration (`None`) hashes
+/// `optional_text_fragment` so an absent declaration (`None`) hashes
 /// differently from an explicit empty string (`Some(String::new())`) —
 /// DES-082 "Test subject hashは、宣言の不在と空値の明示を異なる値として
 /// encodeする。"

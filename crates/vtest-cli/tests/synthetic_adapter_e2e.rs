@@ -214,7 +214,7 @@ fn synthetic_adapter_scans_and_verifies_through_unmodified_core() {
 /// before analyzing anything, and leaves no derived cache behind.
 /// @vtest.id TEST-AUDIT-STATIC-MISSING-CAPABILITY-E-ADAPTER-004
 /// @vtest.covers VO-AUDIT-STATIC-MISSING-STATIC-ANALYSIS-CAPABILITY-E-ADAPTER-004
-/// @vtest.target crates/vtest-cli/src/ops/audit.rs::audit_static
+/// @vtest.target crates/vtest-ops/src/audit.rs::audit_static
 /// @vtest.intent Static Analysis capabilityのないadapterのTestに--test・--allでaudit staticを行うとE-ADAPTER-004・終了コード2で中止し、.verify/cache/audit-static.jsonを書かないことを確認する
 #[test]
 fn audit_static_without_the_capability_is_e_adapter_004_and_writes_no_cache() {
@@ -226,15 +226,12 @@ fn audit_static_without_the_capability_is_e_adapter_004_and_writes_no_cache() {
     let cache = root
         .join(".verify")
         .join("cache")
-        .join(vtest_cli::ops::audit::CACHE_FILE);
+        .join(vtest_ops::audit::CACHE_FILE);
     for (test, all) in [(Some("TEST-SYN-ONE"), false), (None, true)] {
-        let error = vtest_cli::ops::audit::audit_static(&root, &scan, &registry, test, all)
+        let error = vtest_ops::audit::audit_static(&root, &scan, &registry, test, all)
             .expect_err("a missing required capability must reject the operation");
         assert!(
-            matches!(
-                error,
-                vtest_cli::ops::audit::AuditOpError::MissingCapability(_)
-            ),
+            matches!(error, vtest_ops::audit::AuditOpError::MissingCapability(_)),
             "{error:?}"
         );
         assert_eq!(error.code(), "E-ADAPTER-004");

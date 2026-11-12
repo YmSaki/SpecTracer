@@ -10,13 +10,32 @@ Run this set before opening or updating a pull request:
 
 ```bash
 cargo fmt --all -- --check
-cargo test --workspace --locked
+cargo test --workspace --locked --no-fail-fast
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo run --quiet -p vtest-cli --locked -- doctor
 ```
 
 The same gate runs in `.github/workflows/ci.yml` for `main`, `develop`, and their
-pull requests.
+pull requests. Pass `--no-fail-fast` locally, because without it `cargo test`
+stops at the first failing test binary and the later binaries never report.
+Without `cargo-llvm-cov` nine tests fail, all because the `rust-cargo`
+adapter cannot measure coverage, so `target_binding` stays `NO_EVIDENCE` where
+the test expects `PASS`: in `vtest-adapter-rust --lib`
+`coverage::tests::real_llvm_cov_keeps_same_line_constructs_and_type_syntax_apart`
+and `coverage::tests::real_llvm_cov_measures_trait_impl_and_cfg_locators_separately`
+(they call the missing command); in `evidence_e2e`
+`a_covered_test_with_a_git_committed_environment_reaches_ok_true`,
+`a_test_that_reaches_only_one_of_two_declared_targets_is_not_pass`,
+`an_invalid_latest_evidence_record_does_not_fall_back_to_an_older_pass`,
+`verify_reports_e_scan_010_for_an_aggregate_that_contradicts_its_entries` and
+`only_oracle_presence_breaks_on_a_self_comparison_assertion`; in
+`execution_state_e2e`
+`a_relocated_target_directory_inside_the_root_still_records_evidence` and
+`an_unchanged_environment_still_reaches_pass`. Report them as `NOT_EXECUTED`
+in the PR and cite the CI run, which has the tool, as the evidence. For any
+other failure, run the same test on the base branch: one that also fails
+there is an environment difference to report as such, and one that fails only
+on the PR branch is a regression.
 
 The CI environment installs `llvm-tools-preview` and `cargo-llvm-cov` so that M7
 can distinguish measured target execution from the fail-closed unavailable
@@ -49,12 +68,12 @@ Run all CLI acceptance tests with:
 cargo test -p vtest-cli --tests --locked
 ```
 
-Not every 別紙C §18 node has a dedicated acceptance test yet: nodes covering
-product areas this slice's `crates/vtest-cli/src/ops/` does not implement
-(static audit, coverage measurement, Structured Test Operation create/edit)
-are tracked in `reports/closure-trace.md`'s gap table, because a test that asserts
-the absence of a feature passes while the feature is missing. When such a feature
-is implemented, add its acceptance test and remove its gap-table row.
+Not every 別紙C §18 node has a dedicated acceptance test yet. Record a node
+without one as a gap in [`tests/ACCEPTANCE.md`](tests/ACCEPTANCE.md) or
+[`docs/reports/adapter-acceptance-matrix.md`](docs/reports/adapter-acceptance-matrix.md)
+instead of writing a test that asserts the feature's absence, because such a
+test passes while the feature is missing. When the feature is implemented, add
+its acceptance test and remove the gap row.
 
 ## Verification behavior to preserve
 
@@ -71,7 +90,12 @@ is implemented, add its acceptance test and remove its gap-table row.
 
 When changing execution, aggregation, record schemas, CLI, or MCP, also run
 the applicable fixture flow (`vtest scan`, `vtest run`, and `vtest verify`)
-and record the result. (`vtest audit` and bundle/submit are not provided yet.)
+and record the result.
+For a refactoring PR that must not change behavior, the gate above and the
+existing acceptance and equivalence tests are the evidence; report the same
+test count and results as the base. When the PR touches text rendering, exit
+codes or record formats, also run the base and head binaries on the same input
+and write any difference, with its clause ID, into the PR.
 
 ## Release verification
 

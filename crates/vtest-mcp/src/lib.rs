@@ -2,7 +2,7 @@
 //!
 //! ROOT-027 / R-1「MCP インターフェースは飾りではなく本体側」— MCP is not a
 //! thin wrapper kept in sync by convention: every tool handler here calls
-//! the exact same `vtest_cli::ops::*::execute` function the CLI's `run_*`
+//! the exact same `vtest_ops::*::execute` function the CLI's `run_*`
 //! wrappers call, so DS-1563「別紙A（§12〜§15）が定める全 MCP tool が同じ
 //! 入力に対する CLI JSON と同じ data / diagnostics を返す」holds by
 //! construction rather than by two independently written code paths.
@@ -23,7 +23,7 @@
 //! tools here (previously they were, wrongly; removed this review round).
 //!
 //! `test_create` / `test_edit` (DS-1206 / DS-1207) call the same
-//! `vtest_cli::ops::test_op` functions as `vtest test create` / `vtest test
+//! `vtest_ops::test_op` functions as `vtest test create` / `vtest test
 //! edit` (#85). `form_get` (DS-1205) resolves a kind through the Form
 //! registry to its schema and owner adapter (#109).
 //!
@@ -36,7 +36,7 @@
 //! deviation. Reported in `reports/closure-trace.md`'s unimplemented table.
 //!
 //! `approval_create`'s `subject_type: "judgment"` is rejected with the same
-//! disclosed error the CLI uses (`vtest_cli::ops::approval`'s module doc
+//! disclosed error the CLI uses (`vtest_ops::approval`'s module doc
 //! comment) — no judgment-record domain exists in this codebase.
 //!
 //! An MCP-only Structured-Edit tool with an apply/re-verify/rollback
@@ -63,8 +63,8 @@ use std::{
 };
 
 use serde_json::{json, Map, Value};
-use vtest_cli::ops;
 use vtest_model::ExitCode;
+use vtest_ops as ops;
 
 /// 正本 別紙A §13.2 の23 tool taxonomy のうち、この closure-slice が実装する
 /// 9件（DS-1193/1194/1195/1196/1197/1198/1213/1214 相当）。`init`/`doctor`
@@ -852,7 +852,7 @@ fn optional_string_array(args: &Map<String, Value>, key: &str) -> Result<(), Val
     Ok(())
 }
 
-/// Dispatches one MCP tool call to the same `vtest_cli::ops::*::execute`
+/// Dispatches one MCP tool call to the same `vtest_ops::*::execute`
 /// function the CLI's `run_*` wrapper for the equivalent subcommand calls,
 /// in-process — no subprocess, no second implementation of the operation.
 fn dispatch_tool(root: &Path, name: &str, args: &Value) -> Value {
@@ -1161,7 +1161,7 @@ fn vo_approve_tool(root: &Path, args: &Value) -> Value {
 /// `vtest audit static` calls. No canonical record, no audit record id.
 fn audit_static_tool(root: &Path, args: &Value) -> Value {
     if let Err(error) = vtest_store::load_config(root) {
-        return vtest_cli::config_error_result(&error).1;
+        return vtest_ops::envelope::config_error_result(&error).1;
     }
     let registry = match resolve_registry() {
         Ok(registry) => registry,
@@ -1192,7 +1192,7 @@ fn scanned(
     root: &Path,
 ) -> Result<(vtest_scan::ScanResult, vtest_adapter_api::AdapterRegistry), Value> {
     if let Err(error) = vtest_store::load_config(root) {
-        return Err(vtest_cli::config_error_result(&error).1);
+        return Err(vtest_ops::envelope::config_error_result(&error).1);
     }
     let registry = resolve_registry()?;
     let scan = vtest_scan::scan_project(root, &registry).map_err(|error| {
@@ -1596,7 +1596,7 @@ fn run_tool(root: &Path, args: &Value) -> Value {
     // same `ops::run::run` the CLI calls the resolved scan and target.
     let config = vtest_store::load_config(root);
     if let Err(error) = config {
-        return vtest_cli::config_error_result(&error).1;
+        return vtest_ops::envelope::config_error_result(&error).1;
     }
     let registry = match resolve_registry() {
         Ok(registry) => registry,
@@ -1753,13 +1753,13 @@ fn bool_arg(args: &Value, key: &str) -> bool {
     args.get(key).and_then(Value::as_bool).unwrap_or(false)
 }
 
-/// composition root（`vtest_cli::adapters::builtin_registry`）を呼ぶ MCP側
+/// composition root（`vtest_ops::registry::builtin_registry`）を呼ぶ MCP側
 /// の入口。cli の `resolve_registry` と同じ理由（BD-007/BD-102、
 /// `vtest-scan`/`vtest-verify`/`vtest-exec` は自分で adapter を生成しない）
 /// で、MCP tool 側もこの1箇所だけで registry を組み立てる。失敗
 /// （理論上は固定1件の登録なので到達しない）は E-ADAPTER-001 として返す。
 fn resolve_registry() -> Result<vtest_adapter_api::AdapterRegistry, Value> {
-    vtest_cli::adapters::builtin_registry()
+    vtest_ops::registry::builtin_registry()
         .map_err(|error| failure_envelope("E-ADAPTER-001", error.to_string()))
 }
 
@@ -1783,7 +1783,7 @@ mod tests {
     //! DS-1563 equivalence: the MCP tool handler and the CLI wrapper for
     //! the same operation must return the same `data` / `diagnostics` for
     //! the same input. `dispatch_tool` (MCP side) and `vtest_cli::run`
-    //! (CLI side) both bottom out in `vtest_cli::ops::verify::execute` /
+    //! (CLI side) both bottom out in `vtest_ops::verify::execute` /
     //! `ops::scan::execute`; this test drives both entry points and
     //! compares their JSON, so a future edit that special-cases one path
     //! (instead of changing the shared `ops::*` function) breaks the test
@@ -1806,6 +1806,17 @@ mod tests {
         ));
         std::fs::create_dir_all(&root).expect("create fixture root");
         root
+    }
+
+    /// Initialises a fixture project the way `vtest init` does: the same
+    /// `vtest_ops::init::execute` the CLI's `run_init` wrapper calls, with
+    /// the project name the wrapper derives from the root's directory name.
+    fn init_fixture(root: &Path) -> ExitCode {
+        let project_name = root
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("project");
+        vtest_ops::init::execute(root, project_name).0
     }
 
     /// @vtest.id TEST-MCP-CONFIG-IO-INTERNAL
@@ -2089,7 +2100,7 @@ mod tests {
         .unwrap();
         let via_mcp = dispatch_tool(&root, "audit_static", &json!({"all": true}));
         assert_eq!(via_mcp["ok"], true, "{via_mcp}");
-        let registry = vtest_cli::adapters::builtin_registry().unwrap();
+        let registry = vtest_ops::registry::builtin_registry().unwrap();
         let scan = vtest_scan::scan_project(&root, &registry).unwrap();
         let (data, _) = ops::audit::audit_static(&root, &scan, &registry, None, true).unwrap();
         assert_eq!(via_mcp["data"], serde_json::to_value(&data).unwrap());
@@ -2271,7 +2282,7 @@ mod tests {
     /// has no library entry point that hands back the envelope value, so
     /// the exit code is asserted to match separately below.)
     fn cli_verify_envelope(root: &Path) -> (ExitCode, Value) {
-        match vtest_cli::ops::verify::execute(
+        match vtest_ops::verify::execute(
             root,
             &[],
             None,
@@ -2279,16 +2290,16 @@ mod tests {
             None,
             None,
             false,
-            &vtest_cli::adapters::builtin_registry().expect("builtin registry"),
+            &vtest_ops::registry::builtin_registry().expect("builtin registry"),
         ) {
             Ok((exit, data, diagnostics)) => {
                 let ok = exit == ExitCode::Ok;
                 (
                     exit,
-                    vtest_cli::ops::verify::scoped_envelope(ok, &data, &diagnostics),
+                    vtest_ops::verify::scoped_envelope(ok, &data, &diagnostics),
                 )
             }
-            Err(vtest_cli::ops::verify::VerifyOpError::Usage {
+            Err(vtest_ops::verify::VerifyOpError::Usage {
                 code,
                 message,
                 candidates,
@@ -2296,11 +2307,11 @@ mod tests {
                 ExitCode::Usage,
                 failure_envelope_with_candidates(code, message, candidates.as_deref()),
             ),
-            Err(vtest_cli::ops::verify::VerifyOpError::Scan(error)) => {
+            Err(vtest_ops::verify::VerifyOpError::Scan(error)) => {
                 let code = error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE);
                 (ExitCode::Usage, failure_envelope(code, error.to_string()))
             }
-            Err(vtest_cli::ops::verify::VerifyOpError::Internal { message }) => (
+            Err(vtest_ops::verify::VerifyOpError::Internal { message }) => (
                 ExitCode::Internal,
                 failure_envelope(vtest_model::INTERNAL_ERROR_CODE, message),
             ),
@@ -2314,12 +2325,7 @@ mod tests {
     #[test]
     fn mcp_verify_tool_matches_the_cli_verify_operation() {
         let root = temp_root("verify-equivalence");
-        let init = vtest_cli::run(vtest_cli::Cli {
-            project: root.clone(),
-            format: vtest_cli::OutputFormat::Json,
-            quiet: true,
-            command: vtest_cli::Command::Init { name: None },
-        });
+        let init = init_fixture(&root);
         assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
 
         let (cli_exit, cli_envelope) = cli_verify_envelope(&root);
@@ -2350,17 +2356,12 @@ mod tests {
     /// `conflicts_with` rules do, and still accepts each axis alone.
     /// @vtest.id TEST-MCP-RUN-TESTS-EXCLUSIVE-AXES
     /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE, VO-RUN-UNRESOLVED-SELECTOR-REJECTED
-    /// @vtest.target crates/vtest-cli/src/ops/run.rs::RunTarget::from_axes
+    /// @vtest.target crates/vtest-ops/src/run.rs::RunTarget::from_axes
     /// @vtest.intent run_tests rejects test/vo/all combinations with E-OP-001 and writes no Evidence
     #[test]
     fn run_tests_rejects_combined_target_axes() {
         let root = temp_root("run-tests-exclusive");
-        let init = vtest_cli::run(vtest_cli::Cli {
-            project: root.clone(),
-            format: vtest_cli::OutputFormat::Json,
-            quiet: true,
-            command: vtest_cli::Command::Init { name: None },
-        });
+        let init = init_fixture(&root);
         assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
         for args in [
             json!({"test": ["DOES-NOT-EXIST"], "all": true, "fast": true}),
@@ -2416,7 +2417,7 @@ mod tests {
     fn mcp_report_tool_matches_the_cli_report_operation() {
         let root = temp_root("report-equivalence");
         fixture_vo_project(&root);
-        let registry = vtest_cli::adapters::builtin_registry().expect("builtin registry");
+        let registry = vtest_ops::registry::builtin_registry().expect("builtin registry");
         let projection = ops::report::ProjectionArgs {
             from: Some("ROOT-001".to_owned()),
             view: Some("pm".to_owned()),
@@ -2454,17 +2455,12 @@ mod tests {
     #[test]
     fn mcp_scan_tool_matches_the_cli_scan_operation() {
         let root = temp_root("scan-equivalence");
-        let init = vtest_cli::run(vtest_cli::Cli {
-            project: root.clone(),
-            format: vtest_cli::OutputFormat::Json,
-            quiet: true,
-            command: vtest_cli::Command::Init { name: None },
-        });
+        let init = init_fixture(&root);
         assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
 
         let (_, cli_envelope) = ops::scan::execute(
             &root,
-            &vtest_cli::adapters::builtin_registry().expect("builtin registry"),
+            &vtest_ops::registry::builtin_registry().expect("builtin registry"),
         );
         let mcp_envelope = dispatch_tool(&root, "scan", &json!({}));
 
@@ -2513,7 +2509,7 @@ mod tests {
     fn mcp_test_create_and_edit_match_the_cli_operations() {
         let root = temp_root("test-create-edit");
         structured_test_fixture(&root);
-        let registry = vtest_cli::adapters::builtin_registry().expect("builtin registry");
+        let registry = vtest_ops::registry::builtin_registry().expect("builtin registry");
         let answers = vtest_store::FormAnswers {
             form: "rust-unit-function".to_owned(),
             answers: ops::test_op::form_values_from_json(&structured_test_answers(), "answers")
@@ -2582,11 +2578,11 @@ mod tests {
         fs::write(root.join("tests/calc.rs"), broken).unwrap();
         let (_, scan) = ops::scan::execute(
             &root,
-            &vtest_cli::adapters::builtin_registry().expect("builtin registry"),
+            &vtest_ops::registry::builtin_registry().expect("builtin registry"),
         );
         assert_eq!(scan["ok"], false, "the fixture must start broken: {scan}");
 
-        let registry = vtest_cli::adapters::builtin_registry().expect("builtin registry");
+        let registry = vtest_ops::registry::builtin_registry().expect("builtin registry");
         let set = std::collections::BTreeMap::from([(
             "covers".to_owned(),
             vtest_store::FormValue::List(vec!["VO-MCP-APPROVAL".to_owned()]),
@@ -2629,7 +2625,7 @@ mod tests {
     fn mcp_form_get_returns_the_schema_with_its_owner() {
         let root = temp_root("form-get");
         fixture_vo_project(&root);
-        let registry = vtest_cli::adapters::builtin_registry().expect("builtin registry");
+        let registry = vtest_ops::registry::builtin_registry().expect("builtin registry");
 
         let envelope = dispatch_tool(&root, "form_get", &json!({"kind": "rust-unit-function"}));
         assert_eq!(envelope["ok"], true, "{envelope}");
@@ -2655,7 +2651,7 @@ mod tests {
     fn mcp_tools_call_form_get_ignores_an_unrelated_scan_error() {
         let root = temp_root("form-get-broken");
         structured_test_fixture(&root);
-        let registry = vtest_cli::adapters::builtin_registry().expect("builtin registry");
+        let registry = vtest_ops::registry::builtin_registry().expect("builtin registry");
         let mut rescan = MtimeRescan::default();
         let mut call = |kind: &str| {
             tools_call_result(
@@ -2853,12 +2849,7 @@ mod tests {
     #[test]
     fn mcp_doc_get_tool_matches_the_ops_doc_show_operation() {
         let root = temp_root("doc-equivalence");
-        let init = vtest_cli::run(vtest_cli::Cli {
-            project: root.clone(),
-            format: vtest_cli::OutputFormat::Json,
-            quiet: true,
-            command: vtest_cli::Command::Init { name: None },
-        });
+        let init = init_fixture(&root);
         assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
         // DES-595: `--path` names an already-built node-tree JSON file, the
         // same shape `.verify/doc/<name>.json` already uses.
@@ -3202,7 +3193,7 @@ mod tests {
         let direct_layout = vtest_store::VerifyLayout::new(&direct_root);
         let direct_scan = vtest_scan::scan_project(
             &direct_root,
-            &vtest_cli::adapters::builtin_registry().expect("builtin registry"),
+            &vtest_ops::registry::builtin_registry().expect("builtin registry"),
         )
         .expect("direct fixture scan must succeed");
         let direct = ops::run::run(
@@ -3211,7 +3202,7 @@ mod tests {
             &direct_scan,
             &ops::run::RunTarget::All,
             true,
-            &vtest_cli::adapters::builtin_registry().expect("builtin registry"),
+            &vtest_ops::registry::builtin_registry().expect("builtin registry"),
         )
         .expect("direct ops::run::run must succeed");
 
@@ -3260,12 +3251,7 @@ mod tests {
     #[test]
     fn mcp_doc_upsert_tool_matches_the_ops_doc_add_operation() {
         let direct_root = temp_root("doc-add-equivalence-direct");
-        let init = vtest_cli::run(vtest_cli::Cli {
-            project: direct_root.clone(),
-            format: vtest_cli::OutputFormat::Json,
-            quiet: true,
-            command: vtest_cli::Command::Init { name: None },
-        });
+        let init = init_fixture(&direct_root);
         assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
         fs::write(direct_root.join("basic-spec.json"), FIXTURE_NODE_TREE)
             .expect("write source file");
@@ -3285,12 +3271,7 @@ mod tests {
         .expect("direct ops::doc::add must succeed");
 
         let mcp_root = temp_root("doc-add-equivalence-mcp");
-        let init = vtest_cli::run(vtest_cli::Cli {
-            project: mcp_root.clone(),
-            format: vtest_cli::OutputFormat::Json,
-            quiet: true,
-            command: vtest_cli::Command::Init { name: None },
-        });
+        let init = init_fixture(&mcp_root);
         assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
         fs::write(mcp_root.join("basic-spec.json"), FIXTURE_NODE_TREE).expect("write source file");
         let mut mcp_envelope = dispatch_tool(
@@ -3327,12 +3308,7 @@ mod tests {
     #[test]
     fn mcp_doc_upsert_tool_rejects_root_combined_with_update() {
         let root = temp_root("doc-upsert-root-update-reject");
-        let init = vtest_cli::run(vtest_cli::Cli {
-            project: root.clone(),
-            format: vtest_cli::OutputFormat::Json,
-            quiet: true,
-            command: vtest_cli::Command::Init { name: None },
-        });
+        let init = init_fixture(&root);
         assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
         fs::write(root.join("basic-spec.json"), FIXTURE_NODE_TREE).expect("write source file");
         let layout = vtest_store::VerifyLayout::new(&root);
@@ -3396,12 +3372,7 @@ mod tests {
     #[test]
     fn mcp_doc_upsert_tool_applies_derives_from_like_ops_doc_add() {
         let direct_root = temp_root("doc-add-derives-from-direct");
-        let init = vtest_cli::run(vtest_cli::Cli {
-            project: direct_root.clone(),
-            format: vtest_cli::OutputFormat::Json,
-            quiet: true,
-            command: vtest_cli::Command::Init { name: None },
-        });
+        let init = init_fixture(&direct_root);
         assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
         fs::write(
             direct_root.join("basic-spec.json"),
@@ -3424,12 +3395,7 @@ mod tests {
         .expect("direct ops::doc::add must succeed");
 
         let mcp_root = temp_root("doc-add-derives-from-mcp");
-        let init = vtest_cli::run(vtest_cli::Cli {
-            project: mcp_root.clone(),
-            format: vtest_cli::OutputFormat::Json,
-            quiet: true,
-            command: vtest_cli::Command::Init { name: None },
-        });
+        let init = init_fixture(&mcp_root);
         assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
         fs::write(
             mcp_root.join("basic-spec.json"),
@@ -3474,12 +3440,7 @@ mod tests {
     #[test]
     fn mcp_doc_list_tool_matches_the_ops_doc_list_operation() {
         let root = temp_root("doc-list-equivalence");
-        let init = vtest_cli::run(vtest_cli::Cli {
-            project: root.clone(),
-            format: vtest_cli::OutputFormat::Json,
-            quiet: true,
-            command: vtest_cli::Command::Init { name: None },
-        });
+        let init = init_fixture(&root);
         assert_eq!(init, ExitCode::Ok, "fixture project must initialise");
         fs::write(root.join("basic-spec.json"), FIXTURE_NODE_TREE).expect("write source file");
         let layout = vtest_store::VerifyLayout::new(&root);

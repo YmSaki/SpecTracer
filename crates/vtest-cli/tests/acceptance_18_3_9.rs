@@ -13,11 +13,11 @@
 
 use std::path::PathBuf;
 
-use vtest_cli::ops;
+use vtest_ops as ops;
 use vtest_store::init_project;
 
 fn registry() -> vtest_adapter_api::AdapterRegistry {
-    vtest_cli::adapters::builtin_registry().expect("builtin registry must register cleanly")
+    vtest_ops::registry::builtin_registry().expect("builtin registry must register cleanly")
 }
 
 fn temp_root(name: &str) -> PathBuf {
@@ -65,7 +65,7 @@ fn write_gate_config(root: &std::path::Path, approvals: Vec<String>) -> vtest_st
 /// literal `data.gate.verification.{required,actual,satisfied}` shape.
 /// @vtest.id TEST-ACCEPTANCE-18-3-9-UNSATISFIED-GATE
 /// @vtest.covers VO-VERIFY-GATE-WIRE-SHAPE
-/// @vtest.target crates/vtest-cli/src/ops/verify.rs::execute
+/// @vtest.target crates/vtest-ops/src/verify.rs::execute
 /// @vtest.intent an unsatisfied gate reports data.gate.verification.{required,actual,satisfied} literally
 #[test]
 fn an_unsatisfied_gate_reports_verification_required_actual_satisfied() {
@@ -110,7 +110,7 @@ fn an_unsatisfied_gate_reports_verification_required_actual_satisfied() {
 /// satisfaction" from "always reports false".
 /// @vtest.id TEST-ACCEPTANCE-18-3-9-SATISFIED-GATE
 /// @vtest.covers VO-VERIFY-GATE-SATISFACTION-BOTH-SIDES
-/// @vtest.target crates/vtest-cli/src/ops/verify.rs::execute
+/// @vtest.target crates/vtest-ops/src/verify.rs::execute
 /// @vtest.intent a gate whose verification and approvals conditions are actually met reports satisfied end to end
 #[test]
 fn a_gate_whose_conditions_are_actually_met_reports_satisfied() {
@@ -168,7 +168,7 @@ fn a_gate_whose_conditions_are_actually_met_reports_satisfied() {
 /// merely folded into an aggregate "approvals unsatisfied" boolean.
 /// @vtest.id TEST-ACCEPTANCE-18-3-9-APPROVAL-ROLE-BY-NAME
 /// @vtest.covers VO-VERIFY-GATE-WIRE-SHAPE
-/// @vtest.target crates/vtest-cli/src/ops/verify.rs::execute
+/// @vtest.target crates/vtest-ops/src/verify.rs::execute
 /// @vtest.intent a required approval role appears in data.gate.approvals by name, not folded into an aggregate boolean
 #[test]
 fn a_required_approval_role_appears_in_approvals_by_name() {
@@ -202,7 +202,7 @@ fn a_required_approval_role_appears_in_approvals_by_name() {
 /// severity-based interpretation ("close enough", or "MISMATCH implies
 /// FAIL was also true along the way") might wrongly treat as satisfying a
 /// `FAIL` requirement. Verification satisfaction is exact string equality
-/// against the five-state domain (`vtest_cli::ops::verify::evaluate_gate`),
+/// against the five-state domain (`vtest_ops::verify::evaluate_gate`),
 /// not an ordering or inclusion relationship between states.
 ///
 /// This fixture covers `require.verification`'s half of DES-553. The
@@ -216,7 +216,7 @@ fn a_required_approval_role_appears_in_approvals_by_name() {
 /// against.
 /// @vtest.id TEST-ACCEPTANCE-18-3-9-GATE-EXACT-STATE-MATCH
 /// @vtest.covers VO-VERIFY-GATE-STATE-EXACT-MATCH-NOT-ORDERING
-/// @vtest.target crates/vtest-cli/src/ops/verify.rs::evaluate_gate
+/// @vtest.target crates/vtest-ops/src/verify.rs::evaluate_gate
 /// @vtest.intent a gate requiring FAIL is not satisfied by the distinct MISMATCH state despite both being non-PASS
 #[test]
 fn a_gate_requiring_fail_is_not_satisfied_by_the_distinct_mismatch_state() {
@@ -449,7 +449,7 @@ mod gate_roles {
     /// exits 0, and leaves the verification state unchanged.
     /// @vtest.id TEST-ACCEPTANCE-18-3-9-GATE-ROLE-SATISFIED
     /// @vtest.covers VO-VERIFY-GATE-APPROVAL-ROLE-PER-SUBJECT, VO-VERIFY-GATE-SATISFACTION-BOTH-SIDES
-    /// @vtest.target crates/vtest-cli/src/ops/verify.rs::evaluate_gate
+    /// @vtest.target crates/vtest-ops/src/verify.rs::evaluate_gate
     /// @vtest.intent a current approval by a role member satisfies the role for the scoped VO without changing the verification state
     #[test]
     fn gate_roles_are_satisfied_by_a_current_approval_of_the_scoped_subject() {
@@ -481,7 +481,7 @@ mod gate_roles {
     /// approval whose subject changed afterwards.
     /// @vtest.id TEST-ACCEPTANCE-18-3-9-GATE-ROLE-NOT-SATISFIED
     /// @vtest.covers VO-VERIFY-GATE-APPROVAL-ROLE-PER-SUBJECT
-    /// @vtest.target crates/vtest-cli/src/ops/verify.rs::evaluate_gate
+    /// @vtest.target crates/vtest-ops/src/verify.rs::evaluate_gate
     /// @vtest.intent non-member, other-subject, rejected, withdrawn and stale approvals leave the role unsatisfied
     #[test]
     fn gate_roles_ignore_approvals_that_are_not_effective_for_the_subject() {
@@ -538,7 +538,7 @@ mod gate_roles {
     /// approval; the ones without it are listed in `missing_subjects`.
     /// @vtest.id TEST-ACCEPTANCE-18-3-9-GATE-ROLE-EVERY-ROOT
     /// @vtest.covers VO-VERIFY-GATE-APPROVAL-ROLE-PER-SUBJECT
-    /// @vtest.target crates/vtest-cli/src/ops/verify.rs::evaluate_gate
+    /// @vtest.target crates/vtest-ops/src/verify.rs::evaluate_gate
     /// @vtest.intent an unscoped gate requires the role on every root subject and lists the missing ones
     #[test]
     fn gate_roles_require_every_root_subject_when_unscoped() {

@@ -168,7 +168,7 @@ crate の追加や責務の変更は、先にこの表を更新する PR で行�
 | `vtest-store` | 永続化 | `.verify/` のレイアウト、設定（v1 / v2）の読み込み、正典 record（document、VO、Test、Approval、Evidence、Execution State、Form）の読み書きと検証 | 派生の索引（呼び出し側が毎回再構築）、言語固有の設定値の意味づけ（adapter） |
 | `vtest-adapter-api` | adapter 契約 | capability の trait（source discovery、runner、coverage、static analysis など）、hash 未計算の DTO、`AdapterRegistry`、Test のワイヤー形式。`vtest-model` 以外に依存しない | 言語の実装（各 adapter）、materialization（`vtest-scan`） |
 | `vtest-adapter-rust` | adapter | `rust-cargo` adapter。`syn` による Rust の解析、`Cargo.toml` と module path の解決、doc comment の `@vtest.` 宣言、`cargo test` の実行、`cargo llvm-cov` のカバレッジ、oracle の静的判定 | 検証の判定（`vtest-verify`） |
-| `vtest-adapter-lexical` | adapter | Rust 以外の言語のフレームワーク非依存な Test 発見。言語ごとの module（`c`、`csharp`、`java`）と、意味が同じと確認できた部分（`annotation`、`shared`）。`source_discovery` だけを宣言する（実験的、`docs/adapters/lexical.md`） | runner、coverage、static analysis（未宣言のまま `NO_EVIDENCE` にする） |
+| `vtest-adapter-lexical` | adapter | Rust 以外の言語のフレームワーク非依存な Test 発見。言語ごとの module（`c`、`cpp`、`csharp`、`go`、`java`、`javascript`、`kotlin`、`php`、`python`、`ruby`、`swift`）と、意味が同じと確認できた部分（`annotation`、`shared`）。`source_discovery` だけを宣言する（実験的、`docs/adapters/lexical.md`） | runner、coverage、static analysis（未宣言のまま `NO_EVIDENCE` にする） |
 | `vtest-adapter-synthetic` | adapter | `.rs` 以外の source、関数ではない Test construct などを core の変更なしで扱えることを示す受入テスト専用の adapter（DS-1584） | 本番の言語対応。本番の registry に登録しない |
 | `vtest-scan` | オーケストレーション | adapter への委譲、Test ID の大域的一意性（E-SCAN-002）、VO 参照の解決（E-SCAN-003）、Target Reference の解決、adapter ID 順の決定論的統合、record の参照整合性、Structured Test Operation の orchestration | 言語構文の解釈（adapter）、opaque locator の分解 |
 | `vtest-exec` | オーケストレーション | runner の起動、target coverage の帰属、Evidence の構築と追記 | 正典 record の形式（`vtest-store`。Evidence は `write_evidence` で書く） |
@@ -204,7 +204,7 @@ crate の追加や責務の変更は、先にこの表を更新する PR で行�
 | `vtest-store` | `vtest-model` | |
 | `vtest-adapter-api` | `vtest-model` | |
 | `vtest-adapter-rust`、`vtest-adapter-lexical`、`vtest-adapter-synthetic` | `vtest-adapter-api`、`vtest-model` | |
-| `vtest-scan` | `vtest-adapter-api`、`vtest-store`、`vtest-model` | `vtest-adapter-rust` への通常依存が残っている（#155、#175 R6 で dev-dependency にする） |
+| `vtest-scan` | `vtest-adapter-api`、`vtest-store`、`vtest-model` | |
 | `vtest-exec` | `vtest-adapter-api`、`vtest-store`、`vtest-model` | |
 | `vtest-verify` | `vtest-scan`、`vtest-adapter-api`、`vtest-store`、`vtest-model` | `vtest-exec` へは依存しない（git HEAD は `vtest-store` の `git_head_commit` で読む） |
 | 操作層 crate（名称未決） | オーケストレーション、永続化、adapter 契約、すべての adapter、モデル | 現在は `vtest-cli` の中にある |
@@ -219,7 +219,7 @@ crate の追加や責務の変更は、先にこの表を更新する PR で行�
 
 | ライブラリ | 使用してよい範囲 |
 | --- | --- |
-| `syn`、`proc-macro2`、`quote`、`rustc-demangle`、`toml` | `vtest-adapter-rust`（`vtest-scan` の `syn` は #155、#175 R6 で解消する） |
+| `syn`、`proc-macro2`、`quote`、`rustc-demangle`、`toml` | `vtest-adapter-rust` |
 | `ignore` | ファイル走査を行う adapter |
 | `clap` | `vtest-cli` |
 | `yaml_serde` | `vtest-store`（正典 record の形式の所有者）。`vtest-verify` の既存利用は #175 で store への移管を確認する |
@@ -544,8 +544,8 @@ crates/<crate>/
 2. **すべての作業は Issue から始める。** テンプレートは「作業」「不具合」「仕様の変更（spec/*）」「Owner 判断」の 4 種類。
 3. **1 つの PR は 1 つの目的に限る。** 機能追加、仕様変更、既知の不具合の修正、依存の更新、リファクタリングを同じ PR に混ぜない。
 4. **移動（ファイルの移動、名前の変更）と論理の変更は別の PR にする。** 移動の PR は差分が大きく、論理の差分が埋もれるためです。移動の PR は `git diff -M` で rename として見える形にする。
-5. **共有ファイルを変える PR は同時に 1 本だけ開く。** 対象は `vtest-cli/src/lib.rs`、`vtest-mcp/src/lib.rs`、`adapters.rs`、workspace の `Cargo.toml` と `Cargo.lock`、`vtest-verify/src/lib.rs`。並行すると、移動の差分の取り込みが繰り返されるためです（#175 §10）。
-6. **既存の振る舞いを変えない。** リファクタリングは、外部契約（第 1.2 節の 3）を変えずに行い、変更前後の出力を比較して PR に書く。振る舞いを変える必要がある場合は、別の Issue と PR にする。
+5. **共有ファイルを変える PR は同時に 1 本だけ開く。** 対象は `vtest-cli/src/lib.rs`、`vtest-mcp/src/lib.rs`、`adapters.rs`、workspace の `Cargo.toml` と `Cargo.lock`、`vtest-verify/src/lib.rs`。並行すると、移動の差分の取り込みが繰り返されるためです（#175 §10）。手順は `DEVELOPMENT.md` の「Pull request scope」。
+6. **既存の振る舞いを変えない。** リファクタリングは、外部契約（第 1.2 節の 3）を変えずに行う。証拠は CI のゲートと既存のテスト（`TESTING.md`）で、text 描画・終了コード・record の形式に触れる PR は変更前後の出力の比較も PR に書く。振る舞いを変える必要がある場合は、別の Issue と PR にする。
 7. **足りない基盤と露出した問題は別の Issue にする。** 作業中に仕組みの不足、既存の不具合、仕様の欠陥や矛盾を見つけたら、再現条件、影響、条項 ID を書いた Issue にする（仕様の問題は `needs-owner`）。作業中の PR に混ぜず、コードで回避もしない。回避すると、仕様の欠陥が次の実装者に残るためです。
 8. **仕様の変更は `spec/*` ブランチで行う。** spec path（`docs/canonical/**`（`export/` を除く）と `.verify/doc/**`）は `spec/*` でだけ変え、`spec/*` では `crates/` と `tests/` を変えない。spec PR は同時に 1 本だけ。CI の `spec-guard` が検査する。詳細は `DEVELOPMENT.md` の「Specification changes」を読む。
 9. Definition of Done:

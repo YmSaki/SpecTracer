@@ -6,7 +6,6 @@ use std::{
 
 use serde::Serialize;
 use vtest_adapter_api::{AdapterRegistry, AdapterScanConfig, StructuredTestAdapter};
-use vtest_adapter_rust::RustLocator;
 use vtest_model::{
     test_subject_hash, ContentHash, Diagnostic, SourceLocation, TargetCoverageResult, TargetRef,
     TestEntity, TestRecord, TestResult, VerificationState, INTERNAL_ERROR_CODE,
@@ -100,8 +99,8 @@ pub fn create_test(
     let schema = form.schema;
     let answers = validate_form_answers(root, &schema, supplied, &scan, syntax)?;
     let test_id = select_test_id(&scan, &answers, explicit_id)?;
-    let file = destination_file(supplied)?;
-    validate_rust_file(root, &file)?;
+    let file = destination_file(supplied, syntax)?;
+    validate_source_file(root, &file, syntax)?;
     let path = root.join(Path::new(&file));
     let original = fs::read_to_string(&path)
         .map_err(|error| Diagnostic::error(INTERNAL_ERROR_CODE, error.to_string()))?;
@@ -109,7 +108,10 @@ pub fn create_test(
     syntax.check_test_construct(&rendered).map_err(|error| {
         Diagnostic::error(
             "E-OP-001",
-            format!("form rendered an invalid Rust test function: {error}"),
+            format!(
+                "form rendered an invalid {} test function: {error}",
+                syntax.language()
+            ),
         )
     })?;
     let separator = if original.is_empty() || original.ends_with("\n\n") {
@@ -124,7 +126,10 @@ pub fn create_test(
     syntax.check_source_file(&prospective).map_err(|error| {
         Diagnostic::error(
             "E-OP-001",
-            format!("test insertion would make `{file}` invalid Rust: {error}"),
+            format!(
+                "test insertion would make `{file}` invalid {}: {error}",
+                syntax.language()
+            ),
         )
     })?;
     let result = TestMutationResult {
@@ -768,7 +773,7 @@ fn validate_desired_test(
             }
             continue;
         }
-        let Some(locator) = RustLocator::parse(target).map(|parsed| parsed.to_locator()) else {
+        let Some(locator) = syntax.parse_locator(target).map(|parsed| parsed.locator) else {
             return Err(Diagnostic::error(
                 "E-OP-001",
                 format!("invalid source locator `{target}`"),
@@ -789,14 +794,19 @@ fn validate_desired_test(
     if !syntax.is_identifier(&desired.fn_name) {
         return Err(Diagnostic::error(
             "E-OP-001",
-            format!("`{}` is not a Rust identifier", desired.fn_name),
+            format!(
+                "`{}` is not a {} identifier",
+                desired.fn_name,
+                syntax.language()
+            ),
         ));
     }
     let desired_selector = desired.selector();
     if scan.sources.iter().any(|source| {
         source.location.path.as_str() == desired.file
-            && RustLocator::parse(&source.locator.value)
-                .is_some_and(|parsed| parsed.item_path == desired_selector)
+            && syntax
+                .parse_locator(&source.locator.value)
+                .is_some_and(|parsed| parsed.name == desired_selector)
             && !same_construct(&source.location, &current.location)
     }) {
         return Err(Diagnostic::error(
@@ -922,7 +932,10 @@ fn normalize_body(body: &str, syntax: &dyn StructuredTestAdapter) -> Result<Stri
     syntax.check_body(&body).map_err(|error| {
         Diagnostic::error(
             "E-OP-001",
-            format!("body file does not contain a valid Rust block: {error}"),
+            format!(
+                "body file does not contain a valid {} block: {error}",
+                syntax.language()
+            ),
         )
     })?;
     Ok(body)
@@ -1156,34 +1169,6 @@ pub fn list_tests(
     }
 }
 
-pub fn query_tests(scan: &ScanResult, source: &str) -> Result<Vec<TestEntity>, Diagnostic> {
-    let Some(locator) = RustLocator::parse(source).map(|parsed| parsed.to_locator()) else {
-        return Err(
-            Diagnostic::error("E-OP-001", format!("invalid source locator `{source}`"))
-                .with_candidates(symbol_candidates(scan, source)),
-        );
-    };
-    if !scan.sources.iter().any(|item| item.locator == locator) {
-        return Err(Diagnostic::error(
-            "E-OP-001",
-            format!("source symbol `{source}` does not exist"),
-        )
-        .with_candidates(symbol_candidates(scan, source)));
-    }
-    let mut tests = scan
-        .tests
-        .iter()
-        .filter(|test| {
-            test.targets
-                .iter()
-                .any(|target| matches!(target, TargetRef::Locator(target) if target == &locator))
-        })
-        .cloned()
-        .collect::<Vec<_>>();
-    tests.sort_by(|left, right| left.id.as_str().cmp(right.id.as_str()));
-    Ok(tests)
-}
-
 pub fn validate_form_answers(
     root: &Path,
     schema: &FormSchema,
@@ -1245,10 +1230,10 @@ fn validate_form_answers_for(
         for validator in &field.validate {
             match validator.as_str() {
                 "symbol-exists" => {
-                    validate_symbols(scan, &field.name, value, false)?;
+                    validate_symbols(scan, &field.name, value, false, syntax)?;
                 }
                 "symbols-exist" => {
-                    validate_symbols(scan, &field.name, value, true)?;
+                    validate_symbols(scan, &field.name, value, true, syntax)?;
                 }
                 "vo-exists" => {
                     for id in value.values() {
@@ -1284,16 +1269,17 @@ fn validate_form_answers_for(
                             .map(|test| &test.location)
                     });
                     let destination = if supplied.answers.contains_key("file") {
-                        destination_file(supplied)?
+                        destination_file(supplied, syntax)?
                     } else if let Some(location) = edited_location {
                         location.path.as_str().to_owned()
                     } else {
-                        destination_file(supplied)?
+                        destination_file(supplied, syntax)?
                     };
                     if scan.sources.iter().any(|source| {
                         source.location.path.as_str() == destination
-                            && RustLocator::parse(&source.locator.value)
-                                .is_some_and(|parsed| parsed.item_path == name)
+                            && syntax
+                                .parse_locator(&source.locator.value)
+                                .is_some_and(|parsed| parsed.name == name)
                             && edited_location
                                 .is_none_or(|location| !same_construct(location, &source.location))
                     }) {
@@ -1305,7 +1291,7 @@ fn validate_form_answers_for(
                 }
                 "rust-file" => {
                     let relative = scalar(value, &field.name)?;
-                    validate_rust_file(root, relative)?;
+                    validate_source_file(root, relative, syntax)?;
                 }
                 "enum-variant-exists" => {
                     validate_enum_variant(root, scalar(value, &field.name)?, syntax)?;
@@ -1599,7 +1585,7 @@ fn validate_value_shape(
     }
     match field.field_type.as_str() {
         "symbol" => {
-            if RustLocator::parse(scalar(value, &field.name)?).is_none() {
+            if syntax.parse_locator(scalar(value, &field.name)?).is_none() {
                 return Err(Diagnostic::error(
                     "E-OP-001",
                     format!("answer `{}` is not a source locator", field.name),
@@ -1610,7 +1596,7 @@ fn validate_value_shape(
             if value
                 .values()
                 .iter()
-                .any(|value| RustLocator::parse(value).is_none())
+                .any(|value| syntax.parse_locator(value).is_none())
             {
                 return Err(Diagnostic::error(
                     "E-OP-001",
@@ -1641,7 +1627,11 @@ fn validate_value_shape(
             if !syntax.is_identifier(value) {
                 return Err(Diagnostic::error(
                     "E-OP-001",
-                    format!("answer `{}` is not a Rust identifier", field.name),
+                    format!(
+                        "answer `{}` is not a {} identifier",
+                        field.name,
+                        syntax.language()
+                    ),
                 ));
             }
         }
@@ -1658,6 +1648,7 @@ fn validate_symbols(
     field: &str,
     value: &FormValue,
     expect_list: bool,
+    syntax: &dyn StructuredTestAdapter,
 ) -> Result<(), Diagnostic> {
     if expect_list != matches!(value, FormValue::List(_)) {
         return Err(Diagnostic::error(
@@ -1666,7 +1657,7 @@ fn validate_symbols(
         ));
     }
     for symbol in value.values() {
-        let Some(locator) = RustLocator::parse(symbol).map(|parsed| parsed.to_locator()) else {
+        let Some(locator) = syntax.parse_locator(symbol).map(|parsed| parsed.locator) else {
             return Err(Diagnostic::error(
                 "E-OP-001",
                 format!("invalid source locator `{symbol}`"),
@@ -1694,13 +1685,17 @@ fn scalar<'a>(value: &'a FormValue, field: &str) -> Result<&'a str, Diagnostic> 
     }
 }
 
-fn destination_file(answers: &FormAnswers) -> Result<String, Diagnostic> {
+fn destination_file(
+    answers: &FormAnswers,
+    syntax: &dyn StructuredTestAdapter,
+) -> Result<String, Diagnostic> {
     if let Some(value) = answers.answers.get("file") {
         return scalar(value, "file").map(|value| value.replace('\\', "/"));
     }
     if let Some(value) = answers.answers.get("target") {
-        return RustLocator::parse(scalar(value, "target")?)
-            .map(|locator| locator.path)
+        return syntax
+            .parse_locator(scalar(value, "target")?)
+            .map(|locator| locator.file)
             .ok_or_else(|| Diagnostic::error("E-OP-001", "target is not a locator"));
     }
     Err(Diagnostic::error(
@@ -1709,7 +1704,13 @@ fn destination_file(answers: &FormAnswers) -> Result<String, Diagnostic> {
     ))
 }
 
-fn validate_rust_file(root: &Path, relative: &str) -> Result<(), Diagnostic> {
+fn validate_source_file(
+    root: &Path,
+    relative: &str,
+    syntax: &dyn StructuredTestAdapter,
+) -> Result<(), Diagnostic> {
+    let language = syntax.language();
+    let extension = syntax.source_extension();
     let relative_path = Path::new(relative);
     if relative_path.is_absolute()
         || relative_path.components().any(|component| {
@@ -1718,18 +1719,18 @@ fn validate_rust_file(root: &Path, relative: &str) -> Result<(), Diagnostic> {
                 Component::ParentDir | Component::RootDir | Component::Prefix(_)
             )
         })
-        || relative_path.extension().and_then(|value| value.to_str()) != Some("rs")
+        || relative_path.extension().and_then(|value| value.to_str()) != Some(extension)
     {
         return Err(Diagnostic::error(
             "E-OP-001",
-            format!("Rust file must be a project-relative .rs path: `{relative}`"),
+            format!("{language} file must be a project-relative .{extension} path: `{relative}`"),
         ));
     }
     let path = root.join(relative_path);
     if !path.is_file() {
         return Err(Diagnostic::error(
             "E-OP-001",
-            format!("Rust file does not exist: `{relative}`"),
+            format!("{language} file does not exist: `{relative}`"),
         ));
     }
     let config = load_config(root).map_err(config_load_diagnostic)?;
@@ -1738,7 +1739,7 @@ fn validate_rust_file(root: &Path, relative: &str) -> Result<(), Diagnostic> {
     // adapters list内の各entryの妥当性を指す並列項目であり、「listが
     // 空である」ことの読みには当てはまらない — `adapter_scan_includes`
     // のdoc commentを参照）。しかし `Diagnostic` はコードを必須とするため
-    // 「コードなし」は表現できない。ここは `validate_rust_file` という
+    // 「コードなし」は表現できない。ここは `validate_source_file` という
     // Structured Operation 候補検証の一部であり、この関数の他の全ての
     // 拒否と同じくE-OP-001（本冊:1641「Structured Operationの入力検証
     // 失敗」、別紙A:541「`rust-file` \| ... \| E-OP-001＋候補」）を使う。
@@ -1750,7 +1751,9 @@ fn validate_rust_file(root: &Path, relative: &str) -> Result<(), Diagnostic> {
     {
         return Err(Diagnostic::error(
             "E-OP-001",
-            format!("Rust file is outside every registered adapter's scan.include: `{relative}`"),
+            format!(
+                "{language} file is outside every registered adapter's scan.include: `{relative}`"
+            ),
         ));
     }
     let canonical_root = fs::canonicalize(root)
@@ -1760,7 +1763,7 @@ fn validate_rust_file(root: &Path, relative: &str) -> Result<(), Diagnostic> {
     if !canonical_path.starts_with(&canonical_root) {
         return Err(Diagnostic::error(
             "E-OP-001",
-            format!("Rust file resolves outside the project: `{relative}`"),
+            format!("{language} file resolves outside the project: `{relative}`"),
         ));
     }
     Ok(())
@@ -1779,7 +1782,7 @@ fn validate_enum_variant(
         return Ok(());
     }
     let config = load_config(root).map_err(config_load_diagnostic)?;
-    // レビュー round 2 項目【F】: `validate_rust_file` と同じ理由（上記の
+    // レビュー round 2 項目【F】: `validate_source_file` と同じ理由（上記の
     // doc comment を参照）。ここは `enum-variant-exists` 候補検証の一部
     // であり、この関数の他の全ての拒否と同じくE-OP-001（本冊:1641、
     // 別紙A:539「`enum-variant-exists` \| ... \| E-OP-001＋候補」）を使う。
@@ -1787,7 +1790,7 @@ fn validate_enum_variant(
         adapter_scan_includes(&config).map_err(|error| Diagnostic::error("E-OP-001", error))?;
     let mut files = Vec::new();
     for include in includes {
-        collect_rust_files(&root.join(include), &mut files);
+        files.extend(syntax.source_files(&root.join(include)));
     }
     files.sort();
     files.dedup();
@@ -1816,46 +1819,12 @@ fn validate_enum_variant(
     )
 }
 
-// PR #26 review round 3 要確認C-1: この `read_dir`/`entries.flatten()` は
-// `d423f8a` が `vtest-scan::validate_relations`/`validate_approval_status`
-// で塞いだのと同じ形の I/O fail-open（ディレクトリが開けない、または列挙中
-// に個々の `DirEntry` が `Err` を返すと、そのディレクトリ／エントリを
-// 無診断でスキップする）だが、意図的に塞いでいない: 呼び出し元
-// `validate_enum_variant` は `type_name` の Rust 識別子としての妥当性
-// チェック（1445-1448行）や adapter の `enum_variants` による parse 失敗も同じ
-// 「見つけられなければ検証をスキップし `Ok(())` を返す」扱いを既にしており
-// （1474行 `variants.is_empty()`）、これは `enum-variant-exists` Structured
-// Operation 入力検証のベストエフォート設計そのもの — I/O 失敗だけを
-// fail-closed にしても、識別子形式や parse 失敗という他の「見つからない」
-// 経路はそのまま素通りするので非対称は解消しない。影響範囲も、この関数の
-// 裁定（chain_integrity・検証状態）ではなく、`vtest scan enum-variant-exists`
-// 単体の Structured Operation 入力検証（本冊:1641、別紙A:539）に留まる:
-// I/O 失敗時に本来出すべき E-OP-001（不正な値）が見逃され得るが、それ以上
-// 状態が壊れることはない。塞ぐなら `validate_enum_variant` 全体の
-// 「見つからなければ受理する」設計を Owner 裁定で見直す必要があり、この
-// 箇所だけを個別に fail-closed にするのは非対称を悪化させるため見送った。
-fn collect_rust_files(directory: &Path, files: &mut Vec<std::path::PathBuf>) {
-    let Ok(entries) = fs::read_dir(directory) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            if path.file_name().and_then(|value| value.to_str()) != Some("target") {
-                collect_rust_files(&path, files);
-            }
-        } else if path.extension().and_then(|value| value.to_str()) == Some("rs") {
-            files.push(path);
-        }
-    }
-}
-
 fn symbol_candidates(scan: &ScanResult, requested: &str) -> Vec<String> {
     let item = requested
         .rsplit_once("::")
         .map_or(requested, |(_, item)| item);
     // `source.locator.value` は `rust-cargo` の場合 `<path>::<item_path>`
-    // で、`path` 自体は `::` を含まない（`RustLocator::parse`）ため、opaque
+    // で、`path` 自体は `::` を含まない（adapter の locator 構文）ため、opaque
     // な `value` 全体を末尾の `::` で分割しても `item_path` の末尾要素と
     // 一致する。この関数は候補表示用のあいまい一致であり、value の内部
     // 構文を core の判定条件として使ってはいない（PR3 canonical化の範囲外、

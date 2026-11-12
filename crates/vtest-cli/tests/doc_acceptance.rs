@@ -87,7 +87,7 @@ fn update_command(id: &str, path: &str) -> Command {
 
 /// @vtest.id TEST-DOC-ADD-REGISTERS
 /// @vtest.covers VO-DOC-ADD-REGISTERS-NODE-TREE
-/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.target crates/vtest-ops/src/doc.rs::add
 /// @vtest.intent doc add registers a --path node-tree file as one document and writes .verify/doc/<id>.json
 #[test]
 fn add_registers_a_document_and_exits_ok() {
@@ -105,7 +105,7 @@ fn add_registers_a_document_and_exits_ok() {
 /// A second `add` for the same id without `--update` is a usage rejection.
 /// @vtest.id TEST-DOC-ADD-DUPLICATE-ID
 /// @vtest.covers VO-DOC-ADD-UPDATE-PARTITION
-/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.target crates/vtest-ops/src/doc.rs::add
 /// @vtest.intent a second add for the same id without --update is a usage rejection
 #[test]
 fn add_of_an_existing_id_without_update_is_a_usage_error() {
@@ -120,7 +120,7 @@ fn add_of_an_existing_id_without_update_is_a_usage_error() {
 /// `--update` on an id that was never registered is a usage rejection.
 /// @vtest.id TEST-DOC-UPDATE-UNREGISTERED-ID
 /// @vtest.covers VO-DOC-ADD-UPDATE-PARTITION
-/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.target crates/vtest-ops/src/doc.rs::add
 /// @vtest.intent --update on an id that was never registered is a usage rejection
 #[test]
 fn update_of_an_unregistered_id_is_a_usage_error() {
@@ -137,7 +137,7 @@ fn update_of_an_unregistered_id_is_a_usage_error() {
 /// content_hash (computed live, DES-595) reflects the new content.
 /// @vtest.id TEST-DOC-UPDATE-RECOMPUTES-HASH
 /// @vtest.covers VO-DOC-UPDATE-RECOMPUTES-HASH
-/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.target crates/vtest-ops/src/doc.rs::add
 /// @vtest.intent --update re-reads the current node-tree file so doc show's content reflects the new content
 #[test]
 fn update_recomputes_content_hash_from_the_current_file() {
@@ -155,7 +155,7 @@ fn update_recomputes_content_hash_from_the_current_file() {
     assert_eq!(update, ExitCode::Ok);
 
     let layout = vtest_store::VerifyLayout::new(&root);
-    let view = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
+    let view = vtest_ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
     assert_eq!(view.view.file.root[0].statement, "fixture root, changed");
 }
 
@@ -163,7 +163,7 @@ fn update_recomputes_content_hash_from_the_current_file() {
 /// rejected (an internal store-layer error, not a silently-written record).
 /// @vtest.id TEST-DOC-ADD-INVALID-NODE-TREE
 /// @vtest.covers VO-DOC-ADD-REGISTERS-NODE-TREE
-/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.target crates/vtest-ops/src/doc.rs::add
 /// @vtest.intent a --path that does not resolve to a valid node-tree JSON file is rejected and writes no record
 #[test]
 fn add_with_an_invalid_node_tree_file_does_not_write_a_record() {
@@ -196,7 +196,7 @@ fn show_of_an_unregistered_id_is_a_usage_error() {
 /// `list` after two registrations succeeds and exits 0.
 /// @vtest.id TEST-DOC-LIST-AFTER-REGISTRATIONS
 /// @vtest.covers VO-DOC-LIST-OUTPUTS-DOCUMENT-RECORDS
-/// @vtest.target crates/vtest-cli/src/ops/doc.rs::list
+/// @vtest.target crates/vtest-ops/src/doc.rs::list
 /// @vtest.intent doc list after two registrations succeeds and exits 0
 #[test]
 fn list_after_registrations_exits_ok() {
@@ -227,7 +227,7 @@ fn list_after_registrations_exits_ok() {
 /// 適用" (PR #49, `24c3cbe`).
 /// @vtest.id TEST-DOC-DERIVES-FROM-TOP-LEVEL
 /// @vtest.covers VO-DOC-ADD-DERIVES-FROM-TOP-LEVEL-EDGE
-/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.target crates/vtest-ops/src/doc.rs::add
 /// @vtest.intent --derives-from writes onto every top-level node's own derives_from
 #[test]
 fn derives_from_writes_onto_every_top_level_node() {
@@ -254,7 +254,7 @@ fn derives_from_writes_onto_every_top_level_node() {
     assert_eq!(exit, ExitCode::Ok);
 
     let layout = vtest_store::VerifyLayout::new(&root);
-    let view = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
+    let view = vtest_ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
     assert_eq!(
         view.view.file.request[0].derives_from,
         vec![vtest_model::DocumentId::new("ROOT-001")]
@@ -270,7 +270,7 @@ fn derives_from_writes_onto_every_top_level_node() {
 /// different existing value the new `--derives-from` call must overwrite.
 /// @vtest.id TEST-DOC-DERIVES-FROM-REPLACE-UNIFORM
 /// @vtest.covers VO-DOC-DERIVES-FROM-REPLACES-EXISTING, VO-DOC-DERIVES-FROM-APPLIES-ALL-TOP-LEVEL-NODES
-/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.target crates/vtest-ops/src/doc.rs::add
 /// @vtest.intent --derives-from replaces each top-level node's existing derives_from and applies uniformly across multiple nodes
 #[test]
 fn derives_from_replaces_and_applies_uniformly_across_multiple_nodes() {
@@ -300,7 +300,7 @@ fn derives_from_replaces_and_applies_uniformly_across_multiple_nodes() {
     assert_eq!(exit, ExitCode::Ok);
 
     let layout = vtest_store::VerifyLayout::new(&root);
-    let view = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
+    let view = vtest_ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
     let expected = vec![vtest_model::DocumentId::new("ROOT-999")];
     assert_eq!(
         view.view.file.request[0].derives_from, expected,
@@ -319,7 +319,7 @@ fn derives_from_replaces_and_applies_uniformly_across_multiple_nodes() {
 /// silent no-op (PR #49, `24c3cbe`).
 /// @vtest.id TEST-DOC-DERIVES-FROM-ROOT-ONLY
 /// @vtest.covers VO-DOC-DERIVES-FROM-ROOT-ONLY-REJECTED
-/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.target crates/vtest-ops/src/doc.rs::add
 /// @vtest.intent --derives-from on a document whose content is entirely root[] is a usage rejection, since RootNode has no derives_from field
 #[test]
 fn derives_from_on_a_root_only_document_is_a_usage_error() {
@@ -349,7 +349,7 @@ fn derives_from_on_a_root_only_document_is_a_usage_error() {
 /// dispatch to.
 /// @vtest.id TEST-DOC-DERIVES-FROM-NONE-VS-EMPTY
 /// @vtest.covers VO-DOC-DERIVES-FROM-NONE-VS-EMPTY
-/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.target crates/vtest-ops/src/doc.rs::add
 /// @vtest.intent derives_from: None leaves an existing derives_from untouched on --update, while Some(empty) clears it
 #[test]
 fn derives_from_none_vs_some_empty_are_distinct_on_update() {
@@ -367,10 +367,10 @@ fn derives_from_none_vs_some_empty_are_distinct_on_update() {
     fs::write(root.join("basic-spec.json"), &with_request).expect("write source file");
     let layout = vtest_store::VerifyLayout::new(&root);
 
-    vtest_cli::ops::doc::add(
+    vtest_ops::doc::add(
         &root,
         &layout,
-        vtest_cli::ops::doc::AddArgs {
+        vtest_ops::doc::AddArgs {
             id: "DOC-BASIC-001".to_owned(),
             path: "basic-spec.json".to_owned(),
             derives_from: None,
@@ -382,10 +382,10 @@ fn derives_from_none_vs_some_empty_are_distinct_on_update() {
     .expect("initial add must succeed");
 
     // `--update` with `derives_from: None` must leave it untouched.
-    vtest_cli::ops::doc::add(
+    vtest_ops::doc::add(
         &root,
         &layout,
-        vtest_cli::ops::doc::AddArgs {
+        vtest_ops::doc::AddArgs {
             id: "DOC-BASIC-001".to_owned(),
             path: "basic-spec.json".to_owned(),
             derives_from: None,
@@ -395,7 +395,7 @@ fn derives_from_none_vs_some_empty_are_distinct_on_update() {
         },
     )
     .expect("update with derives_from: None must succeed");
-    let after_none = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show");
+    let after_none = vtest_ops::doc::show(&layout, "DOC-BASIC-001").expect("show");
     assert_eq!(
         after_none.view.file.request[0].derives_from,
         vec![vtest_model::DocumentId::new("ROOT-001")],
@@ -403,10 +403,10 @@ fn derives_from_none_vs_some_empty_are_distinct_on_update() {
     );
 
     // `--update` with `derives_from: Some(&[])` must clear it.
-    vtest_cli::ops::doc::add(
+    vtest_ops::doc::add(
         &root,
         &layout,
-        vtest_cli::ops::doc::AddArgs {
+        vtest_ops::doc::AddArgs {
             id: "DOC-BASIC-001".to_owned(),
             path: "basic-spec.json".to_owned(),
             derives_from: Some(Vec::new()),
@@ -416,7 +416,7 @@ fn derives_from_none_vs_some_empty_are_distinct_on_update() {
         },
     )
     .expect("update with derives_from: Some(empty) must succeed");
-    let after_empty = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show");
+    let after_empty = vtest_ops::doc::show(&layout, "DOC-BASIC-001").expect("show");
     assert!(
         after_empty.view.file.request[0].derives_from.is_empty(),
         "derives_from: Some(empty) must clear the existing value, not leave it untouched"
@@ -432,7 +432,7 @@ fn derives_from_none_vs_some_empty_are_distinct_on_update() {
 /// for every one, and `None` (no comparison target) for freshness.
 /// @vtest.id TEST-DOC-SHOW-FRESHNESS-AND-APPROVAL-STATES
 /// @vtest.covers VO-DOC-SHOW-FRESHNESS-AND-APPROVAL-STATES
-/// @vtest.target crates/vtest-cli/src/ops/doc.rs::show
+/// @vtest.target crates/vtest-ops/src/doc.rs::show
 /// @vtest.intent doc show reports freshness None and approval_states draft for a node with no Approval record
 #[test]
 fn show_reports_freshness_and_per_node_approval_states() {
@@ -444,7 +444,7 @@ fn show_reports_freshness_and_per_node_approval_states() {
     );
 
     let layout = vtest_store::VerifyLayout::new(&root);
-    let result = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
+    let result = vtest_ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
     assert_eq!(
         result.freshness.get("ROOT-001").copied(),
         Some(None),
@@ -468,7 +468,7 @@ fn show_reports_freshness_and_per_node_approval_states() {
 /// approval *subject* itself.
 /// @vtest.id TEST-DOC-SHOW-FRESHNESS-FRESH
 /// @vtest.covers VO-DOC-SHOW-FRESHNESS-FRESH
-/// @vtest.target crates/vtest-cli/src/ops/doc.rs::show
+/// @vtest.target crates/vtest-ops/src/doc.rs::show
 /// @vtest.intent a node id listed with a matching hash in an approval's dependency closure reads freshness Some(true)
 #[test]
 fn show_reports_fresh_when_a_dependency_entry_matches_the_current_hash() {
@@ -509,9 +509,9 @@ fn show_reports_fresh_when_a_dependency_entry_matches_the_current_hash() {
     )
     .expect("write VO record");
 
-    vtest_cli::ops::approval::create(
+    vtest_ops::approval::create(
         &layout,
-        vtest_cli::ops::approval::CreateArgs {
+        vtest_ops::approval::CreateArgs {
             subject_type: "vo".to_owned(),
             subject_id: "VO-FRESHNESS-CHECK".to_owned(),
             approved_state: "approved".to_owned(),
@@ -524,7 +524,7 @@ fn show_reports_fresh_when_a_dependency_entry_matches_the_current_hash() {
     )
     .expect("approval create must succeed against a resolvable VO subject");
 
-    let result = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
+    let result = vtest_ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
     assert_eq!(
         result.freshness.get("ROOT-001").copied(),
         Some(Some(true)),
@@ -543,7 +543,7 @@ fn show_reports_fresh_when_a_dependency_entry_matches_the_current_hash() {
 /// is now stale relative to the node it names.
 /// @vtest.id TEST-DOC-SHOW-FRESHNESS-STALE
 /// @vtest.covers VO-DOC-SHOW-FRESHNESS-STALE
-/// @vtest.target crates/vtest-cli/src/ops/doc.rs::show
+/// @vtest.target crates/vtest-ops/src/doc.rs::show
 /// @vtest.intent a node whose current subject hash no longer matches an approval's recorded dependency hash reads freshness Some(false)
 #[test]
 fn show_reports_stale_when_a_dependency_entry_no_longer_matches() {
@@ -583,9 +583,9 @@ fn show_reports_stale_when_a_dependency_entry_no_longer_matches() {
         },
     )
     .expect("write VO record");
-    vtest_cli::ops::approval::create(
+    vtest_ops::approval::create(
         &layout,
-        vtest_cli::ops::approval::CreateArgs {
+        vtest_ops::approval::CreateArgs {
             subject_type: "vo".to_owned(),
             subject_id: "VO-FRESHNESS-STALE".to_owned(),
             approved_state: "approved".to_owned(),
@@ -611,7 +611,7 @@ fn show_reports_stale_when_a_dependency_entry_no_longer_matches() {
         ExitCode::Ok
     );
 
-    let result = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
+    let result = vtest_ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
     assert_eq!(
         result.freshness.get("ROOT-001").copied(),
         Some(Some(false)),
@@ -630,7 +630,7 @@ fn show_reports_stale_when_a_dependency_entry_no_longer_matches() {
 /// up nested `items`/`sections` children too).
 /// @vtest.id TEST-DOC-SHOW-EXCLUDES-SECTION-ITEMS
 /// @vtest.covers VO-DOC-SHOW-FRESHNESS-AND-APPROVAL-STATES
-/// @vtest.target crates/vtest-cli/src/ops/doc.rs::show
+/// @vtest.target crates/vtest-ops/src/doc.rs::show
 /// @vtest.intent approval_states and freshness contain exactly the document's top-level node ids, not nested section item children
 #[test]
 fn show_states_and_freshness_exclude_section_item_children() {
@@ -644,7 +644,7 @@ fn show_states_and_freshness_exclude_section_item_children() {
     );
 
     let layout = vtest_store::VerifyLayout::new(&root);
-    let result = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
+    let result = vtest_ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
 
     let approval_keys: std::collections::BTreeSet<&str> =
         result.approval_states.keys().map(String::as_str).collect();
@@ -670,7 +670,7 @@ fn show_states_and_freshness_exclude_section_item_children() {
 /// not convert a non-root node into one.
 /// @vtest.id TEST-DOC-ROOT-FLAG-ACCEPTS-ALL-ROOT
 /// @vtest.covers VO-DOC-ROOT-FLAG-LAYER-VALIDATION
-/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.target crates/vtest-ops/src/doc.rs::add
 /// @vtest.intent --root succeeds when the source file's top-level content is entirely root[]
 #[test]
 fn root_flag_accepts_a_source_file_that_is_already_all_root() {
@@ -691,7 +691,7 @@ fn root_flag_accepts_a_source_file_that_is_already_all_root() {
     assert_eq!(exit, ExitCode::Ok);
 
     let layout = vtest_store::VerifyLayout::new(&root);
-    let view = vtest_cli::ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
+    let view = vtest_ops::doc::show(&layout, "DOC-BASIC-001").expect("show must succeed");
     assert!(view.view.is_root);
 }
 
@@ -701,7 +701,7 @@ fn root_flag_accepts_a_source_file_that_is_already_all_root() {
 /// move it into `root[]` without fabricating it a `ROOT-…` id.
 /// @vtest.id TEST-DOC-ROOT-FLAG-NON-ROOT-LAYER
 /// @vtest.covers VO-DOC-ROOT-FLAG-LAYER-VALIDATION
-/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.target crates/vtest-ops/src/doc.rs::add
 /// @vtest.intent --root is rejected against a source file whose top-level content is a non-root layer
 #[test]
 fn root_flag_on_a_non_root_layer_document_is_a_usage_error() {
@@ -734,7 +734,7 @@ fn root_flag_on_a_non_root_layer_document_is_a_usage_error() {
 /// that assertion).
 /// @vtest.id TEST-DOC-NO-ROOT-FLAG-NOOP
 /// @vtest.covers VO-DOC-NO-ROOT-FLAG-NOOP
-/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.target crates/vtest-ops/src/doc.rs::add
 /// @vtest.intent --no-root against a source file whose root[] is non-empty succeeds identically to omitting both flags
 #[test]
 fn no_root_flag_is_a_no_op_identical_to_omitting_both_flags() {
@@ -761,7 +761,7 @@ fn no_root_flag_is_a_no_op_identical_to_omitting_both_flags() {
 /// `--update` to also change root designation).
 /// @vtest.id TEST-DOC-ROOT-FLAG-WITH-UPDATE
 /// @vtest.covers VO-DOC-ROOT-FIXED-AFTER-REGISTRATION, VO-DOC-ROOT-DESIGNATION-AT-ADD
-/// @vtest.target crates/vtest-cli/src/ops/doc.rs::add
+/// @vtest.target crates/vtest-ops/src/doc.rs::add
 /// @vtest.intent --root or --no-root combined with --update is a usage rejection, since root designation is fixed at initial registration only
 #[test]
 fn root_flag_combined_with_update_is_a_usage_error() {
@@ -837,7 +837,7 @@ fn list_tree_renders_a_nested_derives_from_tree() {
     );
 
     let layout = vtest_store::VerifyLayout::new(&root);
-    let result = vtest_cli::ops::doc::list(&layout).expect("list must succeed");
+    let result = vtest_ops::doc::list(&layout).expect("list must succeed");
     // `render_doc_tree` is exactly the rendering `doc list --tree` uses on
     // this same resolved document-level chain (see `render_doc_list_text`).
     let rendered = vtest_cli::render_doc_tree(&result.document_chain);
@@ -879,7 +879,7 @@ fn list_tree_does_not_drop_a_document_reachable_only_through_a_cycle() {
 /// set.
 /// @vtest.id TEST-DOC-LIST-ROOTS
 /// @vtest.covers VO-DOC-LIST-ROOTS
-/// @vtest.target crates/vtest-cli/src/ops/doc.rs::list
+/// @vtest.target crates/vtest-ops/src/doc.rs::list
 /// @vtest.intent doc list --roots lists the current root[]-layer document set
 #[test]
 fn list_roots_lists_the_current_root_set() {
@@ -891,7 +891,7 @@ fn list_roots_lists_the_current_root_set() {
     );
 
     let layout = vtest_store::VerifyLayout::new(&root);
-    let result = vtest_cli::ops::doc::list(&layout).expect("list must succeed");
+    let result = vtest_ops::doc::list(&layout).expect("list must succeed");
     let roots: Vec<_> = result
         .records
         .iter()
@@ -909,7 +909,7 @@ fn list_roots_lists_the_current_root_set() {
 /// fixture's own construction, independent of the function under test.
 /// @vtest.id TEST-DOC-LIST-FRESHNESS-VALUES
 /// @vtest.covers VO-DOC-SHOW-FRESHNESS-VALUES, VO-DOC-LIST-GET-DOCUMENT-FRESHNESS
-/// @vtest.target crates/vtest-cli/src/ops/doc.rs::list
+/// @vtest.target crates/vtest-ops/src/doc.rs::list
 /// @vtest.intent doc list's freshness field carries hand-derived expected per-node values, not merely internal self-consistency
 #[test]
 fn list_reports_the_expected_freshness_values_per_document() {
@@ -932,7 +932,7 @@ fn list_reports_the_expected_freshness_values_per_document() {
 
     // No Approval record exists yet: every node must have no comparison
     // target (None), not Some(true)/Some(false).
-    let before = vtest_cli::ops::doc::list(&layout).expect("list must succeed");
+    let before = vtest_ops::doc::list(&layout).expect("list must succeed");
     assert_eq!(
         before.freshness.get("DOC-BASIC-001"),
         Some(&std::collections::BTreeMap::from([
@@ -965,9 +965,9 @@ fn list_reports_the_expected_freshness_values_per_document() {
         },
     )
     .expect("write VO record");
-    vtest_cli::ops::approval::create(
+    vtest_ops::approval::create(
         &layout,
-        vtest_cli::ops::approval::CreateArgs {
+        vtest_ops::approval::CreateArgs {
             subject_type: "vo".to_owned(),
             subject_id: "VO-LIST-FRESHNESS".to_owned(),
             approved_state: "approved".to_owned(),
@@ -980,7 +980,7 @@ fn list_reports_the_expected_freshness_values_per_document() {
     )
     .expect("approval create must succeed against a resolvable VO subject");
 
-    let after = vtest_cli::ops::doc::list(&layout).expect("list must succeed");
+    let after = vtest_ops::doc::list(&layout).expect("list must succeed");
     assert_eq!(
         after.freshness.get("DOC-BASIC-001"),
         Some(&std::collections::BTreeMap::from([

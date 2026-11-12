@@ -304,9 +304,9 @@ fn parse_cargo_result(output: &str, selector: &str) -> RunnerTestResult {
 /// parse・正規化は本冊:522「coreがpath、module、symbol種別を分解しない」
 /// により core（`vtest-model`・`vtest-scan`）に置かない。core が保持する
 /// のは常に `vtest_model::Locator { adapter, value }` の opaque な
-/// `value` 文字列だけであり、`RustLocator` はこの adapter とその呼び出し元
-/// （`vtest-scan::operations` の symbol 検証・編集操作。canonical化は
-/// PR3 の範囲外、`pr3-decisions.md`「保留中の論点」）だけが使う。
+/// `value` 文字列だけであり、`RustLocator` はこの adapter だけが使う。core
+/// の Structured Test Operation は `StructuredTestAdapter::parse_locator`
+/// （`structured_test.rs`）を通して問い合わせる。
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RustLocator {
     pub path: String,

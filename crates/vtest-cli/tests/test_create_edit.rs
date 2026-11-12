@@ -138,7 +138,7 @@ fn create(root: &Path, dry_run: bool) -> serde_json::Value {
 
 /// @vtest.id TEST-CLI-TEST-CREATE-DRY-RUN-NO-WRITE
 /// @vtest.covers VO-TEST-OP-CREATE-DRY-RUN-NO-WRITE, VO-TEST-OP-CREATE-OUTPUT
-/// @vtest.target crates/vtest-cli/src/ops/test_op.rs::create
+/// @vtest.target crates/vtest-ops/src/test_op.rs::create
 /// @vtest.intent test create --dry-run reports the generated Test ID, insertion position and diff and leaves every file unchanged
 #[test]
 fn create_dry_run_reports_the_insertion_and_writes_nothing() {
@@ -168,7 +168,7 @@ fn create_dry_run_reports_the_insertion_and_writes_nothing() {
 
 /// @vtest.id TEST-CLI-TEST-CREATE-SCAN-RECOGNIZES-RESULT
 /// @vtest.covers VO-TEST-OP-CREATE-SCAN-RECOGNIZED
-/// @vtest.target crates/vtest-cli/src/ops/test_op.rs::create
+/// @vtest.target crates/vtest-ops/src/test_op.rs::create
 /// @vtest.intent a Test written by test create is discovered by the next scan with the same Test ID, covers and target
 #[test]
 fn created_test_is_recognized_by_scan() {
@@ -200,7 +200,7 @@ fn created_test_is_recognized_by_scan() {
 
 /// @vtest.id TEST-CLI-TEST-EDIT-SET-IDEMPOTENT
 /// @vtest.covers VO-TEST-OP-EDIT-SET-NAMED-FIELDS, VO-TEST-OP-EDIT-IDEMPOTENT, VO-TEST-OP-EDIT-OUTPUT
-/// @vtest.target crates/vtest-cli/src/ops/test_op.rs::edit
+/// @vtest.target crates/vtest-ops/src/test_op.rs::edit
 /// @vtest.intent test edit --set changes only the named field with a diff, and re-applying the same desired state changes nothing
 #[test]
 fn edit_set_changes_only_the_named_field_and_is_idempotent() {
@@ -258,7 +258,7 @@ fn edit_set_changes_only_the_named_field_and_is_idempotent() {
 
 /// @vtest.id TEST-CLI-TEST-OP-REJECTION-NO-WRITE
 /// @vtest.covers VO-TEST-OP-ANSWER-ERROR-E-OP-001
-/// @vtest.target crates/vtest-cli/src/ops/test_op.rs::create
+/// @vtest.target crates/vtest-ops/src/test_op.rs::create
 /// @vtest.intent an invalid answer is rejected as E-OP-001 with exit 2 and no data, and an unknown Test ID for edit is E-OP-002, both without writing
 #[test]
 fn rejected_operations_exit_two_and_write_nothing() {
@@ -320,7 +320,7 @@ fn edit(root: &Path, args: &[&str]) -> serde_json::Value {
 
 /// @vtest.id TEST-CLI-TEST-EDIT-IN-MODULE-TEST
 /// @vtest.covers VO-TEST-OP-EDIT-SET-NAMED-FIELDS
-/// @vtest.target crates/vtest-cli/src/ops/test_op.rs::edit
+/// @vtest.target crates/vtest-ops/src/test_op.rs::edit
 /// @vtest.intent test edit --set on a Test inside `#[cfg(test)] mod tests` changes only the named field, and a fn_name rename keeps the Test in its module
 #[test]
 fn edit_set_works_on_a_test_inside_a_module() {
@@ -364,7 +364,7 @@ fn edit_set_works_on_a_test_inside_a_module() {
 
 /// @vtest.id TEST-CLI-TEST-EDIT-SRC-ID-TARGET
 /// @vtest.covers VO-TEST-OP-EDIT-SET-NAMED-FIELDS
-/// @vtest.target crates/vtest-cli/src/ops/test_op.rs::edit
+/// @vtest.target crates/vtest-ops/src/test_op.rs::edit
 /// @vtest.intent test edit --set on a Test whose target is a permanent SRC ID keeps the SRC-ADD spelling and changes only the named field, and an undeclared SRC ID is E-OP-001 with no write
 #[test]
 fn edit_set_keeps_a_permanent_src_id_target() {
@@ -420,7 +420,7 @@ fn edit_set_keeps_a_permanent_src_id_target() {
 
 /// @vtest.id TEST-CLI-TEST-EDIT-BODY-NON-ASCII-LINE
 /// @vtest.covers VO-TEST-OP-EDIT-BODY-FILE
-/// @vtest.target crates/vtest-cli/src/ops/test_op.rs::edit
+/// @vtest.target crates/vtest-ops/src/test_op.rs::edit
 /// @vtest.intent test edit --body-file replaces the whole body of a one-line Test whose line holds a Japanese literal, leaving its metadata and the rest of the file unchanged
 #[test]
 fn edit_body_file_replaces_a_one_line_body_with_non_ascii_text() {
@@ -456,7 +456,7 @@ fn edit_body_file_replaces_a_one_line_body_with_non_ascii_text() {
 
 /// @vtest.id TEST-CLI-INIT-WRITES-ADAPTER-BUILT-IN-FORMS
 /// @vtest.covers VO-STORE-INIT-PROJECT-CANONICAL-LAYOUT, VO-FORM-KIND-UNIQUE-OWNER-DECLARED
-/// @vtest.target crates/vtest-cli/src/ops/init.rs::execute
+/// @vtest.target crates/vtest-ops/src/init.rs::execute
 /// @vtest.intent vtest init writes the registered adapter's built-in Form Schemas into .verify/forms/, each declaring its owner adapter
 #[test]
 fn init_writes_the_adapters_built_in_forms_with_their_owner() {

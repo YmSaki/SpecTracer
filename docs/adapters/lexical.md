@@ -97,7 +97,7 @@ Its `extract` function reads one file by that language's own rules and returns
 
 The crate root does the rest for every language: it walks the include paths,
 parses the `@vtest.` lines, reports their diagnostics, and builds Drafts and
-Locators. The composition root (`crates/vtest-cli/src/adapters.rs`, BD-007 /
+Locators. The composition root (`crates/vtest-ops/src/registry.rs`, BD-007 /
 BD-102) injects each profile as `LexicalAdapter::new(Profile)`.
 
 Each language reads its comments and strings and decides where a declaration

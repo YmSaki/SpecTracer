@@ -118,7 +118,7 @@ fn cli(root: &std::path::Path, command: Command) -> Cli {
 /// coverage happens to exercise).
 /// @vtest.id TEST-ACCEPTANCE-18-3-7-AGENT-APPROVER
 /// @vtest.covers VO-APPROVAL-APPROVER-KIND-DOMAIN
-/// @vtest.target crates/vtest-cli/src/ops/approval.rs::show
+/// @vtest.target crates/vtest-ops/src/approval.rs::show
 /// @vtest.intent an agent-kind approver is recorded and drives effective state identically to a human one
 #[test]
 fn an_agent_approver_is_traceable_and_drives_effective_state() {
@@ -140,7 +140,7 @@ fn an_agent_approver_is_traceable_and_drives_effective_state() {
     assert_eq!(exit, ExitCode::Ok);
 
     let layout = vtest_store::VerifyLayout::new(&root);
-    let result = vtest_cli::ops::approval::show(&layout, "vo", "VO-ACCEPTANCE-18-3-7")
+    let result = vtest_ops::approval::show(&layout, "vo", "VO-ACCEPTANCE-18-3-7")
         .expect("show must succeed");
     assert_eq!(
         result.effective_state,
@@ -160,7 +160,7 @@ fn an_agent_approver_is_traceable_and_drives_effective_state() {
 /// that field.
 /// @vtest.id TEST-ACCEPTANCE-18-3-7-WITHDRAWAL-STATE
 /// @vtest.covers VO-APPROVAL-EFFECTIVE-STATE-FROM-APPROVED-STATE
-/// @vtest.target crates/vtest-cli/src/ops/approval.rs::withdraw
+/// @vtest.target crates/vtest-ops/src/approval.rs::withdraw
 /// @vtest.intent effective approval state falls back to draft once approved_state no longer resolves to an all-approved set after withdrawal
 #[test]
 fn effective_state_tracks_approved_state_across_a_withdrawal() {
@@ -168,9 +168,9 @@ fn effective_state_tracks_approved_state_across_a_withdrawal() {
     build_fixture(&root);
     let layout = vtest_store::VerifyLayout::new(&root);
 
-    let created = vtest_cli::ops::approval::create(
+    let created = vtest_ops::approval::create(
         &layout,
-        vtest_cli::ops::approval::CreateArgs {
+        vtest_ops::approval::CreateArgs {
             subject_type: "vo".to_owned(),
             subject_id: "VO-ACCEPTANCE-18-3-7".to_owned(),
             approved_state: "approved".to_owned(),
@@ -183,13 +183,13 @@ fn effective_state_tracks_approved_state_across_a_withdrawal() {
     )
     .expect("create must succeed");
 
-    let before = vtest_cli::ops::approval::show(&layout, "vo", "VO-ACCEPTANCE-18-3-7")
+    let before = vtest_ops::approval::show(&layout, "vo", "VO-ACCEPTANCE-18-3-7")
         .expect("show must succeed");
     assert_eq!(before.effective_state, EffectiveApprovalState::Approved);
 
-    vtest_cli::ops::approval::withdraw(
+    vtest_ops::approval::withdraw(
         &layout,
-        vtest_cli::ops::approval::WithdrawArgs {
+        vtest_ops::approval::WithdrawArgs {
             approval_id: created.id,
             approver_kind: "human".to_owned(),
             approver_id: "reviewer".to_owned(),
@@ -199,7 +199,7 @@ fn effective_state_tracks_approved_state_across_a_withdrawal() {
     )
     .expect("withdraw must succeed");
 
-    let after = vtest_cli::ops::approval::show(&layout, "vo", "VO-ACCEPTANCE-18-3-7")
+    let after = vtest_ops::approval::show(&layout, "vo", "VO-ACCEPTANCE-18-3-7")
         .expect("show must succeed");
     assert_eq!(
         after.effective_state,

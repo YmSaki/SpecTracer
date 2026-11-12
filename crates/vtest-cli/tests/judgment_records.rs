@@ -152,7 +152,7 @@ fn decision_files(root: &Path) -> Vec<PathBuf> {
 
 /// @vtest.id TEST-JUDGMENT-SUBMIT-REASON-OPTIONAL
 /// @vtest.covers VO-JUDGMENT-SUBMIT-REASON-OPTIONAL, VO-JUDGMENT-BUNDLE-KIND-COPIED
-/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::submit
+/// @vtest.target crates/vtest-ops/src/judgment.rs::submit
 /// @vtest.intent a submission without reason or exclusions is accepted and written to .verify/decisions with the bundle's judgment_kind and hashes
 #[test]
 fn a_submission_without_a_reason_is_accepted_and_recorded() {
@@ -193,7 +193,7 @@ fn a_submission_without_a_reason_is_accepted_and_recorded() {
 
 /// @vtest.id TEST-JUDGMENT-SUBMIT-STALE-HASH
 /// @vtest.covers VO-JUDGMENT-SUBMIT-STALE-HASH-E-AUDIT-002
-/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::submit
+/// @vtest.target crates/vtest-ops/src/judgment.rs::submit
 /// @vtest.intent changing the declared target after the bundle was recorded makes the submission fail with E-AUDIT-002 and writes no record
 #[test]
 fn a_target_changed_after_bundling_is_rejected_with_e_audit_002() {
@@ -212,7 +212,7 @@ fn a_target_changed_after_bundling_is_rejected_with_e_audit_002() {
 
 /// @vtest.id TEST-JUDGMENT-SUBMIT-ORDERED-CHECKS
 /// @vtest.covers VO-JUDGMENT-SUBMIT-ORDERED-CHECKS, VO-JUDGMENT-SUBMIT-UNKNOWN-BUNDLE-E-AUDIT-001, VO-JUDGMENT-SUBMIT-SUPERSEDES-E-AUDIT-008
-/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::submit
+/// @vtest.target crates/vtest-ops/src/judgment.rs::submit
 /// @vtest.intent each DS-1089 check rejects with its own code: unknown bundle E-AUDIT-001, subject or kind mismatch E-AUDIT-003, bad decision E-AUDIT-004, bad supersedes E-AUDIT-008
 #[test]
 fn each_submission_check_rejects_with_its_own_code() {
@@ -265,7 +265,7 @@ fn each_submission_check_rejects_with_its_own_code() {
 
 /// @vtest.id TEST-JUDGMENT-ACCEPTANCE-NO-STATE-CHANGE
 /// @vtest.covers VO-JUDGMENT-ACCEPTANCE-NO-STATE-CHANGE
-/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::submit
+/// @vtest.target crates/vtest-ops/src/judgment.rs::submit
 /// @vtest.intent verify reports the same states and exit code before and after a judgment is accepted
 #[test]
 fn an_accepted_judgment_does_not_change_verification_state() {
@@ -281,7 +281,7 @@ fn an_accepted_judgment_does_not_change_verification_state() {
 
 /// @vtest.id TEST-JUDGMENT-BUNDLE-SELECTION
 /// @vtest.covers VO-JUDGMENT-BUNDLE-VO-REQUIRES-CASE-COVERAGE, VO-JUDGMENT-BUNDLE-UNRESOLVED-TARGET
-/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::bundle
+/// @vtest.target crates/vtest-ops/src/judgment.rs::bundle
 /// @vtest.intent --vo without --kind case-coverage is a usage error, and a Test whose declared target does not resolve gets no bundle
 #[test]
 fn bundle_rejects_bad_kind_combinations_and_unresolved_targets() {
@@ -334,8 +334,8 @@ fn vo_submission(bundle: &Value) -> Value {
 
 /// @vtest.id TEST-JUDGMENT-VO-SUBMIT-COVERING-TESTS-BOUND
 /// @vtest.covers VO-JUDGMENT-SUBMIT-STALE-HASH-E-AUDIT-002
-/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::submit
-/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::current_binding
+/// @vtest.target crates/vtest-ops/src/judgment.rs::submit
+/// @vtest.target crates/vtest-ops/src/judgment.rs::current_binding
 /// @vtest.intent a VO bundle binds the covering Tests it hands the judge: changing, adding or removing a covering Test after bundling makes the submission fail with E-AUDIT-002, while an unchanged one is accepted
 #[test]
 fn a_vo_bundle_rejects_changed_added_or_removed_covering_tests() {
@@ -379,7 +379,7 @@ fn other() {\n    assert_eq!(judge_fixture::add(1, 1), 2);\n}\n";
 
 /// @vtest.id TEST-JUDGMENT-IMPL-CONSISTENCY-BUNDLE-DOCUMENTS
 /// @vtest.covers VO-JUDGMENT-IMPL-CONSISTENCY-BUNDLE-DOCUMENTS
-/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::bundle
+/// @vtest.target crates/vtest-ops/src/judgment.rs::bundle
 /// @vtest.intent an impl-consistency bundle carries every upstream document node of the covered VO with its full content and the target source's full text; a test-semantic bundle carries neither
 #[test]
 fn an_impl_consistency_bundle_carries_documents_and_source_text() {
@@ -460,8 +460,8 @@ fn case_coverage_submission(bundle: &Value) -> Value {
 
 /// @vtest.id TEST-JUDGMENT-TEST-SUBMIT-RELATED-TESTS-BOUND
 /// @vtest.covers VO-JUDGMENT-SUBMIT-STALE-HASH-E-AUDIT-002
-/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::submit
-/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::current_binding
+/// @vtest.target crates/vtest-ops/src/judgment.rs::submit
+/// @vtest.target crates/vtest-ops/src/judgment.rs::current_binding
 /// @vtest.intent a Test bundle binds the related Tests it hands the judge: changing, adding or removing a related Test after bundling makes the submission fail with E-AUDIT-002 and writes no record, while an unchanged one is accepted
 #[test]
 fn a_test_bundle_rejects_changed_added_or_removed_related_tests() {
@@ -512,8 +512,8 @@ fn a_test_bundle_rejects_changed_added_or_removed_related_tests() {
 
 /// @vtest.id TEST-JUDGMENT-DUPLICATE-TEST-ID-REFUSED
 /// @vtest.covers VO-JUDGMENT-DUPLICATE-TEST-ID-REFUSED
-/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::bundle
-/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::submit
+/// @vtest.target crates/vtest-ops/src/judgment.rs::bundle
+/// @vtest.target crates/vtest-ops/src/judgment.rs::submit
 /// @vtest.intent a Test id declared in two files is refused with E-SCAN-002 by audit bundle (Test or VO subject) and by audit submit, and neither a bundle nor a judgment record is written
 #[test]
 fn a_duplicated_test_id_is_refused_with_e_scan_002() {
@@ -544,8 +544,8 @@ fn a_duplicated_test_id_is_refused_with_e_scan_002() {
 
 /// @vtest.id TEST-JUDGMENT-VO-COVERING-TEST-TARGETS-BOUND
 /// @vtest.covers VO-JUDGMENT-BUNDLE-UNRESOLVED-TARGET, VO-JUDGMENT-SUBMIT-STALE-HASH-E-AUDIT-002
-/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::bundle
-/// @vtest.target crates/vtest-cli/src/ops/judgment.rs::current_binding
+/// @vtest.target crates/vtest-ops/src/judgment.rs::bundle
+/// @vtest.target crates/vtest-ops/src/judgment.rs::current_binding
 /// @vtest.intent a VO bundle resolves every covering Test's declared target: an unresolved one gives E-SCAN-004 and no bundle, and changing or deleting the target after bundling makes the submission fail with E-AUDIT-002 and writes no record
 #[test]
 fn a_vo_bundle_resolves_and_binds_covering_test_targets() {

@@ -33,7 +33,7 @@ static ENVIRONMENT_LOCK: Mutex<()> = Mutex::new(());
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
 fn registry() -> vtest_adapter_api::AdapterRegistry {
-    vtest_cli::adapters::builtin_registry().expect("builtin registry must register cleanly")
+    vtest_ops::registry::builtin_registry().expect("builtin registry must register cleanly")
 }
 
 fn temp_root(name: &str) -> PathBuf {

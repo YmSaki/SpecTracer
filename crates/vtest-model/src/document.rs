@@ -1,3 +1,18 @@
+//! Upstream document model: the seven layers (`Layer`), their node kinds
+//! (`RootNode`, `SentenceNode`, `SectionNode`), node provenance
+//! (`NodeSource`), the VO-side `DerivesFrom`, and the `DocumentFile` shape
+//! shared by one document and the `specification.json` bundle.
+//!
+//! Boundary: this module mirrors `specification.schema.json`. Cross-node
+//! rules (id prefix against layer, DS-1658; unresolved upstream ids) are
+//! validated by the readers in `vtest-store` and the checks in
+//! `vtest-scan`, not here.
+//!
+//! Clauses: DES-568, DES-585, DES-586 (file and node shape), DS-1592 –
+//! DS-1595 (sentence and section `derives_from`), DS-1638 (VO
+//! `derives_from`), BD-318 / BD-330 (id prefixes, document identity),
+//! REQ-333 / SPEC-462 (layer order).
+
 use crate::DocumentId;
 use serde::{Deserialize, Serialize};
 
