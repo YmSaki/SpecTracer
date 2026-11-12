@@ -958,9 +958,7 @@ fn vo_get_tool(root: &Path, args: &Value) -> Value {
     };
     let scan = match vtest_scan::scan_project(root, &registry) {
         Ok(scan) => scan,
-        Err(error) => {
-            return failure_envelope(error.code().unwrap_or("E-CORE-001"), error.to_string())
-        }
+        Err(error) => return ops::envelope::scan_failure(&error).envelope(),
     };
     let layout = vtest_store::VerifyLayout::new(root);
     match ops::vo::show(&layout, &scan, id) {
@@ -1132,10 +1130,14 @@ fn audit_static_tool(root: &Path, args: &Value) -> Value {
 }
 
 fn judgment_failure(error: &ops::judgment::JudgmentOpError) -> Value {
-    failure_envelope(
-        error.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE),
-        error.to_string(),
-    )
+    match error {
+        // The record's own message, as the CLI reports it (DS-1563).
+        ops::judgment::JudgmentOpError::Store(error) => record_error_envelope(error),
+        other => failure_envelope(
+            other.code().unwrap_or(vtest_model::INTERNAL_ERROR_CODE),
+            other.to_string(),
+        ),
+    }
 }
 
 /// DS-1210: the same `ops::judgment::bundle` `vtest audit bundle` calls.
@@ -1639,7 +1641,7 @@ fn report_tool(root: &Path, args: &Value) -> Value {
             candidates,
         }) => failure_envelope_with_candidates(code, message, candidates.as_deref()),
         Err(ops::verify::VerifyOpError::Scan(error)) => {
-            failure_envelope(error.code().unwrap_or("E-CORE-001"), error.to_string())
+            ops::envelope::scan_failure(&error).envelope()
         }
         Err(ops::verify::VerifyOpError::Internal { message }) => {
             failure_envelope("E-INTERNAL-001", message)
