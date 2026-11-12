@@ -1181,36 +1181,21 @@ fn doc_tools_match_their_cli_commands() {
         rejected("E-SCAN-010"),
     );
 
-    // An accepted `doc list` is compared on the keys both surfaces return:
-    // the CLI's JSON always carries every key, while `doc_list` leaves keys
-    // out depending on `tree` / `roots` (#207). The fix for #207 replaces
-    // this block with `assert_same` over the whole envelope.
-    let root = std::env::temp_dir().join(format!(
-        "vtest-tool-equivalence-{}-doc-list",
-        std::process::id()
-    ));
-    let _ = fs::remove_dir_all(&root);
-    tool_fixture(&root);
-    for (flags, arguments) in [
-        (&[][..], json!({})),
-        (&["--tree"][..], json!({"tree": true})),
-        (&["--roots"][..], json!({"roots": true})),
+    // `--tree` / `--roots` choose what the text output shows; the JSON carries
+    // every key either way, and `doc_list` returns the same (#207).
+    for (name, flags, arguments) in [
+        ("doc-list", &[][..], json!({})),
+        ("doc-list-tree", &["--tree"][..], json!({"tree": true})),
+        ("doc-list-roots", &["--roots"][..], json!({"roots": true})),
     ] {
-        let (exit, via_cli) = cli_with_exit(&root, &[&["doc", "list"], flags].concat());
-        let via_mcp = mcp(&root, "doc_list", arguments);
-        assert_eq!(exit, 0, "{flags:?}: {via_cli}");
-        assert_eq!(via_mcp["ok"], via_cli["ok"], "{flags:?}");
-        assert_eq!(via_mcp["diagnostics"], via_cli["diagnostics"], "{flags:?}");
-        let returned = via_mcp["data"].as_object().unwrap();
-        assert!(
-            returned.contains_key("unresolved_derives_from"),
-            "{via_mcp}"
+        assert_same(
+            name,
+            &[&["doc", "list"], flags].concat(),
+            "doc_list",
+            arguments,
+            ACCEPTED,
         );
-        for (key, value) in returned {
-            assert_eq!(value, &via_cli["data"][key], "{flags:?}: data.{key}");
-        }
     }
-    fs::remove_dir_all(&root).ok();
 }
 
 fn unit_test_answers() -> Value {

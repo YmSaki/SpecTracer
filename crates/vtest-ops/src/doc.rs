@@ -238,6 +238,27 @@ pub fn show(layout: &VerifyLayout, id: &str) -> Result<ShowResult, DocOpError> {
     })
 }
 
+/// The `data` of `doc list` and `doc_list`: every registered document, the
+/// root set, the document-level `derives_from` chain, freshness and the
+/// dangling links (DS-1194, DS-1018). `--tree` / `--roots` choose what the
+/// text output shows and do not change this shape (DS-1563).
+pub fn list_json(result: &ListResult) -> serde_json::Value {
+    let records: Vec<_> = result.records.iter().map(view_json).collect();
+    let roots: Vec<_> = result
+        .records
+        .iter()
+        .filter(|view| view.is_root)
+        .map(|view| view.id.as_str())
+        .collect();
+    serde_json::json!({
+        "records": records,
+        "roots": roots,
+        "unresolved_derives_from": result.unresolved,
+        "document_chain": result.document_chain,
+        "freshness": result.freshness,
+    })
+}
+
 /// One registered document as `doc add` / `doc show` / `doc list` report it.
 /// `freshness` is not part of this shape: `show` and `list` compute it
 /// across the registered set and add it themselves (DS-1017).

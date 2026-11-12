@@ -1257,14 +1257,7 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
         }
         DocCommand::List { tree, roots } => match ops::doc::list(&layout) {
             Ok(result) => {
-                let records: Vec<_> = result.records.iter().map(ops::doc::view_json).collect();
-                let data = serde_json::json!({
-                    "records": records,
-                    "roots": result.records.iter().filter(|view| view.is_root).map(|view| view.id.clone()).collect::<Vec<_>>(),
-                    "unresolved_derives_from": result.unresolved,
-                    "document_chain": result.document_chain,
-                    "freshness": result.freshness,
-                });
+                let data = ops::doc::list_json(&result);
                 let envelope = JsonEnvelope::new(true, data, Vec::new());
                 emit(format, quiet, &envelope, |envelope| {
                     render_doc_list_text(envelope, tree, roots)
