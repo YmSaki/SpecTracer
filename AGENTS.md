@@ -81,7 +81,7 @@ Rust の workspace を、**依存が一方向のレイヤー構成**と、**言�
 | レイヤー | 責務 | 配置 |
 | --- | --- | --- |
 | 入口 | 引数やリクエストを操作の呼び出しに変換し、結果を text、JSON、JSON-RPC に変換する。業務ルールを持たない | `crates/vtest-cli`（clap と text 描画）、`crates/vtest-mcp`（MCP stdio） |
-| 操作層（Application layer） | 1 操作 = 1 関数。adapter registry の構成（コンポジションルート）、envelope、終了コード、エラーから診断コードへの写像を所有する | 現在は `crates/vtest-cli/src/ops/` と `crates/vtest-cli/src/adapters.rs`。#175 の D2（承認済み）で新 crate へ切り出す（第 2.4 節） |
+| 操作層（Application layer） | 1 操作 = 1 関数。adapter registry の構成（コンポジションルート）、envelope、終了コード、エラーから診断コードへの写像を所有する | `crates/vtest-ops`（操作は `<操作名>.rs`、コンポジションルートは `registry.rs`、envelope は `envelope.rs`。第 2.4 節） |
 | オーケストレーション | adapter への委譲、adapter 出力の検証、決定論的な統合、実行、4 検査の判定と fail-closed の集約 | `crates/vtest-scan`、`crates/vtest-exec`、`crates/vtest-verify` |
 | 永続化 | 正典 record（`.verify/`）の append-only な読み書き、レイアウト、設定の読み込み | `crates/vtest-store` |
 | adapter 契約 | 言語・runner に依存しない capability の trait、DTO、`AdapterRegistry`、ワイヤー形式 | `crates/vtest-adapter-api` |
@@ -111,15 +111,15 @@ runner / coverage       ──adapter──▶   vtest-exec   ──▶  vtest-s
 - 索引、グラフ、集約結果は毎回 record から再構築する。`.verify/cache/` は再構築可能な出力として扱い、record と食い違ったら record から再構築する。
 - 副作用（ファイルの書き込み、`git rev-parse` や `cargo` などの外部プロセス）は操作の入口とその直下で行い、判定と集約の関数には読み取った値を渡す。拒否された操作とエラーでは、設定、Evidence、Approval を一切変えない（失敗時の原子性）。
 
-### 2.4 操作層の切り出し（#175 D2、承認済み）
+### 2.4 操作層の crate（`vtest-ops`、#175 D2）
 
-#175 の D2 は 2026-11-07 に Owner が承認しました。現在 `vtest-cli` にある操作層を新しい crate に移し、`vtest-cli` と `vtest-mcp` の両方がその crate に依存する形にします。
+#175 の D2（2026-11-07 に Owner が承認）に従い、操作層は `crates/vtest-ops` にあります（#187 で `vtest-cli` から切り出した）。`vtest-cli` と `vtest-mcp` の両方がこの crate に依存します。
 
-- **crate 名は未決**です。候補は `vtest-ops`（既存の `ops` module 名と呼び出し箇所を保てる）と `vtest-app`（Application layer の直訳）。決まるまで、このファイルでは「操作層 crate」と書く。決まったら、このファイルの表を同じ PR か直後の PR で更新する。
-- 移すもの: `vtest-cli/src/ops/**`、`vtest-cli/src/adapters.rs` の `builtin_registry`、envelope、終了コード、エラーから診断コードへの写像。
-- 移した後の形: `vtest-cli` は「clap の解析 → 操作層の呼び出し → text / JSON の印字 → 終了コード」だけ、`vtest-mcp` は「JSON-RPC の transport、tool スキーマ、引数の検証 → 操作層の呼び出し → envelope」だけにする。`vtest` バイナリは `vtest-cli` と `vtest-mcp` に依存し、`main.rs` の `#[path]` 取り込みと `#[allow(clippy::all)]` をなくす。
-- 切り出しまでの間に操作を追加、変更するときも、最初から「1 操作 = `ops` の 1 関数、CLI と MCP は変換だけ」の形で書く。切り出しが純移動で済むようにするためです。
-- 具体的な移動表と順序は #175 の §8〜§10 が正本です。
+- `vtest-ops` が持つもの: 操作（`<操作名>.rs`、1 操作 = 1 関数）、`registry.rs` の `builtin_registry`（コンポジションルート）、`envelope.rs` の envelope とエラーから診断コードへの写像。
+- 入口の形: `vtest-cli` は「clap の解析 → 操作層の呼び出し → text / JSON の印字 → 終了コード」だけ、`vtest-mcp` は「JSON-RPC の transport、tool スキーマ、引数の検証 → 操作層の呼び出し → envelope」だけにする。`vtest` バイナリは `vtest-cli` と `vtest-mcp` に依存し、`main.rs` が `vtest mcp` のために `vtest_mcp::serve` を呼ぶ。`vtest-cli` のライブラリは `vtest-mcp` を使わない。
+- 操作を追加、変更するときは「1 操作 = `vtest-ops` の 1 関数、CLI と MCP は変換だけ」の形で書く。
+- `vtest-mcp` は `vtest-cli` に依存せず、`vtest-ops` はどちらの入口にも依存しない。この 3 点は `crates/vtest-cli/tests/architecture.rs` が検査する。
+- 入口に残っている二重実装（scan の前段、エラーの写像）は #175 R3（#188）で操作層に寄せる。
 
 ## 3. 責務の分割
 
@@ -173,7 +173,7 @@ crate の追加や責務の変更は、先にこの表を更新する PR で行�
 | `vtest-scan` | オーケストレーション | adapter への委譲、Test ID の大域的一意性（E-SCAN-002）、VO 参照の解決（E-SCAN-003）、Target Reference の解決、adapter ID 順の決定論的統合、record の参照整合性、Structured Test Operation の orchestration | 言語構文の解釈（adapter）、opaque locator の分解 |
 | `vtest-exec` | オーケストレーション | runner の起動、target coverage の帰属、Evidence の構築と追記 | 正典 record の形式（`vtest-store`。Evidence は `write_evidence` で書く） |
 | `vtest-verify` | オーケストレーション | 検証グラフの再構築、4 検査、Evidence の鮮度、スコープ、fail-closed の集約 | ファイルや git の読み取り（`verify_project` の入口に集める）、record の形式 |
-| 操作層（現 `vtest-cli/src/ops/` と `adapters.rs`） | 操作層 | 1 操作 = 1 関数、builtin registry の構成、envelope、終了コード、診断コードの写像 | 印字（`vtest-cli`）、JSON-RPC（`vtest-mcp`） |
+| `vtest-ops` | 操作層 | 1 操作 = 1 関数、builtin registry の構成、envelope、終了コード、診断コードの写像 | 印字（`vtest-cli`）、JSON-RPC（`vtest-mcp`） |
 | `vtest-cli` | 入口 | clap の引数定義、操作層の呼び出し、text 描画、出力、終了コード。`vtest` バイナリ | 業務ルール、エラーの写像（操作層） |
 | `vtest-mcp` | 入口 | MCP stdio の transport、tool 一覧と入力スキーマ、引数の検証、操作層の呼び出し | 業務ルール、`vtest-scan` や `vtest-store` の直接呼び出し（#175 R3 で解消する） |
 
@@ -207,12 +207,12 @@ crate の追加や責務の変更は、先にこの表を更新する PR で行�
 | `vtest-scan` | `vtest-adapter-api`、`vtest-store`、`vtest-model` | |
 | `vtest-exec` | `vtest-adapter-api`、`vtest-store`、`vtest-model` | |
 | `vtest-verify` | `vtest-scan`、`vtest-adapter-api`、`vtest-store`、`vtest-model` | `vtest-exec` へは依存しない（git HEAD は `vtest-store` の `git_head_commit` で読む） |
-| 操作層 crate（名称未決） | オーケストレーション、永続化、adapter 契約、すべての adapter、モデル | 現在は `vtest-cli` の中にある |
-| `vtest-cli` | 操作層 crate、`vtest-model`。バイナリは `vtest-mcp` も | 現在は操作層を内蔵し、オーケストレーションと adapter に直接依存する（#175 R2） |
-| `vtest-mcp` | 操作層 crate、`vtest-model` | 現在は `vtest-cli`、`vtest-scan`、`vtest-store`、`vtest-exec`、`vtest-verify` に依存する（#175 R2、R3） |
+| `vtest-ops` | オーケストレーション、永続化、adapter 契約、すべての adapter、モデル | |
+| `vtest-cli` | `vtest-ops`、`vtest-model`。バイナリは `vtest-mcp` も | 現在は `vtest-scan`、`vtest-verify`、`vtest-store`、`vtest-adapter-api` にも直接依存する（#175 R3） |
+| `vtest-mcp` | `vtest-ops`、`vtest-model` | 現在は `vtest-scan`、`vtest-exec`、`vtest-verify`、`vtest-store`、`vtest-adapter-api` にも直接依存する（#175 R3） |
 
 - 依存は各 crate の `Cargo.toml` に宣言する。外部ライブラリは workspace の `Cargo.toml` の `[workspace.dependencies]` で版を固定し、各 crate は `.workspace = true` で参照する。
-- 依存の検査は `cargo metadata` を使う architecture test で行う（#175 D1、R14）。導入されるまでは、レビューで `Cargo.toml` の差分をこの表と照合する。
+- 依存の検査は `cargo metadata` を使う architecture test（`crates/vtest-cli/tests/architecture.rs`）で行う。検査しているのは、core crate が言語 adapter と Rust 構文 crate に依存しないこと、`vtest-adapter-api` が `vtest-model` だけに依存すること、`vtest-mcp` が `vtest-cli` に、`vtest-ops` が入口に依存しないこと。表のそれ以外の行は、レビューで `Cargo.toml` の差分と照合する。
 - この表を変えるときは、architecture test も同じ PR で更新する。
 
 外部ライブラリの使用範囲も固定します。言語やツールチェインの型が core に漏れると、別の言語で同じ契約を保てなくなるためです。
@@ -228,7 +228,7 @@ crate の追加や責務の変更は、先にこの表を更新する PR で行�
 
 ### 4.3 コンポジションルートと adapter の登録
 
-adapter はコンポジションルート（現在は `crates/vtest-cli/src/adapters.rs` の `builtin_registry()`、D2 の後は操作層 crate）で生成し、`AdapterRegistry` に登録して操作に渡します。
+adapter はコンポジションルート（`crates/vtest-ops/src/registry.rs` の `builtin_registry()`）で生成し、`AdapterRegistry` に登録して操作に渡します。
 
 1. コンポジションルートが、組み込みの adapter を**明示的に列挙して**登録する。自動検出、`build.rs`、汎用 plugin 機構は使わない（#175 D8）。登録箇所が 1 か所で読めれば、BD-007 と BD-102 の要求を満たすためです。
 2. `vtest-scan`、`vtest-exec`、`vtest-verify` は adapter を自分で生成しない。registry を引数で受け取る。
@@ -272,18 +272,18 @@ module 間の依存も、判定の module からファイル I/O の module へ�
 | 対象 | 配置 | 形式 |
 | --- | --- | --- |
 | バイナリのエントリポイント | `crates/vtest-cli/src/main.rs` | 「引数のパース → 実行 → 終了コード」だけ |
-| CLI の引数定義 | `vtest-cli` の clap 定義（#175 R4 の後は `src/args.rs`） | `#[derive(Parser)]` / `#[derive(Subcommand)]` |
-| CLI のコマンド処理 | `vtest-cli` の `run_*`（R4 の後は `src/commands.rs`） | 操作層を呼んで結果を印字するだけ |
-| text 描画 | `vtest-cli`（R4 の後は `src/render.rs`） | 結果の型を文字列にする関数 |
-| 操作（1 操作 = 1 関数） | 操作層の `<操作名>.rs`（現在は `vtest-cli/src/ops/<操作名>.rs`） | 型付きのデータを返し、印字と終了コードの決定をしない |
-| adapter の登録 | コンポジションルート（現在は `vtest-cli/src/adapters.rs`） | `builtin_registry()` に明示列挙 |
+| CLI の引数定義 | `vtest-cli` の clap 定義（`src/lib.rs`） | `#[derive(Parser)]` / `#[derive(Subcommand)]` |
+| CLI のコマンド処理 | `vtest-cli` の `run_*`（`src/lib.rs`） | 操作層を呼んで結果を印字するだけ |
+| text 描画 | `vtest-cli`（`src/lib.rs`） | 結果の型を文字列にする関数 |
+| 操作（1 操作 = 1 関数） | `vtest-ops/src/<操作名>.rs` | 型付きのデータを返し、印字と終了コードの決定をしない |
+| adapter の登録 | コンポジションルート（`vtest-ops/src/registry.rs`） | `builtin_registry()` に明示列挙 |
 | エラーから（診断コード、終了コード）への写像 | そのエラー型を定義する操作層の module に 1 つ | 第 6.2 節。CLI と MCP は同じ関数を使う |
-| MCP の transport、スキーマ、tool handler | `vtest-mcp`（#175 R5 の後は `transport.rs`、`schema.rs`、`tools.rs`） | handler は引数の抽出、操作層の呼び出し、envelope だけ |
+| MCP の transport、スキーマ、tool handler | `vtest-mcp`（`src/lib.rs`） | handler は引数の抽出、操作層の呼び出し、envelope だけ |
 | capability の trait と DTO | `vtest-adapter-api` | 言語の型を含めない。シグネチャは `vtest-model` の型だけ |
 | 言語固有の処理 | その言語の adapter（Rust は `vtest-adapter-rust`、他の言語は `vtest-adapter-lexical/src/<言語>.rs`） | 第 9 節 |
 | 複数の言語で意味が同じと確認できた処理 | 言語族の共通 module（`vtest-adapter-lexical/src/shared.rs`、`annotation.rs`） | 第 9.3 節の手順で比較してから置く |
 | 正典 record の読み書きと形式 | `vtest-store` の record 種別ごとの module | 読み手と書き手を同じ module に置く |
-| 判定（4 検査、鮮度、スコープ、集約）。スコープの 2 軸の扱いは第 1.1 節 | `vtest-verify`（#175 R8 の後は `checks/<検査名>.rs`、`evidence.rs`、`scope.rs`、`tree.rs`） | 入力を受け取って結果を返す、副作用のない関数 |
+| 判定（4 検査、鮮度、スコープ、集約）。スコープの 2 軸の扱いは第 1.1 節 | `vtest-verify`（`src/lib.rs`） | 入力を受け取って結果を返す、副作用のない関数 |
 | 外部プロセスの起動 | 実行は adapter の runner、git の読み取りは 1 か所（#175 R9） | 引数は配列で渡し、文字列結合でコマンドを組み立てない |
 | ドメインの型 | `vtest-model` の領域ごとのファイル | `serde` の derive。不変条件は型とコンストラクターで守る |
 | 定数 | 利用する module の先頭。複数の crate が使うものは所有する crate の公開定数 | `const`。値の根拠（条項 ID）をコメントに書く |
@@ -406,7 +406,7 @@ crates/<crate>/
     - 単独でテストできる
     - 4.2 の許可リストに、循環依存を作らずに配置できる
 
-    新しい crate は、2.1、3.3、4.2 の表を更新する PR を先に出してから作る（例: 操作層 crate、#175 D2）。
+    新しい crate は、2.1、3.3、4.2 の表を更新する PR を先に出してから作る（例: `vtest-ops`、#175 D2）。
 7. **足りない仕組みは別 Issue に切り出す。** 機能の実装に必要な基盤（capability、registry の機能、テスト helper など）が足りなければ、その不足を Issue にし、基盤の PR を先に出して、その上に機能の PR を積む。機能の PR の中で基盤を作ると、基盤の設計が 1 つの機能の都合で決まり、レビューも分けられないためです。
 8. **下のレイヤーから実装する。** モデルの型 → adapter 契約 → adapter → 永続化 → オーケストレーション（判定）と単体テスト → 操作層 → 入口（CLI と MCP）と同値性のテスト。下から実装すると、入口なしで単体テストできる状態を保ったまま進められる。
 9. **PR はレイヤー単位で分割してよい。** 移動と論理の変更は別の PR にする（第 14 節）。
@@ -418,7 +418,7 @@ crates/<crate>/
 | 正典の範囲 | `rust-cargo` 以外の production adapter は v0.1 の範囲外（REQ-264 など）。実験的として扱うか、先に spec PR を出すかを Owner に確認する | `kind/decision` の Issue |
 | 言語固有の処理 | Go のコメントと文字列の構文、関数と本文の範囲、名前と scope を読み、`FileItems` を返す | `crates/vtest-adapter-lexical/src/go.rs`（他の言語のファイルを変えない） |
 | 意味が同じ処理 | `@vtest.` の文法、括弧の対応付け、コメントと次の construct の結び付け | 既存の `annotation.rs`、`shared.rs` を呼ぶ。足りなければ第 9.3 節の手順で比較してから足す |
-| adapter の登録 | `vtest_adapter_lexical::go::adapter()` を登録する | コンポジションルート（`adapters.rs`）の 1 行 |
+| adapter の登録 | `vtest_adapter_lexical::go::adapter()` を登録する | コンポジションルート（`vtest-ops/src/registry.rs`）の 1 行 |
 | 判定 | `source_discovery` だけを宣言するので、`target_binding` と `oracle_presence` は `NO_EVIDENCE` になる | 既存の `vtest-verify`（変更なし） |
 | テスト | 言語のファイルの単体テストと、scan → verify の e2e | `src/go.rs` の `mod tests`、`crates/vtest-cli/tests/lexical_go_e2e.rs` |
 | 利用者向け説明 | 宣言の書き方、対応する構文、制限、実験的であること | `docs/adapters/go.md` |
@@ -544,7 +544,7 @@ crates/<crate>/
 2. **すべての作業は Issue から始める。** テンプレートは「作業」「不具合」「仕様の変更（spec/*）」「Owner 判断」の 4 種類。
 3. **1 つの PR は 1 つの目的に限る。** 機能追加、仕様変更、既知の不具合の修正、依存の更新、リファクタリングを同じ PR に混ぜない。
 4. **移動（ファイルの移動、名前の変更）と論理の変更は別の PR にする。** 移動の PR は差分が大きく、論理の差分が埋もれるためです。移動の PR は `git diff -M` で rename として見える形にする。
-5. **共有ファイルを変える PR は同時に 1 本だけ開く。** 対象は `vtest-cli/src/lib.rs`、`vtest-mcp/src/lib.rs`、`adapters.rs`、workspace の `Cargo.toml` と `Cargo.lock`、`vtest-verify/src/lib.rs`。並行すると、移動の差分の取り込みが繰り返されるためです（#175 §10）。手順は `DEVELOPMENT.md` の「Pull request scope」。
+5. **共有ファイルを変える PR は同時に 1 本だけ開く。** 対象は `vtest-cli/src/lib.rs`、`vtest-mcp/src/lib.rs`、`vtest-ops/src/registry.rs`、workspace の `Cargo.toml` と `Cargo.lock`、`vtest-verify/src/lib.rs`。並行すると、移動の差分の取り込みが繰り返されるためです（#175 §10）。手順は `DEVELOPMENT.md` の「Pull request scope」。
 6. **既存の振る舞いを変えない。** リファクタリングは、外部契約（第 1.2 節の 3）を変えずに行う。証拠は CI のゲートと既存のテスト（`TESTING.md`）で、text 描画・終了コード・record の形式に触れる PR は変更前後の出力の比較も PR に書く。振る舞いを変える必要がある場合は、別の Issue と PR にする。
 7. **足りない基盤と露出した問題は別の Issue にする。** 作業中に仕組みの不足、既存の不具合、仕様の欠陥や矛盾を見つけたら、再現条件、影響、条項 ID を書いた Issue にする（仕様の問題は `needs-owner`）。作業中の PR に混ぜず、コードで回避もしない。回避すると、仕様の欠陥が次の実装者に残るためです。
 8. **仕様の変更は `spec/*` ブランチで行う。** spec path（`docs/canonical/**`（`export/` を除く）と `.verify/doc/**`）は `spec/*` でだけ変え、`spec/*` では `crates/` と `tests/` を変えない。spec PR は同時に 1 本だけ。CI の `spec-guard` が検査する。詳細は `DEVELOPMENT.md` の「Specification changes」を読む。

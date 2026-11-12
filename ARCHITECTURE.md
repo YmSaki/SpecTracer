@@ -6,9 +6,9 @@ the verification contract is intentionally language-independent.
 
 ## Crates and dependency direction
 
-The workspace has eleven crates. Lower crates own canonical data and
+The workspace has twelve crates. Lower crates own canonical data and
 verification rules; upper crates delegate to them. The table is the current
-state at `develop` `e22f3d8` (2026-11-12); the rules behind the table are
+state at `develop` `046c0d1` (2026-11-12); the rules behind the table are
 [`AGENTS.md`](AGENTS.md) §3–§4. The last column lists normal dependencies
 only; dev-dependencies, which only tests use, are left out.
 
@@ -23,18 +23,18 @@ only; dev-dependencies, which only tests use, are left out.
 | `vtest-scan` | orchestration | discovery delegation, output validation, deterministic merge by adapter id, record integrity, Structured Test Operations | `adapter-api`, `store`, `model` |
 | `vtest-exec` | orchestration | running tests through the adapter runner, target-coverage attribution, Evidence recording | `adapter-api`, `store`, `model` |
 | `vtest-verify` | orchestration | rebuilding the declaration chain, the four checks, Evidence freshness, scope, fail-closed aggregation | `scan`, `adapter-api`, `store`, `model` |
-| `vtest-cli` | entrypoint | the `vtest` binary, clap definitions, text rendering, exit codes; today also the `ops` layer and the adapter registry (`adapters::builtin_registry`) | orchestration, `adapter-api`, `adapter-rust`, `adapter-lexical`, `store`, `model` |
-| `vtest-mcp` | entrypoint | MCP stdio transport, tool schemas, argument validation, calling the same `ops` functions and returning the same envelope | `cli`, orchestration, `adapter-api`, `store`, `model` |
+| `vtest-ops` | operations | one function per operation, the adapter registry (`registry::builtin_registry`), the shared envelope and diagnostic-code mapping | orchestration, `adapter-api`, `adapter-rust`, `adapter-lexical`, `store`, `model` |
+| `vtest-cli` | entrypoint | the `vtest` binary, clap definitions, text rendering, exit codes | `ops`, `mcp` (the binary only, for `vtest mcp`), `scan`, `verify`, `adapter-api`, `store`, `model` |
+| `vtest-mcp` | entrypoint | MCP stdio transport, tool schemas, argument validation, calling the same `ops` functions and returning the same envelope | `ops`, `scan`, `exec`, `verify`, `adapter-api`, `store`, `model` |
 
-The target layering (#175 D1; D2 approved 2026-11-07) moves the `ops` layer
-out of `vtest-cli` into an operations crate that both entrypoints depend on.
-Its name is pending (`vtest-ops` is the working name):
+The layering (#175 D1, D2): both entrypoints call the operations crate and
+neither depends on the other's implementation.
 
 ```text
 vtest-cli / vtest-mcp         entrypoints: arguments → operation, result → text / JSON-RPC
         │
-operations crate              one operation = one function; registry composition,
-(name pending)                envelope, exit codes, diagnostic-code mapping
+vtest-ops                     one operation = one function; registry composition,
+        │                     envelope, exit codes, diagnostic-code mapping
         │
 vtest-scan / vtest-exec / vtest-verify     orchestration: delegate to adapters, validate,
         │                                  merge deterministically, judge, aggregate
@@ -42,17 +42,18 @@ vtest-scan / vtest-exec / vtest-verify     orchestration: delegate to adapters, 
 vtest-store ── vtest-model                 vtest-adapter-rust / -lexical / -synthetic ── vtest-adapter-api ── vtest-model
 ```
 
-Known deviations from the target, each tracked by a child issue of #175:
+`crates/vtest-cli/tests/architecture.rs` checks the edges that must not
+exist: a core crate on a language adapter or a Rust syntax crate,
+`vtest-adapter-api` on anything but `vtest-model`, `vtest-mcp` on `vtest-cli`,
+and `vtest-ops` on either entrypoint.
 
-- `vtest-mcp` depends on `vtest-cli` for the `ops` layer, so the `vtest`
-  binary compiles `vtest-mcp`'s source in through a `#[path]` module instead
-  of a package dependency, which would be circular (R2, #187).
-- `vtest-mcp` also calls `vtest-scan` and `vtest-store` directly in places
-  instead of going through `ops` (R3, #188).
-- Evidence YAML is written by `vtest-exec`, while the record format belongs to
-  `vtest-store` (R9, #194).
+Known deviation from the target, tracked by a child issue of #175:
 
-The composition root (`vtest_cli::adapters::builtin_registry`) is the only
+- `vtest-cli` and `vtest-mcp` also depend on orchestration and persistence
+  crates and call `vtest-scan` and `vtest-store` directly in places instead of
+  going through `ops` (R3, #188).
+
+The composition root (`vtest_ops::registry::builtin_registry`) is the only
 place adapters are instantiated: `rust-cargo` and the eleven lexical adapters
 (`c`, `cpp`, `csharp`, `go`, `java`, `javascript`, `kotlin`, `php`, `python`,
 `ruby`, `swift`). The repository's own `.verify/config.yaml` enables only

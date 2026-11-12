@@ -7,6 +7,9 @@
 //!   successful scan (DS-1292)
 //! - scan output depends neither on adapter registration order (DES-231) nor
 //!   on the order files were created in
+//! - the two entrypoints share the operation layer and stay apart from each
+//!   other: `vtest-mcp` does not depend on `vtest-cli`, `vtest-ops` depends on
+//!   neither, and only the binary's `main.rs` uses `vtest-mcp` (BD-260)
 
 use std::{
     fs,
@@ -179,6 +182,84 @@ fn adapter_api_depends_on_no_language_implementation() {
             "vtest-adapter-api depends on {dependency}"
         );
     }
+}
+
+/// @vtest.id TEST-ARCH-ENTRYPOINTS-DEPEND-ON-OPS-NOT-ON-EACH-OTHER
+/// @vtest.covers VO-ARCH-ENTRYPOINTS-SHARE-OPERATION-LAYER
+/// @vtest.intent cargo metadata shows vtest-mcp with no dependency of any kind on vtest-cli and vtest-ops with none on vtest-cli or vtest-mcp, while both entrypoints link vtest-ops
+// No `@vtest.target`, for the same reason as the tests above.
+#[test]
+fn entrypoints_share_the_operation_layer_and_stay_apart() {
+    let every_kind = workspace_direct_dependencies();
+    let dependencies_of = |package: &str| -> &Vec<String> {
+        &every_kind
+            .iter()
+            .find(|(name, _)| name == package)
+            .unwrap_or_else(|| panic!("workspace must contain {package}"))
+            .1
+    };
+    // Dev-dependencies count: a test-only edge would still let one side's
+    // tests reach the other side's implementation.
+    for (package, forbidden) in [
+        ("vtest-mcp", &["vtest-cli"][..]),
+        ("vtest-ops", &["vtest-cli", "vtest-mcp"][..]),
+    ] {
+        let found: Vec<_> = dependencies_of(package)
+            .iter()
+            .filter(|dependency| forbidden.contains(&dependency.as_str()))
+            .collect();
+        assert!(found.is_empty(), "{package} depends on {found:?}");
+    }
+    // The check must be able to see such an edge: both entrypoints link the
+    // operation layer, and the `vtest` binary links `vtest-mcp` for
+    // `vtest mcp`.
+    for entrypoint in ["vtest-cli", "vtest-mcp"] {
+        assert!(
+            dependencies_of(entrypoint)
+                .iter()
+                .any(|dependency| dependency == "vtest-ops"),
+            "{entrypoint} must call the operation layer"
+        );
+    }
+    assert!(dependencies_of("vtest-cli")
+        .iter()
+        .any(|dependency| dependency == "vtest-mcp"));
+}
+
+/// Every `.rs` file below `directory`, recursively.
+fn rust_sources(directory: &Path) -> Vec<PathBuf> {
+    let mut sources = Vec::new();
+    for entry in fs::read_dir(directory).expect("source directory must be readable") {
+        let path = entry.expect("directory entry must be readable").path();
+        if path.is_dir() {
+            sources.extend(rust_sources(&path));
+        } else if path.extension().is_some_and(|extension| extension == "rs") {
+            sources.push(path);
+        }
+    }
+    sources
+}
+
+/// @vtest.id TEST-ARCH-ONLY-THE-BINARY-USES-MCP
+/// @vtest.covers VO-ARCH-ENTRYPOINTS-SHARE-OPERATION-LAYER
+/// @vtest.intent in vtest-cli's src directory only main.rs names the vtest_mcp crate, so the CLI library that the tests and the operation calls go through cannot reach MCP code
+// No `@vtest.target`: the subject is which source files name a crate, not
+// one Rust item.
+#[test]
+fn only_the_binary_entry_point_uses_the_mcp_crate() {
+    let source_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let main = source_root.join("main.rs");
+    let users: Vec<PathBuf> = rust_sources(&source_root)
+        .into_iter()
+        .filter(|path| {
+            fs::read_to_string(path)
+                .expect("source file must be readable")
+                .contains("vtest_mcp")
+        })
+        .collect();
+    // `main.rs` is the control: it calls `vtest_mcp::serve` for `vtest mcp`,
+    // so an empty list would mean the scan saw nothing.
+    assert_eq!(users, vec![main]);
 }
 
 fn rust_fixture(root: &Path, config: &str) {

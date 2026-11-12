@@ -93,7 +93,7 @@ move from a change in behavior.
   bug, open an issue citing the clause IDs instead of fixing it in the move PR.
 - **Open one PR at a time against the shared files**
   `crates/vtest-cli/src/lib.rs`, `crates/vtest-mcp/src/lib.rs`,
-  `crates/vtest-cli/src/adapters.rs`, `crates/vtest-verify/src/lib.rs`, and
+  `crates/vtest-ops/src/registry.rs`, `crates/vtest-verify/src/lib.rs`, and
   the workspace `Cargo.toml` / `Cargo.lock`, because parallel moves of the
   same file re-import each other's diff on every merge. A second PR on one of
   these files branches after the first is merged.
