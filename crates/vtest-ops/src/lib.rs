@@ -22,6 +22,7 @@ pub mod form;
 pub mod init;
 pub mod judgment;
 pub mod pending;
+pub mod project;
 pub mod registry;
 pub mod report;
 pub mod run;

@@ -26,7 +26,7 @@ pub fn create(
     dry_run: bool,
 ) -> (ExitCode, serde_json::Value) {
     if let Err(error) = load_config(root) {
-        return crate::envelope::config_error_result(&error);
+        return crate::envelope::config_failure(&error).result();
     }
     result_envelope(create_test(
         root,
@@ -49,7 +49,7 @@ pub fn edit(
     dry_run: bool,
 ) -> (ExitCode, serde_json::Value) {
     if let Err(error) = load_config(root) {
-        return crate::envelope::config_error_result(&error);
+        return crate::envelope::config_failure(&error).result();
     }
     result_envelope(edit_test(
         root, test_id, answers, set, body, dry_run, registry,

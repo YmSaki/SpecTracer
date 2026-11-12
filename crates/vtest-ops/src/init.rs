@@ -43,6 +43,6 @@ pub fn execute(root: &Path, project_name: &str) -> (ExitCode, serde_json::Value)
         }
         // A rejected init (e.g. `.verify/` already exists) is E-CONFIG-001
         // / exit 2; a filesystem failure writing the layout is internal.
-        Err(error) => crate::envelope::config_error_result(&error),
+        Err(error) => crate::envelope::config_failure(&error).result(),
     }
 }
