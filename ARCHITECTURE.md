@@ -4,51 +4,59 @@ SpecTracer (`vtest`) is a fail-closed verification layer around language and
 test-runner ecosystems. The current production adapter is Rust/Cargo, while
 the verification contract is intentionally language-independent.
 
-## Dependency direction
+## Crates and dependency direction
 
-The implementation is layered so that canonical data and verification rules live in
-the lower crates and entrypoints delegate to them:
+The workspace has eleven crates. Lower crates own canonical data and
+verification rules; upper crates delegate to them. The table is the current
+state at `develop` `e22f3d8` (2026-11-12); the rules behind the table are
+[`AGENTS.md`](AGENTS.md) §3–§4. The last column lists normal dependencies
+only; dev-dependencies, which only tests use, are left out.
+
+| Crate | Layer | Owns | Depends on (`vtest-*`) |
+| --- | --- | --- | --- |
+| `vtest-model` | model | entities, identifiers, content and subject hashes, diagnostics, verification states, `JsonEnvelope`, `ExitCode` | — |
+| `vtest-store` | persistence | the `.verify/` layout, config (v1 / v2), reading and writing the canonical records | `model` |
+| `vtest-adapter-api` | adapter contract | capability traits, hash-free DTOs, `AdapterRegistry`, the Test wire shape | `model` |
+| `vtest-adapter-rust` | adapter | the `rust-cargo` adapter: Rust discovery with `syn`, Cargo test execution, `cargo llvm-cov` coverage, static oracle analysis | `adapter-api`, `model` |
+| `vtest-adapter-lexical` | adapter | framework-neutral, discovery-only adapters for eleven other languages (experimental; see below) | `adapter-api`, `model` |
+| `vtest-adapter-synthetic` | adapter | a test-only adapter proving the core assumes nothing about Rust; not registered in the product | `adapter-api`, `model` |
+| `vtest-scan` | orchestration | discovery delegation, output validation, deterministic merge by adapter id, record integrity, Structured Test Operations | `adapter-api`, `store`, `model` |
+| `vtest-exec` | orchestration | running tests through the adapter runner, target-coverage attribution, Evidence recording | `adapter-api`, `store`, `model` |
+| `vtest-verify` | orchestration | rebuilding the declaration chain, the four checks, Evidence freshness, scope, fail-closed aggregation | `scan`, `adapter-api`, `store`, `model` |
+| `vtest-cli` | entrypoint | the `vtest` binary, clap definitions, text rendering, exit codes; today also the `ops` layer and the adapter registry (`adapters::builtin_registry`) | orchestration, `adapter-api`, `adapter-rust`, `adapter-lexical`, `store`, `model` |
+| `vtest-mcp` | entrypoint | MCP stdio transport, tool schemas, argument validation, calling the same `ops` functions and returning the same envelope | `cli`, orchestration, `adapter-api`, `store`, `model` |
+
+The target layering (#175 D1; D2 approved 2026-11-07) moves the `ops` layer
+out of `vtest-cli` into an operations crate that both entrypoints depend on.
+Its name is pending (`vtest-ops` is the working name):
 
 ```text
-vtest-mcp
-    |
-vtest-cli (CLI + shared `ops` layer)
-    |
-vtest-verify / vtest-exec / vtest-scan
-    |
-vtest-adapter-rust / vtest-adapter-lexical / vtest-adapter-synthetic
-    |
-vtest-adapter-api
-    |
-vtest-store
-    |
-vtest-model
+vtest-cli / vtest-mcp         entrypoints: arguments → operation, result → text / JSON-RPC
+        │
+operations crate              one operation = one function; registry composition,
+(name pending)                envelope, exit codes, diagnostic-code mapping
+        │
+vtest-scan / vtest-exec / vtest-verify     orchestration: delegate to adapters, validate,
+        │                                  merge deterministically, judge, aggregate
+        │                                  │
+vtest-store ── vtest-model                 vtest-adapter-rust / -lexical / -synthetic ── vtest-adapter-api ── vtest-model
 ```
 
-- `vtest-model` contains shared entities, identities, hashes, diagnostics, and
-  verification states (four checks, five states, diagnostic labels).
-- `vtest-store` owns canonical append-only record persistence and reload.
-- `vtest-adapter-api` defines the adapter traits, capability declarations, and
-  the registry. The core resolves adapters only through the registry.
-- `vtest-adapter-rust` implements Rust discovery, Locators, Cargo test
-  execution, and coverage. `vtest-adapter-synthetic` is a test-only adapter
-  that proves the core does not assume Rust. `vtest-adapter-lexical` is the
-  experimental, discovery-only engine for other languages (see below).
-- `vtest-scan` orchestrates discovery and implements structured test
-  operations (which still parse Rust directly; tracked as open work).
-- `vtest-exec` runs tests through the adapter runner and records Evidence.
-- `vtest-verify` rebuilds the declaration chain and performs fail-closed
-  aggregation.
-- `vtest-cli` is the non-interactive command-line entrypoint and owns the
-  shared `ops` layer that both interfaces call.
-- `vtest-mcp` exposes the MCP stdio tools by calling the same `ops`
-  functions and returning the same JSON envelope. `vtest mcp` starts it: the
-  `vtest` binary compiles `vtest-mcp`'s source in through a `#[path]` module,
-  because `vtest-mcp` already depends on `vtest-cli` and a package dependency
-  would be circular.
+Known deviations from the target, each tracked by a child issue of #175:
 
-The CLI composition root (`vtest_cli::adapters::builtin_registry`) is the only
-place adapters are instantiated.
+- `vtest-mcp` depends on `vtest-cli` for the `ops` layer, so the `vtest`
+  binary compiles `vtest-mcp`'s source in through a `#[path]` module instead
+  of a package dependency, which would be circular (R2, #187).
+- `vtest-mcp` also calls `vtest-scan` and `vtest-store` directly in places
+  instead of going through `ops` (R3, #188).
+- Evidence YAML is written by `vtest-exec`, while the record format belongs to
+  `vtest-store` (R9, #194).
+
+The composition root (`vtest_cli::adapters::builtin_registry`) is the only
+place adapters are instantiated: `rust-cargo` and the eleven lexical adapters
+(`c`, `cpp`, `csharp`, `go`, `java`, `javascript`, `kotlin`, `php`, `python`,
+`ruby`, `swift`). The repository's own `.verify/config.yaml` enables only
+`rust-cargo`.
 
 ## Canonical data and freshness
 
@@ -72,10 +80,11 @@ identity and intent, approvals, Evidence, hashes, aggregation, and reporting. Ec
 test execution, and coverage measurement belong behind explicit adapters.
 
 The Rust adapter uses Cargo and Rust test metadata. The language-adapter
-separation is tracked in
-[`docs/SpecTracer 言語アダプタ分離リファクタリング計画 v0.2.md`](docs/SpecTracer%20言語アダプタ分離リファクタリング計画%20v0.2.md);
-future TypeScript/JavaScript, Go, C#, and other adapters must preserve the same
-contract and evidence rules.
+separation was planned in
+[`docs/SpecTracer 言語アダプタ分離リファクタリング計画 v0.2.md`](docs/SpecTracer%20言語アダプタ分離リファクタリング計画%20v0.2.md)
+(process material, not normative); every adapter, including the eleven
+experimental lexical ones, must preserve the same contract and evidence rules.
+Each language has a user-facing page under [`docs/adapters/`](docs/adapters/).
 
 `vtest-adapter-lexical` is the shared, framework-neutral discovery engine for
 languages other than Rust. A Test construct is the construct that immediately
