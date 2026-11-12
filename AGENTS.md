@@ -204,7 +204,7 @@ crate の追加や責務の変更は、先にこの表を更新する PR で行�
 | `vtest-store` | `vtest-model` | |
 | `vtest-adapter-api` | `vtest-model` | |
 | `vtest-adapter-rust`、`vtest-adapter-lexical`、`vtest-adapter-synthetic` | `vtest-adapter-api`、`vtest-model` | |
-| `vtest-scan` | `vtest-adapter-api`、`vtest-store`、`vtest-model` | `vtest-adapter-rust` への通常依存が残っている（#155、#175 R6 で dev-dependency にする） |
+| `vtest-scan` | `vtest-adapter-api`、`vtest-store`、`vtest-model` | |
 | `vtest-exec` | `vtest-adapter-api`、`vtest-store`、`vtest-model` | |
 | `vtest-verify` | `vtest-scan`、`vtest-adapter-api`、`vtest-store`、`vtest-model` | `vtest-exec` へは依存しない（git HEAD の読み取りは #175 R9 で 1 か所にする） |
 | 操作層 crate（名称未決） | オーケストレーション、永続化、adapter 契約、すべての adapter、モデル | 現在は `vtest-cli` の中にある |
@@ -219,7 +219,7 @@ crate の追加や責務の変更は、先にこの表を更新する PR で行�
 
 | ライブラリ | 使用してよい範囲 |
 | --- | --- |
-| `syn`、`proc-macro2`、`quote`、`rustc-demangle`、`toml` | `vtest-adapter-rust`（`vtest-scan` の `syn` は #155、#175 R6 で解消する） |
+| `syn`、`proc-macro2`、`quote`、`rustc-demangle`、`toml` | `vtest-adapter-rust` |
 | `ignore` | ファイル走査を行う adapter |
 | `clap` | `vtest-cli` |
 | `yaml_serde` | `vtest-store`（正典 record の形式の所有者）。`vtest-verify` の既存利用は #175 で store への移管を確認する |

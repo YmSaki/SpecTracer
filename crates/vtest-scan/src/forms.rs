@@ -291,6 +291,18 @@ mod tests {
         fn enum_variants(&self, _: &str, _: &str) -> Option<Vec<String>> {
             None
         }
+        fn language(&self) -> &'static str {
+            "Fake"
+        }
+        fn source_extension(&self) -> &'static str {
+            "fake"
+        }
+        fn source_files(&self, _: &Path) -> Vec<std::path::PathBuf> {
+            Vec::new()
+        }
+        fn parse_locator(&self, _: &str) -> Option<vtest_adapter_api::ParsedLocator> {
+            None
+        }
         fn built_in_forms(&self) -> &'static [BuiltInForm] {
             if self.declares {
                 &[BuiltInForm {
