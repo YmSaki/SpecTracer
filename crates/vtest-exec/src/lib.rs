@@ -17,8 +17,8 @@ use vtest_model::{
     TargetCoverage, TargetCoverageResult, TargetCoverageTarget, TestEntity, TestResult,
 };
 use vtest_store::{
-    execution_state::materialize_execution_state, new_record_id, now_rfc3339, write_new_record,
-    VerifyLayout,
+    execution_state::materialize_execution_state, git_head_commit, new_record_id, now_rfc3339,
+    write_evidence, VerifyLayout,
 };
 
 #[derive(Debug, Error)]
@@ -435,11 +435,9 @@ pub fn run_tests_with_runner(
                     log_ref: format!("cache/logs/{record_id}.log"),
                 };
                 let path = layout.evidence_dir().join(format!("{record_id}.yaml"));
-                write_new_record(&path, &evidence_yaml(&record)).map_err(|error| {
-                    ExecutionError::Io {
-                        path,
-                        source: std::io::Error::other(error.to_string()),
-                    }
+                write_evidence(&path, &record).map_err(|error| ExecutionError::Io {
+                    path,
+                    source: std::io::Error::other(error.to_string()),
                 })?;
                 evidence.push(record);
             }
@@ -466,14 +464,7 @@ pub fn run_tests_with_runner(
 }
 
 pub fn git_revision(root: &Path) -> Revision {
-    let commit = Command::new("git")
-        .current_dir(root)
-        .args(["rev-parse", "HEAD"])
-        .output()
-        .ok()
-        .filter(|output| output.status.success())
-        .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_owned())
-        .filter(|value| !value.is_empty());
+    let commit = git_head_commit(root);
     let dirty = Command::new("git")
         .current_dir(root)
         .args(["status", "--porcelain"])
@@ -519,7 +510,7 @@ fn target_coverage_from_measurements(
 ) -> TargetCoverage {
     let mut entries: Vec<TargetCoverageTarget> = Vec::new();
     for target in targets {
-        let canonical = canonical_locator(target);
+        let canonical = target.to_string();
         if entries.iter().any(|entry| entry.target == canonical) {
             continue;
         }
@@ -560,83 +551,6 @@ fn target_coverage_from_measurements(
         targets: entries,
         count,
     }
-}
-
-fn canonical_locator(locator: &Locator) -> String {
-    format!("{}::{}", locator.adapter, locator.value)
-}
-
-fn evidence_yaml(record: &EvidenceRecord) -> String {
-    let target = &record.target_coverage;
-    format!(
-        "id: {id}\ntest_id: {test_id}\nadapter: {adapter}\nresult: {result}\nexecuted_at: {executed_at}\nrevision:\n  commit: {commit}\n  dirty: {dirty}\nexecution_state:\n  schema: {es_schema}\n  complete: {es_complete}\n  hash: {es_hash}\nhashes:\n  test_fn: {test_fn}\n  target_fn: {target_fn}\n  target_fns:\n{target_fns}runner:\n  kind: {kind}\n  command: {command}\n  exit_code: {exit_code}\ntarget_coverage:\n  checked: {checked}\n  method: {method}\n  result: {target_result}\n{targets}  count: {count}\nlog_ref: {log_ref}\n",
-        id = yaml_scalar(&record.id),
-        test_id = yaml_scalar(record.test_id.as_str()),
-        adapter = yaml_scalar(record.adapter.as_str()),
-        result = yaml_scalar(match record.result { TestResult::Pass => "PASS", TestResult::Fail => "FAIL" }),
-        executed_at = yaml_scalar(&record.executed_at),
-        commit = record.revision.commit.as_deref().map(yaml_scalar).unwrap_or_else(|| "null".to_owned()),
-        dirty = record.revision.dirty,
-        es_schema = yaml_scalar(&record.execution_state.schema),
-        es_complete = record.execution_state.complete,
-        es_hash = record.execution_state.hash.as_ref().map(|hash| yaml_scalar(hash.as_str())).unwrap_or_else(|| "null".to_owned()),
-        test_fn = yaml_scalar(record.hashes.test_fn.as_str()),
-        target_fn = yaml_scalar(record.hashes.target_fn.as_str()),
-        target_fns = if record.hashes.target_fns.is_empty() {
-            format!("    - {}\n", yaml_scalar(record.hashes.target_fn.as_str()))
-        } else {
-            record
-                .hashes
-                .target_fns
-                .iter()
-                .map(|hash| format!("    - {}\n", yaml_scalar(hash.as_str())))
-                .collect::<String>()
-        },
-        kind = yaml_scalar(&record.runner.kind),
-        command = yaml_scalar(&record.runner.command),
-        exit_code = record.runner.exit_code,
-        checked = target.checked,
-        method = target.method.as_deref().map(yaml_scalar).unwrap_or_else(|| "null".to_owned()),
-        target_result = target
-            .result
-            .map(target_coverage_result_name)
-            .map(yaml_scalar)
-            .unwrap_or_else(|| "null".to_owned()),
-        targets = target_coverage_targets_yaml(&target.targets),
-        count = target.count.map(|value| value.to_string()).unwrap_or_else(|| "null".to_owned()),
-        log_ref = yaml_scalar(&record.log_ref),
-    )
-}
-
-fn target_coverage_result_name(result: TargetCoverageResult) -> &'static str {
-    match result {
-        TargetCoverageResult::Pass => "PASS",
-        TargetCoverageResult::Fail => "FAIL",
-        TargetCoverageResult::Unknown => "UNKNOWN",
-    }
-}
-
-fn target_coverage_targets_yaml(targets: &[TargetCoverageTarget]) -> String {
-    if targets.is_empty() {
-        return "  targets: []\n".to_owned();
-    }
-    let mut yaml = String::from("  targets:\n");
-    for target in targets {
-        yaml.push_str(&format!(
-            "    - target: {}\n      result: {}\n      count: {}\n",
-            yaml_scalar(&target.target),
-            yaml_scalar(target_coverage_result_name(target.result)),
-            target
-                .count
-                .map(|value| value.to_string())
-                .unwrap_or_else(|| "null".to_owned()),
-        ));
-    }
-    yaml
-}
-
-fn yaml_scalar(value: &str) -> String {
-    format!("'{}'", value.replace('\'', "''"))
 }
 
 #[cfg(test)]
@@ -890,10 +804,7 @@ mod tests {
             assert_eq!(target_coverage.result, Some(expected_result));
             assert_eq!(target_coverage.count, Some(count));
             assert_eq!(target_coverage.targets.len(), 1);
-            assert_eq!(
-                target_coverage.targets[0].target,
-                canonical_locator(&target)
-            );
+            assert_eq!(target_coverage.targets[0].target, target.to_string());
             assert_eq!(target_coverage.targets[0].result, expected_result);
             assert_eq!(target_coverage.targets[0].count, Some(count));
             fs::remove_dir_all(root).expect("remove coverage fixture root");
@@ -935,21 +846,9 @@ mod tests {
         assert_eq!(
             entries,
             vec![
-                (
-                    canonical_locator(&double),
-                    TargetCoverageResult::Pass,
-                    Some(2)
-                ),
-                (
-                    canonical_locator(&unused),
-                    TargetCoverageResult::Fail,
-                    Some(0)
-                ),
-                (
-                    canonical_locator(&missing),
-                    TargetCoverageResult::Unknown,
-                    None
-                ),
+                (double.to_string(), TargetCoverageResult::Pass, Some(2)),
+                (unused.to_string(), TargetCoverageResult::Fail, Some(0)),
+                (missing.to_string(), TargetCoverageResult::Unknown, None),
             ]
         );
         assert_eq!(coverage.result, Some(TargetCoverageResult::Fail));

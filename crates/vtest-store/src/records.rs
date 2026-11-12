@@ -39,7 +39,7 @@ use std::{
 };
 use vtest_model::{
     ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, ReqId, Revision, RunnerInfo, SpecId,
-    TargetCoverage, TestId, TestResult, VoId,
+    TargetCoverage, TargetCoverageResult, TargetCoverageTarget, TestId, TestResult, VoId,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -217,8 +217,7 @@ const APPROVAL_DEPENDENCY_KEYS: &[&str] = &["entity", "hash"];
 
 /// Known top-level keys for a canonical Evidence record, matching
 /// `EvidenceRecord`'s own fields (`vtest-model`) as `read_evidence` below
-/// actually populates them, and the shape `vtest-exec`'s `evidence_yaml`
-/// writer emits.
+/// actually populates them, and the shape `write_evidence` below emits.
 const EVIDENCE_KEYS: &[&str] = &[
     "id",
     "test_id",
@@ -800,6 +799,83 @@ pub fn read_evidence(path: &Path) -> Result<EvidenceRecord, StoreError> {
         target_coverage,
         log_ref: scalar(&text, "log_ref").unwrap_or_default(),
     })
+}
+
+/// Writes one Evidence record as a new append-only fact at `path`
+/// (`write_new_record`: an existing file is an error, never replaced). The
+/// text is exactly what `read_evidence` above accepts, so the two stay in
+/// one file.
+pub fn write_evidence(path: &Path, record: &EvidenceRecord) -> Result<(), StoreError> {
+    write_new_record(path, &evidence_yaml(record))
+}
+
+fn evidence_yaml(record: &EvidenceRecord) -> String {
+    let target = &record.target_coverage;
+    format!(
+        "id: {id}\ntest_id: {test_id}\nadapter: {adapter}\nresult: {result}\nexecuted_at: {executed_at}\nrevision:\n  commit: {commit}\n  dirty: {dirty}\nexecution_state:\n  schema: {es_schema}\n  complete: {es_complete}\n  hash: {es_hash}\nhashes:\n  test_fn: {test_fn}\n  target_fn: {target_fn}\n  target_fns:\n{target_fns}runner:\n  kind: {kind}\n  command: {command}\n  exit_code: {exit_code}\ntarget_coverage:\n  checked: {checked}\n  method: {method}\n  result: {target_result}\n{targets}  count: {count}\nlog_ref: {log_ref}\n",
+        id = yaml_scalar(&record.id),
+        test_id = yaml_scalar(record.test_id.as_str()),
+        adapter = yaml_scalar(record.adapter.as_str()),
+        result = yaml_scalar(match record.result { TestResult::Pass => "PASS", TestResult::Fail => "FAIL" }),
+        executed_at = yaml_scalar(&record.executed_at),
+        commit = record.revision.commit.as_deref().map(yaml_scalar).unwrap_or_else(|| "null".to_owned()),
+        dirty = record.revision.dirty,
+        es_schema = yaml_scalar(&record.execution_state.schema),
+        es_complete = record.execution_state.complete,
+        es_hash = record.execution_state.hash.as_ref().map(|hash| yaml_scalar(hash.as_str())).unwrap_or_else(|| "null".to_owned()),
+        test_fn = yaml_scalar(record.hashes.test_fn.as_str()),
+        target_fn = yaml_scalar(record.hashes.target_fn.as_str()),
+        target_fns = if record.hashes.target_fns.is_empty() {
+            format!("    - {}\n", yaml_scalar(record.hashes.target_fn.as_str()))
+        } else {
+            record
+                .hashes
+                .target_fns
+                .iter()
+                .map(|hash| format!("    - {}\n", yaml_scalar(hash.as_str())))
+                .collect::<String>()
+        },
+        kind = yaml_scalar(&record.runner.kind),
+        command = yaml_scalar(&record.runner.command),
+        exit_code = record.runner.exit_code,
+        checked = target.checked,
+        method = target.method.as_deref().map(yaml_scalar).unwrap_or_else(|| "null".to_owned()),
+        target_result = target
+            .result
+            .map(target_coverage_result_name)
+            .map(yaml_scalar)
+            .unwrap_or_else(|| "null".to_owned()),
+        targets = target_coverage_targets_yaml(&target.targets),
+        count = target.count.map(|value| value.to_string()).unwrap_or_else(|| "null".to_owned()),
+        log_ref = yaml_scalar(&record.log_ref),
+    )
+}
+
+fn target_coverage_result_name(result: TargetCoverageResult) -> &'static str {
+    match result {
+        TargetCoverageResult::Pass => "PASS",
+        TargetCoverageResult::Fail => "FAIL",
+        TargetCoverageResult::Unknown => "UNKNOWN",
+    }
+}
+
+fn target_coverage_targets_yaml(targets: &[TargetCoverageTarget]) -> String {
+    if targets.is_empty() {
+        return "  targets: []\n".to_owned();
+    }
+    let mut yaml = String::from("  targets:\n");
+    for target in targets {
+        yaml.push_str(&format!(
+            "    - target: {}\n      result: {}\n      count: {}\n",
+            yaml_scalar(&target.target),
+            yaml_scalar(target_coverage_result_name(target.result)),
+            target
+                .count
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "null".to_owned()),
+        ));
+    }
+    yaml
 }
 
 pub fn read_spec(layout: &VerifyLayout, id: &str) -> Result<SpecRecord, StoreError> {
@@ -1596,6 +1672,190 @@ mod tests {
             read_evidence(&matching_path).is_err(),
             "an Evidence record missing id entirely must fail closed, not fall back to the file name"
         );
+    }
+
+    fn full_evidence_record() -> EvidenceRecord {
+        EvidenceRecord {
+            id: "01J8XW1B2C3D4E5F6G7H8J9K0M".to_owned(),
+            test_id: TestId::new("TEST-PARSER-044"),
+            adapter: vtest_model::AdapterId::new("rust-cargo"),
+            result: TestResult::Pass,
+            executed_at: "2026-08-08T00:00:00Z".to_owned(),
+            revision: Revision {
+                commit: Some("0123456789abcdef0123456789abcdef01234567".to_owned()),
+                dirty: false,
+            },
+            execution_state: vtest_model::ExecutionState {
+                schema: "rust-cargo-execution-state-v1".to_owned(),
+                complete: true,
+                hash: Some(ContentHash::from_text("execution state\n")),
+            },
+            hashes: EvidenceHashes {
+                test_fn: ContentHash::from_text("test body\n"),
+                target_fn: ContentHash::from_text("first target\n"),
+                target_fns: vec![
+                    ContentHash::from_text("first target\n"),
+                    ContentHash::from_text("second target\n"),
+                ],
+            },
+            runner: RunnerInfo {
+                kind: "cargo".to_owned(),
+                command: "cargo test -- 'parser::parses' --exact".to_owned(),
+                exit_code: 0,
+            },
+            target_coverage: TargetCoverage {
+                checked: true,
+                method: Some("llvm-cov".to_owned()),
+                result: Some(TargetCoverageResult::Unknown),
+                targets: vec![
+                    TargetCoverageTarget {
+                        target: "rust-cargo::src/parser.rs::Parser::parse".to_owned(),
+                        result: TargetCoverageResult::Pass,
+                        count: Some(3),
+                    },
+                    TargetCoverageTarget {
+                        target: "rust-cargo::src/parser.rs::Parser::reset".to_owned(),
+                        result: TargetCoverageResult::Unknown,
+                        count: None,
+                    },
+                ],
+                count: None,
+            },
+            log_ref: "cache/logs/01J8XW1B2C3D4E5F6G7H8J9K0M.log".to_owned(),
+        }
+    }
+
+    fn minimal_evidence_record() -> EvidenceRecord {
+        EvidenceRecord {
+            id: "01J8XW1B2C3D4E5F6G7H8J9K0N".to_owned(),
+            test_id: TestId::new("TEST-X"),
+            adapter: vtest_model::AdapterId::new("ruby-minitest"),
+            result: TestResult::Fail,
+            executed_at: "2026-08-08T00:00:00Z".to_owned(),
+            revision: Revision {
+                commit: None,
+                dirty: true,
+            },
+            execution_state: vtest_model::ExecutionState {
+                schema: "ruby-minitest-execution-state-v1".to_owned(),
+                complete: false,
+                hash: None,
+            },
+            hashes: EvidenceHashes {
+                test_fn: ContentHash::from_text("test body\n"),
+                target_fn: ContentHash::from_text(""),
+                target_fns: Vec::new(),
+            },
+            runner: RunnerInfo {
+                kind: "minitest".to_owned(),
+                command: "ruby -Itest test/x_test.rb".to_owned(),
+                exit_code: 1,
+            },
+            target_coverage: TargetCoverage {
+                checked: false,
+                method: None,
+                result: None,
+                targets: Vec::new(),
+                count: None,
+            },
+            log_ref: "cache/logs/01J8XW1B2C3D4E5F6G7H8J9K0N.log".to_owned(),
+        }
+    }
+
+    /// @vtest.id TEST-STORE-EVIDENCE-WRITER-BYTES-AND-ROUND-TRIP
+    /// @vtest.covers VO-STORE-EVIDENCE-UNKNOWN-FIELD-REJECTED
+    /// @vtest.target crates/vtest-store/src/records.rs::write_evidence
+    /// @vtest.intent verifies write_evidence emits byte-for-byte the record text captured from the writer before it moved here from vtest-exec, and that read_evidence accepts it without a schema mismatch
+    #[test]
+    fn write_evidence_emits_the_fixed_text_and_read_evidence_accepts_it() {
+        let full_text = concat!(
+            "id: '01J8XW1B2C3D4E5F6G7H8J9K0M'\n",
+            "test_id: 'TEST-PARSER-044'\n",
+            "adapter: 'rust-cargo'\n",
+            "result: 'PASS'\n",
+            "executed_at: '2026-08-08T00:00:00Z'\n",
+            "revision:\n",
+            "  commit: '0123456789abcdef0123456789abcdef01234567'\n",
+            "  dirty: false\n",
+            "execution_state:\n",
+            "  schema: 'rust-cargo-execution-state-v1'\n",
+            "  complete: true\n",
+            "  hash: 'sha256:526676ad8c6dbe6bfe5c92eca4382c4b5a353eabce5e75c8571f9e2fc9a1d3f8'\n",
+            "hashes:\n",
+            "  test_fn: 'sha256:94ceebc543d66991bc51e0a0261972e2e4b9d0b29693eddf000bcc5871798727'\n",
+            "  target_fn: 'sha256:a64b42ee65bc60b078a457c773acdbde3aa0252c2573771e0a73ec127919997c'\n",
+            "  target_fns:\n",
+            "    - 'sha256:a64b42ee65bc60b078a457c773acdbde3aa0252c2573771e0a73ec127919997c'\n",
+            "    - 'sha256:045beed3260c795fd4bf80bb3fbbacef325ca559c25615ec067ddd67ea91dba6'\n",
+            "runner:\n",
+            "  kind: 'cargo'\n",
+            "  command: 'cargo test -- ''parser::parses'' --exact'\n",
+            "  exit_code: 0\n",
+            "target_coverage:\n",
+            "  checked: true\n",
+            "  method: 'llvm-cov'\n",
+            "  result: 'UNKNOWN'\n",
+            "  targets:\n",
+            "    - target: 'rust-cargo::src/parser.rs::Parser::parse'\n",
+            "      result: 'PASS'\n",
+            "      count: 3\n",
+            "    - target: 'rust-cargo::src/parser.rs::Parser::reset'\n",
+            "      result: 'UNKNOWN'\n",
+            "      count: null\n",
+            "  count: null\n",
+            "log_ref: 'cache/logs/01J8XW1B2C3D4E5F6G7H8J9K0M.log'\n",
+        );
+        let minimal_text = concat!(
+            "id: '01J8XW1B2C3D4E5F6G7H8J9K0N'\n",
+            "test_id: 'TEST-X'\n",
+            "adapter: 'ruby-minitest'\n",
+            "result: 'FAIL'\n",
+            "executed_at: '2026-08-08T00:00:00Z'\n",
+            "revision:\n",
+            "  commit: null\n",
+            "  dirty: true\n",
+            "execution_state:\n",
+            "  schema: 'ruby-minitest-execution-state-v1'\n",
+            "  complete: false\n",
+            "  hash: null\n",
+            "hashes:\n",
+            "  test_fn: 'sha256:94ceebc543d66991bc51e0a0261972e2e4b9d0b29693eddf000bcc5871798727'\n",
+            "  target_fn: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'\n",
+            "  target_fns:\n",
+            "    - 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'\n",
+            "runner:\n",
+            "  kind: 'minitest'\n",
+            "  command: 'ruby -Itest test/x_test.rb'\n",
+            "  exit_code: 1\n",
+            "target_coverage:\n",
+            "  checked: false\n",
+            "  method: null\n",
+            "  result: null\n",
+            "  targets: []\n",
+            "  count: null\n",
+            "log_ref: 'cache/logs/01J8XW1B2C3D4E5F6G7H8J9K0N.log'\n",
+        );
+        let root = temporary_directory("write-evidence");
+
+        let full = full_evidence_record();
+        let full_path = root.join(format!("{}.yaml", full.id));
+        write_evidence(&full_path, &full).unwrap();
+        assert_eq!(fs::read_to_string(&full_path).unwrap(), full_text);
+        assert_eq!(read_evidence(&full_path).unwrap(), full);
+        assert!(
+            write_evidence(&full_path, &full).is_err(),
+            "an existing Evidence record must never be replaced"
+        );
+
+        let minimal = minimal_evidence_record();
+        let minimal_path = root.join(format!("{}.yaml", minimal.id));
+        write_evidence(&minimal_path, &minimal).unwrap();
+        assert_eq!(fs::read_to_string(&minimal_path).unwrap(), minimal_text);
+        // An empty `target_fns` is written as the single `target_fn`, so that
+        // is what comes back.
+        let mut read_back = minimal.clone();
+        read_back.hashes.target_fns = vec![minimal.hashes.target_fn.clone()];
+        assert_eq!(read_evidence(&minimal_path).unwrap(), read_back);
     }
 
     /// @vtest.id TEST-STORE-EVIDENCE-UNCHECKED-COVERAGE-LEGACY-UNKNOWN-NORMALIZED

@@ -17,7 +17,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::Path,
-    process::Command,
 };
 
 use serde::Serialize;
@@ -28,8 +27,8 @@ use vtest_model::{
 };
 use vtest_scan::ScanResult;
 use vtest_store::{
-    execution_state::materialize_execution_state, read_document_file, read_document_names,
-    read_evidence, read_record_ids, read_vo_record, VerifyLayout,
+    execution_state::materialize_execution_state, git_head_commit, read_document_file,
+    read_document_names, read_evidence, read_record_ids, read_vo_record, VerifyLayout,
 };
 
 /// 固定4検査。DS-1106「`--items` 省略時は常に固定4検査による完全検証を行う」、
@@ -593,17 +592,6 @@ fn declared_test_id(text: &str) -> Option<String> {
             .chars()
             .all(|c| !c.is_whitespace() && !c.is_control());
     well_formed.then(|| declared.to_owned())
-}
-
-fn git_head_commit(root: &Path) -> Option<String> {
-    Command::new("git")
-        .current_dir(root)
-        .args(["rev-parse", "HEAD"])
-        .output()
-        .ok()
-        .filter(|output| output.status.success())
-        .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_owned())
-        .filter(|value| !value.is_empty())
 }
 
 pub fn verify_project(
@@ -1342,7 +1330,7 @@ fn canonical_target_locators(test: &TestEntity, scan: &ScanResult) -> Vec<String
                 .sources
                 .iter()
                 .find(|source| &source.locator == locator)
-                .map(|source| format!("{}::{}", source.locator.adapter, source.locator.value)),
+                .map(|source| source.locator.to_string()),
             _ => None,
         })
         .collect()

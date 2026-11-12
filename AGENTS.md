@@ -171,7 +171,7 @@ crate の追加や責務の変更は、先にこの表を更新する PR で行�
 | `vtest-adapter-lexical` | adapter | Rust 以外の言語のフレームワーク非依存な Test 発見。言語ごとの module（`c`、`cpp`、`csharp`、`go`、`java`、`javascript`、`kotlin`、`php`、`python`、`ruby`、`swift`）と、意味が同じと確認できた部分（`annotation`、`shared`）。`source_discovery` だけを宣言する（実験的、`docs/adapters/lexical.md`） | runner、coverage、static analysis（未宣言のまま `NO_EVIDENCE` にする） |
 | `vtest-adapter-synthetic` | adapter | `.rs` 以外の source、関数ではない Test construct などを core の変更なしで扱えることを示す受入テスト専用の adapter（DS-1584） | 本番の言語対応。本番の registry に登録しない |
 | `vtest-scan` | オーケストレーション | adapter への委譲、Test ID の大域的一意性（E-SCAN-002）、VO 参照の解決（E-SCAN-003）、Target Reference の解決、adapter ID 順の決定論的統合、record の参照整合性、Structured Test Operation の orchestration | 言語構文の解釈（adapter）、opaque locator の分解 |
-| `vtest-exec` | オーケストレーション | runner の起動、target coverage の帰属、Evidence の構築と追記 | 正典 record の形式（`vtest-store`。#175 R9 で Evidence の writer を移す） |
+| `vtest-exec` | オーケストレーション | runner の起動、target coverage の帰属、Evidence の構築と追記 | 正典 record の形式（`vtest-store`。Evidence は `write_evidence` で書く） |
 | `vtest-verify` | オーケストレーション | 検証グラフの再構築、4 検査、Evidence の鮮度、スコープ、fail-closed の集約 | ファイルや git の読み取り（`verify_project` の入口に集める）、record の形式 |
 | 操作層（現 `vtest-cli/src/ops/` と `adapters.rs`） | 操作層 | 1 操作 = 1 関数、builtin registry の構成、envelope、終了コード、診断コードの写像 | 印字（`vtest-cli`）、JSON-RPC（`vtest-mcp`） |
 | `vtest-cli` | 入口 | clap の引数定義、操作層の呼び出し、text 描画、出力、終了コード。`vtest` バイナリ | 業務ルール、エラーの写像（操作層） |
@@ -206,7 +206,7 @@ crate の追加や責務の変更は、先にこの表を更新する PR で行�
 | `vtest-adapter-rust`、`vtest-adapter-lexical`、`vtest-adapter-synthetic` | `vtest-adapter-api`、`vtest-model` | |
 | `vtest-scan` | `vtest-adapter-api`、`vtest-store`、`vtest-model` | |
 | `vtest-exec` | `vtest-adapter-api`、`vtest-store`、`vtest-model` | |
-| `vtest-verify` | `vtest-scan`、`vtest-adapter-api`、`vtest-store`、`vtest-model` | `vtest-exec` へは依存しない（git HEAD の読み取りは #175 R9 で 1 か所にする） |
+| `vtest-verify` | `vtest-scan`、`vtest-adapter-api`、`vtest-store`、`vtest-model` | `vtest-exec` へは依存しない（git HEAD は `vtest-store` の `git_head_commit` で読む） |
 | 操作層 crate（名称未決） | オーケストレーション、永続化、adapter 契約、すべての adapter、モデル | 現在は `vtest-cli` の中にある |
 | `vtest-cli` | 操作層 crate、`vtest-model`。バイナリは `vtest-mcp` も | 現在は操作層を内蔵し、オーケストレーションと adapter に直接依存する（#175 R2） |
 | `vtest-mcp` | 操作層 crate、`vtest-model` | 現在は `vtest-cli`、`vtest-scan`、`vtest-store`、`vtest-exec`、`vtest-verify` に依存する（#175 R2、R3） |
@@ -579,7 +579,7 @@ CI はビルド、テスト、フォーマット、clippy、`vtest doctor`、`sp
 | 項目 | 内容 | 例 |
 | --- | --- | --- |
 | 現在の位置 | ファイルと関数、または型 | `vtest-exec/src/lib.rs` の `evidence_yaml` |
-| あるべき位置と形式 | 第 5 節の表に当てはめた結果 | `vtest-store/src/evidence.rs` の `write_evidence`（読み手の `read_evidence` と同居） |
+| あるべき位置と形式 | 第 5 節の表に当てはめた結果 | `vtest-store/src/records.rs` の `write_evidence`（読み手の `read_evidence` と同居） |
 | 根拠 | このファイルの節番号と条項 ID | 5.1「正典 record の読み書きと形式」行、4.4、BD-115 |
 | 修正方法 | Move、Split、Extract、Rename、capability の導入のいずれか | Move し、`vtest-exec` からは呼び出すだけにする |
 | 影響範囲 | 変更するファイルと、振る舞いを固定するテスト | Evidence YAML のバイト一致の golden テストを先に追加する |
