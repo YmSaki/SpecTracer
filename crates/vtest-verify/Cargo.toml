@@ -10,7 +10,6 @@ vtest-adapter-api = { path = "../vtest-adapter-api" }
 vtest-model = { path = "../vtest-model" }
 vtest-scan = { path = "../vtest-scan" }
 vtest-store = { path = "../vtest-store" }
-yaml_serde.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
