@@ -49,8 +49,6 @@ Known deviations from the target, each tracked by a child issue of #175:
   of a package dependency, which would be circular (R2, #187).
 - `vtest-mcp` also calls `vtest-scan` and `vtest-store` directly in places
   instead of going through `ops` (R3, #188).
-- Evidence YAML is written by `vtest-exec`, while the record format belongs to
-  `vtest-store` (R9, #194).
 
 The composition root (`vtest_cli::adapters::builtin_registry`) is the only
 place adapters are instantiated: `rust-cargo` and the eleven lexical adapters

@@ -147,7 +147,7 @@ struct Graph {
 /// two adapters' Sources that share a locator value stay two nodes with
 /// their own edges.
 fn src_node_id(locator: &vtest_model::Locator) -> String {
-    format!("{}::{}", locator.adapter, locator.value)
+    locator.to_string()
 }
 
 /// The Source node a TargetRef resolves to, or `None` unless exactly one
