@@ -25,7 +25,7 @@ only; dev-dependencies, which only tests use, are left out.
 | `vtest-verify` | orchestration | rebuilding the declaration chain, the four checks, Evidence freshness, scope, fail-closed aggregation | `scan`, `adapter-api`, `store`, `model` |
 | `vtest-ops` | operations | one function per operation, the adapter registry (`registry::builtin_registry`), the shared envelope and diagnostic-code mapping | orchestration, `adapter-api`, `adapter-rust`, `adapter-lexical`, `store`, `model` |
 | `vtest-cli` | entrypoint | the `vtest` binary, clap definitions, text rendering, exit codes | `ops`, `mcp` (the binary only, for `vtest mcp`), `scan`, `verify`, `adapter-api`, `store`, `model` |
-| `vtest-mcp` | entrypoint | MCP stdio transport, tool schemas, argument validation, calling the same `ops` functions and returning the same envelope | `ops`, `scan`, `exec`, `verify`, `adapter-api`, `store`, `model` |
+| `vtest-mcp` | entrypoint | MCP stdio transport, tool schemas, argument validation, calling the same `ops` functions and returning the same envelope | `ops`, `model` |
 
 The layering (#175 D1, D2): both entrypoints call the operations crate and
 neither depends on the other's implementation.
@@ -45,13 +45,15 @@ vtest-store ── vtest-model                 vtest-adapter-rust / -lexical / -
 `crates/vtest-cli/tests/architecture.rs` checks the edges that must not
 exist: a core crate on a language adapter or a Rust syntax crate,
 `vtest-adapter-api` on anything but `vtest-model`, `vtest-mcp` on `vtest-cli`,
-and `vtest-ops` on either entrypoint.
+`vtest-ops` on either entrypoint, and `vtest-mcp` on any workspace crate other
+than `vtest-ops` and `vtest-model` outside its tests.
 
-Known deviation from the target, tracked by a child issue of #175:
-
-- `vtest-cli` and `vtest-mcp` also depend on orchestration and persistence
-  crates and call `vtest-scan` and `vtest-store` directly in places instead of
-  going through `ops` (R3, #188).
+Each operation's error type maps itself to a diagnostic code and an exit code
+(`failure()`, returning `vtest_ops::envelope::Failure`), and the JSON both
+entrypoints return is built in `vtest-ops`. `vtest-cli` still names types and
+input-reading functions of `scan`, `verify`, `store` and `adapter-api` for
+text rendering and for reading answer files; it runs every operation through
+`ops`.
 
 The composition root (`vtest_ops::registry::builtin_registry`) is the only
 place adapters are instantiated: `rust-cargo` and the eleven lexical adapters

@@ -226,6 +226,27 @@ fn entrypoints_share_the_operation_layer_and_stay_apart() {
         .any(|dependency| dependency == "vtest-mcp"));
 }
 
+/// @vtest.id TEST-ARCH-MCP-LINKS-ONLY-OPS-AND-MODEL
+/// @vtest.covers VO-ARCH-ENTRYPOINTS-SHARE-OPERATION-LAYER
+/// @vtest.intent cargo metadata shows that the only workspace crates vtest-mcp links outside its tests are vtest-ops and vtest-model, so a tool can reach scan, exec, verify and the store only through an operation the CLI also calls
+// No `@vtest.target`, for the same reason as the tests above.
+#[test]
+fn the_mcp_server_links_only_the_operation_layer_and_the_model() {
+    let workspace = workspace_dependencies(false);
+    let members: Vec<&str> = workspace.iter().map(|(name, _)| name.as_str()).collect();
+    let mut linked: Vec<&str> = workspace
+        .iter()
+        .find(|(name, _)| name == "vtest-mcp")
+        .expect("workspace must contain vtest-mcp")
+        .1
+        .iter()
+        .map(String::as_str)
+        .filter(|dependency| members.contains(dependency))
+        .collect();
+    linked.sort_unstable();
+    assert_eq!(linked, ["vtest-model", "vtest-ops"]);
+}
+
 /// Every `.rs` file below `directory`, recursively.
 fn rust_sources(directory: &Path) -> Vec<PathBuf> {
     let mut sources = Vec::new();
