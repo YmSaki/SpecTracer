@@ -55,3 +55,32 @@ fn python_body_tail_edit_changes_the_test_hash() {
     };
     assert_ne!(hash("one()"), hash("two()"));
 }
+
+/// @vtest.id TEST-CLI-PYTHON-HARD-KEYWORD-NAME-REJECTED
+/// @vtest.covers VO-ADAPTER-LEXICAL-UNPARSEABLE-DECLARATION-MISSING
+/// @vtest.target crates/vtest-adapter-lexical/src/python.rs::definition_header
+/// @vtest.intent verifies the real CLI scan rejects the Issue 181 fixture instead of registering TEST-X as a managed Test
+#[test]
+fn python_hard_keyword_name_is_not_registered_by_cli_scan() {
+    let source = "# @vtest.id TEST-X\n# @vtest.covers VO-X\n# @vtest.intent complete construct\ndef if():\n    assert 1 == 1\n";
+    let fixture = support::fixture("python", &[("Probe.py", source)], &["VO-X"]);
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_vtest"))
+        .arg("--project")
+        .arg(fixture.path())
+        .args(["--format", "json", "scan"])
+        .output()
+        .expect("run CLI scan");
+    let envelope: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("scan JSON envelope");
+    assert_eq!(output.status.code(), Some(1), "{envelope}");
+    assert_eq!(envelope["ok"], false, "{envelope}");
+    assert_eq!(envelope["data"]["tests"], 0, "{envelope}");
+    assert_eq!(envelope["data"]["sources"], 0, "{envelope}");
+    assert!(envelope["diagnostics"]
+        .as_array()
+        .expect("diagnostics")
+        .iter()
+        .any(|diagnostic| diagnostic["code"] == "E-SCAN-001"));
+    let (scan, _) = fixture.scan_and_verify();
+    assert!(scan.tests.iter().all(|test| test.id.as_str() != "TEST-X"));
+}
