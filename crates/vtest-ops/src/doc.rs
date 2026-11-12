@@ -8,6 +8,8 @@
 
 use std::collections::BTreeMap;
 
+use crate::envelope::{record_failure, Failure};
+
 use vtest_store::{
     approval::{
         build_document_node_index, document_dependencies, effective_approval_state, node_freshness,
@@ -27,6 +29,16 @@ pub enum DocOpError {
     Usage(String),
     #[error("store error: {0}")]
     Store(#[from] StoreError),
+}
+
+impl DocOpError {
+    /// The exit code and diagnostic both entrypoints report.
+    pub fn failure(&self) -> Failure {
+        match self {
+            Self::Usage(_) => Failure::usage("E-OP-001", self.to_string()),
+            Self::Store(error) => record_failure(error),
+        }
+    }
 }
 
 pub struct AddArgs {
@@ -223,5 +235,18 @@ pub fn show(layout: &VerifyLayout, id: &str) -> Result<ShowResult, DocOpError> {
         view,
         freshness,
         approval_states,
+    })
+}
+
+/// One registered document as `doc add` / `doc show` / `doc list` report it.
+/// `freshness` is not part of this shape: `show` and `list` compute it
+/// across the registered set and add it themselves (DS-1017).
+pub fn view_json(view: &DocView) -> serde_json::Value {
+    serde_json::json!({
+        "id": view.id,
+        "path": view.path.to_string_lossy(),
+        "content_hash": view.content_hash.as_str(),
+        "derives_from": view.derives_from,
+        "root": view.is_root,
     })
 }

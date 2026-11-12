@@ -8,6 +8,14 @@ use vtest_scan::{scan_project, ScanResult};
 
 use crate::envelope::{config_failure, scan_failure, Failure};
 
+/// Composes the registry and scans `root`. The scan loads the config itself,
+/// so an unloadable config is reported as the scan's rejection.
+pub fn scanned(root: &Path) -> Result<(ScanResult, AdapterRegistry), Failure> {
+    let registry = crate::registry::resolve_registry()?;
+    let scan = scan_project(root, &registry).map_err(|error| scan_failure(&error))?;
+    Ok((scan, registry))
+}
+
 /// Loads the config, composes the registry and scans `root`, in that order,
 /// so a project with several problems reports the same one from the CLI and
 /// from MCP: an unloadable config first (E-CONFIG-001, or E-INTERNAL-001
@@ -15,9 +23,7 @@ use crate::envelope::{config_failure, scan_failure, Failure};
 /// the scan's own rejection.
 pub fn load_scanned(root: &Path) -> Result<(ScanResult, AdapterRegistry), Failure> {
     vtest_store::load_config(root).map_err(|error| config_failure(&error))?;
-    let registry = crate::registry::resolve_registry()?;
-    let scan = scan_project(root, &registry).map_err(|error| scan_failure(&error))?;
-    Ok((scan, registry))
+    scanned(root)
 }
 
 #[cfg(test)]

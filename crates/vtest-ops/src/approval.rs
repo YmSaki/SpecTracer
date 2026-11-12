@@ -10,13 +10,16 @@
 //! silence — DS-1052 says exactly what a judgment-typed record must contain,
 //! this codebase just does not yet have the domain that statement depends on.
 
+use crate::envelope::{record_failure, Failure};
+/// The record `create` and `withdraw` return.
+pub use vtest_store::records::ApprovalRecord;
 use vtest_store::{
     approval::{
         build_document_node_index, document_dependencies, effective_approval, read_all_approvals,
         read_all_vos, vo_dependencies, EffectiveApprovalState,
     },
     new_record_id,
-    records::{ApprovalRecord, Approver, DependencyRecord},
+    records::{Approver, DependencyRecord},
     write_new_record, StoreError, VerifyLayout,
 };
 
@@ -39,6 +42,24 @@ pub enum ApprovalOpError {
     InvalidRequest(String),
     #[error("store error: {0}")]
     Store(#[from] StoreError),
+}
+
+impl ApprovalOpError {
+    /// The exit code and diagnostic both entrypoints report.
+    ///
+    /// DS-1058: a `judgment` subject can never resolve, because no
+    /// judgment-record domain exists in this codebase (see the enum's doc
+    /// comment); that is the unresolved-subject case (E-APPROVAL-001), not
+    /// an input-validation failure (E-OP-001).
+    pub fn failure(&self) -> Failure {
+        match self {
+            Self::JudgmentSubjectTypeUnsupported | Self::UnresolvedSubject(_) => {
+                Failure::usage("E-APPROVAL-001", self.to_string())
+            }
+            Self::InvalidRequest(_) => Failure::usage("E-APPROVAL-002", self.to_string()),
+            Self::Store(error) => record_failure(error),
+        }
+    }
 }
 
 pub struct CreateArgs {
@@ -287,5 +308,34 @@ pub fn show(
         records: matching,
         effective_state,
         diagnostics,
+    })
+}
+
+/// The `data` of a created or withdrawn approval, and one entry of `show`'s
+/// `records`.
+pub fn record_json(record: &ApprovalRecord) -> serde_json::Value {
+    serde_json::json!({
+        "id": record.id,
+        "subject_type": record.subject_type,
+        "subject": record.subject,
+        "approved_state": record.approved_state,
+        "supersedes": record.supersedes,
+        "approved_at": record.approved_at,
+    })
+}
+
+/// The name `show` reports for the effective state.
+pub fn effective_state_name(state: &EffectiveApprovalState) -> &'static str {
+    match state {
+        EffectiveApprovalState::Draft => "draft",
+        EffectiveApprovalState::Approved => "approved",
+    }
+}
+
+/// The `data` of `approval show` / `approval_get`.
+pub fn show_json(result: &ShowResult) -> serde_json::Value {
+    serde_json::json!({
+        "records": result.records.iter().map(record_json).collect::<Vec<_>>(),
+        "effective_state": effective_state_name(&result.effective_state),
     })
 }

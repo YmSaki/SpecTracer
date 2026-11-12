@@ -13,6 +13,12 @@
 //! ([`registry::builtin_registry`]) and the shared envelope and exit-code
 //! mapping ([`envelope`]).
 
+// Types of lower crates that appear in operation signatures, re-exported so
+// an entrypoint that only passes them through needs no dependency of its
+// own on those crates.
+pub use vtest_adapter_api::AdapterRegistry;
+pub use vtest_store::{FormAnswers, VerifyLayout};
+
 pub mod approval;
 pub mod audit;
 pub mod doc;

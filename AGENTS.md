@@ -118,8 +118,8 @@ runner / coverage       ──adapter──▶   vtest-exec   ──▶  vtest-s
 - `vtest-ops` が持つもの: 操作（`<操作名>.rs`、1 操作 = 1 関数）、`registry.rs` の `builtin_registry`（コンポジションルート）、`envelope.rs` の envelope とエラーから診断コードへの写像。
 - 入口の形: `vtest-cli` は「clap の解析 → 操作層の呼び出し → text / JSON の印字 → 終了コード」だけ、`vtest-mcp` は「JSON-RPC の transport、tool スキーマ、引数の検証 → 操作層の呼び出し → envelope」だけにする。`vtest` バイナリは `vtest-cli` と `vtest-mcp` に依存し、`main.rs` が `vtest mcp` のために `vtest_mcp::serve` を呼ぶ。`vtest-cli` のライブラリは `vtest-mcp` を使わない。
 - 操作を追加、変更するときは「1 操作 = `vtest-ops` の 1 関数、CLI と MCP は変換だけ」の形で書く。
-- `vtest-mcp` は `vtest-cli` に依存せず、`vtest-ops` はどちらの入口にも依存しない。この 3 点は `crates/vtest-cli/tests/architecture.rs` が検査する。
-- 入口に残っている二重実装（scan の前段、エラーの写像）は #175 R3（#188）で操作層に寄せる。
+- `vtest-mcp` は `vtest-cli` に依存せず、`vtest-ops` はどちらの入口にも依存しない。`vtest-mcp` がテスト以外で使う workspace の crate は `vtest-ops` と `vtest-model` だけである。これらは `crates/vtest-cli/tests/architecture.rs` が検査する。
+- エラーから診断コードと終了コードへの写像は、操作のエラー型の `failure()`（`vtest_ops::envelope::Failure` を返す）に 1 つだけ置く。CLI と MCP で共通の JSON は `vtest-ops` の `*_json` 関数で作る。入口に同じ写像や JSON の組み立てを書かない（#175 R3）。
 
 ## 3. 責務の分割
 
@@ -175,7 +175,7 @@ crate の追加や責務の変更は、先にこの表を更新する PR で行�
 | `vtest-verify` | オーケストレーション | 検証グラフの再構築、4 検査、Evidence の鮮度、スコープ、fail-closed の集約 | ファイルや git の読み取り（`verify_project` の入口に集める）、record の形式 |
 | `vtest-ops` | 操作層 | 1 操作 = 1 関数、builtin registry の構成、envelope、終了コード、診断コードの写像 | 印字（`vtest-cli`）、JSON-RPC（`vtest-mcp`） |
 | `vtest-cli` | 入口 | clap の引数定義、操作層の呼び出し、text 描画、出力、終了コード。`vtest` バイナリ | 業務ルール、エラーの写像（操作層） |
-| `vtest-mcp` | 入口 | MCP stdio の transport、tool 一覧と入力スキーマ、引数の検証、操作層の呼び出し | 業務ルール、`vtest-scan` や `vtest-store` の直接呼び出し（#175 R3 で解消する） |
+| `vtest-mcp` | 入口 | MCP stdio の transport、tool 一覧と入力スキーマ、引数の検証、操作層の呼び出し | 業務ルール、エラーの写像、`vtest-scan` や `vtest-store` の直接呼び出し（テストの fixture 作成を除く） |
 
 ### 3.4 module とファイルの粒度
 
@@ -208,8 +208,8 @@ crate の追加や責務の変更は、先にこの表を更新する PR で行�
 | `vtest-exec` | `vtest-adapter-api`、`vtest-store`、`vtest-model` | |
 | `vtest-verify` | `vtest-scan`、`vtest-adapter-api`、`vtest-store`、`vtest-model` | `vtest-exec` へは依存しない（git HEAD は `vtest-store` の `git_head_commit` で読む） |
 | `vtest-ops` | オーケストレーション、永続化、adapter 契約、すべての adapter、モデル | |
-| `vtest-cli` | `vtest-ops`、`vtest-model`。バイナリは `vtest-mcp` も | 現在は `vtest-scan`、`vtest-verify`、`vtest-store`、`vtest-adapter-api` にも直接依存する（#175 R3） |
-| `vtest-mcp` | `vtest-ops`、`vtest-model` | 現在は `vtest-scan`、`vtest-exec`、`vtest-verify`、`vtest-store`、`vtest-adapter-api` にも直接依存する（#175 R3） |
+| `vtest-cli` | `vtest-ops`、`vtest-model`。バイナリは `vtest-mcp` も | `vtest-scan`、`vtest-verify`、`vtest-store`、`vtest-adapter-api` は、text 描画と入力ファイルの読み取りで型と関数を使うためだけに依存する。操作は `vtest-ops` を通す |
+| `vtest-mcp` | `vtest-ops`、`vtest-model` | テストは fixture を作るために `vtest-scan` と `vtest-store` も使う（dev-dependency） |
 
 - 依存は各 crate の `Cargo.toml` に宣言する。外部ライブラリは workspace の `Cargo.toml` の `[workspace.dependencies]` で版を固定し、各 crate は `.workspace = true` で参照する。
 - 依存の検査は `cargo metadata` を使う architecture test（`crates/vtest-cli/tests/architecture.rs`）で行う。検査しているのは、core crate が言語 adapter と Rust 構文 crate に依存しないこと、`vtest-adapter-api` が `vtest-model` だけに依存すること、`vtest-mcp` が `vtest-cli` に、`vtest-ops` が入口に依存しないこと。表のそれ以外の行は、レビューで `Cargo.toml` の差分と照合する。

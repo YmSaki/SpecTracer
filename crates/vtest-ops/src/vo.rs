@@ -30,6 +30,7 @@ use vtest_store::{
 };
 
 use super::approval::{self, ApprovalOpError};
+use crate::envelope::{record_failure, Failure};
 
 #[derive(Debug, thiserror::Error)]
 pub enum VoOpError {
@@ -71,6 +72,17 @@ impl VoOpError {
         match self {
             Self::Usage(message) | Self::InvalidCombinations(message) => message.clone(),
             other => other.to_string(),
+        }
+    }
+
+    /// The exit code and diagnostic both entrypoints report.
+    pub fn failure(&self) -> Failure {
+        match self {
+            Self::Store(error) => record_failure(error),
+            Self::Approval(error) => error.failure(),
+            Self::Usage(_) | Self::InvalidCombinations(_) => {
+                Failure::usage(self.code().unwrap_or("E-OP-001"), self.message())
+            }
         }
     }
 }

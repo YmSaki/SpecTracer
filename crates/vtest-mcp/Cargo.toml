@@ -5,13 +5,10 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-serde.workspace = true
 serde_json.workspace = true
-vtest-adapter-api = { path = "../vtest-adapter-api" }
-vtest-exec = { path = "../vtest-exec" }
 vtest-model = { path = "../vtest-model" }
 vtest-ops = { path = "../vtest-ops" }
+
+[dev-dependencies]
 vtest-scan = { path = "../vtest-scan" }
 vtest-store = { path = "../vtest-store" }
-vtest-verify = { path = "../vtest-verify" }
-

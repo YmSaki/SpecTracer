@@ -12,7 +12,6 @@ use std::path::{Path, PathBuf};
 use clap::{Parser, Subcommand};
 use vtest_model::{Diagnostic, ExitCode, JsonEnvelope};
 use vtest_ops as ops;
-use vtest_scan::scan_project;
 use vtest_store::VerifyLayout;
 use vtest_verify::{check_name, CheckOutcome, TreeNode};
 
@@ -717,16 +716,12 @@ fn run_run(
     let layout = VerifyLayout::new(&root);
     let target = match ops::run::RunTarget::from_axes(test_ids, vo, all) {
         Ok(target) => target,
-        Err(error) => return usage_failure(format, quiet, "E-OP-001", &error.to_string()),
+        Err(error) => return failure_exit(&error.failure(), format, quiet),
     };
     match ops::run::run(&root, &layout, &scan, &target, fast, &registry) {
         Ok(result) => {
             let has_errors = result.has_errors();
-            let data = serde_json::json!({
-                "evidence": result.evidence.len(),
-                "evidence_ids": result.evidence.iter().map(|record| record.id.clone()).collect::<Vec<_>>(),
-                "fast": fast,
-            });
+            let data = ops::run::data_json(&result, fast);
             let envelope = JsonEnvelope::new(!has_errors, data, result.diagnostics.clone());
             emit(format, quiet, &envelope, |envelope| {
                 format!(
@@ -741,31 +736,7 @@ fn run_run(
                 ExitCode::Ok
             }
         }
-        Err(
-            error @ ops::run::RunOpError::UnknownTestId(_)
-            | error @ ops::run::RunOpError::UnknownVoId(_)
-            | error @ ops::run::RunOpError::ConflictingTargets(_),
-        ) => usage_failure(format, quiet, "E-OP-001", &error.to_string()),
-        Err(ref error @ ops::run::RunOpError::Execution(ref inner)) => {
-            // DS-745/DS-923 (E-ADAPTER-003): a registered adapter whose
-            // runner cannot interpret the Test's execution descriptor is a
-            // usage-shaped rejection, not an internal failure — surfaced via
-            // `ExecutionError::code()`. `Io` has no assigned code and is an
-            // internal error (E-INTERNAL-001, exit 3 — DS-1689/DS-1690).
-            match inner.code() {
-                Some(code) => usage_failure(format, quiet, code, &error.to_string()),
-                None => {
-                    emit_failure(
-                        format,
-                        quiet,
-                        vtest_model::INTERNAL_ERROR_CODE,
-                        &error.to_string(),
-                    );
-                    ExitCode::Internal
-                }
-            }
-        }
-        Err(ops::run::RunOpError::Store(error)) => record_error_exit(&error, format, quiet),
+        Err(error) => failure_exit(&error.failure(), format, quiet),
     }
 }
 
@@ -835,21 +806,8 @@ fn run_approval(
             subject_id,
         } => match ops::approval::show(&layout, subject_type.as_str(), &subject_id) {
             Ok(result) => {
-                let effective = match result.effective_state {
-                    vtest_store::approval::EffectiveApprovalState::Draft => "draft",
-                    vtest_store::approval::EffectiveApprovalState::Approved => "approved",
-                };
-                let data = serde_json::json!({
-                    "records": result.records.iter().map(|record| serde_json::json!({
-                        "id": record.id,
-                        "subject_type": record.subject_type,
-                        "subject": record.subject,
-                        "approved_state": record.approved_state,
-                        "supersedes": record.supersedes,
-                        "approved_at": record.approved_at,
-                    })).collect::<Vec<_>>(),
-                    "effective_state": effective,
-                });
+                let effective = ops::approval::effective_state_name(&result.effective_state);
+                let data = ops::approval::show_json(&result);
                 let envelope = JsonEnvelope::new(true, data, result.diagnostics.clone());
                 emit(format, quiet, &envelope, |envelope| {
                     format!(
@@ -860,7 +818,7 @@ fn run_approval(
                 });
                 ExitCode::Ok
             }
-            Err(error) => approval_error_exit(&error, format, quiet),
+            Err(error) => failure_exit(&error.failure(), format, quiet),
         },
     }
 }
@@ -872,14 +830,7 @@ fn approval_result(
 ) -> ExitCode {
     match result {
         Ok(record) => {
-            let data = serde_json::json!({
-                "id": record.id,
-                "subject_type": record.subject_type,
-                "subject": record.subject,
-                "approved_state": record.approved_state,
-                "supersedes": record.supersedes,
-                "approved_at": record.approved_at,
-            });
+            let data = ops::approval::record_json(&record);
             let envelope = JsonEnvelope::new(true, data, Vec::new());
             emit(format, quiet, &envelope, |envelope| {
                 format!(
@@ -890,33 +841,7 @@ fn approval_result(
             });
             ExitCode::Ok
         }
-        Err(error) => approval_error_exit(&error, format, quiet),
-    }
-}
-
-fn approval_error_exit(
-    error: &ops::approval::ApprovalOpError,
-    format: OutputFormat,
-    quiet: bool,
-) -> ExitCode {
-    use ops::approval::ApprovalOpError;
-    match error {
-        // DS-1058: "--subject-type judgment の参照先判断記録…を完全・
-        // current に解決できない場合は E-APPROVAL-001" — no judgment-record
-        // domain exists in this codebase (see ApprovalOpError's doc
-        // comment), so the reference can never resolve; this is DS-1058's
-        // unresolved-subject case, not a Structured Operation input
-        // validation failure (E-OP-001's actual domain).
-        ApprovalOpError::JudgmentSubjectTypeUnsupported => {
-            usage_failure(format, quiet, "E-APPROVAL-001", &error.to_string())
-        }
-        ApprovalOpError::UnresolvedSubject(_) => {
-            usage_failure(format, quiet, "E-APPROVAL-001", &error.to_string())
-        }
-        ApprovalOpError::InvalidRequest(_) => {
-            usage_failure(format, quiet, "E-APPROVAL-002", &error.to_string())
-        }
-        ApprovalOpError::Store(error) => record_error_exit(error, format, quiet),
+        Err(error) => failure_exit(&error.failure(), format, quiet),
     }
 }
 
@@ -955,19 +880,13 @@ fn run_vo(project: &Path, command: VoCommand, format: OutputFormat, quiet: bool)
                     emit(format, quiet, &envelope, |_| render_vo_list(&entries, tree));
                     ExitCode::Ok
                 }
-                Err(error) => vo_error_exit(&error, format, quiet),
+                Err(error) => failure_exit(&error.failure(), format, quiet),
             }
         }
         VoCommand::Show { id } => {
-            let registry = match resolve_registry(format, quiet) {
-                Ok(registry) => registry,
-                Err(code) => return code,
-            };
-            let scan = match scan_project(&root, &registry) {
-                Ok(scan) => scan,
-                Err(error) => {
-                    return failure_exit(&ops::envelope::scan_failure(&error), format, quiet)
-                }
+            let (scan, _registry) = match ops::project::scanned(&root) {
+                Ok(scanned) => scanned,
+                Err(failure) => return failure_exit(&failure, format, quiet),
             };
             match ops::vo::show(&layout, &scan, &id) {
                 Ok(view) => {
@@ -975,7 +894,7 @@ fn run_vo(project: &Path, command: VoCommand, format: OutputFormat, quiet: bool)
                     emit(format, quiet, &envelope, |_| render_vo_show(&view));
                     ExitCode::Ok
                 }
-                Err(error) => vo_error_exit(&error, format, quiet),
+                Err(error) => failure_exit(&error.failure(), format, quiet),
             }
         }
         VoCommand::Expand { id, dry_run } => match ops::vo::expand(&layout, &id, dry_run) {
@@ -998,7 +917,7 @@ fn run_vo(project: &Path, command: VoCommand, format: OutputFormat, quiet: bool)
                 });
                 ExitCode::Ok
             }
-            Err(error) => vo_error_exit(&error, format, quiet),
+            Err(error) => failure_exit(&error.failure(), format, quiet),
         },
         VoCommand::Approve {
             id,
@@ -1047,21 +966,7 @@ fn vo_write_result(
             });
             ExitCode::Ok
         }
-        Err(error) => vo_error_exit(&error, format, quiet),
-    }
-}
-
-fn vo_error_exit(error: &ops::vo::VoOpError, format: OutputFormat, quiet: bool) -> ExitCode {
-    use ops::vo::VoOpError;
-    match error {
-        VoOpError::Store(error) => record_error_exit(error, format, quiet),
-        VoOpError::Approval(error) => approval_error_exit(error, format, quiet),
-        VoOpError::Usage(_) | VoOpError::InvalidCombinations(_) => usage_failure(
-            format,
-            quiet,
-            error.code().unwrap_or("E-OP-001"),
-            &error.message(),
-        ),
+        Err(error) => failure_exit(&error.failure(), format, quiet),
     }
 }
 
@@ -1162,33 +1067,7 @@ fn run_audit_static(
             emit(format, quiet, &envelope, |_| render_audit_static(&data));
             ExitCode::Ok
         }
-        Err(error) => {
-            emit_failure(format, quiet, error.code(), &error.to_string());
-            error.exit_code()
-        }
-    }
-}
-
-fn judgment_error_exit(
-    error: &ops::judgment::JudgmentOpError,
-    format: OutputFormat,
-    quiet: bool,
-) -> ExitCode {
-    use ops::judgment::JudgmentOpError;
-    match error {
-        JudgmentOpError::Store(error) => record_error_exit(error, format, quiet),
-        other => match other.code() {
-            Some(code) => usage_failure(format, quiet, code, &other.to_string()),
-            None => {
-                emit_failure(
-                    format,
-                    quiet,
-                    vtest_model::INTERNAL_ERROR_CODE,
-                    &other.to_string(),
-                );
-                ExitCode::Internal
-            }
-        },
+        Err(error) => failure_exit(&error.failure(), format, quiet),
     }
 }
 
@@ -1246,7 +1125,7 @@ fn run_audit_bundle(
             });
             ExitCode::Ok
         }
-        Err(error) => judgment_error_exit(&error, format, quiet),
+        Err(error) => failure_exit(&error.failure(), format, quiet),
     }
 }
 
@@ -1281,7 +1160,7 @@ fn run_audit_submit(project: &Path, file: &str, format: OutputFormat, quiet: boo
             });
             ExitCode::Ok
         }
-        Err(error) => judgment_error_exit(&error, format, quiet),
+        Err(error) => failure_exit(&error.failure(), format, quiet),
     }
 }
 
@@ -1366,19 +1245,19 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
                 },
             ) {
                 Ok(view) => {
-                    let data = doc_view_json(&view);
+                    let data = ops::doc::view_json(&view);
                     let envelope = JsonEnvelope::new(true, data, Vec::new());
                     emit(format, quiet, &envelope, |envelope| {
                         format!("doc add: {}\n", envelope.data["id"].as_str().unwrap_or(""))
                     });
                     ExitCode::Ok
                 }
-                Err(error) => doc_error_exit(&error, format, quiet),
+                Err(error) => failure_exit(&error.failure(), format, quiet),
             }
         }
         DocCommand::List { tree, roots } => match ops::doc::list(&layout) {
             Ok(result) => {
-                let records: Vec<_> = result.records.iter().map(doc_view_json).collect();
+                let records: Vec<_> = result.records.iter().map(ops::doc::view_json).collect();
                 let data = serde_json::json!({
                     "records": records,
                     "roots": result.records.iter().filter(|view| view.is_root).map(|view| view.id.clone()).collect::<Vec<_>>(),
@@ -1392,41 +1271,22 @@ fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: boo
                 });
                 ExitCode::Ok
             }
-            Err(error) => doc_error_exit(&error, format, quiet),
+            Err(error) => failure_exit(&error.failure(), format, quiet),
         },
         DocCommand::Show { id } => match ops::doc::show(&layout, &id) {
             Ok(result) => {
-                let mut data = doc_view_json(&result.view);
-                // DS-1017 new: `freshness` is not part of `doc_view_json`'s
-                // base shape at all (see that function's own doc comment)
-                // -- this is the one place that actually computed it, via
-                // `ops::doc::show`'s per-node, cross-referencing
-                // computation (see `ShowResult`'s doc comment).
+                let mut data = ops::doc::view_json(&result.view);
+                // DS-1017: `freshness` is not part of `view_json`'s shape;
+                // `ops::doc::show` computed it across the registered set.
                 data["freshness"] = serde_json::json!(result.freshness);
                 data["approval_states"] = serde_json::json!(result.approval_states);
                 let envelope = JsonEnvelope::new(true, data, Vec::new());
                 emit(format, quiet, &envelope, render_doc_show_text);
                 ExitCode::Ok
             }
-            Err(error) => doc_error_exit(&error, format, quiet),
+            Err(error) => failure_exit(&error.failure(), format, quiet),
         },
     }
-}
-
-// DS-1017 new/DS-1194: `freshness` is deliberately not part of this base
-// JSON shape -- it is a per-node, cross-referencing computation
-// (`ops::doc::{list,show}`'s own `freshness` field), not a `DocView`
-// property, so each caller that has actually run that computation adds
-// it itself rather than this function claiming a value it never
-// computed.
-fn doc_view_json(view: &vtest_store::doc_registry::DocView) -> serde_json::Value {
-    serde_json::json!({
-        "id": view.id,
-        "path": view.path.to_string_lossy(),
-        "content_hash": view.content_hash.as_str(),
-        "derives_from": view.derives_from,
-        "root": view.is_root,
-    })
 }
 
 fn render_doc_list_text(
@@ -1602,35 +1462,6 @@ fn render_doc_show_text(envelope: &JsonEnvelope<serde_json::Value>) -> String {
         }
     }
     out
-}
-
-// DS-1676 / DS-929 / DS-930: invalid canonical records reject the
-// requested operation; filesystem failures are internal errors.
-fn record_error_exit(
-    error: &vtest_store::StoreError,
-    format: OutputFormat,
-    quiet: bool,
-) -> ExitCode {
-    if let Some(code) = error.record_read_code() {
-        usage_failure(format, quiet, code, &error.to_string())
-    } else {
-        emit_failure(
-            format,
-            quiet,
-            vtest_model::INTERNAL_ERROR_CODE,
-            &error.to_string(),
-        );
-        ExitCode::Internal
-    }
-}
-
-fn doc_error_exit(error: &ops::doc::DocOpError, format: OutputFormat, quiet: bool) -> ExitCode {
-    match error {
-        ops::doc::DocOpError::Usage(_) => {
-            usage_failure(format, quiet, "E-OP-001", &error.to_string())
-        }
-        ops::doc::DocOpError::Store(error) => record_error_exit(error, format, quiet),
-    }
 }
 
 /// Prints a `serde_json::Value` envelope the way [`emit`] prints a typed
