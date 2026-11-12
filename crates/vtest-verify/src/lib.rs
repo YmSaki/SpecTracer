@@ -27,8 +27,9 @@ use vtest_model::{
 };
 use vtest_scan::ScanResult;
 use vtest_store::{
-    execution_state::materialize_execution_state, git_head_commit, read_document_file,
-    read_document_names, read_evidence, read_record_ids, read_vo_record, VerifyLayout,
+    evidence_declared_test_id, execution_state::materialize_execution_state, git_head_commit,
+    read_document_file, read_document_names, read_evidence, read_record_ids, read_vo_record,
+    VerifyLayout,
 };
 
 /// 固定4検査。DS-1106「`--items` 省略時は常に固定4検査による完全検証を行う」、
@@ -450,7 +451,7 @@ impl<'a> EvidenceContext<'a> {
                                 id,
                                 test_id: std::fs::read_to_string(&path)
                                     .ok()
-                                    .and_then(|text| declared_test_id(&text)),
+                                    .and_then(|text| evidence_declared_test_id(&text)),
                                 reason: format!("Evidence {} {reason}", path.display()),
                             });
                             diagnostics.push(vtest_model::Diagnostic::error(
@@ -573,25 +574,6 @@ pub fn latest_evidence<'a>(
         out.insert(test_id.to_owned(), latest);
     }
     out
-}
-
-/// The `test_id` a broken Evidence file declares, so a record that fails the
-/// schema (an unknown field, an id that differs from its file name, ...) can
-/// still be attributed to its Test. The file is parsed as YAML and the value
-/// is used only when it is a string that is a well-formed Test ID; anything
-/// else — YAML that does not parse, a duplicated key, `test_id: null`, a
-/// number, an empty or whitespace-bearing string — returns `None`, which
-/// `invalid_latest` attributes to every Test (fail-closed). Reading the line
-/// textually would turn `test_id: null` into the Test ID `"null"`, which
-/// matches no real Test, and an older valid PASS would stand in again.
-fn declared_test_id(text: &str) -> Option<String> {
-    let value: yaml_serde::Value = yaml_serde::from_str(text).ok()?;
-    let declared = value.get("test_id")?.as_str()?;
-    let well_formed = !declared.is_empty()
-        && declared
-            .chars()
-            .all(|c| !c.is_whitespace() && !c.is_control());
-    well_formed.then(|| declared.to_owned())
 }
 
 pub fn verify_project(
@@ -4078,32 +4060,47 @@ mod tests {
         let unlisted = context(vec![broken(None, None)]);
         assert!(unlisted.invalid_latest("TEST-ONE").is_some());
         assert_eq!(
-            declared_test_id("id: X\ntest_id: 'TEST-ONE'\n").as_deref(),
+            evidence_declared_test_id("id: X\ntest_id: 'TEST-ONE'\n").as_deref(),
             Some("TEST-ONE")
         );
-        assert_eq!(declared_test_id("{{{ not yaml").as_deref(), None);
+        assert_eq!(evidence_declared_test_id("{{{ not yaml").as_deref(), None);
         // PR #132 review: a value that is not a well-formed Test ID string
         // cannot attribute the record, so it is attributed to every Test.
-        assert_eq!(declared_test_id("id: X\ntest_id: null\n").as_deref(), None);
-        assert_eq!(declared_test_id("id: X\ntest_id: ~\n").as_deref(), None);
-        assert_eq!(declared_test_id("id: X\ntest_id: 12\n").as_deref(), None);
-        assert_eq!(declared_test_id("id: X\ntest_id: ''\n").as_deref(), None);
-        assert_eq!(declared_test_id("id: X\ntest_id: 'A B'\n").as_deref(), None);
         assert_eq!(
-            declared_test_id("id: X\ntest_id: [TEST-ONE]\n").as_deref(),
+            evidence_declared_test_id("id: X\ntest_id: null\n").as_deref(),
             None
         );
         assert_eq!(
-            declared_test_id("test_id: TEST-ONE\ntest_id: TEST-TWO\n").as_deref(),
+            evidence_declared_test_id("id: X\ntest_id: ~\n").as_deref(),
             None
         );
         assert_eq!(
-            declared_test_id("id: X\ntest_id: TEST-ONE\nunexpected: true\n").as_deref(),
+            evidence_declared_test_id("id: X\ntest_id: 12\n").as_deref(),
+            None
+        );
+        assert_eq!(
+            evidence_declared_test_id("id: X\ntest_id: ''\n").as_deref(),
+            None
+        );
+        assert_eq!(
+            evidence_declared_test_id("id: X\ntest_id: 'A B'\n").as_deref(),
+            None
+        );
+        assert_eq!(
+            evidence_declared_test_id("id: X\ntest_id: [TEST-ONE]\n").as_deref(),
+            None
+        );
+        assert_eq!(
+            evidence_declared_test_id("test_id: TEST-ONE\ntest_id: TEST-TWO\n").as_deref(),
+            None
+        );
+        assert_eq!(
+            evidence_declared_test_id("id: X\ntest_id: TEST-ONE\nunexpected: true\n").as_deref(),
             Some("TEST-ONE")
         );
         let null_test = context(vec![broken(
             Some("01JZZZZZZZZZZZZZZZZZZZZZZZ"),
-            declared_test_id("id: X\ntest_id: null\nunexpected: true\n").as_deref(),
+            evidence_declared_test_id("id: X\ntest_id: null\nunexpected: true\n").as_deref(),
         )]);
         assert!(null_test.invalid_latest("TEST-ONE").is_some());
     }

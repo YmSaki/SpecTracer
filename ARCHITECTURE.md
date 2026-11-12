@@ -8,7 +8,7 @@ the verification contract is intentionally language-independent.
 
 The workspace has twelve crates. Lower crates own canonical data and
 verification rules; upper crates delegate to them. The table is the current
-state at `develop` `046c0d1` (2026-11-12); the rules behind the table are
+state at `develop` `19b3b97` (2026-11-12); the rules behind the table are
 [`AGENTS.md`](AGENTS.md) §3–§4. The last column lists normal dependencies
 only; dev-dependencies, which only tests use, are left out.
 

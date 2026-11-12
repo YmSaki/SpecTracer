@@ -222,7 +222,7 @@ crate の追加や責務の変更は、先にこの表を更新する PR で行�
 | `syn`、`proc-macro2`、`quote`、`rustc-demangle`、`toml` | `vtest-adapter-rust` |
 | `ignore` | ファイル走査を行う adapter |
 | `clap` | `vtest-cli` |
-| `yaml_serde` | `vtest-store`（正典 record の形式の所有者）。`vtest-verify` の既存利用は #175 で store への移管を確認する |
+| `yaml_serde` | `vtest-store`（正典 record の形式の所有者） |
 | `sha2` | `vtest-model` |
 | `serde`、`serde_json`、`thiserror`、`anyhow` | 制約なし |
 
@@ -290,7 +290,7 @@ module 間の依存も、判定の module からファイル I/O の module へ�
 | ユーティリティ | その契約を所有する層（#175 D7）。例: Locator の文字列化 → `vtest-model`、YAML の quoting → `vtest-store`、envelope → 操作層、fixture 生成 → `tests/support` | 何でも入る `utils` module や crate は作らない |
 | 単体テスト | 対象と同じファイルの `#[cfg(test)] mod tests`、大きければ `src/tests.rs` | 第 13 節 |
 | CLI と MCP の統合テスト、受入テスト | `crates/vtest-cli/tests/<対象>.rs` | 隔離したプロジェクトを生成して実行する |
-| 統合テストの共通 helper | `crates/vtest-cli/tests/support/mod.rs` | 各テストファイルにコピーしない（#175 R12） |
+| 統合テストの共通 helper | `crates/vtest-cli/tests/support/mod.rs` | 各テストファイルにコピーしない（既存の重複の集約は #180） |
 | 言語 adapter の利用者向け説明 | `docs/adapters/<言語>.md` | 宣言の書き方、対応する構文、制限 |
 | 調査、監査、レビューの経緯 | `docs/reports/<題名>-YYYY-MM-DD.md` | コードのコメントには書かない |
 
@@ -427,7 +427,7 @@ crates/<crate>/
 
 ### 8.1 共通
 
-- 識別子は英語。コメントとドキュメントの言語（日本語と英語の混在の扱い）は **Owner の決定待ち**です（#175 D10）。決まるまで、言語を理由に差し戻さず、既存のファイルを言語の統一のためだけに書き換えない。決まったら、決定を #175 に記録してから、この項目を規則に書き換える。
+- 識別子は英語。コメントとドキュメントは日本語と英語のどちらでもよく、1 つのファイルの中では揃える（#175 D10、2026-11-09 に Owner が決定）。言語を理由に差し戻さず、既存のファイルを言語の統一のためだけに書き換えない。
 - 文字コードは UTF-8、改行コードは LF（`.gitattributes` に従う）。
 - フォーマットは `rustfmt` に任せる。CI は `cargo fmt --all -- --check` で検査する。
 - `clippy` の警告は `-D warnings` で CI を失敗させるので、すべて直す。`#[allow(...)]` で抑制するときは、その行に理由をコメントで書く。`#[allow(clippy::too_many_arguments)]` は、引数を 1 つの型にまとめられないか先に検討する。
@@ -565,7 +565,7 @@ CI はビルド、テスト、フォーマット、clippy、`vtest doctor`、`sp
 
 ### 15.2 サイクルの手順
 
-1. 計画 Issue を起票し、基準のコミット（SHA）、環境、ゲートの結果、代表的な出力を固定する（#175 R0）。
+1. 計画 Issue を起票し、基準のコミット（SHA）、環境、ゲートの結果、代表的な出力を固定する（例: #175 §6）。
 2. `cargo clippy` と `cargo fmt` の指摘を直す。これを 1 つ目の PR にする。
 3. コードベース全体を第 3 節から第 5 節と照合し、ドリフトを計画 Issue の移動表に列挙する（形式は 15.3）。照合には `.agents/skills/architecture-check` を使う。
 4. ドリフトを「1 PR に 1 種類のリファクタリング」にまとめて直す（例: 「`vtest-mcp` の transport を分ける」「Evidence の writer を store に移す」）。各 PR で変更前後の出力を比較する。
