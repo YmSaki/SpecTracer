@@ -10837,8 +10837,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              11,
+              11
             ]
           },
           "derives_from": [
@@ -10856,11 +10856,11 @@
                 "REQ-339"
               ],
               "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
-                "heading": "作業範囲",
+                "doc": "docs/plans/test-spec-output-proposal.md",
+                "heading": "6. 決定記録（Owner、2026-10-26）",
                 "lines": [
-                  14,
-                  16
+                  64,
+                  64
                 ]
               }
             },
@@ -10874,8 +10874,8 @@
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
                 "heading": "作業範囲",
                 "lines": [
-                  14,
-                  16
+                  11,
+                  11
                 ]
               }
             },
@@ -10889,8 +10889,8 @@
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
                 "heading": "作業範囲",
                 "lines": [
-                  14,
-                  16
+                  11,
+                  11
                 ]
               }
             },
@@ -10904,8 +10904,8 @@
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
                 "heading": "作業範囲",
                 "lines": [
-                  14,
-                  16
+                  11,
+                  11
                 ]
               }
             },
@@ -10919,8 +10919,8 @@
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
                 "heading": "作業範囲",
                 "lines": [
-                  14,
-                  16
+                  11,
+                  11
                 ]
               }
             },
@@ -10934,8 +10934,8 @@
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
                 "heading": "作業範囲",
                 "lines": [
-                  14,
-                  16
+                  11,
+                  11
                 ]
               }
             },
@@ -10949,8 +10949,8 @@
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
                 "heading": "作業範囲",
                 "lines": [
-                  14,
-                  16
+                  11,
+                  11
                 ]
               }
             },
@@ -10965,8 +10965,8 @@
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
                 "heading": "作業範囲",
                 "lines": [
-                  14,
-                  16
+                  11,
+                  11
                 ]
               }
             },
@@ -10982,8 +10982,8 @@
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
                 "heading": "作業範囲",
                 "lines": [
-                  14,
-                  16
+                  11,
+                  11
                 ]
               }
             },
@@ -10997,8 +10997,8 @@
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
                 "heading": "作業範囲",
                 "lines": [
-                  14,
-                  16
+                  11,
+                  11
                 ]
               }
             },
@@ -11012,8 +11012,8 @@
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
                 "heading": "作業範囲",
                 "lines": [
-                  14,
-                  16
+                  11,
+                  11
                 ]
               }
             },
@@ -11027,8 +11027,8 @@
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
                 "heading": "作業範囲",
                 "lines": [
-                  14,
-                  16
+                  11,
+                  11
                 ]
               }
             },
@@ -11042,8 +11042,8 @@
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
                 "heading": "作業範囲",
                 "lines": [
-                  14,
-                  16
+                  11,
+                  11
                 ]
               }
             },
@@ -11058,8 +11058,8 @@
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
                 "heading": "作業範囲",
                 "lines": [
-                  14,
-                  16
+                  11,
+                  11
                 ]
               }
             },
@@ -11075,8 +11075,8 @@
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
                 "heading": "作業範囲",
                 "lines": [
-                  14,
-                  16
+                  11,
+                  11
                 ]
               }
             },
@@ -11092,8 +11092,8 @@
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
                 "heading": "作業範囲",
                 "lines": [
-                  14,
-                  16
+                  11,
+                  11
                 ]
               }
             }
@@ -37012,8 +37012,8 @@
         "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
         "heading": "作業範囲",
         "lines": [
-          14,
-          16
+          12,
+          12
         ]
       },
       "derives_from": [
@@ -37030,8 +37030,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37047,11 +37047,11 @@
             "DS-940"
           ],
           "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
-            "heading": "作業範囲",
+            "doc": "docs/plans/test-spec-output-proposal.md",
+            "heading": "6. 決定記録（Owner、2026-10-26）",
             "lines": [
-              14,
-              16
+              64,
+              64
             ]
           }
         },
@@ -37066,11 +37066,11 @@
             "DS-929"
           ],
           "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
-            "heading": "作業範囲",
+            "doc": "docs/plans/test-spec-output-proposal.md",
+            "heading": "6. 決定記録（Owner、2026-10-26）",
             "lines": [
-              14,
-              16
+              64,
+              64
             ]
           }
         },
@@ -37085,11 +37085,11 @@
             "DS-929"
           ],
           "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
-            "heading": "作業範囲",
+            "doc": "docs/plans/test-spec-output-proposal.md",
+            "heading": "6. 決定記録（Owner、2026-10-26）",
             "lines": [
-              14,
-              16
+              64,
+              64
             ]
           }
         },
@@ -37103,8 +37103,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37122,8 +37122,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37141,8 +37141,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37162,8 +37162,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37182,8 +37182,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37197,8 +37197,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37215,8 +37215,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37235,8 +37235,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37253,8 +37253,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37269,8 +37269,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37286,8 +37286,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37305,8 +37305,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37325,8 +37325,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37341,8 +37341,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37361,8 +37361,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37376,8 +37376,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37392,8 +37392,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37408,8 +37408,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37428,8 +37428,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37443,8 +37443,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37459,8 +37459,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37474,8 +37474,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37489,8 +37489,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37506,8 +37506,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37522,8 +37522,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37545,8 +37545,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37560,8 +37560,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37576,8 +37576,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37592,8 +37592,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37607,8 +37607,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37628,8 +37628,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37645,8 +37645,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37660,8 +37660,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37676,8 +37676,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37692,8 +37692,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37709,8 +37709,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37725,8 +37725,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37740,8 +37740,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37755,8 +37755,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37770,8 +37770,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37785,8 +37785,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37800,8 +37800,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37815,8 +37815,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37830,8 +37830,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37845,8 +37845,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37860,8 +37860,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37879,8 +37879,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37894,8 +37894,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37910,8 +37910,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37926,8 +37926,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37941,8 +37941,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37956,8 +37956,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37973,8 +37973,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -37991,8 +37991,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -38006,8 +38006,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -38023,8 +38023,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -38039,8 +38039,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -38055,8 +38055,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -38071,8 +38071,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -38087,8 +38087,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -38103,8 +38103,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -38119,8 +38119,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -38136,8 +38136,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -38152,8 +38152,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -38167,8 +38167,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -38183,8 +38183,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -38199,8 +38199,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -38214,8 +38214,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -38231,8 +38231,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         },
@@ -38246,8 +38246,8 @@
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
             "heading": "作業範囲",
             "lines": [
-              14,
-              16
+              12,
+              12
             ]
           }
         }
