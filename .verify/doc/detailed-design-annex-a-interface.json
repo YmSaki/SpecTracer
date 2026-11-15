@@ -1799,7 +1799,8 @@
         },
         {
           "id": "DS-940",
-          "statement": "出力は既定で人間向けテキスト、`--format json` で機械可読 JSON。",
+          "statement": "出力は既定で人間向けテキスト、`--format json` で機械可読 JSON とし、`export` の既定は Markdown（`--format md`）とする。",
+          "description": "`export` の既定は Issue #66 で追加した。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -1864,7 +1865,8 @@
         },
         {
           "id": "DS-945",
-          "statement": "グローバルオプションは `--format <text|json>` を持つ。",
+          "statement": "グローバルオプションは `--format` を持ち、値域は `export` では `md|json`、`export` 以外のコマンドでは `text|json` とする。",
+          "description": "`export` の値域は Issue #66 で追加した（Owner 決定 2026-10-26 の `--format md|json`）。それまでの文は「グローバルオプションは `--format <text|json>` を持つ。」",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -2163,7 +2165,8 @@
         },
         {
           "id": "DS-966",
-          "statement": "Testを含むJSONは本冊 §5.2の `execution` を必ず返す。",
+          "statement": "`vtest export` の出力を除き、Testを含むJSONは本冊 §5.2の `execution` を必ず返す。",
+          "description": "`vtest export` の除外は Issue #66 で追加した。テスト仕様書の項目は Test の宣言を示すもので、実行に使う Test JSON ではない。",
           "derives_from": [],
           "cites": [
             "本冊 §5.2"
@@ -5836,6 +5839,1328 @@
             "lines": [
               391,
               391
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "DS-S162",
+      "title": "12.5 `vtest export`（テスト仕様書の出力）",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+        "heading": "作業範囲",
+        "lines": [
+          12,
+          12
+        ]
+      },
+      "derives_from": [
+        "SPEC-S134"
+      ],
+      "items": [
+        {
+          "id": "DS-1691",
+          "statement": "`--quiet` を指定しない `vtest export` は、プロジェクト全体のテスト仕様書を標準出力へ出力する。",
+          "derives_from": [
+            "SPEC-466"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1692",
+          "statement": "`vtest export` は `--format` に `md` と `json` を受理し、省略時は `md` とする。",
+          "description": "Owner 決定（2026-10-26）の `vtest export`（`--format md|json`）。コマンド別の値域と既定は DS-945・DS-940 が定める。",
+          "derives_from": [
+            "SPEC-467"
+          ],
+          "cites": [
+            "DS-945",
+            "DS-940"
+          ],
+          "source": {
+            "doc": "docs/plans/test-spec-output-proposal.md",
+            "heading": "6. 決定記録（Owner、2026-10-26）",
+            "lines": [
+              64,
+              64
+            ]
+          }
+        },
+        {
+          "id": "DS-1693",
+          "statement": "`vtest export --format text` は引数不正として終了コード2で拒否する。",
+          "derives_from": [
+            "SPEC-467"
+          ],
+          "cites": [
+            "DS-945",
+            "DS-929"
+          ],
+          "source": {
+            "doc": "docs/plans/test-spec-output-proposal.md",
+            "heading": "6. 決定記録（Owner、2026-10-26）",
+            "lines": [
+              64,
+              64
+            ]
+          }
+        },
+        {
+          "id": "DS-1694",
+          "statement": "`export` 以外のコマンドは `--format md` を引数不正として終了コード2で拒否する。",
+          "derives_from": [
+            "SPEC-467"
+          ],
+          "cites": [
+            "DS-945",
+            "DS-929"
+          ],
+          "source": {
+            "doc": "docs/plans/test-spec-output-proposal.md",
+            "heading": "6. 決定記録（Owner、2026-10-26）",
+            "lines": [
+              64,
+              64
+            ]
+          }
+        },
+        {
+          "id": "DS-1695",
+          "statement": "`vtest export` はファイル・ディレクトリを1件も作成・変更・削除しない。",
+          "derives_from": [
+            "SPEC-479"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1696",
+          "statement": "`vtest export` は、registry・config・adapter契約の検証または adapter 呼出しが E-ADAPTER-* / E-CONFIG-* で拒否された場合は終了コード2とし、テスト仕様書を出力しない。",
+          "description": "`vtest scan` と同じ扱い。",
+          "derives_from": [
+            "SPEC-466"
+          ],
+          "cites": [
+            "DS-998"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1697",
+          "statement": "`--quiet` を指定せず、`--format` の値が受理され、終了コード2または3で終了する `vtest export` は、テスト仕様書を出力せず、`--format json` では `ok: false`・`data: null` とその診断を持つ envelope を標準出力へ出力し、`--format md` では標準出力へ何も出力せず、その診断を `[<code>] <message>` と LF の形で標準エラーへ出力する。",
+          "derives_from": [
+            "SPEC-466",
+            "SPEC-467"
+          ],
+          "cites": [
+            "DS-941",
+            "DS-929",
+            "DS-930"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1698",
+          "statement": "`vtest export` は、scan が完了した場合はテスト仕様書を出力し、severity が error の診断が1件以上あれば終了コード1、なければ0とする。",
+          "description": "`vtest scan` と同じ終了コード。error 診断があっても出力を止めない。",
+          "derives_from": [
+            "SPEC-466",
+            "SPEC-471",
+            "SPEC-473"
+          ],
+          "cites": [
+            "DS-999"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1699",
+          "statement": "`vtest export --format json` の `ok` は、終了コード0の場合に `true`、終了コード1・2・3の場合に `false` とする。",
+          "description": "終了コード1の場合は `ok: false` で `data` にテスト仕様書を持ち、終了コード2・3の場合は `data` が `null` になる。`vtest scan` の `ok` と同じ対応。",
+          "derives_from": [
+            "SPEC-467",
+            "SPEC-478"
+          ],
+          "cites": [
+            "DS-941"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1700",
+          "statement": "`vtest export` の終了コード0は、テスト仕様書を出力し error 診断がなかったことだけを意味し、検証状態を表さない。",
+          "derives_from": [
+            "SPEC-478"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1701",
+          "statement": "`vtest export --format json` の出力は共通の JSON envelope（`ok`・`data`・`diagnostics`）に従い、`data` は `tests`・`unmanaged`・`unresolved`・`by_vo`・`by_path` を持つ。",
+          "derives_from": [
+            "SPEC-467"
+          ],
+          "cites": [
+            "DS-941"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1702",
+          "statement": "`vtest export --format json` の `diagnostics` は、scan の診断を全件、各診断の `code`・`severity`・`message`・`location` を scan が返した値のまま含む。",
+          "derives_from": [
+            "SPEC-471",
+            "SPEC-472",
+            "SPEC-473",
+            "SPEC-482"
+          ],
+          "cites": [
+            "DS-942"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1703",
+          "statement": "`vtest export` の診断は、`code`、`location` の `adapter`・`path`・`locator`、`message`、診断の比較用 JSON 表現の昇順に並べ、`location` を持たない診断の `adapter`・`path`・`locator` は空文字列として比較する。",
+          "derives_from": [
+            "SPEC-476"
+          ],
+          "cites": [
+            "DS-942"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1704",
+          "statement": "`vtest export --format md` の標準出力は、テスト仕様書の Markdown 文書だけを含み、診断を含まない。",
+          "derives_from": [
+            "SPEC-467",
+            "SPEC-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1705",
+          "statement": "`--quiet` を指定しない `vtest export --format md` は、診断を `diagnostics` と同じ順に、1件ごとに `[<code>] <message>` と LF の形で標準エラーへ出力する。",
+          "derives_from": [
+            "SPEC-471",
+            "SPEC-472",
+            "SPEC-473"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1706",
+          "statement": "`--quiet` を指定した `vtest export` は、終了コード（0・1・2・3）と `--format` の値の受理・不受理にかかわらず、標準出力にも標準エラーにも何も出力せず、`--quiet` を指定しない場合と同じ終了コードを返し、この規則は標準出力・標準エラーへの出力を定める `vtest export` の他の規則に優先する。",
+          "description": "他のコマンドの `--quiet` と同じ。",
+          "derives_from": [
+            "SPEC-466"
+          ],
+          "cites": [
+            "DS-946"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1707",
+          "statement": "`data.tests` は managed Test Entity を、Test ID が衝突したものと同一 construct から複数生じたものを含めて全件含み、各要素は `key`・`id`・`intent`・`covers`・`targets`・`input`・`expect`・`kind`・`cases`・`related`・`location` を持つ。",
+          "derives_from": [
+            "SPEC-468",
+            "SPEC-469",
+            "SPEC-480"
+          ],
+          "cites": [
+            "DS-536"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1708",
+          "statement": "`data.tests` の要素の `key` は、同じ Test ID を持つ要素が `data.tests` に1件だけの場合は Test ID の識別子符号化とし、2件以上の場合は Test ID の識別子符号化に `~` と、同じ Test ID を持つ要素の中での `data.tests` の並び順による1始まりの順位（10進、先頭に0を付けない）を続けた文字列とする。",
+          "description": "Test ID が一意で `[A-Za-z0-9-]` だけからなる場合、`key` は Test ID と同じ文字列になる。",
+          "derives_from": [
+            "SPEC-480"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1709",
+          "statement": "識別子符号化は、文字列の UTF-8 byte 列のうち `A`〜`Z`・`a`〜`z`・`0`〜`9`・`-` の byte をそのまま書き、それ以外の byte を `_` と大文字16進2桁へ置き換える。",
+          "description": "ツールは ID の形式を強制しない（DS-052）ため、ID は任意の文字を含みうる。符号化後の文字列は `[A-Za-z0-9_-]` だけからなり、元の文字列を一意に復元できる。`~` を含まないので、順位の区切りと衝突しない。",
+          "derives_from": [
+            "SPEC-480",
+            "SPEC-481"
+          ],
+          "cites": [
+            "DS-052"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1710",
+          "statement": "`data.tests` の要素の `key` は `data.tests` の中で一意である。",
+          "derives_from": [
+            "SPEC-480"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1711",
+          "statement": "`data.tests` の要素の `covers` の各要素は、宣言された VO ID を `vo` に、その VO の claim を `claim` に持ち、VO を解決できない場合は `claim` を `null` とする。",
+          "derives_from": [
+            "SPEC-469",
+            "SPEC-473"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1712",
+          "statement": "`data.tests` の要素の `targets` の各要素は、宣言された Target Reference を `reference` に、解決できた場合は `true`、解決できない場合は `false` を `resolved` に持つ。",
+          "derives_from": [
+            "SPEC-469",
+            "SPEC-473"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1713",
+          "statement": "テスト仕様書の JSON は、Target Reference を、Locator 参照では `kind`（値 `locator`）・`adapter`（adapter ID）・`value`（locator 値）を持つ object、SRC ID 参照では `kind`（値 `src_id`）・`id`（SRC ID）を持つ object で表し、解決後の canonical Locator へ置き換えない。",
+          "description": "宣言された参照の綴りを保つのは canonical metadata と同じ（DS-341）。",
+          "derives_from": [
+            "SPEC-469",
+            "SPEC-476"
+          ],
+          "cites": [
+            "DS-341"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1714",
+          "statement": "Target Reference の並び順は、Locator 参照を `locator`・adapter ID・locator 値、SRC ID 参照を `src_id`・SRC ID・空文字列の3つの文字列の組として、先頭の要素から順に比較する。",
+          "derives_from": [
+            "SPEC-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1715",
+          "statement": "`data.tests` の要素の `related` の各要素は、宣言された Test ID を `id` に持ち、その Test ID を持つ `data.tests` の要素がちょうど1件の場合はその `key` を、0件または2件以上の場合は `null` を `test` に持つ。",
+          "derives_from": [
+            "SPEC-469",
+            "SPEC-473"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1716",
+          "statement": "`data.tests` の要素の `input`・`expect`・`kind` は、宣言がない場合 `null` とする。",
+          "derives_from": [
+            "SPEC-469"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1717",
+          "statement": "`data.tests` の要素の `targets`・`cases`・`related` は、宣言がない場合は空の list とする。",
+          "derives_from": [
+            "SPEC-469"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1718",
+          "statement": "`data.tests` の要素の `location` は `adapter`・`path`・`locator` を持ち、行番号と byte 位置を持たない。",
+          "description": "行番号は1行の追加で後続の全項目が変わり、仕様書の差分を読めなくする。",
+          "derives_from": [
+            "SPEC-469",
+            "SPEC-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1719",
+          "statement": "`data.unmanaged` は、managed Test Entity へ対応しない Discovered Test を全件含み、各要素は `location`（`adapter`・`path`・`locator`）と、当該 construct に付いた診断コードの list `codes` を持つ。",
+          "derives_from": [
+            "SPEC-471",
+            "SPEC-472"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1720",
+          "statement": "`data.unmanaged` の要素の `codes` は、管理宣言を持たない Test では W-SCAN-101 を含み、管理宣言が不完全な Test では当該 construct に付いた E-SCAN-* の診断コードを含み、重複を除いて昇順に並べる。",
+          "derives_from": [
+            "SPEC-471",
+            "SPEC-472",
+            "SPEC-476"
+          ],
+          "cites": [
+            "DS-548",
+            "DS-539",
+            "DS-540",
+            "DS-1666"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1721",
+          "statement": "`data.unresolved` は、`data.tests` の各要素が宣言した参照のうち、解決できない `covers` 参照、解決できない target 参照、解決できない `related` 参照を全件含む。",
+          "derives_from": [
+            "SPEC-473"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1722",
+          "statement": "`related` 参照は、宣言された Test ID を持つ managed Test Entity がちょうど1件でない場合に、解決できない参照とする。",
+          "description": "0件は参照先がなく、2件以上はどの Test を指すか決まらない。",
+          "derives_from": [
+            "SPEC-473"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1723",
+          "statement": "`data.unresolved` の各要素は、参照を宣言した要素の `key` を `test` に、`covers`・`target`・`related` のいずれかを `field` に、宣言された参照を `reference` に、診断コードを `code` に持つ。",
+          "derives_from": [
+            "SPEC-473",
+            "SPEC-480"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1724",
+          "statement": "`data.unresolved` の要素の `reference` は、`field` が `covers` の場合は VO ID の文字列、`related` の場合は Test ID の文字列、`target` の場合は Target Reference の object とする。",
+          "derives_from": [
+            "SPEC-473"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1725",
+          "statement": "`data.unresolved` の要素の `code` は、`covers` 参照では E-SCAN-003、target 参照では当該参照に付いた E-SCAN-004 または E-SCAN-011、`related` 参照では、参照先が2件以上の場合は E-SCAN-002、0件の場合は `null` とする。",
+          "derives_from": [
+            "SPEC-473"
+          ],
+          "cites": [
+            "DS-537",
+            "DS-538",
+            "DS-545",
+            "DS-536"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1726",
+          "statement": "参照先が0件の `related` 参照は診断を持たず、`vtest export` の終了コードと `ok` を変えない。",
+          "description": "scan は `related` の参照先を検査する診断を持たない。テスト仕様書は一覧に載せることで欠落を示す。",
+          "derives_from": [
+            "SPEC-473",
+            "SPEC-478"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1727",
+          "statement": "解決できない参照を持つ Test も `data.tests` に含め、当該参照を `covers`・`targets`・`related` から省略しない。",
+          "derives_from": [
+            "SPEC-473"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1728",
+          "statement": "`data.by_vo` は、`data.tests` の要素が `covers` に宣言した VO ID ごとに1要素を持ち、各要素は `vo`・`claim`・その VO を covers する `data.tests` の要素の `key` の list `tests` を持ち、VO を解決できない場合は `claim` を `null` とする。",
+          "derives_from": [
+            "SPEC-470",
+            "SPEC-480"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1729",
+          "statement": "`data.by_path` は、adapter ID と path の組ごとに1要素を持ち、各要素は `adapter`・`path`・その path にある `data.tests` の要素の `key` の list `tests` を持つ。",
+          "derives_from": [
+            "SPEC-470",
+            "SPEC-480"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1730",
+          "statement": "`data.tests` は、adapter ID・path・Test ID・locator・宣言内容の比較用 JSON 表現の昇順に並べる。",
+          "description": "ここまでの全項目が等しい要素は `key` の順位を除いて同じ内容になるので、その間の順序は出力を変えない。",
+          "derives_from": [
+            "SPEC-476",
+            "SPEC-480"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1731",
+          "statement": "宣言内容の比較用 JSON 表現は、`cases`・`covers`（VO ID の list）・`expect`・`input`・`intent`・`kind`・`related`（Test ID の list）・`targets`（Target Reference の list）を持つ object の比較用 JSON 表現とする。",
+          "description": "`key` と `related` の `test` は並び順から決まるため、並び順の比較には使わない。",
+          "derives_from": [
+            "SPEC-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1732",
+          "statement": "比較用 JSON 表現は、object の key を byte 順に並べ、空白を入れず、文字列では `\"`・`\\`・U+0000〜U+001F だけを escape した UTF-8 の JSON 直列化とする。",
+          "derives_from": [
+            "SPEC-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1733",
+          "statement": "`data.unmanaged` は adapter ID・path・locator・`codes` の比較用 JSON 表現の昇順に並べる。",
+          "derives_from": [
+            "SPEC-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1734",
+          "statement": "`data.unresolved` は `test`・`field`・`reference`・`code` の昇順に並べ、`reference` が Target Reference の場合は Target Reference の並び順で比較し、`code` が `null` の場合は空文字列として比較する。",
+          "derives_from": [
+            "SPEC-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1735",
+          "statement": "`data.by_vo` は VO ID の昇順に、`data.by_path` は adapter ID・path の昇順に並べ、それぞれの `tests` は重複を除いて `data.tests` と同じ順に並べる。",
+          "derives_from": [
+            "SPEC-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1736",
+          "statement": "`data.tests` の要素の `covers`・`targets`・`cases`・`related` は、宣言された順を保つ。",
+          "derives_from": [
+            "SPEC-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1737",
+          "statement": "並び順の比較は文字列の UTF-8 byte 列の byte 順で行い、locale に依存しない。",
+          "derives_from": [
+            "SPEC-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1738",
+          "statement": "JSON 出力の `data` と Markdown 文書は、生成時刻、絶対 path、実行環境に依存する値を含めない。",
+          "derives_from": [
+            "SPEC-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1739",
+          "statement": "`vtest export --format json` の出力は、object の key の順と空白を入力の内容に依存させない。",
+          "derives_from": [
+            "SPEC-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1740",
+          "statement": "adapter の走査順やファイルの列挙順が異なっても、同じ repository 内容から、JSON 出力の `data` と Markdown 文書を byte 単位で同一に出力する。",
+          "derives_from": [
+            "SPEC-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1741",
+          "statement": "テスト仕様書の出力は adapter ごとに異なる field を持たず、adapter 固有の実行座標（`execution`）を含めない。",
+          "description": "テスト仕様書の項目は Test の宣言を示すもので、実行に使う Test JSON ではない（DS-966）。",
+          "derives_from": [
+            "SPEC-475"
+          ],
+          "cites": [
+            "DS-966"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1742",
+          "statement": "テスト仕様書の出力は、検証状態（`PASS` / `FAIL` / `MISMATCH` / `NO_EVIDENCE` / `UNKNOWN`）、診断ラベル、Evidence の有無、承認状態、判断記録を含めない。",
+          "derives_from": [
+            "SPEC-477"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1743",
+          "statement": "`vtest export` は、検証状態を併記する option を持たない。",
+          "description": "併記は要件にない。必要になった時点で、`verify` の値をそのまま写す形で別に定める。",
+          "derives_from": [
+            "SPEC-477"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1744",
+          "statement": "Markdown 出力は、JSON 出力の `data` と同じ内容を同じ並び順で示す。",
+          "derives_from": [
+            "SPEC-467",
+            "SPEC-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1745",
+          "statement": "Markdown 出力は、BOM のない UTF-8 とし、行の区切りを LF とし、最後の行も LF で終える。",
+          "derives_from": [
+            "SPEC-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1746",
+          "statement": "Markdown 出力は、ID・宣言された値・claim・path・locator・adapter ID・診断コードを Markdown 符号化して書く。",
+          "derives_from": [
+            "SPEC-481"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1747",
+          "statement": "Markdown 符号化は、ASCII 記号（U+0021〜U+002F、U+003A〜U+0040、U+005B〜U+0060、U+007B〜U+007E）の各文字の直前に `\\` を置き、LF を `<br>` へ、LF 以外の U+0000〜U+001F と U+007F を `&#` と code point の10進と `;` へ、値の先頭に連続する空白（U+0020）と末尾に連続する空白の各文字を `&#32;` へ置き換え、それ以外の文字をそのまま書く。",
+          "description": "値の中の `<`・`&`・`\\` は必ず `\\` が前に付くので、`<br>` と `&#…;` は置き換えた文字としてだけ現れ、符号化後の文字列から元の値を一意に復元できる。`-` を含む全記号を符号化するので、値を list 項目や見出しの先頭に書いても記法にならない。先頭の空白と tab を符号化するので、字下げによる code block にもならない。",
+          "derives_from": [
+            "SPEC-481",
+            "SPEC-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1748",
+          "statement": "Markdown 出力は、`# Test Specification`・`## Unmanaged tests`・`## Unresolved references`・`## Tests by VO`・`## Tests by path`・`## Tests` の見出し行を、この順に、要素が0件の節も含めて常に出力する。",
+          "description": "欠落の一覧を目次の前に置き、末尾に埋もれさせない。",
+          "derives_from": [
+            "SPEC-470",
+            "SPEC-471",
+            "SPEC-473"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1749",
+          "statement": "Markdown 出力は、先頭行を除く各見出し行の直前と、各見出し行の直後に空行を1行置き、見出し行が続く場合のその間の空行は1行とし、それ以外に空行を置かない。",
+          "derives_from": [
+            "SPEC-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1750",
+          "statement": "Markdown 出力は、要素が0件の節の本文を `None.` の1行とする。",
+          "derives_from": [
+            "SPEC-471",
+            "SPEC-473",
+            "SPEC-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1751",
+          "statement": "`## Unmanaged tests` の節は、`data.unmanaged` の要素ごとに `- <adapter ID>: <path>: <locator> (<codes>)` の1行を持ち、`<codes>` は診断コードを `, ` で区切って並べる。",
+          "derives_from": [
+            "SPEC-471",
+            "SPEC-472"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1752",
+          "statement": "`## Unresolved references` の節は、`data.unresolved` の要素ごとに `- [<Test ID>](#test-<key>) <field>: <参照> (<code>)` の1行を持ち、`code` が `null` の場合は `(<code>)` を `(no diagnostic)` とする。",
+          "derives_from": [
+            "SPEC-473",
+            "SPEC-480"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1753",
+          "statement": "Markdown 出力は、Target Reference を、Locator 参照では `locator <adapter ID>::<locator 値>`、SRC ID 参照では `src_id <SRC ID>` と書く。",
+          "derives_from": [
+            "SPEC-469",
+            "SPEC-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1754",
+          "statement": "`## Tests by VO` の節は、`data.by_vo` の要素ごとに、見出し行 `### <a id=\"vo-<VO ID の識別子符号化>\"></a><VO ID>`、claim の行、`tests` の要素ごとの `- [<Test ID>](#test-<key>)` の行を、この順に持つ。",
+          "derives_from": [
+            "SPEC-470",
+            "SPEC-480"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1755",
+          "statement": "`## Tests by VO` の節の claim の行は `claim: <claim>` とし、`claim` が `null` の場合は `claim: (unresolved)` とする。",
+          "derives_from": [
+            "SPEC-470",
+            "SPEC-473"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1756",
+          "statement": "`## Tests by path` の節は、`data.by_path` の要素ごとに、見出し行 `### <adapter ID>: <path>` と、`tests` の要素ごとの `- [<Test ID>](#test-<key>)` の行を、この順に持つ。",
+          "derives_from": [
+            "SPEC-470",
+            "SPEC-480"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1757",
+          "statement": "`## Tests` の節は、`data.tests` の要素ごとに、見出し行 `### <a id=\"test-<key>\"></a><Test ID>` と、`- intent:`・`- covers:`・`- targets:`・`- input:`・`- expect:`・`- kind:`・`- cases:`・`- related:`・`- adapter:`・`- path:`・`- locator:` で始まる行を、この順に常に持つ。",
+          "derives_from": [
+            "SPEC-468",
+            "SPEC-469",
+            "SPEC-480"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1758",
+          "statement": "Test 項目の `intent`・`input`・`expect`・`kind`・`adapter`・`path`・`locator` の行は `- <名前>: <値>` とし、宣言のない `input`・`expect`・`kind` は省略せず `- <名前>: (none)` とする。",
+          "description": "値が `(none)` という文字列の場合は Markdown 符号化で `\\(none\\)` になるので、宣言がないことと区別できる。",
+          "derives_from": [
+            "SPEC-469"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1759",
+          "statement": "Test 項目の `covers`・`targets`・`cases`・`related` の行は、要素が0件の場合は `- <名前>: (none)` とし、1件以上の場合は `- <名前>:` の行に続けて、要素ごとに空白2個と `- ` で始まる1行を持つ。",
+          "derives_from": [
+            "SPEC-469"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1760",
+          "statement": "Test 項目の `covers` の要素の行は `  - [<VO ID>](#vo-<VO ID の識別子符号化>): <claim>` とし、`claim` が `null` の場合は `<claim>` を `(unresolved)` とする。",
+          "derives_from": [
+            "SPEC-469",
+            "SPEC-473"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1761",
+          "statement": "Test 項目の `targets` の要素の行は `  - <Target Reference>` とし、`resolved` が `false` の場合は末尾に ` (unresolved)` を付ける。",
+          "derives_from": [
+            "SPEC-469",
+            "SPEC-473"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1762",
+          "statement": "Test 項目の `cases` の要素の行は `  - <値>` とする。",
+          "derives_from": [
+            "SPEC-469"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1763",
+          "statement": "Test 項目の `related` の要素の行は、`test` が `null` でない場合は `  - [<Test ID>](#test-<test>)`、`null` の場合は `  - <Test ID> (unresolved)` とする。",
+          "derives_from": [
+            "SPEC-469",
+            "SPEC-473",
+            "SPEC-480"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1764",
+          "statement": "上流文書が1件も登録されていないプロジェクトでも、`vtest export` はテスト仕様書を出力する。",
+          "derives_from": [
+            "SPEC-474"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1765",
+          "statement": "比較用 JSON 表現の文字列は、`\"` を `\\\"`、`\\` を `\\\\`、U+0008 を `\\b`、U+0009 を `\\t`、U+000A を `\\n`、U+000C を `\\f`、U+000D を `\\r`、それ以外の U+0000〜U+001F を `\\u` と小文字16進4桁（例: U+001F は `\\u001f`）で書く。",
+          "derives_from": [
+            "SPEC-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1766",
+          "statement": "`--quiet` を指定しない `vtest export` は、`--format` の値を受理しない場合（`text` を含む）、標準出力へ何も出力せず、引数不正の内容を標準エラーへ出力する。",
+          "description": "出力形式が決まらないので、どちらの形式でも出力しない。",
+          "derives_from": [
+            "SPEC-467"
+          ],
+          "cites": [
+            "DS-929"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1767",
+          "statement": "`vtest export` は、入力不正・操作拒否ではない内部エラーでは診断コード E-INTERNAL-001 と終了コード3を返す。",
+          "description": "他のコマンドと同じ。",
+          "derives_from": [
+            "SPEC-466"
+          ],
+          "cites": [
+            "DS-1689",
+            "DS-1690"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1768",
+          "statement": "`vtest export` の診断（JSON 出力の `diagnostics` と標準エラーへの出力）は、byte 単位の同一性と実行環境に依存する値を含めない規則の対象に含めない。",
+          "description": "scan の診断の `message` は、I/O 失敗の絶対 path や OS の文言を含みうる。テスト仕様書の本体（`data` と Markdown 文書）は診断の `message` を写さない。",
+          "derives_from": [
+            "SPEC-476",
+            "SPEC-482"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
             ]
           }
         }
