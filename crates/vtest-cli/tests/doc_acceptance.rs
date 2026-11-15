@@ -180,6 +180,10 @@ fn add_with_an_invalid_node_tree_file_does_not_write_a_record() {
 }
 
 /// `show` on an unregistered id is a usage rejection.
+/// @vtest.id TEST-DOC-SHOW-UNREGISTERED-ID-EXIT-TWO
+/// @vtest.covers VO-DOC-SHOW-UNREGISTERED-ID-EXIT-TWO
+/// @vtest.target crates/vtest-ops/src/doc.rs::show
+/// @vtest.intent doc show of an id that is not registered is an operation rejection and exits 2
 #[test]
 fn show_of_an_unregistered_id_is_a_usage_error() {
     let root = temp_root("show-unregistered");

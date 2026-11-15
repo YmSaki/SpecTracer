@@ -1,0 +1,11 @@
+id: VO-DOC-SHOW-UNREGISTERED-ID-EXIT-TWO
+parent: null
+derives_from:
+  - doc: DS-929
+claim: '終了コード`2`は、操作拒否（E-OP-* / E-ADAPTER-* / E-APPROVAL-* / E-CONFIG-*、引数不正、adapter前提・capability・実行失敗、スキーマ違反の提出など。検証結果は生成しない）であることを意味する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

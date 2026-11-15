@@ -1,0 +1,11 @@
+id: VO-ADAPTER-RUST-COVERAGE-AVAILABILITY-PROBE
+parent: null
+derives_from:
+  - doc: DES-452
+claim: '起動時に`cargo llvm-cov --version`で利用可否を確認し、利用不能なら計測しない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00
