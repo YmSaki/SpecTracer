@@ -4786,7 +4786,8 @@
             },
             {
               "id": "SPEC-476",
-              "statement": "`vtest export` は、同じ入力から同じ出力を生成する。",
+              "statement": "`vtest export` は、同じ入力から同じテスト仕様書を生成する。",
+              "description": "REQ-341 が同じ内容を求める対象はテスト仕様書である。テスト仕様書は JSON 出力の `data` と Markdown 文書を指し、併せて返す診断を含まない。",
               "derives_from": [
                 "REQ-341"
               ],
@@ -4868,6 +4869,23 @@
               "description": "宣言された値は Markdown の記法として解釈されうる文字を含みうる。",
               "derives_from": [
                 "REQ-339",
+                "REQ-341"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+                "heading": "作業範囲",
+                "lines": [
+                  11,
+                  11
+                ]
+              }
+            },
+            {
+              "id": "SPEC-482",
+              "statement": "`vtest export` が併せて返す診断はテスト仕様書の一部ではなく、scan が返した内容のまま示す。",
+              "description": "診断の文言は scan のもので、I/O 失敗の path など実行環境に依存する値を含みうる。`vtest scan` と `vtest export` で同じ診断の文言を変えない。同じ内容を求める REQ-341 の対象はテスト仕様書であり、診断ではない。",
+              "derives_from": [
+                "REQ-340",
                 "REQ-341"
               ],
               "source": {

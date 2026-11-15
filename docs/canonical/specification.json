@@ -11004,7 +11004,8 @@
             },
             {
               "id": "SPEC-476",
-              "statement": "`vtest export` は、同じ入力から同じ出力を生成する。",
+              "statement": "`vtest export` は、同じ入力から同じテスト仕様書を生成する。",
+              "description": "REQ-341 が同じ内容を求める対象はテスト仕様書である。テスト仕様書は JSON 出力の `data` と Markdown 文書を指し、併せて返す診断を含まない。",
               "derives_from": [
                 "REQ-341"
               ],
@@ -11086,6 +11087,23 @@
               "description": "宣言された値は Markdown の記法として解釈されうる文字を含みうる。",
               "derives_from": [
                 "REQ-339",
+                "REQ-341"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+                "heading": "作業範囲",
+                "lines": [
+                  11,
+                  11
+                ]
+              }
+            },
+            {
+              "id": "SPEC-482",
+              "statement": "`vtest export` が併せて返す診断はテスト仕様書の一部ではなく、scan が返した内容のまま示す。",
+              "description": "診断の文言は scan のもので、I/O 失敗の path など実行環境に依存する値を含みうる。`vtest scan` と `vtest export` で同じ診断の文言を変えない。同じ内容を求める REQ-341 の対象はテスト仕様書であり、診断ではない。",
+              "derives_from": [
+                "REQ-340",
                 "REQ-341"
               ],
               "source": {
@@ -37022,7 +37040,7 @@
       "items": [
         {
           "id": "DS-1691",
-          "statement": "`vtest export` は、プロジェクト全体のテスト仕様書を標準出力へ出力する。",
+          "statement": "`--quiet` を指定しない `vtest export` は、プロジェクト全体のテスト仕様書を標準出力へ出力する。",
           "derives_from": [
             "SPEC-466"
           ],
@@ -37129,7 +37147,7 @@
         },
         {
           "id": "DS-1697",
-          "statement": "`--format` の値が受理され、終了コード2または3で終了する `vtest export` は、テスト仕様書を出力せず、`--format json` では `ok: false`・`data: null` とその診断を持つ envelope を標準出力へ出力し、`--format md` では標準出力へ何も出力せず、その診断を `[<code>] <message>` と LF の形で標準エラーへ出力する。",
+          "statement": "`--quiet` を指定せず、`--format` の値が受理され、終了コード2または3で終了する `vtest export` は、テスト仕様書を出力せず、`--format json` では `ok: false`・`data: null` とその診断を持つ envelope を標準出力へ出力し、`--format md` では標準出力へ何も出力せず、その診断を `[<code>] <message>` と LF の形で標準エラーへ出力する。",
           "derives_from": [
             "SPEC-466",
             "SPEC-467"
@@ -37228,7 +37246,8 @@
           "derives_from": [
             "SPEC-471",
             "SPEC-472",
-            "SPEC-473"
+            "SPEC-473",
+            "SPEC-482"
           ],
           "cites": [
             "DS-942"
@@ -37278,7 +37297,7 @@
         },
         {
           "id": "DS-1705",
-          "statement": "`vtest export --format md` は、診断を `diagnostics` と同じ順に、1件ごとに `[<code>] <message>` と LF の形で標準エラーへ出力する。",
+          "statement": "`--quiet` を指定しない `vtest export --format md` は、診断を `diagnostics` と同じ順に、1件ごとに `[<code>] <message>` と LF の形で標準エラーへ出力する。",
           "derives_from": [
             "SPEC-471",
             "SPEC-472",
@@ -37295,7 +37314,7 @@
         },
         {
           "id": "DS-1706",
-          "statement": "`--quiet` を指定した `vtest export` は、標準出力にも標準エラーにも何も出力せず、`--quiet` を指定しない場合と同じ終了コードを返す。",
+          "statement": "`--quiet` を指定した `vtest export` は、終了コード（0・1・2・3）と `--format` の値の受理・不受理にかかわらず、標準出力にも標準エラーにも何も出力せず、`--quiet` を指定しない場合と同じ終了コードを返し、この規則は標準出力・標準エラーへの出力を定める `vtest export` の他の規則に優先する。",
           "description": "他のコマンドの `--quiet` と同じ。",
           "derives_from": [
             "SPEC-466"
@@ -38270,7 +38289,7 @@
         },
         {
           "id": "DS-1766",
-          "statement": "`vtest export` は、`--format` の値を受理しない場合（`text` を含む）、標準出力へ何も出力せず、引数不正の内容を標準エラーへ出力する。",
+          "statement": "`--quiet` を指定しない `vtest export` は、`--format` の値を受理しない場合（`text` を含む）、標準出力へ何も出力せず、引数不正の内容を標準エラーへ出力する。",
           "description": "出力形式が決まらないので、どちらの形式でも出力しない。",
           "derives_from": [
             "SPEC-467"
@@ -38309,10 +38328,11 @@
         },
         {
           "id": "DS-1768",
-          "statement": "`vtest export` の診断の `message` は、byte 単位の同一性と実行環境に依存する値を含めない規則の対象に含めない。",
+          "statement": "`vtest export` の診断（JSON 出力の `diagnostics` と標準エラーへの出力）は、byte 単位の同一性と実行環境に依存する値を含めない規則の対象に含めない。",
           "description": "scan の診断の `message` は、I/O 失敗の絶対 path や OS の文言を含みうる。テスト仕様書の本体（`data` と Markdown 文書）は診断の `message` を写さない。",
           "derives_from": [
-            "SPEC-476"
+            "SPEC-476",
+            "SPEC-482"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
