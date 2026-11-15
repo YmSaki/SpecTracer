@@ -33,3 +33,32 @@ Each of the 6 newly annotated tests covers a VO whose claim is the exact stateme
 ## Effect on `chain_integrity`
 
 W-SCAN-101 is a warning. The 13 remaining tests have no `covers`, so they do not create orphan VOs. However, `chain_integrity` keeps reporting the missing management declarations until either clauses are added for them, or the Owner decides they are permanently outside the chain. That decision is reported for an Owner ruling (`needs-owner`) on #78.
+
+## Update 2026-11-15
+
+Measured on `develop` f10dfbd: 11 tests without `@vtest` annotations (the two audit-record tests above are gone). After this change: 4.
+
+### Annotated in this change
+
+| Test | VO | Clause |
+|---|---|---|
+| `runner_rejects_unknown_suite_kind`, `runner_rejects_missing_project`, `runner_rejects_missing_suite`, `runner_rejects_missing_suite_name` | `VO-ADAPTER-RUST-RUNNER-INCOMPLETE-COORDINATE-NOT-EXECUTABLE` (new) | DS-043 |
+| `runner_rejects_missing_coverage_output_path` | `VO-ADAPTER-RUST-RUNNER-COVERAGE-COMMAND` | DES-455 |
+| `availability_reports_the_adapters_own_unavailable_reason` | `VO-ADAPTER-RUST-COVERAGE-AVAILABILITY-PROBE` (new) | DES-452 |
+| `show_of_an_unregistered_id_is_a_usage_error` | `VO-DOC-SHOW-UNREGISTERED-ID-EXIT-TWO` (new) | DS-929 |
+
+This reverses the 2026-11-03 reading of three rows above.
+
+- DS-043 stands in the same paragraph as DES-016 (the execution coordinate: adapter, project, suite, selector). A runner that returns no command for an incomplete coordinate is what "do not treat it as executable by guessing" asks for, wherever the coordinate is consumed.
+- The availability test observes the outcome of the `cargo llvm-cov --version` probe (DES-452). The error text is how it identifies that outcome.
+- `doc show` of an unknown id is an invalid argument, which DS-929 lists under exit code 2.
+
+### Still unannotated
+
+| Test | What the canon lacks |
+|---|---|
+| `duplicate_top_level_version_key_is_rejected`, `approval_roles_with_a_duplicate_key_is_rejected` (store config) | DS-361 and DS-1662 list the config violations that are E-CONFIG-001. A duplicate YAML key is not in the list. |
+| `vo_ref_field_still_rejects_an_empty_scalar` (scan operations) | No clause defines the value shape of a scalar `vo-ref` field. |
+| `document_derives_from_lists_every_owner_when_a_node_id_is_duplicated` (store doc_registry) | DS-1677 says a reference to a duplicated node id resolves to none of the candidates. The test pins the document-level tree showing every owner, which no clause defines. |
+
+`chain_integrity` stays MISMATCH until these four are resolved. Each needs a clause in the canon (a `spec/*` change), or the test removed.
