@@ -157,7 +157,8 @@ nightly on `develop` and on demand (Actions → Self-verify → Run workflow), n
 every push or pull request. The job's result is
 `vtest verify`'s exit code, so it is red while verification reports non-PASS
 results. It is informational and not a required check. The job summary shows
-the verification state, and the run and verify JSON, Evidence and logs are kept
+the verification state, and the run and verify JSON (written under
+`.verify/cache/self-verify/`, which is not an execution input), Evidence and logs are kept
 as the `self-verify` artifact. Evidence is never committed.
 
 If coverage tooling is not already installed, run:

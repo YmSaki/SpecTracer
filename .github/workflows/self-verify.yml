@@ -30,6 +30,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  RESULT_DIR: .verify/cache/self-verify
+
 jobs:
   self-verify:
     name: self-verify (informational, not a merge gate)
@@ -49,29 +52,46 @@ jobs:
         run: cargo install cargo-llvm-cov --locked
       - name: Build vtest
         run: cargo build --locked -p vtest-cli
+      # The result JSON goes under `.verify/cache/`, which is not an execution
+      # input (DES-211). A file in the checkout itself is one: writing
+      # `vtest-run.json` there changed the Execution State that the Evidence
+      # had just been bound to, and verify rejected it as STALE (#176).
       - name: vtest run --all
         id: run
         timeout-minutes: 320
         run: |
           set +e
-          ./target/debug/vtest --format json run --all > vtest-run.json
+          mkdir -p "$RESULT_DIR"
+          ./target/debug/vtest --format json run --all > "$RESULT_DIR/vtest-run.json"
           echo "exit=$?" >> "$GITHUB_OUTPUT"
       - name: vtest verify
         id: verify
         if: always()
         run: |
           set +e
-          ./target/debug/vtest --format json verify > vtest-verify.json
+          mkdir -p "$RESULT_DIR"
+          ./target/debug/vtest --format json verify > "$RESULT_DIR/vtest-verify.json"
           echo "exit=$?" >> "$GITHUB_OUTPUT"
       - name: Summary
         if: always()
         env:
           RUN_EXIT: ${{ steps.run.outputs.exit }}
           VERIFY_EXIT: ${{ steps.verify.outputs.exit }}
+          # One row per (check, state, labels) with the number of distinct
+          # Tests; the tree lists a Test under every VO it covers. The table
+          # also goes to the job log, so the counts can be read without
+          # downloading the artifact (#176).
+          BREAKDOWN: >-
+            [.data.tree[] | recurse(.children[]?) | select(.kind == "test")]
+            | unique_by(.id)
+            | [.[] | .checks[]? | {check, state, labels: ((.labels // []) | join(","))}]
+            | group_by([.check, .state, .labels])
+            | map("| \(.[0].check) | \(.[0].state) | \(.[0].labels) | \(length) |")
+            | .[]
         run: |
-          state=$(jq -r '.data.state // "no result"' vtest-verify.json 2>/dev/null || echo "no result")
-          result=$(jq -r '.data.result // "no result"' vtest-verify.json 2>/dev/null || echo "no result")
-          non_pass=$(jq -r '.data.non_pass // "n/a"' vtest-verify.json 2>/dev/null || echo "n/a")
+          state=$(jq -r '.data.state // "no result"' "$RESULT_DIR/vtest-verify.json" 2>/dev/null || echo "no result")
+          result=$(jq -r '.data.result // "no result"' "$RESULT_DIR/vtest-verify.json" 2>/dev/null || echo "no result")
+          non_pass=$(jq -r '.data.non_pass // "n/a"' "$RESULT_DIR/vtest-verify.json" 2>/dev/null || echo "n/a")
           {
             echo "## Self-verify (this job is not a merge gate)"
             echo
@@ -82,15 +102,20 @@ jobs:
             echo "The job's success or failure follows these exit codes. A green job means"
             echo "\`vtest verify\` exited 0; it is the state above that says whether the"
             echo "repository verifies."
-          } >> "$GITHUB_STEP_SUMMARY"
+            echo
+            echo "### Tests by check, state and diagnostic label"
+            echo
+            echo "| check | state | labels | tests |"
+            echo "|---|---|---|---|"
+            jq -r "$BREAKDOWN" "$RESULT_DIR/vtest-verify.json" 2>/dev/null || echo "| no result | | | |"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: self-verify
           path: |
-            vtest-run.json
-            vtest-verify.json
+            .verify/cache/self-verify/
             .verify/evidence/
             .verify/cache/logs/
           if-no-files-found: warn
