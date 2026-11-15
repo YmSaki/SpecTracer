@@ -14325,6 +14325,66 @@
               11
             ]
           }
+        },
+        {
+          "id": "BD-347",
+          "statement": "show の操作は、判断記録の状態を、`verify` が保留項目の生成に使うのと同じ実効判断の決定から得て、実効判断を自分で決めない。",
+          "derives_from": [
+            "DS-1849",
+            "DS-1850",
+            "DS-1851"
+          ],
+          "cites": [
+            "BD-345"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-348",
+          "statement": "show の操作は、Evidence の状態を、`verify` が `target_binding` の評価に使うのと同じ最新の Evidence レコードの選択から得る。",
+          "derives_from": [
+            "DS-1854",
+            "DS-1855"
+          ],
+          "cites": [
+            "BD-345"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-349",
+          "statement": "list・query の操作は、export の操作と同じ形で registry を引数に受け取り、受入専用の registry を渡して呼べる。",
+          "description": "操作は adapter を自分で生成しない。",
+          "derives_from": [
+            "DS-1861",
+            "DS-1863"
+          ],
+          "cites": [
+            "BD-337",
+            "BD-344"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
         }
       ]
     },
@@ -20372,6 +20432,39 @@
             "BD-345",
             "DS-1827",
             "DS-1828"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-617",
+          "statement": "show の操作の結果の `judgments` は、当該 subject の判断記録を `judgment_kind` ごとに、有効性と `supersedes` だけで `effective`・`superseded`・`invalid` に分けたものであり、判断記録の新旧、判断値、件数で分けない。",
+          "derives_from": [
+            "BD-347",
+            "DS-1850"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-618",
+          "statement": "show の操作の結果の `evidence` は、最新の Evidence レコード1件の ID・result・実行時刻・有効か否かだけを持ち、鮮度の判定結果を持たない。",
+          "description": "鮮度は `verification` が持つ。",
+          "derives_from": [
+            "BD-348",
+            "DS-1854"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/67",

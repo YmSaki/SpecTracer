@@ -7312,13 +7312,16 @@
         },
         {
           "id": "DS-1816",
-          "statement": "`vtest test list` は、option として `--vo <VO ID>` と `--unregistered` を受理し、位置引数を取らず、`--vo` と `--unregistered` を同時に指定した場合は引数不正として終了コード2で拒否する。",
+          "statement": "`vtest test list` は、グローバルオプション（`--project`・`--format`・`--quiet`）のほかに option として `--vo <VO ID>` と `--unregistered` だけを受理し、位置引数を取らず、位置引数、それ以外の option、`--vo` の2回以上の指定、`--vo` と `--unregistered` の同時指定を、引数不正として終了コード2で拒否する。",
           "derives_from": [
             "SPEC-136"
           ],
           "cites": [
             "DS-929",
-            "DS-1070"
+            "DS-1070",
+            "DS-944",
+            "DS-945",
+            "DS-946"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
@@ -7408,14 +7411,17 @@
         },
         {
           "id": "DS-1821",
-          "statement": "`vtest test query` は、option `--source <Source 参照>` をちょうど1回必要とし、位置引数を取らず、`--source` を欠く場合と2回以上指定した場合は引数不正として終了コード2で拒否する。",
+          "statement": "`vtest test query` は、グローバルオプション（`--project`・`--format`・`--quiet`）のほかに option として `--source <Source 参照>` だけを受理してちょうど1回必要とし、位置引数を取らず、`--source` を欠く場合、2回以上指定した場合、位置引数またはそれ以外の option を与えられた場合を、引数不正として終了コード2で拒否する。",
           "derives_from": [
             "SPEC-136",
             "SPEC-091"
           ],
           "cites": [
             "DS-929",
-            "DS-1070"
+            "DS-1070",
+            "DS-944",
+            "DS-945",
+            "DS-946"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
@@ -7488,14 +7494,18 @@
         },
         {
           "id": "DS-1825",
-          "statement": "`vtest test show` は、位置引数として Test ID をちょうど1件必要とし、それ以外の位置引数と option を与えられた場合は引数不正として終了コード2で拒否する。",
+          "statement": "`vtest test show` は、位置引数として Test ID をちょうど1件必要とし、グローバルオプション（`--project`・`--format`・`--quiet`）以外の option を持たず、位置引数が0件または2件以上の場合と、グローバルオプション以外の option を与えられた場合を、引数不正として終了コード2で拒否する。",
+          "description": "グローバルオプションは受理する。`vtest test show TEST-X --format json` は拒否しない。",
           "derives_from": [
             "SPEC-136"
           ],
           "cites": [
             "DS-929",
             "DS-1070",
-            "DS-1071"
+            "DS-1071",
+            "DS-944",
+            "DS-945",
+            "DS-946"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
@@ -7528,8 +7538,8 @@
         },
         {
           "id": "DS-1827",
-          "statement": "`vtest test show <Test ID>` の `data` は `test` と `verification` を持ち、`test` は当該 Test の Test JSON、`verification` は同じプロジェクトルート・同じ実行環境・同じ repository 内容に対する `vtest verify --test <Test ID>` の JSON 出力の `data` と同じ値である。",
-          "description": "DS-1070 が示す項目のうち、intent・covers・targets・Source Location は `test` が、判断記録と Evidence の状態は `verification`（検査ごとの `state`・`diagnostic`・根拠と `pending`）が持つ。状態を `verify` から写し、`test show` 独自の状態を作らない。",
+          "statement": "`vtest test show <Test ID>` の `data` は `test`・`verification`・`judgments`・`evidence` の4つだけを持ち、`test` は当該 Test の Test JSON、`verification` は同じプロジェクトルート・同じ実行環境・同じ repository 内容に対する `vtest verify --test <Test ID>` の JSON 出力の `data` と同じ値である。",
+          "description": "DS-1070 が示す項目のうち、intent・covers・targets・Source Location は `test` が、判断記録の状態は `judgments`（DS-1849〜DS-1853）が、Evidence の状態は `evidence`（DS-1854、DS-1855）が持つ。`verification` は検査ごとの state・診断ラベル・根拠と `pending` を持つが、実効判断が `accepted` の判断型は `pending` から消える（DS-1441）ので、`verification` だけでは、どの判断記録と Evidence が現在のものかを示せない。検査の state は `verify` から写し、`test show` 独自の state を作らない。",
           "derives_from": [
             "SPEC-136"
           ],
@@ -7537,7 +7547,9 @@
             "DS-1070",
             "DS-960",
             "DS-961",
-            "DS-962"
+            "DS-962",
+            "DS-1441",
+            "SPEC-124"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
@@ -7569,12 +7581,193 @@
         },
         {
           "id": "DS-1829",
-          "statement": "`vtest test list`・`vtest test query`・`vtest test show` の `--format text` は、JSON 出力の `data` が含むのと同じ Test を同じ順で示し、終了コードは `--format json` と同じである。",
+          "statement": "`vtest test list` と `vtest test query` の `--format text` は、JSON 出力の `data.tests` の要素ごとに、同じ順で、当該 Test の Test ID を含む1行を標準出力へ出力し、`--unregistered` を指定した場合は `data.unmanaged` の要素ごとに、同じ順で、当該要素の path と locator を含む1行を標準出力へ出力し、終了コードは `--format json` と同じである。",
+          "description": "`vtest test show` の `--format text` は DS-1856 が定める。",
           "derives_from": [
             "SPEC-136"
           ],
           "cites": [
             "DS-940"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1849",
+          "statement": "`data.judgments` は、当該 Test を subject とし `judgment_kind` が §8.1 の値域内である判断記録が1件以上ある `judgment_kind` ごとに1要素を持ち、各要素は `judgment_kind`・`decision`・`effective`・`superseded`・`invalid` を持ち、`judgment_kind` の昇順に並べる。",
+          "description": "Test ID をハンドルに、判断記録の状態を引けるようにする（SPEC-124）。",
+          "derives_from": [
+            "SPEC-124"
+          ],
+          "cites": [
+            "DS-1070",
+            "DS-445",
+            "DS-1444"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1850",
+          "statement": "`data.judgments` の要素の `effective` は実効集合 E に属する判断記録、`superseded` は有効な判断記録のうち E に属さないもの、`invalid` は当該 subject・当該 `judgment_kind` の判断記録のうち有効でないものの decision ID の list であり、それぞれ decision ID の昇順に並べ、当該 subject・当該 `judgment_kind` の判断記録の decision ID は、3つの list のちょうど1つに1回だけ現れる。",
+          "description": "有効の定義は DS-724、実効集合 E の定義は DS-727 に従う。3つの list で、当該 Test の判断記録がそれぞれ現在どう扱われているかを漏れなく示す。",
+          "derives_from": [
+            "SPEC-124"
+          ],
+          "cites": [
+            "DS-724",
+            "DS-726",
+            "DS-727",
+            "DS-1122"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1851",
+          "statement": "`data.judgments` の要素の `decision` は、当該 `(subject, judgment_kind)` の実効判断が確定している場合はその判断値、未確定の場合は `null` とする。",
+          "description": "実効判断は §8.5 の決定（DS-728〜DS-730、DS-735）をそのまま示し、`test show` が判断記録の新旧や件数で選ばない（DS-734）。",
+          "derives_from": [
+            "SPEC-124"
+          ],
+          "cites": [
+            "DS-728",
+            "DS-729",
+            "DS-730",
+            "DS-734",
+            "DS-735"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1852",
+          "statement": "`judgment_kind` を欠くか §8.1 の値域外の判断記録は、`data.judgments` のどの要素にも含めない。",
+          "description": "どの実効判断にも寄与しない（DS-737）。",
+          "derives_from": [
+            "SPEC-124"
+          ],
+          "cites": [
+            "DS-737",
+            "DS-738"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1853",
+          "statement": "当該 Test を subject とし `judgment_kind` が §8.1 の値域内である判断記録が1件もない場合、`data.judgments` は空の list とする。",
+          "derives_from": [
+            "SPEC-124"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1854",
+          "statement": "`data.evidence` は、当該 Test の Evidence レコードが1件もない場合は `null` とし、ある場合は、`verify` が当該 Test の `target_binding` の評価に選択する最新の Evidence レコードについて `id`・`result`・`executed_at`・`valid` を持つ object とし、`valid` は当該レコードが有効な Evidence レコードである場合に `true`、そうでない場合に `false` とし、`valid` が `false` の場合は `result` と `executed_at` を `null`、レコードから Evidence ID を読めない場合は `id` を `null` とする。",
+          "description": "Test ID をハンドルに、Evidence の状態を引けるようにする（SPEC-124）。Evidence が現在の内容に対して新しいか（STALE）は、`verification` の `target_binding` の診断ラベルが示す。",
+          "derives_from": [
+            "SPEC-124"
+          ],
+          "cites": [
+            "DS-1070",
+            "DS-1365",
+            "DS-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1855",
+          "statement": "`data.evidence` は、最新の Evidence レコードが有効でない場合も、それより古い Evidence レコードを示さない。",
+          "description": "`verify` が古い有効な Evidence へフォールバックしない（DS-1365）のと同じレコードを示す。",
+          "derives_from": [
+            "SPEC-124"
+          ],
+          "cites": [
+            "DS-1365",
+            "DS-1366"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1856",
+          "statement": "`vtest test show` の `--format text` は、当該 Test の Test ID、intent、`covers` の各 VO ID、各 target 参照、path、locator、`data.verification` が持つ検査ごとの検査名と state、`data.judgments` の要素ごとの `judgment_kind`・実効判断（未確定の場合は `UNKNOWN`）・`effective` の各 decision ID、`data.evidence` の Evidence ID と `result` を標準出力へ出力し、`data.evidence` が `null` の場合は `evidence: none` の行を出力し、終了コードは `--format json` と同じである。",
+          "derives_from": [
+            "SPEC-136",
+            "SPEC-124"
+          ],
+          "cites": [
+            "DS-940",
+            "DS-1070"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1857",
+          "statement": "引数が受理され、`--quiet` を指定した `vtest test list`・`vtest test query`・`vtest test show` は、標準出力にも標準エラーにも何も出力せず、`--quiet` を指定しない場合と同じ終了コードを返す。",
+          "derives_from": [
+            "SPEC-136"
+          ],
+          "cites": [
+            "DS-946"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
@@ -7812,8 +8005,8 @@
         },
         {
           "id": "DS-1204",
-          "statement": "`test_get` は `id` を入力とし、Test 詳細（Test JSON と、`verify` と同じ検証結果）を出力する。",
-          "description": "出力の内容は DS-S165・DS-S166 が定める。Issue #67 で、判断記録と Evidence の状態を `verify` と同じ検証結果として返すことを明記した。それまでの文は「`test_get` は `id` を入力とし、Test 詳細（intent、covers、targets、位置、判断記録・Evidence 状態）を出力する。」",
+          "statement": "`test_get` は `id` を入力とし、Test 詳細（Test JSON、`verify` と同じ検証結果、判断記録の状態、Evidence の状態）を出力する。",
+          "description": "出力の内容は DS-S165・DS-S166 が定める。Issue #67 で、検証結果を `verify` と同じ値として返し、判断記録の状態と Evidence の状態を別の field で返すことを明記した。それまでの文は「`test_get` は `id` を入力とし、Test 詳細（intent、covers、targets、位置、判断記録・Evidence 状態）を出力する。」",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -8573,6 +8766,63 @@
           "cites": [
             "DS-1203",
             "DS-1204"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1858",
+          "statement": "MCP の `tools/list` が返す `test_get` の入力 schema は、property として文字列型の `id` だけを持ち、`id` を必須とし、それ以外の property を許さない。",
+          "derives_from": [
+            "SPEC-136"
+          ],
+          "cites": [
+            "DS-1830"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1859",
+          "statement": "MCP の `tools/list` が返す `test_query` の入力 schema は、property として文字列型の `vo`、文字列型の `source`、真偽値型の `unregistered` だけを持ち、それ以外の property を許さない。",
+          "derives_from": [
+            "SPEC-136",
+            "SPEC-091"
+          ],
+          "cites": [
+            "DS-1832"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1860",
+          "statement": "`test_get` は、`id` が文字列でない場合と `id` 以外の引数を与えられた場合、`test_query` は、`vo` または `source` が文字列でない場合と `vo`・`source`・`unregistered` 以外の引数を与えられた場合、E-OP-001 のツールエラーで拒否する。",
+          "derives_from": [
+            "SPEC-136"
+          ],
+          "cites": [
+            "DS-1191",
+            "DS-1830",
+            "DS-1832"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
