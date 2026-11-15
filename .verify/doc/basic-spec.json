@@ -4896,6 +4896,24 @@
                   11
                 ]
               }
+            },
+            {
+              "id": "SPEC-483",
+              "statement": "本システムは、テスト仕様書の JSON 出力を、MCP ツール `export` からも `vtest export` と同じ内容で提供する。",
+              "description": "MCP は本体であり、CLI は同じ機能の別入口である（REQ-268、REQ-269）。",
+              "derives_from": [
+                "REQ-339",
+                "REQ-267",
+                "REQ-269"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+                "heading": "作業範囲",
+                "lines": [
+                  12,
+                  12
+                ]
+              }
             }
           ]
         }
@@ -13237,6 +13255,21 @@
                   690
                 ]
               }
+            },
+            {
+              "id": "BD-340",
+              "statement": "`vtest export` の責務はテスト仕様書の出力とする。",
+              "derives_from": [
+                "SPEC-466"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+                "heading": "作業範囲",
+                "lines": [
+                  12,
+                  12
+                ]
+              }
             }
           ]
         },
@@ -13471,6 +13504,21 @@
                 "lines": [
                   713,
                   713
+                ]
+              }
+            },
+            {
+              "id": "BD-341",
+              "statement": "`export` の対応機能はテスト仕様書の出力とする。",
+              "derives_from": [
+                "SPEC-483"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+                "heading": "作業範囲",
+                "lines": [
+                  12,
+                  12
                 ]
               }
             }
