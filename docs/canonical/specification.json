@@ -45158,6 +45158,86 @@
               13
             ]
           }
+        },
+        {
+          "id": "DS-1802",
+          "statement": "余分な位置引数を与えた `vtest export --format json` は、終了コード2を返し、標準出力へ何も出力せず、引数不正の内容を標準エラーへ出力する。",
+          "description": "JSON の envelope も標準出力へ出力しない。",
+          "derives_from": [
+            "SPEC-466"
+          ],
+          "cites": [
+            "DS-1769",
+            "DS-1770",
+            "DS-1697"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1803",
+          "statement": "`--project`・`--format`・`--quiet` 以外の option を与えた `vtest export --format json` は、終了コード2を返し、標準出力へ何も出力せず、引数不正の内容を標準エラーへ出力する。",
+          "description": "JSON の envelope も標準出力へ出力しない。",
+          "derives_from": [
+            "SPEC-466"
+          ],
+          "cites": [
+            "DS-1769",
+            "DS-1770",
+            "DS-1697"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1804",
+          "statement": "余分な位置引数、または `--project`・`--format`・`--quiet` 以外の option を与えた `vtest export --format md` は、終了コード2を返し、標準出力へ何も出力せず、引数不正の内容を標準エラーへ出力する。",
+          "derives_from": [
+            "SPEC-466"
+          ],
+          "cites": [
+            "DS-1769",
+            "DS-1770"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1805",
+          "statement": "`--quiet` を指定した `vtest export` は、余分な位置引数、または `--project`・`--format`・`--quiet` 以外の option を与えられた場合、終了コード2を返し、標準出力と標準エラーへ何も出力しない。",
+          "derives_from": [
+            "SPEC-466"
+          ],
+          "cites": [
+            "DS-1706",
+            "DS-1770"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
         }
       ]
     }
