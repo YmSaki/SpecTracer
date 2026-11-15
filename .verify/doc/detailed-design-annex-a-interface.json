@@ -5968,13 +5968,15 @@
         },
         {
           "id": "DS-1697",
-          "statement": "終了コード2で拒否した `vtest export` は、`--format json` では `ok: false`・`data: null` と拒否の診断を持つ envelope を標準出力へ出力し、`--format md` では標準出力へ何も出力せず拒否の診断を標準エラーへ出力する。",
+          "statement": "`--format` の値が受理され、終了コード2または3で終了する `vtest export` は、テスト仕様書を出力せず、`--format json` では `ok: false`・`data: null` とその診断を持つ envelope を標準出力へ出力し、`--format md` では標準出力へ何も出力せず、その診断を `[<code>] <message>` と LF の形で標準エラーへ出力する。",
           "derives_from": [
             "SPEC-466",
             "SPEC-467"
           ],
           "cites": [
-            "DS-941"
+            "DS-941",
+            "DS-929",
+            "DS-930"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
@@ -6008,8 +6010,8 @@
         },
         {
           "id": "DS-1699",
-          "statement": "`vtest export --format json` の `ok` は、終了コード0の場合に `true`、終了コード1または2の場合に `false` とする。",
-          "description": "終了コード1の場合は `ok: false` で `data` にテスト仕様書を持つ。`vtest scan` の `ok` と同じ対応。",
+          "statement": "`vtest export --format json` の `ok` は、終了コード0の場合に `true`、終了コード1・2・3の場合に `false` とする。",
+          "description": "終了コード1の場合は `ok: false` で `data` にテスト仕様書を持ち、終了コード2・3の場合は `data` が `null` になる。`vtest scan` の `ok` と同じ対応。",
           "derives_from": [
             "SPEC-467",
             "SPEC-478"
@@ -6061,7 +6063,7 @@
         },
         {
           "id": "DS-1702",
-          "statement": "`vtest export --format json` の `diagnostics` は、scan の診断を全件含む。",
+          "statement": "`vtest export --format json` の `diagnostics` は、scan の診断を全件、各診断の `code`・`severity`・`message`・`location` を scan が返した値のまま含む。",
           "derives_from": [
             "SPEC-471",
             "SPEC-472",
@@ -6661,7 +6663,7 @@
         },
         {
           "id": "DS-1738",
-          "statement": "テスト仕様書の出力は、生成時刻、絶対 path、実行環境に依存する値を含めない。",
+          "statement": "JSON 出力の `data` と Markdown 文書は、生成時刻、絶対 path、実行環境に依存する値を含めない。",
           "derives_from": [
             "SPEC-476"
           ],
@@ -6691,7 +6693,7 @@
         },
         {
           "id": "DS-1740",
-          "statement": "adapter の走査順やファイルの列挙順が異なっても、同じ repository 内容から byte 単位で同一のテスト仕様書を出力する。",
+          "statement": "adapter の走査順やファイルの列挙順が異なっても、同じ repository 内容から、JSON 出力の `data` と Markdown 文書を byte 単位で同一に出力する。",
           "derives_from": [
             "SPEC-476"
           ],
@@ -6802,8 +6804,8 @@
         },
         {
           "id": "DS-1747",
-          "statement": "Markdown 符号化は、`-` を除く ASCII 記号（U+0021〜U+002F、U+003A〜U+0040、U+005B〜U+0060、U+007B〜U+007E）の各文字の直前に `\\` を置き、LF を `<br>`、CR を `&#13;` へ置き換え、それ以外の文字をそのまま書く。",
-          "description": "値の中の `<`・`&`・`\\` は必ず `\\` が前に付くので、`<br>` と `&#13;` は元の改行としてだけ現れ、符号化後の文字列から元の値を一意に復元できる。`-` は行頭でだけ記法になり、値を行頭に書く箇所はないので符号化しない。",
+          "statement": "Markdown 符号化は、ASCII 記号（U+0021〜U+002F、U+003A〜U+0040、U+005B〜U+0060、U+007B〜U+007E）の各文字の直前に `\\` を置き、LF を `<br>` へ、LF 以外の U+0000〜U+001F と U+007F を `&#` と code point の10進と `;` へ、値の先頭に連続する空白（U+0020）と末尾に連続する空白の各文字を `&#32;` へ置き換え、それ以外の文字をそのまま書く。",
+          "description": "値の中の `<`・`&`・`\\` は必ず `\\` が前に付くので、`<br>` と `&#…;` は置き換えた文字としてだけ現れ、符号化後の文字列から元の値を一意に復元できる。`-` を含む全記号を符号化するので、値を list 項目や見出しの先頭に書いても記法にならない。先頭の空白と tab を符号化するので、字下げによる code block にもならない。",
           "derives_from": [
             "SPEC-481",
             "SPEC-476"
@@ -7080,6 +7082,76 @@
           "statement": "上流文書が1件も登録されていないプロジェクトでも、`vtest export` はテスト仕様書を出力する。",
           "derives_from": [
             "SPEC-474"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1765",
+          "statement": "比較用 JSON 表現の文字列は、`\"` を `\\\"`、`\\` を `\\\\`、U+0008 を `\\b`、U+0009 を `\\t`、U+000A を `\\n`、U+000C を `\\f`、U+000D を `\\r`、それ以外の U+0000〜U+001F を `\\u` と小文字16進4桁（例: U+001F は `\\u001f`）で書く。",
+          "derives_from": [
+            "SPEC-476"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1766",
+          "statement": "`vtest export` は、`--format` の値を受理しない場合（`text` を含む）、標準出力へ何も出力せず、引数不正の内容を標準エラーへ出力する。",
+          "description": "出力形式が決まらないので、どちらの形式でも出力しない。",
+          "derives_from": [
+            "SPEC-467"
+          ],
+          "cites": [
+            "DS-929"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1767",
+          "statement": "`vtest export` は、入力不正・操作拒否ではない内部エラーでは診断コード E-INTERNAL-001 と終了コード3を返す。",
+          "description": "他のコマンドと同じ。",
+          "derives_from": [
+            "SPEC-466"
+          ],
+          "cites": [
+            "DS-1689",
+            "DS-1690"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1768",
+          "statement": "`vtest export` の診断の `message` は、byte 単位の同一性と実行環境に依存する値を含めない規則の対象に含めない。",
+          "description": "scan の診断の `message` は、I/O 失敗の絶対 path や OS の文言を含みうる。テスト仕様書の本体（`data` と Markdown 文書）は診断の `message` を写さない。",
+          "derives_from": [
+            "SPEC-476"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
