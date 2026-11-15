@@ -126,6 +126,71 @@ fn a_nested_directory_literally_named_target_is_not_excluded() {
     );
 }
 
+/// #176: the self-verify workflow wrote its result JSON into the checkout,
+/// so the report of `run` changed the Execution State its own Evidence was
+/// bound to. A report under `.verify/cache/` is not an execution input
+/// (DES-211); the same file in the checkout is one, and must stay one.
+/// @vtest.id TEST-EXEC-STATE-VERIFY-CACHE-OUTPUT-NOT-BOUND
+/// @vtest.covers VO-EXEC-STATE-VERIFY-CACHE-OUTPUT-NOT-BOUND, VO-EXEC-STATE-MANIFEST-BYTES-BOUND-TO-HASH
+/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::walk
+/// @vtest.intent Verifies a result file written under `.verify/cache/` leaves the hash unchanged, while the same file written in the workspace root changes it.
+#[test]
+fn a_result_file_under_verify_cache_is_not_bound_but_one_in_the_root_is() {
+    let root = temp_dir("verify-cache-output");
+    fs::write(root.join("Cargo.toml"), "[package]\nname = \"fixture\"\n").expect("write");
+    let adapter = AdapterId::new("rust-cargo");
+    let before = reconstruct_execution_state(&root, inputs(&adapter, "deadbeef"));
+    assert!(before.hash.is_some());
+
+    let result_dir = root.join(".verify").join("cache").join("self-verify");
+    fs::create_dir_all(&result_dir).expect("mkdir .verify/cache/self-verify");
+    fs::write(result_dir.join("vtest-run.json"), "").expect("create the result file");
+    let created = reconstruct_execution_state(&root, inputs(&adapter, "deadbeef"));
+    fs::write(result_dir.join("vtest-run.json"), "{\"ok\":true}\n").expect("write the result");
+    let written = reconstruct_execution_state(&root, inputs(&adapter, "deadbeef"));
+    assert_eq!(before.hash, created.hash);
+    assert_eq!(before.hash, written.hash);
+
+    fs::write(root.join("vtest-run.json"), "{\"ok\":true}\n").expect("write in the root");
+    let in_root = reconstruct_execution_state(&root, inputs(&adapter, "deadbeef"));
+    assert_ne!(
+        before.hash, in_root.hash,
+        "a file in the workspace root is an execution input and must change the hash"
+    );
+}
+
+/// #176: every file the self-verify workflow redirects vtest's output into
+/// must lie under `.verify/cache/`, or writing it makes the Evidence of the
+/// same job STALE.
+/// @vtest.id TEST-SELF-VERIFY-WORKFLOW-OUTPUT-UNDER-VERIFY-CACHE
+/// @vtest.covers VO-EXEC-STATE-VERIFY-CACHE-OUTPUT-NOT-BOUND
+/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::walk
+/// @vtest.intent Verifies the self-verify workflow redirects vtest's result JSON only into its result directory under `.verify/cache/`.
+#[test]
+fn the_self_verify_workflow_writes_its_results_under_verify_cache() {
+    let workflow =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.github/workflows/self-verify.yml");
+    let text = fs::read_to_string(&workflow).expect("read self-verify.yml");
+    assert!(
+        text.lines()
+            .any(|line| line.trim() == "RESULT_DIR: .verify/cache/self-verify"),
+        "RESULT_DIR must be a directory under .verify/cache/"
+    );
+    let redirects: Vec<&str> = text
+        .lines()
+        .map(str::trim)
+        .filter(|line| line.starts_with("./target/debug/vtest ") && line.contains(" > "))
+        .collect();
+    assert_eq!(redirects.len(), 2, "run and verify each write one result");
+    for line in redirects {
+        let destination = line.rsplit(" > ").next().expect("a redirect destination");
+        assert!(
+            destination.starts_with("\"$RESULT_DIR/"),
+            "vtest output must go under $RESULT_DIR, not into the checkout: {line}"
+        );
+    }
+}
+
 /// DS-819 relies on this via the Test subject hash separately, but
 /// DES-097 additionally binds HEAD revision into the Execution State
 /// subject itself; a changed revision must change this hash too.
