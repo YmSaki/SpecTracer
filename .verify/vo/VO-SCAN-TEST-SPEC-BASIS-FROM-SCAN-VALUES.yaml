@@ -1,0 +1,11 @@
+id: VO-SCAN-TEST-SPEC-BASIS-FROM-SCAN-VALUES
+parent: null
+derives_from:
+  - doc: DES-600
+claim: 'テスト仕様書のデータを生成する部品の入力は、managed Test Entity の集合、Discovered Test の集合、Discovered Test ごとの当該 construct に付いた診断コードの集合、VO ID から claim への対応、`covers` 参照と target 参照ごとの解決結果である。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

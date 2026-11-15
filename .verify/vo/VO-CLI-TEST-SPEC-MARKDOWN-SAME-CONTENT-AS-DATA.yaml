@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-SPEC-MARKDOWN-SAME-CONTENT-AS-DATA
+parent: null
+derives_from:
+  - doc: DS-1744
+claim: 'Markdown 出力は、JSON 出力の `data` と同じ内容を同じ並び順で示す。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

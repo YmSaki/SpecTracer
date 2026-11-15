@@ -1,0 +1,11 @@
+id: VO-SCAN-TEST-SPEC-TESTS-ORDER
+parent: null
+derives_from:
+  - doc: DS-1730
+claim: '`data.tests` は、adapter ID・path・Test ID・locator・宣言内容の比較用 JSON 表現の昇順に並べる。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

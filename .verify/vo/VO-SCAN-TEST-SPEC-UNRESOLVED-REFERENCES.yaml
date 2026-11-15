@@ -1,0 +1,11 @@
+id: VO-SCAN-TEST-SPEC-UNRESOLVED-REFERENCES
+parent: null
+derives_from:
+  - doc: DS-1721
+claim: '`data.unresolved` は、`data.tests` の各要素が宣言した参照のうち、解決できない `covers` 参照、解決できない target 参照、解決できない `related` 参照を全件含む。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

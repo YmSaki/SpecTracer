@@ -2328,6 +2328,7 @@ mod tests {
             tests,
             sources: Vec::new(),
             diagnostics,
+            test_spec_basis: Default::default(),
         }
     }
 
@@ -3428,6 +3429,7 @@ mod tests {
                 content_hash: target_hash.clone(),
             }],
             diagnostics: Vec::new(),
+            test_spec_basis: Default::default(),
         };
         let mut record = sample_evidence("TEST-ONE", "rust-cargo", Some("deadbeef"));
         record.hashes.test_fn = test.content_hash.clone();
@@ -3480,6 +3482,7 @@ mod tests {
                 content_hash: target_hash.clone(),
             }],
             diagnostics: Vec::new(),
+            test_spec_basis: Default::default(),
         };
         let mut record = sample_evidence("TEST-ONE", "rust-cargo", Some("deadbeef"));
         record.hashes.test_fn = test.content_hash.clone();
@@ -3591,6 +3594,7 @@ mod tests {
                 content_hash: target_hash.clone(),
             }],
             diagnostics: Vec::new(),
+            test_spec_basis: Default::default(),
         };
         let mut record = sample_evidence("TEST-ONE", "rust-cargo", Some(&head_commit));
         record.hashes.test_fn = test.content_hash.clone();
@@ -3643,6 +3647,7 @@ mod tests {
                 content_hash: target_hash.clone(),
             }],
             diagnostics: Vec::new(),
+            test_spec_basis: Default::default(),
         };
         let mut record = sample_evidence("TEST-ONE", "rust-cargo", commit);
         record.hashes.test_fn = test.content_hash.clone();

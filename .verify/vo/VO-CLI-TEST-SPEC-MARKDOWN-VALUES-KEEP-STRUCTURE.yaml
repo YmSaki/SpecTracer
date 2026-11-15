@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-SPEC-MARKDOWN-VALUES-KEEP-STRUCTURE
+parent: null
+derives_from:
+  - doc: SPEC-481
+claim: 'Markdown 出力は、宣言された値を内容を失わずに示し、値の内容によって文書の構造を変えない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

@@ -240,6 +240,33 @@ fn malformed_declarations_are_missing_tests_with_diagnostics() {
     assert_eq!(outcome.missing_tests[0].construct_text, "fn a");
 }
 
+/// @vtest.id TEST-ADAPTER-LEXICAL-MISSING-CONSTRUCT-CARRIES-ITS-CODES
+/// @vtest.covers VO-SCAN-TEST-SPEC-BASIS-FROM-SCAN-VALUES
+/// @vtest.target crates/vtest-adapter-lexical/src/lib.rs::LexicalAdapter::discover
+/// @vtest.intent verifies each Missing Test construct carries the codes of exactly the diagnostics attached to it (a grammar error, a missing required key, an unknown extent), so core need not match diagnostics to constructs
+#[test]
+fn a_missing_construct_carries_the_codes_of_its_own_diagnostics() {
+    let outcome = discover(&[(
+        "t.toy",
+        "// @vtest.id TEST-A\n// @vtest.covers VO-A\n// @vtest.intnet typo\nfn a\n\n\
+         // @vtest.id TEST-B\n// @vtest.intent no covers\nfn b\n\n\
+         // @vtest.id TEST-C\n// @vtest.covers VO-C\n// @vtest.intent c\n??\n",
+    )]);
+    let codes = outcome
+        .missing_tests
+        .iter()
+        .map(|missing| (missing.location.locator.as_str(), missing.codes.clone()))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        codes,
+        vec![
+            ("a", vec!["E-SCAN-006".to_owned()]),
+            ("b", vec!["E-SCAN-007".to_owned()]),
+            ("construct#3", vec!["E-SCAN-001".to_owned()]),
+        ]
+    );
+}
+
 /// @vtest.id TEST-ADAPTER-LEXICAL-UNKNOWN-EXTENT-IS-MISSING
 /// @vtest.covers VO-ADAPTER-LEXICAL-UNPARSEABLE-DECLARATION-MISSING, VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
 /// @vtest.target crates/vtest-adapter-lexical/src/lib.rs::LexicalAdapter::discover

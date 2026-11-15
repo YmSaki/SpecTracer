@@ -12,4 +12,5 @@ vtest-model = { path = "../vtest-model" }
 vtest-store = { path = "../vtest-store" }
 
 [dev-dependencies]
+serde_json.workspace = true
 vtest-adapter-rust = { path = "../vtest-adapter-rust" }

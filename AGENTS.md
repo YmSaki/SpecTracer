@@ -170,11 +170,11 @@ crate の追加や責務の変更は、先にこの表を更新する PR で行�
 | `vtest-adapter-rust` | adapter | `rust-cargo` adapter。`syn` による Rust の解析、`Cargo.toml` と module path の解決、doc comment の `@vtest.` 宣言、`cargo test` の実行、`cargo llvm-cov` のカバレッジ、oracle の静的判定 | 検証の判定（`vtest-verify`） |
 | `vtest-adapter-lexical` | adapter | Rust 以外の言語のフレームワーク非依存な Test 発見。言語ごとの module（`c`、`cpp`、`csharp`、`go`、`java`、`javascript`、`kotlin`、`php`、`python`、`ruby`、`swift`）と、意味が同じと確認できた部分（`annotation`、`shared`）。`source_discovery` だけを宣言する（実験的、`docs/adapters/lexical.md`） | runner、coverage、static analysis（未宣言のまま `NO_EVIDENCE` にする） |
 | `vtest-adapter-synthetic` | adapter | `.rs` 以外の source、関数ではない Test construct などを core の変更なしで扱えることを示す受入テスト専用の adapter（DS-1584） | 本番の言語対応。本番の registry に登録しない |
-| `vtest-scan` | オーケストレーション | adapter への委譲、Test ID の大域的一意性（E-SCAN-002）、VO 参照の解決（E-SCAN-003）、Target Reference の解決、adapter ID 順の決定論的統合、record の参照整合性、Structured Test Operation の orchestration | 言語構文の解釈（adapter）、opaque locator の分解 |
+| `vtest-scan` | オーケストレーション | adapter への委譲、Test ID の大域的一意性（E-SCAN-002）、VO 参照の解決（E-SCAN-003）、Target Reference の解決、adapter ID 順の決定論的統合、record の参照整合性、Structured Test Operation の orchestration、テスト仕様書のデータの生成（`test_spec`。BD-334） | 言語構文の解釈（adapter）、opaque locator の分解 |
 | `vtest-exec` | オーケストレーション | runner の起動、target coverage の帰属、Evidence の構築と追記 | 正典 record の形式（`vtest-store`。Evidence は `write_evidence` で書く） |
 | `vtest-verify` | オーケストレーション | 検証グラフの再構築、4 検査、Evidence の鮮度、スコープ、fail-closed の集約 | ファイルや git の読み取り（`verify_project` の入口に集める）、record の形式 |
 | `vtest-ops` | 操作層 | 1 操作 = 1 関数、builtin registry の構成、envelope、終了コード、診断コードの写像 | 印字（`vtest-cli`）、JSON-RPC（`vtest-mcp`） |
-| `vtest-cli` | 入口 | clap の引数定義、操作層の呼び出し、text 描画、出力、終了コード。`vtest` バイナリ | 業務ルール、エラーの写像（操作層） |
+| `vtest-cli` | 入口 | clap の引数定義、操作層の呼び出し、text 描画、テスト仕様書の Markdown 文書の生成（`test_spec_markdown`。BD-342）、出力、終了コード。`vtest` バイナリ | 業務ルール、エラーの写像（操作層） |
 | `vtest-mcp` | 入口 | MCP stdio の transport、tool 一覧と入力スキーマ、引数の検証、操作層の呼び出し | 業務ルール、エラーの写像、`vtest-scan` や `vtest-store` の直接呼び出し（テストの fixture 作成を除く） |
 
 ### 3.4 module とファイルの粒度
