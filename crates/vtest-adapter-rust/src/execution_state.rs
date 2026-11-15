@@ -447,7 +447,22 @@ fn manifest_escape_risk(path: &Path, manifest: &toml::Value) -> Option<String> {
     })
 }
 
+/// Runs on a thread of its own: with `span-locations`, proc-macro2 keeps the
+/// text of every file parsed on a thread in a thread-local source map and
+/// numbers spans with a `u32` that only grows. This walk parses every Rust
+/// source of the workspace and runs once per Test, so on one long-lived thread
+/// the counter overflowed and `vtest run --all` panicked (#228). The map of a
+/// finished thread is freed, and no span leaves this function.
 pub fn escape_risk_in(root: &Path, context: &ExecutionContext) -> Option<String> {
+    std::thread::scope(|scope| {
+        scope
+            .spawn(|| escape_risk_on_this_thread(root, context))
+            .join()
+            .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
+    })
+}
+
+fn escape_risk_on_this_thread(root: &Path, context: &ExecutionContext) -> Option<String> {
     let mut risk = None;
     let walked = walk(root, root, context, &mut |path| {
         if risk.is_some() {
@@ -921,4 +936,58 @@ fn path_is_excluded(path: &Path, root: &Path, context: &ExecutionContext) -> boo
         .and_then(|component| component.as_os_str().to_str())
         .is_some_and(|name| EXCLUDED_ROOT_ENTRIES.contains(&name));
     root_entry || context.output_dirs.iter().any(|dir| path.starts_with(dir))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::escape_risk;
+
+    /// The global position of a span is visible only through its `Debug`
+    /// form (`bytes(lo..hi)`).
+    fn next_span_start() -> u32 {
+        let ident: proc_macro2::Ident = syn::parse_str("probe").expect("parse an identifier");
+        let debug = format!("{:?}", ident.span());
+        debug
+            .trim_start_matches("bytes(")
+            .split("..")
+            .next()
+            .and_then(|start| start.parse().ok())
+            .unwrap_or_else(|| panic!("unexpected span format: {debug}"))
+    }
+
+    /// #228: `vtest run --all` snapshots the Execution State once per Test,
+    /// and each snapshot parses every Rust source of the workspace.
+    /// proc-macro2 keeps each parsed text in a thread-local source map whose
+    /// `u32` position only grows, so the walk must not add to the calling
+    /// thread's map.
+    /// @vtest.id TEST-EXEC-STATE-ESCAPE-RISK-LEAVES-CALLER-SOURCE-MAP
+    /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
+    /// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk_in
+    /// @vtest.intent Verifies repeated escape-risk walks over a large source do not advance the calling thread's proc-macro2 span positions, so a long run cannot overflow them.
+    #[test]
+    fn escape_risk_walks_do_not_grow_the_calling_threads_source_map() {
+        let root = std::env::temp_dir().join(format!(
+            "vtest-adapter-rust-caller-source-map-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("src")).expect("create fixture");
+        std::fs::write(root.join("Cargo.toml"), "[package]\nname = \"fixture\"\n")
+            .expect("write manifest");
+        let source = "pub fn value() -> u8 { 1 }\n".repeat(4_000);
+        std::fs::write(root.join("src/lib.rs"), &source).expect("write source");
+
+        let before = next_span_start();
+        for _ in 0..3 {
+            assert_eq!(escape_risk(&root), None);
+        }
+        let after = next_span_start();
+        std::fs::remove_dir_all(&root).expect("remove fixture");
+        assert!(
+            after - before < 1_000,
+            "three walks over {} bytes advanced the caller's span position by {}",
+            source.len(),
+            after - before
+        );
+    }
 }
