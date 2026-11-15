@@ -2181,5 +2181,13 @@ mod tests {
         let mut expected = RELATION_KEYS.to_vec();
         expected.sort_unstable();
         assert_eq!(keys, expected);
+
+        // The list is what `from_yaml` rejects undeclared fields with, so a
+        // record that carries every field must be accepted by it.
+        let id = record.id.clone();
+        let (parsed, diagnostics) = RelationRecord::from_yaml(&record.to_yaml().unwrap(), &id)
+            .expect("a record with every declared field is accepted");
+        assert_eq!(parsed, record);
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
     }
 }

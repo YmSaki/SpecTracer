@@ -24,15 +24,16 @@
 //!   through a closure, is not tracked and reports `Unknown` rather than
 //!   `NoViolation` (fail-closed: DS-615 "違反なしと推測しない").
 //! - §7.2.1's cross-Test delegation-chain search (DA-003/DA-006's "照合の
-//!   委譲先") is not implemented at all. This capability therefore never
-//!   identifies a delegation target, which is consistent with DA-006's FAIL
-//!   condition's own literal wording ("…かつ§7.2.1の照合の委譲先も同定でき
-//!   ないこと" — not identifying one is not a violation of the rule, it
-//!   forecloses only the delegation-based `Unknown` outcome DS-623/626 name
-//!   for when a delegation candidate exists but cannot be confirmed to
-//!   terminate). A Test that in fact delegates its verification to another
-//!   Test's assertions is not recognized as doing so and may be reported
-//!   `FAIL` where a delegation-aware analysis would report `Unknown`.
+//!   委譲先") is not implemented: this capability never confirms that a
+//!   delegation target terminates (DS-643). For DA-006 it only recognizes
+//!   that a delegation target exists: a Test body with no assert-equivalent
+//!   construct that calls a function or a method has those calls as its
+//!   delegation targets (DS-642), and since their termination is never
+//!   confirmed here, DA-006 reports `Unknown` for it, not `FAIL` (DS-626,
+//!   DS-652, DS-1345). It therefore never reports `NoViolation` through
+//!   delegation. A call written inside a macro invocation is not seen
+//!   (the macro's tokens are not parsed), so a body whose only calls are
+//!   there still reports `FAIL`.
 //! - DA-001's constant-expression classifier only recognizes literals
 //!   (numeric/string/bool/char) and simple arithmetic/comparison
 //!   combinations of literals; any identifier reference (a `const` item
@@ -122,6 +123,7 @@ pub fn analyze(
         || has_should_panic
         || has_assert_equivalent_method_or_try
         || has_result_return;
+    let has_call = syntax.as_ref().is_some_and(RustFunctionSyntax::has_call);
 
     OraclePresenceAnalysis {
         da_001: da_001_constant_assertion(construct_text, &assert_spans),
@@ -133,7 +135,7 @@ pub fn analyze(
         ),
         da_004: da_004_self_comparison(construct_text),
         da_005: da_005_empty_test(construct_text),
-        da_006: da_006_no_verification_syntax(has_verification_syntax),
+        da_006: da_006_no_verification_syntax(has_verification_syntax, has_call),
     }
 }
 
@@ -826,6 +828,15 @@ impl RustFunctionSyntax {
         visitor.has_verifier
     }
 
+    /// `true` when the function calls a function or a method anywhere in
+    /// its body. In a body without an assert-equivalent construct, such a
+    /// call is a delegation target of the Test (DS-642).
+    fn has_call(&self) -> bool {
+        let mut visitor = CallVisitor { has_call: false };
+        visitor.visit_block(&self.function.block);
+        visitor.has_call
+    }
+
     fn returns_result(&self) -> bool {
         match &self.function.sig.output {
             syn::ReturnType::Type(_, ty) => match ty.as_ref() {
@@ -838,6 +849,20 @@ impl RustFunctionSyntax {
             },
             syn::ReturnType::Default => false,
         }
+    }
+}
+
+struct CallVisitor {
+    has_call: bool,
+}
+
+impl<'ast> Visit<'ast> for CallVisitor {
+    fn visit_expr_call(&mut self, _node: &'ast syn::ExprCall) {
+        self.has_call = true;
+    }
+
+    fn visit_expr_method_call(&mut self, _node: &'ast syn::ExprMethodCall) {
+        self.has_call = true;
     }
 }
 
@@ -865,14 +890,20 @@ impl<'ast> Visit<'ast> for VerificationSyntaxVisitor {
 // DA-006 (DS-626): no verification syntax
 // ---------------------------------------------------------------------------
 
-fn da_006_no_verification_syntax(has_verification_syntax: bool) -> DaVerdict {
+fn da_006_no_verification_syntax(has_verification_syntax: bool, has_call: bool) -> DaVerdict {
     if has_verification_syntax {
         DaVerdict::NoViolation
+    } else if has_call {
+        // DS-642: with no assert-equivalent construct, the calls in the body
+        // are the Test's delegation targets. This capability never confirms
+        // that one terminates (module doc), so the result is neither a
+        // violation nor its absence (DS-626, DS-652, DS-1345).
+        DaVerdict::Unknown(
+            "no assert-equivalent construct is present and the body delegates to a function \
+             call whose termination (§7.2.1) this analysis does not confirm (DS-626, DS-652)"
+                .to_owned(),
+        )
     } else {
-        // This capability does not identify §7.2.1 delegation targets at
-        // all (module doc): DS-626's FAIL condition ("…かつ§7.2.1の照合の
-        // 委譲先も同定できないこと") is literally satisfied whenever no
-        // delegation-identification logic exists to name one.
         DaVerdict::Fail(
             "no assert-equivalent construct (standard macro, #[should_panic], \
              .unwrap()/.expect()/.expect_err()/.unwrap_err()/?, or a Result-returning signature) is present, \
@@ -1043,6 +1074,29 @@ mod tests {
         let text = "#[test]\nfn calls_but_checks_nothing() {\n    let _ = 1 + 1;\n}\n";
         let analysis = analyze(text, &[], &[]);
         assert!(matches!(analysis.da_006, DaVerdict::Fail(_)));
+    }
+
+    /// @vtest.id TEST-ORACLE-DA-006-DELEGATING-BODY-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-006-DELEGATION-NOT-FAIL
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_006_no_verification_syntax
+    /// @vtest.intent a Test body with no assert-equivalent construct that calls a function or a method gets DA-006 Unknown, neither Fail nor NoViolation, and the composed verdict is Unknown, while a body with a call only inside a string stays Fail (DS-1345)
+    #[test]
+    fn a_body_that_only_delegates_gets_da_006_unknown_not_fail() {
+        for text in [
+            "#[test]\nfn delegates() {\n    check_all(1, 2);\n}\n",
+            "#[test]\nfn delegates() {\n    let run = |x: u8| helper.compare(x);\n    let _ = run;\n}\n",
+        ] {
+            let analysis = analyze(text, &[], &[]);
+            assert!(matches!(analysis.da_006, DaVerdict::Unknown(_)), "{text}");
+            let (is_fail, is_unknown, _) = compose(&analysis);
+            assert!(!is_fail && is_unknown, "{text}");
+        }
+
+        let no_call = "#[test]\nfn mentions() {\n    let _ = \"check_all(1, 2)\";\n}\n";
+        assert!(matches!(
+            analyze(no_call, &[], &[]).da_006,
+            DaVerdict::Fail(_)
+        ));
     }
 
     /// @vtest.id TEST-ORACLE-TEXT-LITERAL-IS-NOT-VERIFICATION-SYNTAX
