@@ -12272,7 +12272,8 @@
       "items": [
         {
           "id": "BD-109",
-          "statement": "新設機能は既存コマンド・ツールの引数と出力で露出する。",
+          "statement": "新設機能は、テスト仕様書の出力（`vtest export` と MCP ツール `export`）を除き、既存コマンド・ツールの引数と出力で露出する。",
+          "description": "テスト仕様書の出力の除外は Issue #67 で追加した。コマンド `vtest export` を設けることは Owner 決定（2026-10-26、docs/plans/test-spec-output-proposal.md §6）である。それまでの文は「新設機能は既存コマンド・ツールの引数と出力で露出する。」",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -14104,8 +14105,8 @@
         },
         {
           "id": "BD-334",
-          "statement": "テスト仕様書のデータを生成する部品と、Markdown 文書を生成する部品は、`vtest-scan` に置く。",
-          "description": "入力は scan の結果と、scan が VO 参照の解決に読む VO レコードで足りる。`vtest-scan` は `vtest-verify` と `vtest-exec` へ依存しない（BD-117）ので、ここに置いた部品は検証結果と Evidence を入力にできない。",
+          "statement": "テスト仕様書のデータを生成する部品は、`vtest-scan` に置く。",
+          "description": "scan の結果の決定論的な統合であり、入力は scan の結果と、scan が VO 参照の解決に読む VO レコードで足りる。`vtest-scan` は `vtest-verify` と `vtest-exec` へ依存しない（BD-117）ので、ここに置いた部品は検証結果と Evidence を入力にできない。",
           "derives_from": [
             "DS-1742"
           ],
@@ -14199,6 +14200,24 @@
             "DS-1771",
             "DS-1773",
             "DS-1775"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-342",
+          "statement": "Markdown 文書を生成する部品は、`vtest-cli` に置く。",
+          "description": "Markdown 文書を出力するのは CLI だけであり（MCP ツール `export` は Markdown 文書を返さない）、表示用の文字列を作る処理は CLI の入口の責務である。入力はテスト仕様書のデータだけなので、検証結果と Evidence には届かない。",
+          "derives_from": [
+            "DS-1704",
+            "DS-1744",
+            "DS-1777"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
