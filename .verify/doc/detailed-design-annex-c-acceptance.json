@@ -6145,7 +6145,8 @@
           "statement": "`rust-cargo` adapter と `synthetic` adapter を登録した受入専用の registry を in-process で渡した export の操作は、両方の adapter が Test を返す混在プロジェクトに対して、両方の adapter の managed Test を `data.tests` に含み、どの要素も `key`・`id`・`intent`・`covers`・`targets`・`input`・`expect`・`kind`・`cases`・`related`・`location` の11個の key だけを持つ `data` を返す。",
           "description": "`synthetic` adapter は配布対象ではなく、配布物の registry に登録しない（SPEC-418、BD-293）。そのため、混在プロジェクトは配布物の `vtest export` の実行では観測せず、CLI と MCP が呼ぶのと同じ export の操作（BD-337）へ受入専用の registry を渡して観測する。配布物の `vtest export` の配線は DS-1811 で確認する。",
           "derives_from": [
-            "SPEC-475"
+            "SPEC-475",
+            "SPEC-418"
           ],
           "cites": [
             "DS-1584",
@@ -6166,7 +6167,8 @@
           "statement": "同じ受入専用の registry と混在プロジェクトで、export の操作が返した `data` から、CLI の Markdown 文書を生成する部品が生成した文書の `## Tests` の節は、どの adapter の Test 項目も、`- intent:` から `- locator:` までの11個の行頭を同じ順に持つ。",
           "description": "観測の経路は DS-1780 と同じである。Markdown 文書を生成する部品は、`vtest export --format md` が使うものと同じ部品である（BD-338、BD-342）。",
           "derives_from": [
-            "SPEC-475"
+            "SPEC-475",
+            "SPEC-418"
           ],
           "cites": [
             "DS-1757",
@@ -6365,14 +6367,15 @@
         },
         {
           "id": "DS-1791",
-          "statement": "テスト仕様書のデータを生成する部品へ渡す入力の各集合の要素の順を入れ替えても、部品が返すテスト仕様書のデータの JSON 直列化と、そのデータから生成した Markdown 文書は、byte 単位で変わらない。",
-          "description": "adapter が Test を返す順と adapter を処理する順は、配布物の `vtest export` の実行では入れ替えられないので、部品の入力で観測する。",
+          "statement": "受入専用の registry で、registry への adapter の登録順と、受入専用の adapter が返す DiscoveryBatch・Test・file の列挙順をすべて反転した2回の export の操作は、同じ repository 内容に対して、JSON 直列化が byte 単位で同一の `data` を返し、それぞれの `data` から CLI の Markdown 文書を生成する部品が生成した文書も byte 単位で同一である。",
+          "description": "adapter の登録順と列挙順は、配布物の `vtest export` の実行では入れ替えられないので、export の操作へ受入専用の registry を渡して観測する（DS-1780 と同じ経路）。scan の統合と、テスト仕様書のデータを生成する部品の両方を通した結果で確認する。部品の入力だけを並べ替える確認は、この条件の代わりにならない。",
           "derives_from": [
             "SPEC-476"
           ],
           "cites": [
             "DS-1730",
-            "DS-1740"
+            "DS-1740",
+            "DS-1780"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
@@ -6750,15 +6753,18 @@
         },
         {
           "id": "DS-1811",
-          "statement": "配布物の `vtest export` は、`rust-cargo` adapter だけを使うプロジェクトに対して、`--format json` では `rust-cargo` の managed Test を `data.tests` に含む JSON を標準出力へ出力し、`--format md` では、その `data` から Markdown 文書を生成する部品が生成する文書と byte 単位で同一の文書を標準出力へ出力する。",
-          "description": "配布物の入口から export の操作と Markdown 文書を生成する部品までの配線を、配布物の registry にある adapter で確認する。",
+          "statement": "managed Test、管理宣言を持たない Test construct、解決できない参照をそれぞれ1件以上持つ `rust-cargo` adapter だけのプロジェクトで、配布物の `vtest export --format json` の標準出力の `data` は、同じプロジェクトルート・同じ実行環境・配布物と同じ registry で in-process に呼んだ export の操作が返す `data` と JSON の値として完全に一致し、配布物の `vtest export --format md` の標準出力は、その export の操作が返した `data` へ CLI の Markdown 文書を生成する部品を適用した文書と byte 単位で同一である。",
+          "description": "配布物の入口から export の操作と Markdown 文書を生成する部品までの配線を確認する。比較の基準は、配布物の CLI が出力した `data` ではなく、export の操作が返した `data` である。CLI だけが field を足す、または一覧を落とす実装を、値の完全な一致で検出する。",
           "derives_from": [
             "SPEC-466",
             "SPEC-467"
           ],
           "cites": [
             "DS-1691",
+            "DS-1701",
             "DS-1704",
+            "DS-1707",
+            "DS-1741",
             "DS-1744",
             "DS-1780",
             "DS-1781"
