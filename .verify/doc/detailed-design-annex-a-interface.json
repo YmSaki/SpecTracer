@@ -7229,7 +7229,8 @@
       "items": [
         {
           "id": "DS-1190",
-          "statement": "各ツールの結果は CLI の `--format json` と同一の JSON 構造とする（検証状態 `state` と診断ラベル `diagnostic` の2軸を含む。§12.1）。",
+          "statement": "各ツールの結果は CLI の `--format json` と同一の JSON 構造とし、検証結果を返すツールの結果は検証状態 `state` と診断ラベル `diagnostic` の2軸を含む（§12.1）。",
+          "description": "2軸を含むツールを「検証結果を返すツール」に限ったのは Issue #67 である。`export` の結果は検証状態を含めない（SPEC-477、DS-1779）。それまでの文は「各ツールの結果は CLI の `--format json` と同一の JSON 構造とする（検証状態 `state` と診断ラベル `diagnostic` の2軸を含む。§12.1）。」",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -7242,7 +7243,8 @@
         },
         {
           "id": "DS-1191",
-          "statement": "エラーは MCP のツールエラーとして返し、`{ \"code\": \"E-OP-001\", \"message\": \"...\", \"candidates\": [...] }` の構造を含める。",
+          "statement": "入力の検証の失敗と操作の拒否は MCP のツールエラーとして返し、`{ \"code\": \"E-OP-001\", \"message\": \"...\", \"candidates\": [...] }` の構造を含める。",
+          "description": "対象を「入力の検証の失敗と操作の拒否」と明記したのは Issue #67 である。例の `code` は入力の検証の失敗の場合の値で、拒否の理由ごとの `code` は診断コード表に従う。`export` が scan の error 診断とテスト仕様書を併せて返す場合は DS-1775・DS-1776 が定める。それまでの文は「エラーは MCP のツールエラーとして返し、`{ \"code\": \"E-OP-001\", \"message\": \"...\", \"candidates\": [...] }` の構造を含める。」",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -7926,8 +7928,8 @@
         },
         {
           "id": "DS-1774",
-          "statement": "`export` の結果は、同じ repository 内容に対して `--quiet` を指定しない `vtest export --format json` が標準出力へ出力する JSON と、`ok`・`data`・`diagnostics` が同じ値である。",
-          "description": "scan が完了した場合（`vtest export` の終了コード0・1）も、scan が完了しない場合（終了コード2・3。envelope は DS-1697）も同じである。引数不正による `vtest export` の拒否は、MCP では DS-1773 が定める。",
+          "statement": "`export` の結果は、同じプロジェクトルートと同じ実行環境で、同じ repository 内容に対して `--quiet` を指定しない `vtest export --format json` が標準出力へ出力する JSON と、`ok`・`data`・`diagnostics` が同じ値である。",
+          "description": "診断の `message` は絶対 path など実行環境に依存する値を含みうる（SPEC-482、DS-1768）ので、プロジェクトルートと実行環境が同じ場合に限って一致を求める。scan が完了した場合（`vtest export` の終了コード0・1）も、scan が完了しない場合（終了コード2・3。envelope は DS-1697）も同じである。引数不正による `vtest export` の拒否は、MCP では DS-1773 が定める。",
           "derives_from": [
             "SPEC-483",
             "SPEC-476"
@@ -7940,7 +7942,8 @@
             "DS-1699",
             "DS-1701",
             "DS-1702",
-            "DS-1703"
+            "DS-1703",
+            "DS-1768"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/67",

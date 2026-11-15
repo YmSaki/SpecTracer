@@ -6400,7 +6400,7 @@
         },
         {
           "id": "DS-1793",
-          "statement": "同じ repository 内容に対して、`vtest export --format json` の標準出力の JSON と MCP ツール `export` の結果は、severity が error の診断がない場合も、ある場合も、`ok`・`data`・`diagnostics` が一致する。",
+          "statement": "同じプロジェクトルートと同じ実行環境で、同じ repository 内容に対して、`vtest export --format json` の標準出力の JSON と MCP ツール `export` の結果は、severity が error の診断がない場合も、ある場合も、`ok`・`data`・`diagnostics` が一致する。",
           "derives_from": [
             "SPEC-483"
           ],
@@ -6513,12 +6513,14 @@
         },
         {
           "id": "DS-1799",
-          "statement": "`--quiet` を指定した `vtest export` は、`--quiet` を指定しなければ終了コード0・1・2になるそれぞれの場合に、同じ終了コードを返し、標準出力と標準エラーへ何も出力しない。",
+          "statement": "`--quiet` を指定した `vtest export` は、`--quiet` を指定しなければ終了コード0・1・2・3になるそれぞれの場合に、同じ終了コードを返し、標準出力と標準エラーへ何も出力しない。",
+          "description": "終了コード3は、config を読めない場合（E-INTERNAL-001）で確認できる。",
           "derives_from": [
             "SPEC-466"
           ],
           "cites": [
-            "DS-1706"
+            "DS-1706",
+            "DS-1767"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
@@ -6636,6 +6638,102 @@
           "cites": [
             "DS-1706",
             "DS-1770"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1806",
+          "statement": "MCP の `tools/list` の結果は、名前が `export` で、入力 schema が property を1件も持たないツールを含む。",
+          "derives_from": [
+            "SPEC-483"
+          ],
+          "cites": [
+            "DS-1772",
+            "DS-1771"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1807",
+          "statement": "MCP の `tools/call` で `export` を呼び出した結果の `isError` は、結果の `ok` が `true` の場合は `false`、`ok` が `false` の場合は、`data` が `null` の場合も `null` でない場合も `true` である。",
+          "derives_from": [
+            "SPEC-483"
+          ],
+          "cites": [
+            "DS-1775",
+            "DS-1776"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1808",
+          "statement": "テスト仕様書のデータの値が DS-1747 の挙げる ASCII 記号32文字のすべてを含む場合、Markdown 文書の当該値は、各記号の直前に `\\` を置いた形で、32文字を1文字も欠かさず元の順に含む。",
+          "derives_from": [
+            "SPEC-481"
+          ],
+          "cites": [
+            "DS-1746",
+            "DS-1747"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1809",
+          "statement": "テスト仕様書のデータの値が LF、LF 以外の U+0000〜U+001F、U+007F、先頭の空白、末尾の空白を含む場合、Markdown 文書の当該値は、LF の位置に `<br>`、LF 以外の U+0000〜U+001F と U+007F の位置に `&#` と code point の10進と `;`、先頭と末尾の各空白の位置に `&#32;` を含み、それ以外の文字を元の順のまま含む。",
+          "derives_from": [
+            "SPEC-481"
+          ],
+          "cites": [
+            "DS-1746",
+            "DS-1747"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1810",
+          "statement": "ASCII 記号、LF、LF 以外の U+0000〜U+001F、U+007F、先頭と末尾の空白、非 ASCII 文字を併せて含む値について、Markdown 文書の当該値に DS-1747 の置き換えを逆に適用した結果は、元の値と byte 単位で一致する。",
+          "description": "値を削除・改変する実装を、内容の一致で検出する。",
+          "derives_from": [
+            "SPEC-481"
+          ],
+          "cites": [
+            "DS-1746",
+            "DS-1747"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
