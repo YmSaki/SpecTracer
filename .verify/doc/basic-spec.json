@@ -4611,6 +4611,240 @@
               }
             }
           ]
+        },
+        {
+          "id": "SPEC-S134",
+          "title": "26.3 テスト仕様書の出力",
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+            "heading": "作業範囲",
+            "lines": [
+              14,
+              16
+            ]
+          },
+          "derives_from": [
+            "REQ-339",
+            "REQ-340",
+            "REQ-341",
+            "REQ-342"
+          ],
+          "items": [
+            {
+              "id": "SPEC-466",
+              "statement": "本システムは、テスト仕様書を出力するコマンド `vtest export` を提供する。",
+              "description": "コマンド名は Owner 決定（2026-10-26、docs/plans/test-spec-output-proposal.md §6）。",
+              "derives_from": [
+                "REQ-339"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+                "heading": "作業範囲",
+                "lines": [
+                  14,
+                  16
+                ]
+              }
+            },
+            {
+              "id": "SPEC-467",
+              "statement": "`vtest export` は、Markdown と JSON の2つの出力形式を提供する。",
+              "derives_from": [
+                "REQ-339"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+                "heading": "作業範囲",
+                "lines": [
+                  14,
+                  16
+                ]
+              }
+            },
+            {
+              "id": "SPEC-468",
+              "statement": "テスト仕様書は、管理対象 Test ごとに1項目を持つ。",
+              "derives_from": [
+                "REQ-339"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+                "heading": "作業範囲",
+                "lines": [
+                  14,
+                  16
+                ]
+              }
+            },
+            {
+              "id": "SPEC-469",
+              "statement": "テスト仕様書の Test 項目は、Test ID、目的（intent）、検証する VO とその主張（claim）、対象（Source Target）、入力、期待、種別、ケース、関連 Test、所在を示す。",
+              "derives_from": [
+                "REQ-339"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+                "heading": "作業範囲",
+                "lines": [
+                  14,
+                  16
+                ]
+              }
+            },
+            {
+              "id": "SPEC-470",
+              "statement": "テスト仕様書は、VO ごとの目次と path ごとの目次を持つ。",
+              "derives_from": [
+                "REQ-339"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+                "heading": "作業範囲",
+                "lines": [
+                  14,
+                  16
+                ]
+              }
+            },
+            {
+              "id": "SPEC-471",
+              "statement": "テスト仕様書は、adapter が発見したが管理宣言を持たない Test を一覧に含める。",
+              "derives_from": [
+                "REQ-340"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+                "heading": "作業範囲",
+                "lines": [
+                  14,
+                  16
+                ]
+              }
+            },
+            {
+              "id": "SPEC-472",
+              "statement": "テスト仕様書は、管理宣言が不完全な Test を一覧に含める。",
+              "derives_from": [
+                "REQ-340"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+                "heading": "作業範囲",
+                "lines": [
+                  14,
+                  16
+                ]
+              }
+            },
+            {
+              "id": "SPEC-473",
+              "statement": "テスト仕様書は、解決できない `covers` 参照と解決できない target 参照を一覧に含める。",
+              "derives_from": [
+                "REQ-340"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+                "heading": "作業範囲",
+                "lines": [
+                  14,
+                  16
+                ]
+              }
+            },
+            {
+              "id": "SPEC-474",
+              "statement": "テスト仕様書は、上流文書が1件も登録されていないプロジェクトでも出力できる。",
+              "description": "途中導入では、注釈だけで始めて上流文書を後から足す。",
+              "derives_from": [
+                "REQ-339",
+                "R-5"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+                "heading": "作業範囲",
+                "lines": [
+                  14,
+                  16
+                ]
+              }
+            },
+            {
+              "id": "SPEC-475",
+              "statement": "テスト仕様書は、どの adapter の Test も同じ形式で示す。",
+              "derives_from": [
+                "REQ-341"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+                "heading": "作業範囲",
+                "lines": [
+                  14,
+                  16
+                ]
+              }
+            },
+            {
+              "id": "SPEC-476",
+              "statement": "`vtest export` は、同じ入力から同じ出力を生成する。",
+              "derives_from": [
+                "REQ-341"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+                "heading": "作業範囲",
+                "lines": [
+                  14,
+                  16
+                ]
+              }
+            },
+            {
+              "id": "SPEC-477",
+              "statement": "テスト仕様書は検証状態を含めない。",
+              "derives_from": [
+                "REQ-342"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+                "heading": "作業範囲",
+                "lines": [
+                  14,
+                  16
+                ]
+              }
+            },
+            {
+              "id": "SPEC-478",
+              "statement": "`vtest export` の成功は、検証結果が `PASS` であることを意味しない。",
+              "derives_from": [
+                "REQ-342"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+                "heading": "作業範囲",
+                "lines": [
+                  14,
+                  16
+                ]
+              }
+            },
+            {
+              "id": "SPEC-479",
+              "statement": "テスト仕様書は派生物であり、正典ではない。",
+              "derives_from": [
+                "REQ-342",
+                "P-003"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+                "heading": "作業範囲",
+                "lines": [
+                  14,
+                  16
+                ]
+              }
+            }
+          ]
         }
       ],
       "items": [
