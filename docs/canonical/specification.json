@@ -11114,6 +11114,24 @@
                   11
                 ]
               }
+            },
+            {
+              "id": "SPEC-483",
+              "statement": "本システムは、テスト仕様書の JSON 出力を、MCP ツール `export` からも `vtest export` と同じ内容で提供する。",
+              "description": "MCP は本体であり、CLI は同じ機能の別入口である（REQ-268、REQ-269）。",
+              "derives_from": [
+                "REQ-339",
+                "REQ-267",
+                "REQ-269"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+                "heading": "作業範囲",
+                "lines": [
+                  12,
+                  12
+                ]
+              }
             }
           ]
         }
@@ -37147,7 +37165,8 @@
         },
         {
           "id": "DS-1697",
-          "statement": "`--quiet` を指定せず、`--format` の値が受理され、終了コード2または3で終了する `vtest export` は、テスト仕様書を出力せず、`--format json` では `ok: false`・`data: null` とその診断を持つ envelope を標準出力へ出力し、`--format md` では標準出力へ何も出力せず、その診断を `[<code>] <message>` と LF の形で標準エラーへ出力する。",
+          "statement": "`--quiet` を指定せず、引数が受理され、終了コード2または3で終了する `vtest export` は、テスト仕様書を出力せず、`--format json` では `ok: false`・`data: null` とその診断を持つ envelope を標準出力へ出力し、`--format md` では標準出力へ何も出力せず、その診断を `[<code>] <message>` と LF の形で標準エラーへ出力する。",
+          "description": "引数不正で拒否する場合（`--format` の値を受理しない場合を含む）の出力は DS-1766 と DS-1770 が定める。Issue #67 で、条件の「`--format` の値が受理され」を「引数が受理され」へ改めた。",
           "derives_from": [
             "SPEC-466",
             "SPEC-467"
@@ -38342,6 +38361,51 @@
               12
             ]
           }
+        },
+        {
+          "id": "DS-1769",
+          "statement": "`vtest export` は位置引数を取らず、グローバルオプション（`--project`・`--format`・`--quiet`）以外の option を持たない。",
+          "description": "出力先は標準出力だけで、ファイルへ書く option を持たない（DS-1695）。対象を一部の Test・VO・文書へ絞る option も持たない（DS-1691）。一部だけの仕様書は、載っている Test が全体だと読まれるためである。ヘルプの表示（`--help`）はコマンドの実行ではないので、この規則の対象に含めない。",
+          "derives_from": [
+            "SPEC-466"
+          ],
+          "cites": [
+            "DS-944",
+            "DS-945",
+            "DS-946",
+            "DS-1691",
+            "DS-1695"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1770",
+          "statement": "`--quiet` を指定しない `vtest export` は、位置引数、または `--project`・`--format`・`--quiet` 以外の option を与えられた場合、`--format` の値にかかわらず、引数不正として終了コード2で拒否し、標準出力へ何も出力せず、引数不正の内容を標準エラーへ出力する。",
+          "description": "`--format` の値を受理しない場合（DS-1766）と同じ出力にする。引数を解釈できないので、JSON の envelope も出力しない（DS-1697 は引数が受理された場合の規則）。`--quiet` を指定した場合は DS-1706 に従い、何も出力しない。",
+          "derives_from": [
+            "SPEC-466"
+          ],
+          "cites": [
+            "DS-929",
+            "DS-1697",
+            "DS-1706",
+            "DS-1766"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
         }
       ]
     },
@@ -38362,7 +38426,8 @@
       "items": [
         {
           "id": "DS-1190",
-          "statement": "各ツールの結果は CLI の `--format json` と同一の JSON 構造とする（検証状態 `state` と診断ラベル `diagnostic` の2軸を含む。§12.1）。",
+          "statement": "各ツールの結果は CLI の `--format json` と同一の JSON 構造とし、検証結果を返すツールの結果は検証状態 `state` と診断ラベル `diagnostic` の2軸を含む（§12.1）。",
+          "description": "2軸を含むツールを「検証結果を返すツール」に限ったのは Issue #67 である。`export` の結果は検証状態を含めない（SPEC-477、DS-1779）。それまでの文は「各ツールの結果は CLI の `--format json` と同一の JSON 構造とする（検証状態 `state` と診断ラベル `diagnostic` の2軸を含む。§12.1）。」",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -38375,7 +38440,8 @@
         },
         {
           "id": "DS-1191",
-          "statement": "エラーは MCP のツールエラーとして返し、`{ \"code\": \"E-OP-001\", \"message\": \"...\", \"candidates\": [...] }` の構造を含める。",
+          "statement": "入力の検証の失敗と操作の拒否は MCP のツールエラーとして返し、`code` と `message` を持ち、候補集合がある場合は `candidates` も持つ構造（`{ \"code\": \"...\", \"message\": \"...\", \"candidates\": [...] }`）を含め、`code` は、ツールの引数の検証の失敗（型の不一致、必須の引数の欠落、未知の引数）では E-OP-001、それ以外の拒否では拒否の理由に対応する診断コードとする。",
+          "description": "Issue #67 で、対象を「入力の検証の失敗と操作の拒否」と明記し、`code` の値域と `candidates` の条件を statement に書いた。拒否の理由に対応する診断コードの例は、config の拒否の E-CONFIG-001、未定義のゲート名の E-CONFIG-002（DS-1216）、`combinations` の受理条件違反の E-SCAN-017（DS-1224）である。`candidates` を付ける範囲は DS-1192 に従う。`export` が scan の error 診断とテスト仕様書を併せて返す場合は DS-1775・DS-1776 が定める。それまでの文は「エラーは MCP のツールエラーとして返し、`{ \"code\": \"E-OP-001\", \"message\": \"...\", \"candidates\": [...] }` の構造を含める。」",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
@@ -38988,6 +39054,197 @@
             "lines": [
               448,
               463
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "DS-S163",
+      "title": "13.4 MCP ツール `export`（テスト仕様書の取得）",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+        "heading": "作業範囲",
+        "lines": [
+          12,
+          12
+        ]
+      },
+      "derives_from": [
+        "SPEC-S134"
+      ],
+      "items": [
+        {
+          "id": "DS-1771",
+          "statement": "MCP ツール `export` は入力を取らない。",
+          "derives_from": [
+            "SPEC-483"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1772",
+          "statement": "MCP サーバーは、ツール一覧に `export` を含める。",
+          "derives_from": [
+            "SPEC-483"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1773",
+          "statement": "`export` は、引数を1件以上与えられた場合、`code` が E-OP-001 のツールエラーで拒否し、テスト仕様書を返さない。",
+          "derives_from": [
+            "SPEC-483"
+          ],
+          "cites": [
+            "DS-1191",
+            "DS-1564"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1774",
+          "statement": "`export` の結果は、同じプロジェクトルートと同じ実行環境で、同じ repository 内容に対して `--quiet` を指定しない `vtest export --format json` が標準出力へ出力する JSON と、`ok`・`data`・`diagnostics` が同じ値である。",
+          "description": "診断の `message` は絶対 path など実行環境に依存する値を含みうる（SPEC-482、DS-1768）ので、プロジェクトルートと実行環境が同じ場合に限って一致を求める。scan が完了した場合（`vtest export` の終了コード0・1）も、scan が完了しない場合（終了コード2・3。envelope は DS-1697）も同じである。引数不正による `vtest export` の拒否は、MCP では DS-1773 が定める。",
+          "derives_from": [
+            "SPEC-483",
+            "SPEC-476"
+          ],
+          "cites": [
+            "DS-1190",
+            "DS-1563",
+            "DS-1697",
+            "DS-1698",
+            "DS-1699",
+            "DS-1701",
+            "DS-1702",
+            "DS-1703",
+            "DS-1768"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1775",
+          "statement": "`export` は、結果の `ok` が `false` の場合、その結果を MCP のツールエラーとして返す。",
+          "derives_from": [
+            "SPEC-483"
+          ],
+          "cites": [
+            "DS-1191"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1776",
+          "statement": "`export` は、scan が完了した場合、severity が error の診断があって `ok` が `false` でも、`data` にテスト仕様書を含める。",
+          "description": "欠落や解決できない参照があるプロジェクトでこそ、一覧が要る（REQ-340）。",
+          "derives_from": [
+            "SPEC-483",
+            "SPEC-471",
+            "SPEC-473"
+          ],
+          "cites": [
+            "DS-1698"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1777",
+          "statement": "`export` は Markdown 文書を返さず、出力形式を選ぶ入力を持たない。",
+          "description": "Markdown 文書は `data` と同じ内容を示す（DS-1744）。Markdown 文書が要る場合は `vtest export --format md` を使う。",
+          "derives_from": [
+            "SPEC-483",
+            "SPEC-467"
+          ],
+          "cites": [
+            "DS-1744"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1778",
+          "statement": "`export` はファイル・ディレクトリを1件も作成・変更・削除しない。",
+          "derives_from": [
+            "SPEC-479"
+          ],
+          "cites": [
+            "DS-1695"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
+            ]
+          }
+        },
+        {
+          "id": "DS-1779",
+          "statement": "`export` の結果は検証状態を含めず、`ok: true` は検証結果が `PASS` であることを意味しない。",
+          "derives_from": [
+            "SPEC-477",
+            "SPEC-478"
+          ],
+          "cites": [
+            "DS-1700",
+            "DS-1742"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              12,
+              12
             ]
           }
         }
@@ -44463,6 +44720,661 @@
           }
         }
       ]
+    },
+    {
+      "id": "DS-S164",
+      "title": "18.3.13 テスト仕様書の出力",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+        "heading": "作業範囲",
+        "lines": [
+          13,
+          13
+        ]
+      },
+      "derives_from": [
+        "SPEC-S134"
+      ],
+      "items": [
+        {
+          "id": "DS-1780",
+          "statement": "`rust-cargo` adapter と `synthetic` adapter を登録した受入専用の registry を in-process で渡した export の操作は、両方の adapter が Test を返す混在プロジェクトに対して、両方の adapter の managed Test を `data.tests` に含み、どの要素も `key`・`id`・`intent`・`covers`・`targets`・`input`・`expect`・`kind`・`cases`・`related`・`location` の11個の key だけを持つ `data` を返す。",
+          "description": "`synthetic` adapter は配布対象ではなく、配布物の registry に登録しない（SPEC-418、BD-293）。そのため、混在プロジェクトは配布物の `vtest export` の実行では観測せず、CLI と MCP が呼ぶのと同じ export の操作（BD-337）へ受入専用の registry を渡して観測する。配布物の `vtest export` の配線は DS-1811 で確認する。",
+          "derives_from": [
+            "SPEC-475",
+            "SPEC-418"
+          ],
+          "cites": [
+            "DS-1584",
+            "DS-1707",
+            "DS-1741"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1781",
+          "statement": "同じ受入専用の registry と混在プロジェクトで、export の操作が返した `data` から、CLI の Markdown 文書を生成する部品が生成した文書の `## Tests` の節は、どの adapter の Test 項目も、`- intent:` から `- locator:` までの11個の行頭を同じ順に持つ。",
+          "description": "観測の経路は DS-1780 と同じである。Markdown 文書を生成する部品は、`vtest export --format md` が使うものと同じ部品である（BD-338、BD-342）。",
+          "derives_from": [
+            "SPEC-475",
+            "SPEC-418"
+          ],
+          "cites": [
+            "DS-1757",
+            "DS-1780"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1782",
+          "statement": "管理宣言を持たない Test construct は、`data.tests` に含まれず、`data.unmanaged` に `codes` が W-SCAN-101 を含む要素として含まれ、Markdown 文書の `## Unmanaged tests` の節に1行として現れる。",
+          "derives_from": [
+            "SPEC-471"
+          ],
+          "cites": [
+            "DS-1719",
+            "DS-1720",
+            "DS-1751"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1783",
+          "statement": "scan の診断が W-SCAN-101 だけで、severity が error の診断がないプロジェクトでは、`vtest export` の終了コードは0で、`--format json` の `ok` は `true` である。",
+          "derives_from": [
+            "SPEC-471",
+            "SPEC-478"
+          ],
+          "cites": [
+            "DS-1698",
+            "DS-1699"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1784",
+          "statement": "管理宣言が不完全な Test construct は、`data.tests` に含まれず、`data.unmanaged` に、当該 construct に付いた E-SCAN-* の診断コードを `codes` に持つ要素として含まれる。",
+          "derives_from": [
+            "SPEC-472"
+          ],
+          "cites": [
+            "DS-1719",
+            "DS-1720"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1785",
+          "statement": "解決できない `covers` 参照を持つ Test は、`data.tests` に含まれ、当該参照を `covers` に `claim: null` で持ち、`data.unresolved` に `field` が `covers`・`code` が E-SCAN-003 の要素として含まれ、Markdown 文書の `## Unresolved references` の節に1行として現れる。",
+          "derives_from": [
+            "SPEC-473"
+          ],
+          "cites": [
+            "DS-1711",
+            "DS-1721",
+            "DS-1723",
+            "DS-1725",
+            "DS-1727",
+            "DS-1752"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1786",
+          "statement": "解決できない `covers` 参照があるプロジェクトで、`vtest export` は終了コード1を返し、`--format json` では `ok: false` と `null` でない `data` を出力し、`--format md` では Markdown 文書を標準出力へ出力する。",
+          "derives_from": [
+            "SPEC-473",
+            "SPEC-478"
+          ],
+          "cites": [
+            "DS-1698",
+            "DS-1699",
+            "DS-1704"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1787",
+          "statement": "解決できない target 参照を持つ Test は、`data.tests` に含まれ、当該参照を `targets` に `resolved: false` で持ち、`data.unresolved` に `field` が `target` の要素として含まれる。",
+          "derives_from": [
+            "SPEC-473"
+          ],
+          "cites": [
+            "DS-1712",
+            "DS-1721",
+            "DS-1725",
+            "DS-1727"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1788",
+          "statement": "参照先が0件の `related` 参照は、`data.unresolved` に `field` が `related`・`code` が `null` の要素として含まれ、severity が error の診断がなければ `vtest export` の終了コードは0である。",
+          "derives_from": [
+            "SPEC-473"
+          ],
+          "cites": [
+            "DS-1722",
+            "DS-1725",
+            "DS-1726"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1789",
+          "statement": "Test ID が同じ2件の managed Test は、どちらも `data.tests` に含まれ、`key` はそれぞれ Test ID の識別子符号化に `~1`・`~2` を続けた値である。",
+          "derives_from": [
+            "SPEC-480"
+          ],
+          "cites": [
+            "DS-1707",
+            "DS-1708",
+            "DS-1710"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1790",
+          "statement": "同じ repository 内容に対して `vtest export` を2回実行すると、`--format json` の `data` と `--format md` の標準出力は、それぞれ byte 単位で同一である。",
+          "derives_from": [
+            "SPEC-476"
+          ],
+          "cites": [
+            "DS-1740"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1791",
+          "statement": "受入専用の registry で、registry への adapter の登録順と、受入専用の adapter が返す DiscoveryBatch・Test・file の列挙順をすべて反転した2回の export の操作は、同じ repository 内容に対して、JSON 直列化が byte 単位で同一の `data` を返し、それぞれの `data` から CLI の Markdown 文書を生成する部品が生成した文書も byte 単位で同一である。",
+          "description": "adapter の登録順と列挙順は、配布物の `vtest export` の実行では入れ替えられないので、export の操作へ受入専用の registry を渡して観測する（DS-1780 と同じ経路）。scan の統合と、テスト仕様書のデータを生成する部品の両方を通した結果で確認する。部品の入力だけを並べ替える確認は、この条件の代わりにならない。",
+          "derives_from": [
+            "SPEC-476"
+          ],
+          "cites": [
+            "DS-1730",
+            "DS-1740",
+            "DS-1780"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1792",
+          "statement": "宣言された値が Markdown の記法として解釈されうる文字（`#`・`|`・`` ` ``・`<`・`*`・`[`）と改行を含む Test でも、Markdown 文書の行数と見出し行の数は、同じ宣言の値を英数字だけにした場合と変わらない。",
+          "derives_from": [
+            "SPEC-481"
+          ],
+          "cites": [
+            "DS-1746",
+            "DS-1747"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1793",
+          "statement": "同じプロジェクトルートと同じ実行環境で、同じ repository 内容に対して、`vtest export --format json` の標準出力の JSON と MCP ツール `export` の結果は、severity が error の診断がない場合も、ある場合も、`ok`・`data`・`diagnostics` が一致する。",
+          "derives_from": [
+            "SPEC-483"
+          ],
+          "cites": [
+            "DS-1563",
+            "DS-1774",
+            "DS-1776"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1794",
+          "statement": "有効な Evidence レコード、承認レコード、判断記録を追加または削除しても、`--format json` の `data` と `--format md` の標準出力は byte 単位で変わらない。",
+          "derives_from": [
+            "SPEC-477"
+          ],
+          "cites": [
+            "DS-1742"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1795",
+          "statement": "`vtest verify` が NG を返すプロジェクトでも、severity が error の scan 診断がなければ、`vtest export` は終了コード0を返し、`--format json` の `ok` は `true` である。",
+          "derives_from": [
+            "SPEC-478"
+          ],
+          "cites": [
+            "DS-1700"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1796",
+          "statement": "`vtest export` の実行と MCP ツール `export` の呼び出しの前後で、プロジェクトルート配下のファイルとディレクトリの集合、および各ファイルの内容は変わらない。",
+          "derives_from": [
+            "SPEC-479"
+          ],
+          "cites": [
+            "DS-1695",
+            "DS-1778"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1797",
+          "statement": "文書レコードが1件もないプロジェクトで、`vtest export` はテスト仕様書を出力する。",
+          "derives_from": [
+            "SPEC-474"
+          ],
+          "cites": [
+            "DS-1764"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1798",
+          "statement": "config が E-CONFIG-001 で拒否されるプロジェクトで、`vtest export --format json` は終了コード2を返して `ok: false`・`data: null` の envelope を標準出力へ出力し、`vtest export --format md` は終了コード2を返して標準出力へ何も出力せず、診断を標準エラーへ出力する。",
+          "derives_from": [
+            "SPEC-466",
+            "SPEC-467"
+          ],
+          "cites": [
+            "DS-1696",
+            "DS-1697"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1799",
+          "statement": "`--quiet` を指定した `vtest export` は、`--quiet` を指定しなければ終了コード0・1・2・3になるそれぞれの場合に、同じ終了コードを返し、標準出力と標準エラーへ何も出力しない。",
+          "description": "終了コード3は、config を読めない場合（E-INTERNAL-001）で確認できる。",
+          "derives_from": [
+            "SPEC-466"
+          ],
+          "cites": [
+            "DS-1706",
+            "DS-1767"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1800",
+          "statement": "`vtest export --format text` と、`export` 以外のコマンドの `--format md` は、終了コード2で拒否される。",
+          "derives_from": [
+            "SPEC-467"
+          ],
+          "cites": [
+            "DS-1693",
+            "DS-1694"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1801",
+          "statement": "`export` に引数を与えた MCP の呼び出しは、`code` が E-OP-001 のツールエラーになる。",
+          "derives_from": [
+            "SPEC-483"
+          ],
+          "cites": [
+            "DS-1773"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1802",
+          "statement": "余分な位置引数を与えた `vtest export --format json` は、終了コード2を返し、標準出力へ何も出力せず、引数不正の内容を標準エラーへ出力する。",
+          "description": "JSON の envelope も標準出力へ出力しない。",
+          "derives_from": [
+            "SPEC-466"
+          ],
+          "cites": [
+            "DS-1769",
+            "DS-1770",
+            "DS-1697"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1803",
+          "statement": "`--project`・`--format`・`--quiet` 以外の option を与えた `vtest export --format json` は、終了コード2を返し、標準出力へ何も出力せず、引数不正の内容を標準エラーへ出力する。",
+          "description": "JSON の envelope も標準出力へ出力しない。",
+          "derives_from": [
+            "SPEC-466"
+          ],
+          "cites": [
+            "DS-1769",
+            "DS-1770",
+            "DS-1697"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1804",
+          "statement": "余分な位置引数、または `--project`・`--format`・`--quiet` 以外の option を与えた `vtest export --format md` は、終了コード2を返し、標準出力へ何も出力せず、引数不正の内容を標準エラーへ出力する。",
+          "derives_from": [
+            "SPEC-466"
+          ],
+          "cites": [
+            "DS-1769",
+            "DS-1770"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1805",
+          "statement": "`--quiet` を指定した `vtest export` は、余分な位置引数、または `--project`・`--format`・`--quiet` 以外の option を与えられた場合、終了コード2を返し、標準出力と標準エラーへ何も出力しない。",
+          "derives_from": [
+            "SPEC-466"
+          ],
+          "cites": [
+            "DS-1706",
+            "DS-1770"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1806",
+          "statement": "MCP の `tools/list` の結果は、名前が `export` で、入力 schema が property を1件も持たないツールを含む。",
+          "derives_from": [
+            "SPEC-483"
+          ],
+          "cites": [
+            "DS-1772",
+            "DS-1771"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1807",
+          "statement": "MCP の `tools/call` で `export` を呼び出した結果の `isError` は、結果の `ok` が `true` の場合は `false`、`ok` が `false` の場合は、`data` が `null` の場合も `null` でない場合も `true` である。",
+          "derives_from": [
+            "SPEC-483"
+          ],
+          "cites": [
+            "DS-1775",
+            "DS-1776"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1808",
+          "statement": "テスト仕様書のデータの値が DS-1747 の挙げる ASCII 記号32文字のすべてを含む場合、Markdown 文書の当該値は、各記号の直前に `\\` を置いた形で、32文字を1文字も欠かさず元の順に含む。",
+          "derives_from": [
+            "SPEC-481"
+          ],
+          "cites": [
+            "DS-1746",
+            "DS-1747"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1809",
+          "statement": "テスト仕様書のデータの値が LF、LF 以外の U+0000〜U+001F、U+007F、先頭の空白、末尾の空白を含む場合、Markdown 文書の当該値は、LF の位置に `<br>`、LF 以外の U+0000〜U+001F と U+007F の位置に `&#` と code point の10進と `;`、先頭と末尾の各空白の位置に `&#32;` を含み、それ以外の文字を元の順のまま含む。",
+          "derives_from": [
+            "SPEC-481"
+          ],
+          "cites": [
+            "DS-1746",
+            "DS-1747"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1810",
+          "statement": "ASCII 記号、LF、LF 以外の U+0000〜U+001F、U+007F、先頭と末尾の空白、非 ASCII 文字を併せて含む値について、Markdown 文書の当該値に DS-1747 の置き換えを逆に適用した結果は、元の値と byte 単位で一致する。",
+          "description": "値を削除・改変する実装を、内容の一致で検出する。",
+          "derives_from": [
+            "SPEC-481"
+          ],
+          "cites": [
+            "DS-1746",
+            "DS-1747"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1811",
+          "statement": "managed Test、管理宣言を持たない Test construct、解決できない参照をそれぞれ1件以上持つ `rust-cargo` adapter だけのプロジェクトで、配布物の `vtest export --format json` の標準出力の `data` は、同じプロジェクトルート・同じ実行環境・配布物と同じ registry で in-process に呼んだ export の操作が返す `data` と JSON の値として完全に一致し、配布物の `vtest export --format md` の標準出力は、その export の操作が返した `data` へ CLI の Markdown 文書を生成する部品を適用した文書と byte 単位で同一である。",
+          "description": "配布物の入口から export の操作と Markdown 文書を生成する部品までの配線を確認する。比較の基準は、配布物の CLI が出力した `data` ではなく、export の操作が返した `data` である。CLI だけが field を足す、または一覧を落とす実装を、値の完全な一致で検出する。",
+          "derives_from": [
+            "SPEC-466",
+            "SPEC-467"
+          ],
+          "cites": [
+            "DS-1691",
+            "DS-1701",
+            "DS-1704",
+            "DS-1707",
+            "DS-1741",
+            "DS-1744",
+            "DS-1780",
+            "DS-1781"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        }
+      ]
     }
   ],
   "basic_design": [
@@ -46072,6 +46984,21 @@
                   690
                 ]
               }
+            },
+            {
+              "id": "BD-340",
+              "statement": "`vtest export` の責務はテスト仕様書の出力とする。",
+              "derives_from": [
+                "SPEC-466"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+                "heading": "作業範囲",
+                "lines": [
+                  12,
+                  12
+                ]
+              }
             }
           ]
         },
@@ -46308,6 +47235,21 @@
                   713
                 ]
               }
+            },
+            {
+              "id": "BD-341",
+              "statement": "`export` の対応機能はテスト仕様書の出力とする。",
+              "derives_from": [
+                "SPEC-483"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+                "heading": "作業範囲",
+                "lines": [
+                  12,
+                  12
+                ]
+              }
             }
           ]
         }
@@ -46532,7 +47474,8 @@
       "items": [
         {
           "id": "BD-109",
-          "statement": "新設機能は既存コマンド・ツールの引数と出力で露出する。",
+          "statement": "新設機能は、テスト仕様書の出力（`vtest export` と MCP ツール `export`）を除き、既存コマンド・ツールの引数と出力で露出する。",
+          "description": "テスト仕様書の出力の除外は Issue #67 で追加した。コマンド `vtest export` を設けることは Owner 決定（2026-10-26、docs/plans/test-spec-output-proposal.md §6）である。それまでの文は「新設機能は既存コマンド・ツールの引数と出力で露出する。」",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -48307,6 +49250,183 @@
             "lines": [
               942,
               942
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "BD-S100",
+      "title": "5.7 テスト仕様書の生成",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+        "heading": "作業範囲",
+        "lines": [
+          11,
+          11
+        ]
+      },
+      "derives_from": [
+        "SPEC-S134",
+        "DS-S162",
+        "DS-S163"
+      ],
+      "items": [
+        {
+          "id": "BD-332",
+          "statement": "テスト仕様書のデータ（JSON 出力の `data`）は、scan の結果と VO レコードの claim を入力とする1つの部品が生成する。",
+          "derives_from": [
+            "SPEC-468",
+            "SPEC-469",
+            "DS-1701"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-333",
+          "statement": "Markdown 文書は、テスト仕様書のデータだけを入力とする別の1つの部品が生成する。",
+          "description": "Markdown 文書が `data` と同じ内容になること（DS-1744）を、入力を `data` に限ることで保つ。",
+          "derives_from": [
+            "DS-1744"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-334",
+          "statement": "テスト仕様書のデータを生成する部品は、`vtest-scan` に置く。",
+          "description": "scan の結果の決定論的な統合であり、入力は scan の結果と、scan が VO 参照の解決に読む VO レコードで足りる。`vtest-scan` は `vtest-verify` と `vtest-exec` へ依存しない（BD-117）ので、ここに置いた部品は検証結果と Evidence を入力にできない。",
+          "derives_from": [
+            "DS-1742"
+          ],
+          "cites": [
+            "BD-117"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-335",
+          "statement": "この2つの部品は、ファイル、時刻、環境変数、外部プロセス、adapter を参照しない。",
+          "derives_from": [
+            "DS-1695",
+            "DS-1738",
+            "DS-1740"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-336",
+          "statement": "この2つの部品は、Evidence、承認レコード、判断記録、検証結果を入力に取らない。",
+          "derives_from": [
+            "DS-1742"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-337",
+          "statement": "`vtest export` と MCP ツール `export` は、scan の実行、テスト仕様書のデータの生成、`ok` と終了コードの決定、envelope の構築を行う同じ1つの操作を呼ぶ。",
+          "derives_from": [
+            "DS-1698",
+            "DS-1699",
+            "DS-1774"
+          ],
+          "cites": [
+            "BD-085",
+            "BD-100"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-338",
+          "statement": "出力形式の選択、Markdown 文書を生成する部品の呼び出し、標準出力と標準エラーへの書き分け、`--quiet` の処理は、CLI の入口が行う。",
+          "derives_from": [
+            "DS-1692",
+            "DS-1704",
+            "DS-1705",
+            "DS-1706"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-339",
+          "statement": "MCP の入口は、`export` の引数の検証と、操作の結果を MCP の結果へ写すことだけを行う。",
+          "derives_from": [
+            "DS-1771",
+            "DS-1773",
+            "DS-1775"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-342",
+          "statement": "Markdown 文書を生成する部品は、`vtest-cli` に置く。",
+          "description": "Markdown 文書を出力するのは CLI だけであり（MCP ツール `export` は Markdown 文書を返さない）、表示用の文字列を作る処理は CLI の入口の責務である。入力はテスト仕様書のデータだけなので、検証結果と Evidence には届かない。",
+          "derives_from": [
+            "DS-1704",
+            "DS-1744",
+            "DS-1777"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
             ]
           }
         }
@@ -56793,6 +57913,247 @@
             "lines": [
               932,
               935
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "DES-S106",
+      "title": "5.7 テスト仕様書の生成",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+        "heading": "作業範囲",
+        "lines": [
+          11,
+          11
+        ]
+      },
+      "derives_from": [
+        "SPEC-S134",
+        "DS-S162",
+        "DS-S163",
+        "BD-S100"
+      ],
+      "items": [
+        {
+          "id": "DES-600",
+          "statement": "テスト仕様書のデータを生成する部品の入力は、managed Test Entity の集合、Discovered Test の集合、Discovered Test ごとの当該 construct に付いた診断コードの集合、VO ID から claim への対応、`covers` 参照と target 参照ごとの解決結果である。",
+          "derives_from": [
+            "BD-332",
+            "DS-1707",
+            "DS-1719",
+            "DS-1711",
+            "DS-1712"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-601",
+          "statement": "`covers` 参照と target 参照ごとの解決結果は、Test・参照の種別・宣言された参照の組ごとに、解決できたか否かと、解決できない場合の診断コードを持つ。",
+          "description": "`related` 参照の解決は、部品が managed Test Entity の集合から求める（DS-1722）。",
+          "derives_from": [
+            "DS-1711",
+            "DS-1712",
+            "DS-1725"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-602",
+          "statement": "テスト仕様書のデータを生成する部品は、参照の解決結果と `data.unmanaged` の `codes` を、診断の `message` を解析して求めない。",
+          "description": "診断の文言は scan のもので、変わりうる（SPEC-482）。scan が、解決結果と construct ごとの診断コードを値として渡す。",
+          "derives_from": [
+            "DS-1720",
+            "DS-1725",
+            "SPEC-482"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-603",
+          "statement": "テスト仕様書のデータを生成する部品の出力は、`tests`・`unmanaged`・`unresolved`・`by_vo`・`by_path` を持つテスト仕様書のデータである。",
+          "derives_from": [
+            "BD-332",
+            "DS-1701"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-604",
+          "statement": "テスト仕様書のデータの Test 項目の型は、Test Entity の型とは別の型であり、`execution`、内容ハッシュ、行番号、byte 位置の field を持たない。",
+          "derives_from": [
+            "DS-1718",
+            "DS-1741"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-605",
+          "statement": "テスト仕様書のデータの型は、検証状態、診断ラベル、Evidence、承認状態、判断記録を表す field を持たない。",
+          "derives_from": [
+            "DS-1742",
+            "BD-336"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-606",
+          "statement": "テスト仕様書のデータを生成する部品は、入力の各集合の要素の順序が異なっても、同じテスト仕様書のデータを返す。",
+          "derives_from": [
+            "DS-1740",
+            "BD-335"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-607",
+          "statement": "テスト仕様書のデータを生成する部品は、診断を生成せず、失敗を返さない。",
+          "description": "入力がどの値でも、テスト仕様書のデータを返す。Test ID の重複や解決できない参照は、データの中で示す（DS-1708、DS-1721）。",
+          "derives_from": [
+            "DS-1702",
+            "SPEC-482"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-608",
+          "statement": "Markdown 文書を生成する部品は、テスト仕様書のデータを受け取って Markdown 文書の文字列を返し、失敗を返さない。",
+          "derives_from": [
+            "BD-333",
+            "DS-1744",
+            "DS-1745"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-609",
+          "statement": "JSON 出力の `data` は、テスト仕様書のデータを、型が定める固定の field 順で直列化したものである。",
+          "derives_from": [
+            "DS-1739"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-610",
+          "statement": "操作は、scan が完了しない場合、テスト仕様書のデータを生成する部品を呼ばず、envelope の `data` を `null` とする。",
+          "derives_from": [
+            "BD-337",
+            "DS-1696",
+            "DS-1697"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-611",
+          "statement": "操作は、scan が完了した場合、`ok` と終了コードを scan の診断の severity だけから決め、テスト仕様書のデータの内容から決めない。",
+          "derives_from": [
+            "BD-337",
+            "DS-1698",
+            "DS-1699",
+            "DS-1726"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-612",
+          "statement": "操作は、診断を DS-1703 の順に並べて envelope の `diagnostics` に入れ、CLI の入口は envelope の順のまま標準エラーへ出力する。",
+          "derives_from": [
+            "BD-337",
+            "BD-338",
+            "DS-1703",
+            "DS-1705"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
             ]
           }
         }
