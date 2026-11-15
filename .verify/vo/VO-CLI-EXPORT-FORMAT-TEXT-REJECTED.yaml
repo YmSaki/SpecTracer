@@ -1,0 +1,11 @@
+id: VO-CLI-EXPORT-FORMAT-TEXT-REJECTED
+parent: null
+derives_from:
+  - doc: DS-1693
+claim: '`vtest export --format text` は引数不正として終了コード2で拒否する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

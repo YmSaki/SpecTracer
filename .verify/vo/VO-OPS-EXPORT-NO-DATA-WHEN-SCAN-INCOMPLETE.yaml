@@ -1,0 +1,11 @@
+id: VO-OPS-EXPORT-NO-DATA-WHEN-SCAN-INCOMPLETE
+parent: null
+derives_from:
+  - doc: DES-610
+claim: 操作は、scan が完了しない場合、テスト仕様書のデータを生成する部品を呼ばず、envelope の `data` を `null` とする。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

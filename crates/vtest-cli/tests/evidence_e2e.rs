@@ -953,7 +953,7 @@ fn run_writes_no_evidence_for_a_test_with_an_unresolved_target() {
 
     let exit = vtest_cli::run(vtest_cli::Cli {
         project: root.clone(),
-        format: vtest_cli::OutputFormat::Json,
+        format: Some(vtest_cli::FormatArg::Json),
         quiet: true,
         command: vtest_cli::Command::Run {
             test: vec!["TEST-RUN-MISSING".to_owned()],

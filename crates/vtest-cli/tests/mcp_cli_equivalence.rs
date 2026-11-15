@@ -721,6 +721,79 @@ fn approver() -> Value {
     json!({"kind": "agent", "id": "bot", "model": "m"})
 }
 
+/// @vtest.id TEST-MCP-TRANSPORT-EXPORT-MATCHES-CLI
+/// @vtest.covers VO-MCP-EXPORT-MATCHES-CLI-JSON, VO-MCP-EXPORT-KEEPS-DATA-ON-SCAN-ERROR
+/// @vtest.target crates/vtest-mcp/src/lib.rs::tools_call_result
+/// @vtest.intent exportについて、error診断なし、解決できないtarget(E-SCAN-004)、拒否されるconfig(E-CONFIG-001)、読めないconfig(E-INTERNAL-001)のそれぞれで、vtest export --format jsonの標準出力と実際のvtest mcp stdioのtools/callが同じok・data・diagnosticsを返し、error診断がある場合もdataにテスト仕様書が入り、実行後のプロジェクトのファイルも同じになることを確認する
+/// @vtest.case error 診断なし
+/// @vtest.case 解決できない target
+/// @vtest.case 拒否される config
+/// @vtest.case 読めない config
+#[test]
+fn export_matches_its_cli_command() {
+    let unresolved_target = |root: &Path| {
+        replace_in(
+            root,
+            "src/lib.rs",
+            "src/lib.rs::target",
+            "src/lib.rs::missing",
+        )
+    };
+
+    assert_same("export", &["export"], "export", json!({}), ACCEPTED);
+    assert_same_after(
+        "export-unresolved-target",
+        &unresolved_target,
+        &["export"],
+        "export",
+        json!({}),
+        Expect {
+            code: Some("E-SCAN-004"),
+            ..NOT_OK
+        },
+    );
+    assert_same_after(
+        "export-config",
+        &break_config,
+        &["export"],
+        "export",
+        json!({}),
+        rejected("E-CONFIG-001"),
+    );
+    assert_same_after(
+        "export-config-unreadable",
+        &make_config_unreadable,
+        &["export"],
+        "export",
+        json!({}),
+        INTERNAL,
+    );
+
+    // DS-1776: the specification is still returned next to an error
+    // diagnostic, over both surfaces.
+    let root = std::env::temp_dir().join(format!(
+        "vtest-tool-equivalence-{}-export-data",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&root);
+    tool_fixture(&root);
+    unresolved_target(&root);
+    let (exit, via_cli) = cli_with_exit(&root, &["export"]);
+    let via_mcp = mcp(&root, "export", json!({}));
+    assert_eq!(exit, 1, "{via_cli}");
+    for envelope in [&via_cli, &via_mcp] {
+        assert_eq!(envelope["ok"], false, "{envelope}");
+        assert_eq!(envelope["data"]["tests"][0]["id"], "TEST-X", "{envelope}");
+        assert_eq!(
+            envelope["data"]["unresolved"][0]["field"], "target",
+            "{envelope}"
+        );
+    }
+    assert_eq!(via_mcp["data"], via_cli["data"]);
+    assert_eq!(via_mcp["diagnostics"], via_cli["diagnostics"]);
+    fs::remove_dir_all(&root).ok();
+}
+
 /// @vtest.id TEST-MCP-TRANSPORT-SCAN-RUN-MATCH-CLI
 /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE
 /// @vtest.target crates/vtest-mcp/src/lib.rs::tools_call_result

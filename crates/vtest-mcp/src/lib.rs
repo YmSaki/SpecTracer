@@ -12,6 +12,7 @@
 //! CLI subcommand names: `run_tests` for `vtest run`, `doc_get` /
 //! `doc_upsert` for `doc show` / `doc add`. `init` and `doctor` are not in
 //! that list and stay CLI-only. `form_get` (DS-1205) has no CLI command.
+//! `export` (DS-1771) returns the JSON of `vtest export --format json`.
 
 use std::{
     fs,
@@ -48,6 +49,7 @@ const TOOL_NAMES: &[&str] = &[
     "vo_upsert",
     "vo_expand",
     "vo_approve",
+    "export",
 ];
 
 #[derive(Default)]
@@ -340,7 +342,8 @@ fn tool_result(envelope: Value) -> Value {
 
 fn tool_input_schema(name: &str) -> Value {
     let (properties, required) = match name {
-        "scan" => (json!({}), Vec::new()),
+        // DS-1771 / DS-1806: `export` takes no input.
+        "scan" | "export" => (json!({}), Vec::new()),
         "run_tests" => (
             json!({
                 "test": {"type": "array", "items": {"type": "string"}},
@@ -594,7 +597,8 @@ fn tool_input_schema(name: &str) -> Value {
 
 fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), Value> {
     let allowed: &[&str] = match name {
-        "scan" => &[],
+        // DS-1773: any argument to `export` is E-OP-001.
+        "scan" | "export" => &[],
         "run_tests" => &["test", "vo", "all", "fast"],
         "verify" => &["items", "doc", "vo", "test", "gate", "summary"],
         "report" => &[
@@ -651,7 +655,7 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
         ));
     }
     match name {
-        "scan" => Ok(()),
+        "scan" | "export" => Ok(()),
         "run_tests" => {
             optional_string_array(args, "test")?;
             optional_nonempty_string(args, "vo")?;
@@ -814,6 +818,12 @@ fn dispatch_tool(root: &Path, name: &str, args: &Value) -> Value {
     match name {
         "scan" => match resolve_registry() {
             Ok(registry) => ops::scan::execute(root, &registry).1,
+            Err(envelope) => envelope,
+        },
+        // BD-339: the entry only maps the operation's result; DS-1777: no
+        // Markdown and no format input.
+        "export" => match resolve_registry() {
+            Ok(registry) => ops::export::execute(root, &registry).envelope(),
             Err(envelope) => envelope,
         },
         "run_tests" => run_tool(root, args),
@@ -2179,6 +2189,81 @@ mod tests {
         assert_eq!(bad["diagnostics"][0]["code"], "E-OP-001");
         let bad_depth = dispatch_tool(&root, "report", &json!({"depth": -1}));
         assert_eq!(bad_depth["diagnostics"][0]["code"], "E-OP-001");
+    }
+
+    /// @vtest.id TEST-MCP-EXPORT-TOOL-CONTRACT
+    /// @vtest.covers VO-MCP-EXPORT-LISTED, VO-MCP-EXPORT-TAKES-NO-INPUT, VO-MCP-EXPORT-NOT-OK-IS-TOOL-ERROR
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::tools_call_result
+    /// @vtest.intent tools/list names `export` with an input schema that has no property, a call with any argument is an E-OP-001 tool error that returns no test specification, and a result whose `ok` is false is a tool error both when `data` is null and when it carries the test specification, while an `ok: true` result is not
+    /// @vtest.case argument given
+    /// @vtest.case ok true
+    /// @vtest.case ok false with data
+    /// @vtest.case ok false without data
+    #[test]
+    fn export_tool_takes_no_input_and_reports_not_ok_as_a_tool_error() {
+        let listed = tools_list_result();
+        let export = listed["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|tool| tool["name"] == "export")
+            .expect("tools/list must name export");
+        assert_eq!(export["inputSchema"]["properties"], json!({}));
+        assert_eq!(export["inputSchema"]["additionalProperties"], false);
+        assert_eq!(export["inputSchema"].get("required"), None);
+
+        let root = temp_root("export-contract");
+        assert_eq!(init_fixture(&root), ExitCode::Ok);
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"export_contract\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/lib.rs"), "pub fn f() {}\n").unwrap();
+        let call = |arguments: Value| {
+            tools_call_result(
+                &root,
+                &json!({"name": "export", "arguments": arguments}),
+                &mut MtimeRescan::default(),
+            )
+        };
+
+        for arguments in [json!({"format": "md"}), json!({"x": 1})] {
+            let rejected = call(arguments.clone());
+            assert_eq!(rejected["isError"], true, "{arguments}");
+            let envelope = &rejected["structuredContent"];
+            assert_eq!(envelope["diagnostics"][0]["code"], "E-OP-001");
+            assert_eq!(envelope["data"], Value::Null, "{arguments}");
+        }
+
+        let accepted = call(json!({}));
+        assert_eq!(accepted["isError"], false, "{accepted}");
+        assert_eq!(accepted["structuredContent"]["ok"], true);
+        assert_eq!(accepted["structuredContent"]["data"]["tests"], json!([]));
+
+        std::fs::write(
+            root.join("src/lib.rs"),
+            "pub fn f() {}\n/// @vtest.id TEST-F\n/// @vtest.covers VO-GONE\n\
+             /// @vtest.target src/lib.rs::f\n/// @vtest.intent f\n#[test]\nfn t() { f(); }\n",
+        )
+        .unwrap();
+        let not_ok = call(json!({}));
+        assert_eq!(not_ok["isError"], true, "{not_ok}");
+        assert_eq!(not_ok["structuredContent"]["ok"], false);
+        assert_eq!(
+            not_ok["structuredContent"]["data"]["tests"][0]["id"], "TEST-F",
+            "{not_ok}"
+        );
+
+        std::fs::write(root.join(".verify/config.yaml"), "version: 2\nproject: [\n").unwrap();
+        let rejected = call(json!({}));
+        assert_eq!(rejected["isError"], true, "{rejected}");
+        assert_eq!(rejected["structuredContent"]["data"], Value::Null);
+        assert_eq!(
+            rejected["structuredContent"]["diagnostics"][0]["code"],
+            "E-CONFIG-001"
+        );
     }
 
     /// @vtest.id TEST-MCP-SCAN-MATCHES-CLI

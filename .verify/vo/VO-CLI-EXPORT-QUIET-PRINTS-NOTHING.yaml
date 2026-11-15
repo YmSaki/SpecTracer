@@ -1,0 +1,11 @@
+id: VO-CLI-EXPORT-QUIET-PRINTS-NOTHING
+parent: null
+derives_from:
+  - doc: DS-1706
+claim: '`--quiet` を指定した `vtest export` は、終了コード（0・1・2・3）と `--format` の値の受理・不受理にかかわらず、標準出力にも標準エラーにも何も出力せず、`--quiet` を指定しない場合と同じ終了コードを返し、この規則は標準出力・標準エラーへの出力を定める `vtest export` の他の規則に優先する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

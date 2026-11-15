@@ -24,9 +24,10 @@ pub struct Cli {
     #[arg(long, global = true, default_value = ".")]
     pub project: PathBuf,
 
-    /// Emit machine-readable JSON instead of human-readable text.
-    #[arg(long, global = true, value_enum, default_value_t = OutputFormat::Text)]
-    pub format: OutputFormat,
+    /// Output format. `text` (the default) or `json`; `vtest export` takes
+    /// `md` (its default) or `json` instead (DS-1692 to DS-1694).
+    #[arg(long, global = true, value_enum)]
+    pub format: Option<FormatArg>,
 
     /// Suppress all output; communicate through the exit code only.
     #[arg(long, global = true)]
@@ -36,9 +37,26 @@ pub struct Cli {
     pub command: Command,
 }
 
+/// The values `--format` parses. Which of them a command accepts is
+/// decided after parsing, because the option is global.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum FormatArg {
+    Text,
+    Json,
+    Md,
+}
+
+/// The output format of every command except `vtest export`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OutputFormat {
     Text,
+    Json,
+}
+
+/// The output format of `vtest export` (DS-1692).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ExportFormat {
+    Md,
     Json,
 }
 
@@ -53,6 +71,9 @@ pub enum Command {
     Scan,
     /// Validate configuration and adapter preconditions.
     Doctor,
+    /// Print the test specification of the whole project to stdout, as
+    /// Markdown (`--format md`, the default) or JSON (SPEC-466, DS-1691).
+    Export,
     /// Start the MCP server over stdio (SPEC-403, §13).
     ///
     /// Served by the `vtest` binary itself; see `src/main.rs`.
@@ -418,15 +439,27 @@ pub enum ApprovalCommand {
 }
 
 pub fn run(cli: Cli) -> ExitCode {
+    if matches!(cli.command, Command::Export) {
+        return match export_format(cli.format) {
+            Ok(format) => run_export(&cli.project, format, cli.quiet),
+            Err(message) => argument_error(cli.quiet, &message),
+        };
+    }
+    let format = match general_format(&cli) {
+        Ok(format) => format,
+        Err(code) => return code,
+    };
     match cli.command {
-        Command::Init { name } => run_init(&cli.project, name.as_deref(), cli.format, cli.quiet),
-        Command::Scan => run_scan(&cli.project, cli.format, cli.quiet),
-        Command::Doctor => run_doctor(&cli.project, cli.format, cli.quiet),
+        Command::Init { name } => run_init(&cli.project, name.as_deref(), format, cli.quiet),
+        Command::Scan => run_scan(&cli.project, format, cli.quiet),
+        Command::Doctor => run_doctor(&cli.project, format, cli.quiet),
+        // Handled above: `export` has its own `--format` values.
+        Command::Export => ExitCode::Internal,
         // The MCP server is linked into the `vtest` binary, not into this
         // library (vtest-mcp depends on vtest-cli). A library caller that
         // reaches this arm gets a usage error instead of a silent no-op.
         Command::Mcp => usage_failure(
-            cli.format,
+            format,
             cli.quiet,
             "E-OP-001",
             "`vtest mcp` is served by the vtest binary, not by vtest_cli::run",
@@ -436,9 +469,9 @@ pub fn run(cli: Cli) -> ExitCode {
             vo,
             all,
             fast,
-        } => run_run(&cli.project, test, vo, all, fast, cli.format, cli.quiet),
-        Command::Approval(command) => run_approval(&cli.project, command, cli.format, cli.quiet),
-        Command::Doc(command) => run_doc(&cli.project, command, cli.format, cli.quiet),
+        } => run_run(&cli.project, test, vo, all, fast, format, cli.quiet),
+        Command::Approval(command) => run_approval(&cli.project, command, format, cli.quiet),
+        Command::Doc(command) => run_doc(&cli.project, command, format, cli.quiet),
         Command::Report {
             items,
             doc,
@@ -462,25 +495,20 @@ pub fn run(cli: Cli) -> ExitCode {
                 depth,
                 direction,
             },
-            cli.format,
+            format,
             cli.quiet,
         ),
-        Command::Test(command) => run_test(&cli.project, command, cli.format, cli.quiet),
+        Command::Test(command) => run_test(&cli.project, command, format, cli.quiet),
         Command::Audit(AuditCommand::Static { test, all }) => {
-            run_audit_static(&cli.project, test.as_deref(), all, cli.format, cli.quiet)
+            run_audit_static(&cli.project, test.as_deref(), all, format, cli.quiet)
         }
-        Command::Audit(AuditCommand::Bundle { test, vo, kind }) => run_audit_bundle(
-            &cli.project,
-            test,
-            vo,
-            kind.as_deref(),
-            cli.format,
-            cli.quiet,
-        ),
+        Command::Audit(AuditCommand::Bundle { test, vo, kind }) => {
+            run_audit_bundle(&cli.project, test, vo, kind.as_deref(), format, cli.quiet)
+        }
         Command::Audit(AuditCommand::Submit { file }) => {
-            run_audit_submit(&cli.project, &file, cli.format, cli.quiet)
+            run_audit_submit(&cli.project, &file, format, cli.quiet)
         }
-        Command::Vo(command) => run_vo(&cli.project, command, cli.format, cli.quiet),
+        Command::Vo(command) => run_vo(&cli.project, command, format, cli.quiet),
         Command::Verify {
             items,
             doc,
@@ -496,7 +524,7 @@ pub fn run(cli: Cli) -> ExitCode {
             test,
             gate.as_deref(),
             summary,
-            cli.format,
+            format,
             cli.quiet,
         ),
     }
@@ -581,6 +609,54 @@ fn run_doctor(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
         format!("doctor: project {project}, {adapters} adapter(s), {diagnostics} diagnostic(s)\n")
     });
     exit
+}
+
+// ---------------------------------------------------------------------------
+// export
+// ---------------------------------------------------------------------------
+
+/// BD-338: this wrapper chooses the format, renders Markdown and decides
+/// what goes to stdout and stderr; everything else is `ops::export`.
+fn run_export(project: &Path, format: ExportFormat, quiet: bool) -> ExitCode {
+    let outcome = match find_root(project) {
+        Ok(root) => match ops::registry::resolve_registry() {
+            Ok(registry) => ops::export::execute(&root, &registry),
+            Err(failure) => ops::export::ExportOutcome::rejected(&failure),
+        },
+        Err(message) => ops::export::ExportOutcome::rejected(&ops::envelope::Failure::usage(
+            "E-OP-001", message,
+        )),
+    };
+    // DS-1706: `--quiet` wins over every other output rule.
+    if quiet {
+        return outcome.exit;
+    }
+    match format {
+        // DES-609: `data` is serialized from its type, in the type's field
+        // order.
+        ExportFormat::Json => println!(
+            "{}",
+            serde_json::to_string_pretty(&JsonEnvelope::new(
+                outcome.ok(),
+                &outcome.data,
+                outcome.diagnostics.clone(),
+            ))
+            .unwrap_or_else(|error| format!(
+                "{{\"ok\":false,\"data\":null,\"diagnostics\":[\"{error}\"]}}"
+            ))
+        ),
+        ExportFormat::Md => {
+            // DS-1704 / DS-1705: the document alone on stdout, the
+            // diagnostics on stderr in the envelope's order (DES-612).
+            if let Some(data) = &outcome.data {
+                print!("{}", test_spec_markdown::render_test_specification(data));
+            }
+            for diagnostic in &outcome.diagnostics {
+                eprintln!("[{}] {}", diagnostic.code, diagnostic.message);
+            }
+        }
+    }
+    outcome.exit
 }
 
 // ---------------------------------------------------------------------------
@@ -1957,12 +2033,75 @@ fn resolve_registry(
 /// The project root (the nearest ancestor holding `.verify/`) for `cli`,
 /// reporting the same E-OP-001 usage failure the other subcommands do.
 pub fn project_root(cli: &Cli) -> Result<PathBuf, ExitCode> {
-    resolve_root(&cli.project, cli.format, cli.quiet)
+    resolve_root(&cli.project, general_format(cli)?, cli.quiet)
+}
+
+/// The format of a command other than `export`: `text` when omitted, and
+/// `md` is an argument error with exit code 2 (DS-1694).
+fn general_format(cli: &Cli) -> Result<OutputFormat, ExitCode> {
+    match cli.format {
+        None | Some(FormatArg::Text) => Ok(OutputFormat::Text),
+        Some(FormatArg::Json) => Ok(OutputFormat::Json),
+        Some(FormatArg::Md) => Err(argument_error(
+            cli.quiet,
+            "`--format md` is accepted by `vtest export` only",
+        )),
+    }
+}
+
+/// DS-1692 / DS-1693: `vtest export` takes `md` (the default) and `json`.
+fn export_format(format: Option<FormatArg>) -> Result<ExportFormat, String> {
+    match format {
+        None | Some(FormatArg::Md) => Ok(ExportFormat::Md),
+        Some(FormatArg::Json) => Ok(ExportFormat::Json),
+        Some(FormatArg::Text) => {
+            Err("`vtest export` accepts `--format md` or `--format json`".to_owned())
+        }
+    }
+}
+
+/// An argument the parser accepted and the command does not: nothing on
+/// stdout, the reason on stderr unless `--quiet`, exit code 2 (DS-1766).
+fn argument_error(quiet: bool, message: &str) -> ExitCode {
+    if !quiet {
+        eprintln!("error: {message}");
+    }
+    ExitCode::Usage
+}
+
+/// Whether the raw arguments are a `vtest export` call with `--quiet`.
+/// Such a call prints nothing even when its arguments are rejected
+/// (DS-1706), which the binary has to decide before the parser reports.
+pub fn is_quiet_export<S: AsRef<std::ffi::OsStr>>(arguments: &[S]) -> bool {
+    let arguments: Vec<&str> = arguments
+        .iter()
+        .filter_map(|argument| argument.as_ref().to_str())
+        .collect();
+    let mut subcommand = None;
+    let mut index = 0;
+    while index < arguments.len() {
+        match arguments[index] {
+            "--project" | "--format" => index += 1,
+            argument if argument.starts_with('-') => {}
+            argument => {
+                subcommand = Some(argument);
+                break;
+            }
+        }
+        index += 1;
+    }
+    subcommand == Some("export") && arguments.contains(&"--quiet")
 }
 
 /// Walk upwards looking for a `.verify/` directory, so the CLI works from a
 /// subdirectory of the project.
 fn resolve_root(project: &Path, format: OutputFormat, quiet: bool) -> Result<PathBuf, ExitCode> {
+    find_root(project).map_err(|message| usage_failure(format, quiet, "E-OP-001", &message))
+}
+
+/// The nearest directory at or above `project` that holds `.verify/`, or
+/// the message of the E-OP-001 rejection.
+fn find_root(project: &Path) -> Result<PathBuf, String> {
     let start = absolute_path(project);
     let mut current = start.as_path();
     loop {
@@ -1972,14 +2111,9 @@ fn resolve_root(project: &Path, format: OutputFormat, quiet: bool) -> Result<Pat
         match current.parent() {
             Some(parent) => current = parent,
             None => {
-                return Err(usage_failure(
-                    format,
-                    quiet,
-                    "E-OP-001",
-                    &format!(
-                        "could not find a .verify directory at or above {}",
-                        start.display()
-                    ),
+                return Err(format!(
+                    "could not find a .verify directory at or above {}",
+                    start.display()
                 ));
             }
         }

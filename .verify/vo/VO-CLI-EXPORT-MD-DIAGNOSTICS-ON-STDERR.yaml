@@ -1,0 +1,11 @@
+id: VO-CLI-EXPORT-MD-DIAGNOSTICS-ON-STDERR
+parent: null
+derives_from:
+  - doc: DS-1705
+claim: '`--quiet` を指定しない `vtest export --format md` は、診断を `diagnostics` と同じ順に、1件ごとに `[<code>] <message>` と LF の形で標準エラーへ出力する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00
