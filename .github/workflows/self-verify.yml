@@ -97,9 +97,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: self-verify
-          # Every path below is under the hidden `.verify/` directory, which
-          # upload-artifact v4 leaves out unless this is set.
-          include-hidden-files: true
           path: |
             .verify/cache/self-verify/
             .verify/evidence/
