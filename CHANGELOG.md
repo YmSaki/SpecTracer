@@ -9,6 +9,8 @@ and uses semantic version tags for releases.
 ### Added
 
 - GitHub Actions CI for `main`, `develop`, and pull requests.
+- `vtest export` prints the test specification of the project as Markdown
+  (the default) or JSON, and the MCP tool `export` returns the same JSON.
 - Tag-driven GitHub Releases containing `vtest` archives for Linux x86_64,
   macOS x86_64, and Windows x86_64 with SHA-256 checksums.
 - OSS contribution, architecture, development, testing, security, and roadmap
