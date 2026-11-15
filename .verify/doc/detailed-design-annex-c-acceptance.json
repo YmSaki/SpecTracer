@@ -6779,6 +6779,594 @@
           }
         }
       ]
+    },
+    {
+      "id": "DS-S167",
+      "title": "18.3.14 `vtest test show / list / query`",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+        "heading": "作業範囲",
+        "lines": [
+          13,
+          13
+        ]
+      },
+      "derives_from": [
+        "SPEC-S038",
+        "SPEC-S029"
+      ],
+      "items": [
+        {
+          "id": "DS-1837",
+          "statement": "配布物の `vtest test list --format json` の `data.tests` の Test ID の列は、同じプロジェクトに対する `vtest export --format json` の `data.tests` の `id` の列と、順を含めて一致し、各要素は `execution` と `targets` を持つ。",
+          "derives_from": [
+            "SPEC-136"
+          ],
+          "cites": [
+            "DS-1817",
+            "DS-1813"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1838",
+          "statement": "`vtest test list --vo <VO ID>` の `data.tests` は、`covers` に当該 VO ID を宣言した Test だけを含み、VO レコードが存在しない VO ID を宣言した Test も、その VO ID を指定すれば含む。",
+          "derives_from": [
+            "SPEC-136"
+          ],
+          "cites": [
+            "DS-1818",
+            "DS-1819"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1839",
+          "statement": "管理宣言を持たない Test construct が1件以上あるプロジェクトで、`vtest test list --unregistered --format json` の `data.unmanaged` は1件以上の要素を持ち、同じプロジェクトに対する `vtest export --format json` の `data.unmanaged` と JSON の値として一致する。",
+          "derives_from": [
+            "SPEC-136",
+            "SPEC-162"
+          ],
+          "cites": [
+            "DS-1820"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1840",
+          "statement": "`vtest test list --vo <VO ID> --unregistered` は、終了コード2で拒否される。",
+          "derives_from": [
+            "SPEC-136"
+          ],
+          "cites": [
+            "DS-1816"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1841",
+          "statement": "同じ Source Target を Locator 参照で宣言した Test と SRC ID 参照で宣言した Test があるプロジェクトで、`vtest test query --source` は、Locator 参照を与えても SRC ID 参照を与えても、両方の Test を含む同じ `data.tests` を返し、その Source Target を宣言していない Test を含まない。",
+          "derives_from": [
+            "SPEC-091"
+          ],
+          "cites": [
+            "DS-1824",
+            "DS-1822"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1842",
+          "statement": "`vtest test query --source` は、該当する Source Target がない参照、未登録の adapter ID、`SRC-` で始まらず `::` を含まない値のそれぞれを、E-OP-001 と終了コード2で拒否し、`--format json` では `ok: false`・`data: null` を出力する。",
+          "derives_from": [
+            "SPEC-091"
+          ],
+          "cites": [
+            "DS-1822",
+            "DS-1823"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1843",
+          "statement": "`vtest test show <Test ID> --format json` の `data` は `test`・`verification`・`judgments`・`evidence` の4個の key だけを持ち、`data.verification`・`ok`・`diagnostics` と終了コードは、同じプロジェクトに対する `vtest verify --test <Test ID> --format json` の `data`・`ok`・`diagnostics` と終了コードに一致し、`data.test` は当該 Test の `execution` と `targets` を持つ。",
+          "derives_from": [
+            "SPEC-136"
+          ],
+          "cites": [
+            "DS-1827",
+            "DS-1828"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1844",
+          "statement": "`vtest test show` は、存在しない Test ID を E-OP-001、2件の managed Test が持つ Test ID を E-SCAN-002 で、どちらも終了コード2として拒否する。",
+          "derives_from": [
+            "SPEC-136"
+          ],
+          "cites": [
+            "DS-1826"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1845",
+          "statement": "同じプロジェクトルート・同じ実行環境・同じ repository 内容に対して、`test_get` の結果は `vtest test show --format json` の標準出力と、`test_query` の結果は `vo`・`source`・`unregistered` のそれぞれで対応する CLI の標準出力と、`ok`・`data`・`diagnostics` が一致し、`isError` は `ok` が `false` の場合だけ `true` である。",
+          "derives_from": [
+            "SPEC-136",
+            "SPEC-091"
+          ],
+          "cites": [
+            "DS-1831",
+            "DS-1834",
+            "DS-1835"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1846",
+          "statement": "引数を与えない `test_query`、`vo` と `source` を同時に与えた `test_query`、`unregistered` に `false` を与えた `test_query`、`id` を欠く `test_get` は、E-OP-001 のツールエラーになる。",
+          "derives_from": [
+            "SPEC-136"
+          ],
+          "cites": [
+            "DS-1830",
+            "DS-1833"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1847",
+          "statement": "MCP の `tools/list` の結果は、`test_get` と `test_query` を含む。",
+          "derives_from": [
+            "SPEC-136"
+          ],
+          "cites": [
+            "DS-1836"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1848",
+          "statement": "`vtest test list`・`vtest test query`・`vtest test show` の実行と、`test_get`・`test_query` の呼び出しの前後で、プロジェクトルート配下のファイルとディレクトリの集合、および各ファイルの内容は変わらない。",
+          "derives_from": [
+            "SPEC-136"
+          ],
+          "cites": [
+            "DS-1812"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1861",
+          "statement": "`rust-cargo` adapter と `synthetic` adapter を登録した受入専用の registry を in-process で渡した list の操作は、両方の adapter が managed Test を返し、管理宣言を持たない Test construct が1件以上ある混在プロジェクトに対して、両方の adapter の Test を `data.tests` に含み、その Test ID の列は、同じ registry を渡した export の操作の `data.tests` の `id` の列と順を含めて一致し、どの要素も `execution` を持つ。",
+          "description": "`synthetic` adapter は配布物の registry に登録しない（SPEC-418）ので、CLI と MCP が呼ぶのと同じ操作（BD-344）へ受入専用の registry を渡して観測する。経路は DS-1780 と同じである。`rust-cargo` だけを特別に扱う実装を検出する。",
+          "derives_from": [
+            "SPEC-136",
+            "SPEC-418"
+          ],
+          "cites": [
+            "DS-1780",
+            "DS-1817",
+            "DS-1813"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1862",
+          "statement": "同じ受入専用の registry と混在プロジェクトで、`unregistered` を指定した list の操作の `data.unmanaged` は1件以上の要素を持ち、同じ registry を渡した export の操作の `data.unmanaged` と JSON の値として一致する。",
+          "description": "空の一覧どうしの比較では、一覧を返さない実装を検出できない。",
+          "derives_from": [
+            "SPEC-136",
+            "SPEC-162",
+            "SPEC-418"
+          ],
+          "cites": [
+            "DS-1820"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1863",
+          "statement": "受入専用の registry で、registry への adapter の登録順と、受入専用の adapter が返す DiscoveryBatch・Test・file の列挙順をすべて反転した2回の実行は、同じ repository 内容に対して、指定なしの list、`vo` を指定した list、`unregistered` を指定した list、`source` を指定した query のそれぞれの操作で、JSON 直列化が byte 単位で同一の `data` を返し、指定なしの list の `data.tests` は両方の adapter の Test を含む。",
+          "description": "発見順をそのまま返す実装を検出する。経路は DS-1791 と同じである。",
+          "derives_from": [
+            "SPEC-136",
+            "SPEC-091",
+            "SPEC-418"
+          ],
+          "cites": [
+            "DS-1791",
+            "DS-1817",
+            "DS-1818",
+            "DS-1820",
+            "DS-1824"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1864",
+          "statement": "同じ受入専用の registry と混在プロジェクトで、`synthetic` adapter の Source Target を `source` に指定した query の操作は、その Source Target を target に宣言した `synthetic` adapter の Test を `data.tests` に含み、`rust-cargo` adapter の Test を含まない。",
+          "derives_from": [
+            "SPEC-091",
+            "SPEC-418"
+          ],
+          "cites": [
+            "DS-1824"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1865",
+          "statement": "`vtest test show` は、Test ID を与えない場合、Test ID を2件与えた場合、グローバルオプション以外の option を与えた場合に終了コード2で拒否され、`vtest test show <Test ID> --format json`・`vtest test show <Test ID> --format text`・`vtest test show <Test ID> --project <dir>` は引数不正として拒否されない。",
+          "derives_from": [
+            "SPEC-136"
+          ],
+          "cites": [
+            "DS-1825"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1866",
+          "statement": "`vtest test list` は位置引数と `--vo` の2回の指定を、`vtest test query` は `--source` の欠落・`--source` の2回の指定・位置引数を、終了コード2で拒否する。",
+          "derives_from": [
+            "SPEC-136"
+          ],
+          "cites": [
+            "DS-1816",
+            "DS-1821"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1867",
+          "statement": "解決できない `covers` 参照を持つ Test があるプロジェクトで、`vtest test list --format json` と、当該 Test が宣言した target を指定した `vtest test query --format json` は、終了コード1を返し、`ok: false`、当該 Test を含む `null` でない `data.tests`、E-SCAN-003 を含む `diagnostics` を出力する。",
+          "description": "scan の error 診断があっても、結果を落とさない。",
+          "derives_from": [
+            "SPEC-136",
+            "SPEC-091"
+          ],
+          "cites": [
+            "DS-1815"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1868",
+          "statement": "2件以上の managed Test があるプロジェクトで、`vtest test list --format text` と `vtest test query --format text` の標準出力は、同じ引数の `--format json` の `data.tests` の各 Test ID を、同じ順で、Test ごとに別の行に含み、`vtest test list --unregistered --format text` の標準出力は、`data.unmanaged` の各要素の path と locator を、同じ順で、要素ごとに別の行に含み、終了コードはそれぞれ `--format json` と同じである。",
+          "derives_from": [
+            "SPEC-136",
+            "SPEC-091"
+          ],
+          "cites": [
+            "DS-1829"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1869",
+          "statement": "`--quiet` を指定した `vtest test list`・`vtest test query`・`vtest test show` は、`--quiet` を指定しなければ終了コード0になる場合、終了コード1になる場合、E-OP-001 により終了コード2になる場合のそれぞれで、同じ終了コードを返し、標準出力と標準エラーへ何も出力しない。",
+          "derives_from": [
+            "SPEC-136"
+          ],
+          "cites": [
+            "DS-1857"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1870",
+          "statement": "`case-coverage` の実効判断が `accepted` である Test について、`vtest verify --test <Test ID> --format json` の `data.pending` は当該 Test の `case-coverage` の項目を含まず、`vtest test show <Test ID> --format json` の `data.judgments` は、`judgment_kind` が `case-coverage`、`decision` が `accepted`、`effective` が当該判断記録の decision ID の1件だけ、`superseded` と `invalid` が空の list である要素を含む。",
+          "description": "`verification` からは消える判断を、`judgments` で観測する。",
+          "derives_from": [
+            "SPEC-124"
+          ],
+          "cites": [
+            "DS-1849",
+            "DS-1850",
+            "DS-1851",
+            "DS-1441"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1871",
+          "statement": "同じ Test の `case-coverage` に判断値の異なる2件の有効な判断記録がある場合、`data.judgments` の当該要素は、`decision` が `null` で、`effective` に2件の decision ID を持ち、一方が他方を `supersedes` で名指しする場合は、`decision` が名指しした側の判断値で、`effective` が名指しした側の decision ID だけ、`superseded` が名指しされた側の decision ID だけになる。",
+          "derives_from": [
+            "SPEC-124"
+          ],
+          "cites": [
+            "DS-1850",
+            "DS-1851",
+            "DS-730",
+            "DS-733"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1872",
+          "statement": "判断記録の提出後に Test の内容を変更した場合、当該判断記録の decision ID は `data.judgments` の当該要素の `invalid` にだけ現れ、`decision` は `null` になり、判断記録が1件もない Test の `data.judgments` は空の list である。",
+          "derives_from": [
+            "SPEC-124"
+          ],
+          "cites": [
+            "DS-1850",
+            "DS-1851",
+            "DS-1853",
+            "DS-724"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1873",
+          "statement": "Evidence レコードがない Test の `data.evidence` は `null` であり、`vtest run` で当該 Test を実行した後は、`data.evidence` の `id` が `vtest run` の出力した当該 Test の Evidence ID、`result` が当該実行の結果、`valid` が `true` になり、もう一度実行した後は、`id` が2回目の Evidence ID になる。",
+          "derives_from": [
+            "SPEC-124"
+          ],
+          "cites": [
+            "DS-1854",
+            "DS-1855",
+            "DS-1213"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1874",
+          "statement": "判断記録と Evidence レコードを持つ Test について、`vtest test show <Test ID> --format text` の標準出力は、当該 Test の Test ID、intent、`covers` の各 VO ID、path、locator、`--format json` の `data.verification` が持つ各検査の検査名と state、`data.judgments` の各 `judgment_kind` と実効判断と `effective` の各 decision ID、`data.evidence` の Evidence ID と `result` を含み、Evidence レコードがない Test では `evidence: none` の行を含む。",
+          "derives_from": [
+            "SPEC-136",
+            "SPEC-124"
+          ],
+          "cites": [
+            "DS-1856"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1875",
+          "statement": "MCP の `tools/list` の結果で、`test_get` の入力 schema は、property が文字列型の `id` の1件だけで、必須の property が `id` だけであり、`test_query` の入力 schema は、property が文字列型の `vo`・文字列型の `source`・真偽値型の `unregistered` の3件だけであり、どちらも追加の property を許さない。",
+          "description": "名前だけでなく入力 schema を観測する（`export` の DS-1806 と同じ）。",
+          "derives_from": [
+            "SPEC-136",
+            "SPEC-091"
+          ],
+          "cites": [
+            "DS-1858",
+            "DS-1859",
+            "DS-1806"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1876",
+          "statement": "`test_get` に `id` 以外の引数を与えた呼び出しと、`test_query` に `vo`・`source`・`unregistered` 以外の引数を与えた呼び出しは、E-OP-001 のツールエラーになる。",
+          "derives_from": [
+            "SPEC-136"
+          ],
+          "cites": [
+            "DS-1860"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        },
+        {
+          "id": "DS-1877",
+          "statement": "判断記録と Evidence レコードを持つ Test について、`test_get` の結果の `data.judgments` は1件以上の要素を持ち、`data.evidence` は `null` でなく、どちらも `vtest test show <Test ID> --format json` の値と一致する。",
+          "derives_from": [
+            "SPEC-124"
+          ],
+          "cites": [
+            "DS-1831",
+            "DS-1849",
+            "DS-1854"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              13,
+              13
+            ]
+          }
+        }
+      ]
     }
   ],
   "basic_design": [

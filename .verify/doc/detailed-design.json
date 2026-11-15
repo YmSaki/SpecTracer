@@ -14231,6 +14231,164 @@
       ]
     },
     {
+      "id": "BD-S101",
+      "title": "5.8 Test の照会",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+        "heading": "作業範囲",
+        "lines": [
+          11,
+          11
+        ]
+      },
+      "derives_from": [
+        "SPEC-S038",
+        "SPEC-S029",
+        "DS-S165",
+        "DS-S166"
+      ],
+      "items": [
+        {
+          "id": "BD-343",
+          "statement": "`vtest test list`・`vtest test query` と `vtest export` は、managed Test Entity の並び順と、管理宣言を持たない Test の一覧を、`vtest-scan` にある同じ1つの読み取りから得る。",
+          "description": "テスト仕様書のデータを生成する部品（BD-332、BD-334）が使う並び順と一覧を、照会でも使う。入口や操作ごとに別の並べ替えを持たない。",
+          "derives_from": [
+            "DS-1817",
+            "DS-1820",
+            "DS-1730",
+            "DS-1733"
+          ],
+          "cites": [
+            "BD-332",
+            "BD-334"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-344",
+          "statement": "`vtest test list`・`vtest test query`・`vtest test show` は、それぞれ CLI と MCP に共通の1つの操作を呼び、MCP ツール `test_query` は入力に応じて list または query の操作を、`test_get` は show の操作を呼ぶ。",
+          "derives_from": [
+            "DS-1831",
+            "DS-1834"
+          ],
+          "cites": [
+            "BD-085",
+            "BD-092",
+            "BD-100"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-345",
+          "statement": "show の操作は、検証結果を `vtest verify --test` と同じ操作から得て、検査の評価と集約を自分で行わない。",
+          "derives_from": [
+            "DS-1827",
+            "DS-1828"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-346",
+          "statement": "Test JSON は、既存の wire compatibility layer（`vtest-adapter-api`）で直列化し、照会のための別の直列化を持たない。",
+          "derives_from": [
+            "DS-1813"
+          ],
+          "cites": [
+            "BD-193"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-347",
+          "statement": "show の操作は、判断記録の状態を、`verify` が保留項目の生成に使うのと同じ実効判断の決定から得て、実効判断を自分で決めない。",
+          "derives_from": [
+            "DS-1849",
+            "DS-1850",
+            "DS-1851"
+          ],
+          "cites": [
+            "BD-345"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-348",
+          "statement": "show の操作は、Evidence の状態を、`verify` が `target_binding` の評価に使うのと同じ最新の Evidence レコードの選択から得る。",
+          "derives_from": [
+            "DS-1854",
+            "DS-1855"
+          ],
+          "cites": [
+            "BD-345"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-349",
+          "statement": "list・query の操作は、export の操作と同じ形で registry を引数に受け取り、受入専用の registry を渡して呼べる。",
+          "description": "操作は adapter を自分で生成しない。",
+          "derives_from": [
+            "DS-1861",
+            "DS-1863"
+          ],
+          "cites": [
+            "BD-337",
+            "BD-344"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        }
+      ]
+    },
+    {
       "id": "BD-S057",
       "title": "6.1 adapter-neutral解決contract",
       "source": {
@@ -20185,6 +20343,128 @@
             "BD-338",
             "DS-1703",
             "DS-1705"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "DES-S107",
+      "title": "5.8 Test の照会",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+        "heading": "作業範囲",
+        "lines": [
+          11,
+          11
+        ]
+      },
+      "derives_from": [
+        "SPEC-S038",
+        "SPEC-S029",
+        "DS-S165",
+        "DS-S166",
+        "BD-S101"
+      ],
+      "items": [
+        {
+          "id": "DES-613",
+          "statement": "list と query の操作は、scan の結果の読み取りが返す順の managed Test Entity を、条件（VO ID、Source Target）で絞るだけで、順を変えない。",
+          "derives_from": [
+            "BD-343",
+            "DS-1818",
+            "DS-1824"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-614",
+          "statement": "query の操作は、`--source` の参照と各 Test の target 参照を、scan が target 参照の解決に使うのと同じ解決で canonical Source Target へ解決して比較し、参照の綴りを比較しない。",
+          "derives_from": [
+            "BD-343",
+            "DS-1824",
+            "DS-577"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-615",
+          "statement": "list・query・show の操作は、入力不正（E-OP-001）を返す場合、検証結果と Test の一覧を返さない。",
+          "derives_from": [
+            "BD-344",
+            "DS-1823",
+            "DS-1826"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-616",
+          "statement": "show の操作の結果の `verification`・`ok`・`diagnostics`・終了コードは、verify の操作が返した値をそのまま持ち、変換しない。",
+          "derives_from": [
+            "BD-345",
+            "DS-1827",
+            "DS-1828"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-617",
+          "statement": "show の操作の結果の `judgments` は、当該 subject の判断記録を `judgment_kind` ごとに、有効性と `supersedes` だけで `effective`・`superseded`・`invalid` に分けたものであり、判断記録の新旧、判断値、件数で分けない。",
+          "derives_from": [
+            "BD-347",
+            "DS-1850"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-618",
+          "statement": "show の操作の結果の `evidence` は、最新の Evidence レコード1件の ID・result・実行時刻・有効か否かだけを持ち、鮮度の判定結果を持たない。",
+          "description": "鮮度は `verification` が持つ。",
+          "derives_from": [
+            "BD-348",
+            "DS-1854"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
