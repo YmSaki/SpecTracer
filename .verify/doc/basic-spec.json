@@ -4738,7 +4738,8 @@
             },
             {
               "id": "SPEC-473",
-              "statement": "テスト仕様書は、解決できない `covers` 参照と解決できない target 参照を一覧に含める。",
+              "statement": "テスト仕様書は、解決できない `covers` 参照、解決できない target 参照、解決できない `related` 参照を一覧に含める。",
+              "description": "Test の宣言が持つ参照は `covers`（VO）、target（Source Target）、`related`（Test）の3種類であり、3種類とも対象にする。",
               "derives_from": [
                 "REQ-340"
               ],
@@ -4834,6 +4835,40 @@
               "derives_from": [
                 "REQ-342",
                 "P-003"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+                "heading": "作業範囲",
+                "lines": [
+                  14,
+                  16
+                ]
+              }
+            },
+            {
+              "id": "SPEC-480",
+              "statement": "テスト仕様書は、Test ID が重複している場合も、各 Test 項目を個別に識別できる形で示す。",
+              "description": "Test ID の重複は誤りだが、重複した Test を仕様書から落とすと、載っている Test だけが全体だと読まれる。",
+              "derives_from": [
+                "REQ-340",
+                "REQ-341"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
+                "heading": "作業範囲",
+                "lines": [
+                  14,
+                  16
+                ]
+              }
+            },
+            {
+              "id": "SPEC-481",
+              "statement": "Markdown 出力は、宣言された値を内容を失わずに示し、値の内容によって文書の構造を変えない。",
+              "description": "宣言された値は Markdown の記法として解釈されうる文字を含みうる。",
+              "derives_from": [
+                "REQ-339",
+                "REQ-341"
               ],
               "source": {
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/66",
