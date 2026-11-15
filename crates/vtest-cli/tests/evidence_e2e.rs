@@ -89,9 +89,12 @@ fn clear_outer_coverage_environment_now() {
     // already-built test binary to a concurrently running, differently
     // sourced fixture. Clearing it here restores each fixture's intended
     // per-root isolation.
+    //
+    // `LLVM_PROFILE_FILE` stays: the Execution State does not bind it, and
+    // the instrumented `vtest` this file spawns would otherwise write
+    // `default_%m_%p.profraw` into this package's root (#232).
     for variable in [
         "RUSTC_WRAPPER",
-        "LLVM_PROFILE_FILE",
         "CARGO_LLVM_COV",
         "CARGO_LLVM_COV_TARGET_DIR",
         "RUSTFLAGS",

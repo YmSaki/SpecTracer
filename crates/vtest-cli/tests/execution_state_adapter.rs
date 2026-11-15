@@ -164,7 +164,6 @@ fn a_result_file_under_verify_cache_is_not_bound_but_one_in_the_root_is() {
 /// same job STALE.
 /// @vtest.id TEST-SELF-VERIFY-WORKFLOW-OUTPUT-UNDER-VERIFY-CACHE
 /// @vtest.covers VO-EXEC-STATE-VERIFY-CACHE-OUTPUT-NOT-BOUND
-/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::walk
 /// @vtest.intent Verifies the self-verify workflow redirects vtest's result JSON only into its result directory under `.verify/cache/`.
 #[test]
 fn the_self_verify_workflow_writes_its_results_under_verify_cache() {
