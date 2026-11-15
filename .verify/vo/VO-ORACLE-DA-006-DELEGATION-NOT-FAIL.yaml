@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-006-DELEGATION-NOT-FAIL
+parent: null
+derives_from:
+  - doc: DS-1345
+claim: '委譲先のassert相当が委譲先側にしか無いことだけを理由に`FAIL`としない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00
