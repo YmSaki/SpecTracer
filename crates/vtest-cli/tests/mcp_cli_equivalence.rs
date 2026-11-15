@@ -126,11 +126,14 @@ fn add_unresolved_target_test(root: &Path) {
 /// The `vtest` binary without the outer `cargo test` / `cargo llvm-cov`
 /// settings that would reach the `cargo` a fixture's `vtest run` starts and
 /// change that fixture's Execution State between snapshots (E-EXEC-004).
+///
+/// `LLVM_PROFILE_FILE` stays: the Execution State does not bind it, and an
+/// instrumented `vtest` without it writes `default_%m_%p.profraw` into its
+/// working directory, which is this package's root (#232).
 fn vtest(root: &Path) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_vtest"));
     for variable in [
         "RUSTC_WRAPPER",
-        "LLVM_PROFILE_FILE",
         "CARGO_LLVM_COV",
         "CARGO_LLVM_COV_TARGET_DIR",
         "RUSTFLAGS",
