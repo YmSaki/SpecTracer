@@ -14053,6 +14053,165 @@
       ]
     },
     {
+      "id": "BD-S100",
+      "title": "5.7 テスト仕様書の生成",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+        "heading": "作業範囲",
+        "lines": [
+          11,
+          11
+        ]
+      },
+      "derives_from": [
+        "SPEC-S134",
+        "DS-S162",
+        "DS-S163"
+      ],
+      "items": [
+        {
+          "id": "BD-332",
+          "statement": "テスト仕様書のデータ（JSON 出力の `data`）は、scan の結果と VO レコードの claim を入力とする1つの部品が生成する。",
+          "derives_from": [
+            "SPEC-468",
+            "SPEC-469",
+            "DS-1701"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-333",
+          "statement": "Markdown 文書は、テスト仕様書のデータだけを入力とする別の1つの部品が生成する。",
+          "description": "Markdown 文書が `data` と同じ内容になること（DS-1744）を、入力を `data` に限ることで保つ。",
+          "derives_from": [
+            "DS-1744"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-334",
+          "statement": "テスト仕様書のデータを生成する部品と、Markdown 文書を生成する部品は、`vtest-scan` に置く。",
+          "description": "入力は scan の結果と、scan が VO 参照の解決に読む VO レコードで足りる。`vtest-scan` は `vtest-verify` と `vtest-exec` へ依存しない（BD-117）ので、ここに置いた部品は検証結果と Evidence を入力にできない。",
+          "derives_from": [
+            "DS-1742"
+          ],
+          "cites": [
+            "BD-117"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-335",
+          "statement": "この2つの部品は、ファイル、時刻、環境変数、外部プロセス、adapter を参照しない。",
+          "derives_from": [
+            "DS-1695",
+            "DS-1738",
+            "DS-1740"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-336",
+          "statement": "この2つの部品は、Evidence、承認レコード、判断記録、検証結果を入力に取らない。",
+          "derives_from": [
+            "DS-1742"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-337",
+          "statement": "`vtest export` と MCP ツール `export` は、scan の実行、テスト仕様書のデータの生成、`ok` と終了コードの決定、envelope の構築を行う同じ1つの操作を呼ぶ。",
+          "derives_from": [
+            "DS-1698",
+            "DS-1699",
+            "DS-1774"
+          ],
+          "cites": [
+            "BD-085",
+            "BD-100"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-338",
+          "statement": "出力形式の選択、Markdown 文書を生成する部品の呼び出し、標準出力と標準エラーへの書き分け、`--quiet` の処理は、CLI の入口が行う。",
+          "derives_from": [
+            "DS-1692",
+            "DS-1704",
+            "DS-1705",
+            "DS-1706"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "BD-339",
+          "statement": "MCP の入口は、`export` の引数の検証と、操作の結果を MCP の結果へ写すことだけを行う。",
+          "derives_from": [
+            "DS-1771",
+            "DS-1773",
+            "DS-1775"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        }
+      ]
+    },
+    {
       "id": "BD-S057",
       "title": "6.1 adapter-neutral解決contract",
       "source": {
@@ -19773,6 +19932,247 @@
             "lines": [
               932,
               935
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "DES-S106",
+      "title": "5.7 テスト仕様書の生成",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+        "heading": "作業範囲",
+        "lines": [
+          11,
+          11
+        ]
+      },
+      "derives_from": [
+        "SPEC-S134",
+        "DS-S162",
+        "DS-S163",
+        "BD-S100"
+      ],
+      "items": [
+        {
+          "id": "DES-600",
+          "statement": "テスト仕様書のデータを生成する部品の入力は、managed Test Entity の集合、Discovered Test の集合、Discovered Test ごとの当該 construct に付いた診断コードの集合、VO ID から claim への対応、`covers` 参照と target 参照ごとの解決結果である。",
+          "derives_from": [
+            "BD-332",
+            "DS-1707",
+            "DS-1719",
+            "DS-1711",
+            "DS-1712"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-601",
+          "statement": "`covers` 参照と target 参照ごとの解決結果は、Test・参照の種別・宣言された参照の組ごとに、解決できたか否かと、解決できない場合の診断コードを持つ。",
+          "description": "`related` 参照の解決は、部品が managed Test Entity の集合から求める（DS-1722）。",
+          "derives_from": [
+            "DS-1711",
+            "DS-1712",
+            "DS-1725"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-602",
+          "statement": "テスト仕様書のデータを生成する部品は、参照の解決結果と `data.unmanaged` の `codes` を、診断の `message` を解析して求めない。",
+          "description": "診断の文言は scan のもので、変わりうる（SPEC-482）。scan が、解決結果と construct ごとの診断コードを値として渡す。",
+          "derives_from": [
+            "DS-1720",
+            "DS-1725",
+            "SPEC-482"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-603",
+          "statement": "テスト仕様書のデータを生成する部品の出力は、`tests`・`unmanaged`・`unresolved`・`by_vo`・`by_path` を持つテスト仕様書のデータである。",
+          "derives_from": [
+            "BD-332",
+            "DS-1701"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-604",
+          "statement": "テスト仕様書のデータの Test 項目の型は、Test Entity の型とは別の型であり、`execution`、内容ハッシュ、行番号、byte 位置の field を持たない。",
+          "derives_from": [
+            "DS-1718",
+            "DS-1741"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-605",
+          "statement": "テスト仕様書のデータの型は、検証状態、診断ラベル、Evidence、承認状態、判断記録を表す field を持たない。",
+          "derives_from": [
+            "DS-1742",
+            "BD-336"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-606",
+          "statement": "テスト仕様書のデータを生成する部品は、入力の各集合の要素の順序が異なっても、同じテスト仕様書のデータを返す。",
+          "derives_from": [
+            "DS-1740",
+            "BD-335"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-607",
+          "statement": "テスト仕様書のデータを生成する部品は、診断を生成せず、失敗を返さない。",
+          "description": "入力がどの値でも、テスト仕様書のデータを返す。Test ID の重複や解決できない参照は、データの中で示す（DS-1708、DS-1721）。",
+          "derives_from": [
+            "DS-1702",
+            "SPEC-482"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-608",
+          "statement": "Markdown 文書を生成する部品は、テスト仕様書のデータを受け取って Markdown 文書の文字列を返し、失敗を返さない。",
+          "derives_from": [
+            "BD-333",
+            "DS-1744",
+            "DS-1745"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-609",
+          "statement": "JSON 出力の `data` は、テスト仕様書のデータを、型が定める固定の field 順で直列化したものである。",
+          "derives_from": [
+            "DS-1739"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-610",
+          "statement": "操作は、scan が完了しない場合、テスト仕様書のデータを生成する部品を呼ばず、envelope の `data` を `null` とする。",
+          "derives_from": [
+            "BD-337",
+            "DS-1696",
+            "DS-1697"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-611",
+          "statement": "操作は、scan が完了した場合、`ok` と終了コードを scan の診断の severity だけから決め、テスト仕様書のデータの内容から決めない。",
+          "derives_from": [
+            "BD-337",
+            "DS-1698",
+            "DS-1699",
+            "DS-1726"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
+            ]
+          }
+        },
+        {
+          "id": "DES-612",
+          "statement": "操作は、診断を DS-1703 の順に並べて envelope の `diagnostics` に入れ、CLI の入口は envelope の順のまま標準エラーへ出力する。",
+          "derives_from": [
+            "BD-337",
+            "BD-338",
+            "DS-1703",
+            "DS-1705"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/67",
+            "heading": "作業範囲",
+            "lines": [
+              11,
+              11
             ]
           }
         }
