@@ -544,10 +544,14 @@ mod tests {
     //     method null・result null・targets空・NO_EVIDENCE）が挙げる
     //     target_coverage側のfieldを1つも観測しない（そちらは
     //     vtest-exec::tests::coverage_unavailable_produces_not_checked_
-    //     target_coverage_and_w_exec_101が観測する）。この文言自体を
-    //     claimとする正本条文も見当たらない — 候補: DS-760（L29657、
-    //     W-EXEC-101の発行のみを定め文言は定めない）・BD-220、未確定。
-    //     covers を持たない無印の #[test]（W-SCAN-101）のまま残す。
+    //     target_coverage_and_w_exec_101が観測する）。このテストが
+    //     観測しているのは「`cargo llvm-cov --version`を起動できなければ
+    //     利用不能と判定する」こと（DES-452）で、文言の一致はその判定結果を
+    //     特定するための手段。
+    /// @vtest.id TEST-ADAPTER-RUST-COVERAGE-AVAILABILITY-PROBE-UNAVAILABLE
+    /// @vtest.covers VO-ADAPTER-RUST-COVERAGE-AVAILABILITY-PROBE
+    /// @vtest.target crates/vtest-adapter-rust/src/coverage.rs::probe_availability
+    /// @vtest.intent `cargo llvm-cov --version` を起動できない場合、利用不能と判定して理由を返すことを確認する
     #[test]
     fn availability_reports_the_adapters_own_unavailable_reason() {
         let missing_root = std::env::temp_dir().join(format!(
