@@ -133,12 +133,19 @@ pub struct SourceDraft {
 /// `vtest_model::DiscoveredTest` を組み立てるための construct identity
 /// （`location` と、`content_hash` 計算用の normalization 済み construct
 /// bytes）だけを渡す。`TestDraft::location` / `construct_text` と同じ
-/// 意味を持つ2 fieldのみで、hash 未計算・adapter 名なし（core 側で
+/// 意味を持つ2 fieldと、当該 construct に付けた診断のコード（`codes`）を持ち、hash 未計算・adapter 名なし（core 側で
 /// discovery batch から adapter を束ねる。`vtest-scan::scan_project_with_
 /// config` の `test_drafts` 同様の扱い）である点も `TestDraft` と揃える。
 pub struct MissingTestConstruct {
     pub location: SourceLocation,
     pub construct_text: String,
+    /// The codes of the diagnostics this adapter attached to this construct
+    /// (W-SCAN-101, or the E-SCAN-* that made the declaration incomplete).
+    /// The diagnostics themselves stay in `DiscoveryOutcome.diagnostics`;
+    /// this list only says which of them belong to this construct, so that
+    /// core does not have to guess it from a diagnostic's `message` or
+    /// `location` (DES-600, DES-602).
+    pub codes: Vec<String>,
 }
 
 /// 1 adapter の discovery 結果。Target Reference 解決（§6.1）、Test ID の

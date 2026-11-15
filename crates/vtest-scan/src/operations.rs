@@ -2205,6 +2205,7 @@ mod tests {
             discovered: Vec::new(),
             sources: Vec::new(),
             diagnostics: Vec::new(),
+            test_spec_basis: Default::default(),
         }
     }
 

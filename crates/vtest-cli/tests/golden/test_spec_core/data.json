@@ -1,0 +1,242 @@
+{
+  "tests": [
+    {
+      "key": "TEST-PARSE",
+      "id": "TEST-PARSE",
+      "intent": "parse accepts `a|b` and *c*",
+      "covers": [
+        {
+          "vo": "VO-PARSE",
+          "claim": "fixture claim"
+        },
+        {
+          "vo": "VO-GONE",
+          "claim": null
+        }
+      ],
+      "targets": [
+        {
+          "reference": {
+            "kind": "src_id",
+            "id": "SRC-PARSE"
+          },
+          "resolved": true
+        },
+        {
+          "reference": {
+            "kind": "locator",
+            "adapter": "rust-cargo",
+            "value": "src/lib.rs::missing"
+          },
+          "resolved": false
+        }
+      ],
+      "input": "a # b",
+      "expect": "<ok>",
+      "kind": "unit-normal",
+      "cases": [
+        "first",
+        "second [x](y)"
+      ],
+      "related": [
+        {
+          "id": "TEST-RENDER",
+          "test": "TEST-RENDER"
+        },
+        {
+          "id": "TEST-NOWHERE",
+          "test": null
+        },
+        {
+          "id": "TEST-TWICE",
+          "test": null
+        }
+      ],
+      "location": {
+        "adapter": "rust-cargo",
+        "path": "src/lib.rs",
+        "locator": "tests::parse_accepts"
+      }
+    },
+    {
+      "key": "TEST-RENDER",
+      "id": "TEST-RENDER",
+      "intent": "render returns",
+      "covers": [
+        {
+          "vo": "VO-RENDER",
+          "claim": "fixture claim"
+        }
+      ],
+      "targets": [
+        {
+          "reference": {
+            "kind": "locator",
+            "adapter": "rust-cargo",
+            "value": "src/lib.rs::render"
+          },
+          "resolved": true
+        },
+        {
+          "reference": {
+            "kind": "src_id",
+            "id": "SRC-TWICE"
+          },
+          "resolved": false
+        }
+      ],
+      "input": null,
+      "expect": null,
+      "kind": null,
+      "cases": [],
+      "related": [],
+      "location": {
+        "adapter": "rust-cargo",
+        "path": "src/lib.rs",
+        "locator": "tests::render_returns"
+      }
+    },
+    {
+      "key": "TEST-TWICE~1",
+      "id": "TEST-TWICE",
+      "intent": "first of two",
+      "covers": [
+        {
+          "vo": "VO-PARSE",
+          "claim": "fixture claim"
+        }
+      ],
+      "targets": [],
+      "input": null,
+      "expect": null,
+      "kind": null,
+      "cases": [],
+      "related": [],
+      "location": {
+        "adapter": "rust-cargo",
+        "path": "src/lib.rs",
+        "locator": "tests::twice_one"
+      }
+    },
+    {
+      "key": "TEST-TWICE~2",
+      "id": "TEST-TWICE",
+      "intent": "second of two",
+      "covers": [
+        {
+          "vo": "VO-PARSE",
+          "claim": "fixture claim"
+        }
+      ],
+      "targets": [],
+      "input": null,
+      "expect": null,
+      "kind": null,
+      "cases": [],
+      "related": [],
+      "location": {
+        "adapter": "rust-cargo",
+        "path": "src/lib.rs",
+        "locator": "tests::twice_two"
+      }
+    }
+  ],
+  "unmanaged": [
+    {
+      "location": {
+        "adapter": "rust-cargo",
+        "path": "src/lib.rs",
+        "locator": "tests::incomplete_declaration"
+      },
+      "codes": [
+        "E-SCAN-007"
+      ]
+    },
+    {
+      "location": {
+        "adapter": "rust-cargo",
+        "path": "src/lib.rs",
+        "locator": "tests::no_declaration"
+      },
+      "codes": [
+        "W-SCAN-101"
+      ]
+    }
+  ],
+  "unresolved": [
+    {
+      "test": "TEST-PARSE",
+      "field": "covers",
+      "reference": "VO-GONE",
+      "code": "E-SCAN-003"
+    },
+    {
+      "test": "TEST-PARSE",
+      "field": "related",
+      "reference": "TEST-NOWHERE",
+      "code": null
+    },
+    {
+      "test": "TEST-PARSE",
+      "field": "related",
+      "reference": "TEST-TWICE",
+      "code": "E-SCAN-002"
+    },
+    {
+      "test": "TEST-PARSE",
+      "field": "target",
+      "reference": {
+        "kind": "locator",
+        "adapter": "rust-cargo",
+        "value": "src/lib.rs::missing"
+      },
+      "code": "E-SCAN-004"
+    },
+    {
+      "test": "TEST-RENDER",
+      "field": "target",
+      "reference": {
+        "kind": "src_id",
+        "id": "SRC-TWICE"
+      },
+      "code": "E-SCAN-011"
+    }
+  ],
+  "by_vo": [
+    {
+      "vo": "VO-GONE",
+      "claim": null,
+      "tests": [
+        "TEST-PARSE"
+      ]
+    },
+    {
+      "vo": "VO-PARSE",
+      "claim": "fixture claim",
+      "tests": [
+        "TEST-PARSE",
+        "TEST-TWICE~1",
+        "TEST-TWICE~2"
+      ]
+    },
+    {
+      "vo": "VO-RENDER",
+      "claim": "fixture claim",
+      "tests": [
+        "TEST-RENDER"
+      ]
+    }
+  ],
+  "by_path": [
+    {
+      "adapter": "rust-cargo",
+      "path": "src/lib.rs",
+      "tests": [
+        "TEST-PARSE",
+        "TEST-RENDER",
+        "TEST-TWICE~1",
+        "TEST-TWICE~2"
+      ]
+    }
+  ]
+}

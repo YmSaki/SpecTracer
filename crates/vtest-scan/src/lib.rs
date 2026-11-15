@@ -33,7 +33,12 @@ use vtest_store::{
 
 pub mod forms;
 pub mod operations;
+pub mod test_spec;
 pub use operations::*;
+pub use test_spec::{
+    test_specification, ConstructCodes, DeclaredReference, ReferenceResolution, TestSpecBasis,
+    TestSpecification,
+};
 
 #[derive(Debug, Error)]
 pub enum ScanError {
@@ -172,6 +177,12 @@ pub struct ScanResult {
     pub discovered: Vec<DiscoveredTest>,
     pub sources: Vec<SourceFunction>,
     pub diagnostics: Vec<Diagnostic>,
+    /// What the test specification needs besides `tests` and `discovered`
+    /// (DES-600): per-construct diagnostic codes, the result of resolving
+    /// each `covers` and target reference, and VO claims. It is not part of
+    /// the serialized scan result.
+    #[serde(skip)]
+    pub test_spec_basis: TestSpecBasis,
 }
 
 impl ScanResult {
@@ -363,11 +374,12 @@ pub fn scan_project_with_config(
         })
         .collect::<Vec<_>>();
 
-    let (tests, discovered, collision_diagnostics) =
+    let (tests, discovered, collision_diagnostics, construct_codes) =
         materialize_tests(test_drafts, missing_test_drafts);
     diagnostics.extend(collision_diagnostics);
-    diagnostics.extend(check_vo_references(&tests, &vo_ids));
-    diagnostics.extend(resolve_targets(&tests, &sources));
+    let mut references = Vec::new();
+    diagnostics.extend(check_vo_references(&tests, &vo_ids, &mut references));
+    diagnostics.extend(resolve_targets(&tests, &sources, &mut references));
 
     let mut result = ScanResult {
         summary: ScanSummary {
@@ -379,13 +391,16 @@ pub fn scan_project_with_config(
         discovered,
         sources,
         diagnostics,
+        test_spec_basis: TestSpecBasis {
+            construct_codes,
+            references,
+            vo_claims: BTreeMap::new(),
+        },
     };
-    result.diagnostics.extend(record_diagnostics(
-        root,
-        &entity_ids,
-        &result.tests,
-        &result.sources,
-    )?);
+    let (record_diagnostics, vo_claims) =
+        record_diagnostics(root, &entity_ids, &result.tests, &result.sources)?;
+    result.diagnostics.extend(record_diagnostics);
+    result.test_spec_basis.vo_claims = vo_claims;
     Ok(result)
 }
 
@@ -424,7 +439,13 @@ pub fn scan_project_with_config(
 fn materialize_tests(
     drafts: Vec<(AdapterId, vtest_adapter_api::TestDraft)>,
     missing_drafts: Vec<(AdapterId, vtest_adapter_api::MissingTestConstruct)>,
-) -> (Vec<TestEntity>, Vec<DiscoveredTest>, Vec<Diagnostic>) {
+) -> (
+    Vec<TestEntity>,
+    Vec<DiscoveredTest>,
+    Vec<Diagnostic>,
+    Vec<ConstructCodes>,
+) {
+    let mut construct_codes = Vec::with_capacity(missing_drafts.len());
     let mut tests = Vec::with_capacity(drafts.len());
     let mut discovered = Vec::with_capacity(drafts.len() + missing_drafts.len());
     let mut locations_by_id: BTreeMap<String, Vec<SourceLocation>> = BTreeMap::new();
@@ -502,6 +523,11 @@ fn materialize_tests(
     }
 
     for (adapter, draft) in missing_drafts {
+        construct_codes.push(ConstructCodes {
+            adapter: adapter.clone(),
+            location: draft.location.clone(),
+            codes: draft.codes,
+        });
         discovered.push(DiscoveredTest {
             adapter,
             location: draft.location,
@@ -554,15 +580,26 @@ fn materialize_tests(
         }
     }
 
-    (tests, discovered, diagnostics)
+    (tests, discovered, diagnostics, construct_codes)
 }
 
 /// 本冊:571「VO参照の解決...はadapterではなくcoreが検査する」（E-SCAN-003）。
-fn check_vo_references(tests: &[TestEntity], vo_ids: &BTreeSet<String>) -> Vec<Diagnostic> {
+fn check_vo_references(
+    tests: &[TestEntity],
+    vo_ids: &BTreeSet<String>,
+    references: &mut Vec<ReferenceResolution>,
+) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for test in tests {
         for vo_id in &test.covers {
-            if !vo_ids.contains(vo_id.as_str()) {
+            let resolved = vo_ids.contains(vo_id.as_str());
+            references.push(ReferenceResolution {
+                test: test.id.clone(),
+                location: test.location.clone(),
+                reference: DeclaredReference::Covers(vo_id.clone()),
+                code: (!resolved).then(|| "E-SCAN-003".to_owned()),
+            });
+            if !resolved {
                 diagnostics.push(
                     Diagnostic::error(
                         "E-SCAN-003",
@@ -611,7 +648,11 @@ enum TargetResolution {
 /// locator の完全一致検索は adapter が構築した source index（`sources`）に
 /// 対して行うだけで、構文自体は解釈しない。この解決は core の単一経路が
 /// 所有する（本冊:990-1005 §6.3 冒頭「この解決はcoreの単一経路が所有し」）。
-fn resolve_targets(tests: &[TestEntity], sources: &[SourceFunction]) -> Vec<Diagnostic> {
+fn resolve_targets(
+    tests: &[TestEntity],
+    sources: &[SourceFunction],
+    references: &mut Vec<ReferenceResolution>,
+) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     // §6.2 のSRC索引: locatorの完全一致検索に使う。1件だけ一致すれば
     // 解決、0件または複数件は解決失敗（E-SCAN-004。本冊:979-988）。
@@ -659,6 +700,14 @@ fn resolve_targets(tests: &[TestEntity], sources: &[SourceFunction]) -> Vec<Diag
         // 2件以上あればE-SCAN-005とする（本冊:963-977、本冊:524-546）。
         let mut resolved_canonical = Vec::<(String, LocatorKey)>::new();
         for target in &test.targets {
+            let mut record = |code: Option<&str>| {
+                references.push(ReferenceResolution {
+                    test: test.id.clone(),
+                    location: test.location.clone(),
+                    reference: DeclaredReference::Target(target.clone()),
+                    code: code.map(str::to_owned),
+                });
+            };
             match target {
                 TargetRef::Locator(locator) => {
                     let key = locator_key(locator);
@@ -669,9 +718,11 @@ fn resolve_targets(tests: &[TestEntity], sources: &[SourceFunction]) -> Vec<Diag
                     };
                     match resolution {
                         TargetResolution::Resolved(canonical) => {
+                            record(None);
                             resolved_canonical.push((locator.value.clone(), canonical));
                         }
                         TargetResolution::NotFound | TargetResolution::Ambiguous => {
+                            record(Some("E-SCAN-004"));
                             // 要確認C（PR #26 review round 2）: メッセージに
                             // 不正だった宣言値（`locator.value`）自体を含め
                             // る — d4c1522でadapter側の発行をやめてcoreへ
@@ -702,9 +753,11 @@ fn resolve_targets(tests: &[TestEntity], sources: &[SourceFunction]) -> Vec<Diag
                     };
                     match resolution {
                         TargetResolution::Resolved(canonical) => {
+                            record(None);
                             resolved_canonical.push((src_id.as_str().to_owned(), canonical));
                         }
                         TargetResolution::Ambiguous => {
+                            record(Some("E-SCAN-011"));
                             // 恒久SRC IDが衝突している。いずれのSource
                             // Targetも選択しない（本冊:901「E-SCAN-011が
                             // あるSRC ID参照は曖昧なため、関係するtarget
@@ -730,6 +783,7 @@ fn resolve_targets(tests: &[TestEntity], sources: &[SourceFunction]) -> Vec<Diag
                             );
                         }
                         TargetResolution::NotFound => {
+                            record(Some("E-SCAN-004"));
                             // 要確認C: 同上、SRC ID参照側にも同じ修正を
                             // 揃える。
                             diagnostics.push(
@@ -875,7 +929,7 @@ fn record_diagnostics(
     entity_ids: &[Vec<String>; 2],
     tests: &[TestEntity],
     sources: &[SourceFunction],
-) -> Result<Vec<Diagnostic>, ScanError> {
+) -> Result<(Vec<Diagnostic>, BTreeMap<String, String>), ScanError> {
     let layout = VerifyLayout::new(root);
     let mut diagnostics = Vec::new();
     let mut known_ids = BTreeSet::new();
@@ -962,7 +1016,11 @@ fn record_diagnostics(
     validate_relations(&layout, &known_ids, &mut diagnostics)?;
     validate_vo_warnings(&layout, &vos, tests, &mut diagnostics);
     validate_approval_status(&layout, &vos, &mut diagnostics)?;
-    Ok(diagnostics)
+    let vo_claims = vos
+        .into_iter()
+        .map(|(id, record)| (id, record.claim))
+        .collect();
+    Ok((diagnostics, vo_claims))
 }
 
 /// Reads every upstream document file `.verify/doc/<name>.json` (DES-585/586)

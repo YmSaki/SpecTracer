@@ -598,10 +598,11 @@ impl<'a> Scanner<'a> {
     /// — この関数はそれとは独立に、`ManagedTestLink::Missing` を持つ
     /// `DiscoveredTest` を core が組み立てるための construct identity
     /// だけを積む。
-    fn push_missing_test(&mut self, location: SourceLocation, content: &str) {
+    fn push_missing_test(&mut self, location: SourceLocation, content: &str, codes: &[&str]) {
         self.missing_tests.push(MissingTestConstruct {
             location,
             construct_text: content.to_owned(),
+            codes: codes.iter().map(|code| (*code).to_owned()).collect(),
         });
     }
 
@@ -1056,18 +1057,24 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location.clone()),
             );
-            self.push_missing_test(test_location, test_content);
+            self.push_missing_test(test_location, test_content, &["W-SCAN-101"]);
             return Ok(());
         };
         if !annotation.diagnostics.is_empty() {
             // 本冊 §4.4: adapter固有のsource declarationを構文解析できない
             // 場合、adapterは当該Test constructを管理宣言欠落として扱い、
             // Test Entityを具体化しない（診断だけを付与する）。
+            let codes = annotation
+                .diagnostics
+                .iter()
+                .map(|(code, _)| code.clone())
+                .collect::<Vec<_>>();
             for (code, message) in annotation.diagnostics {
                 self.diagnostics
                     .push(Diagnostic::error(code, message).with_location(location.clone()));
             }
-            self.push_missing_test(test_location, test_content);
+            let codes = codes.iter().map(String::as_str).collect::<Vec<_>>();
+            self.push_missing_test(test_location, test_content, &codes);
             return Ok(());
         }
         let Some(id) = annotation.id.filter(|value| !value.is_empty()) else {
@@ -1078,7 +1085,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location.clone()),
             );
-            self.push_missing_test(test_location, test_content);
+            self.push_missing_test(test_location, test_content, &["E-SCAN-007"]);
             return Ok(());
         };
         let Some(covers) = annotation.covers.filter(|value| !value.is_empty()) else {
@@ -1089,7 +1096,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location.clone()),
             );
-            self.push_missing_test(test_location, test_content);
+            self.push_missing_test(test_location, test_content, &["E-SCAN-007"]);
             return Ok(());
         };
         let target_values = annotation.targets;
@@ -1116,7 +1123,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location.clone()),
             );
-            self.push_missing_test(test_location, test_content);
+            self.push_missing_test(test_location, test_content, &["E-SCAN-007"]);
             return Ok(());
         };
         let test_id = TestId::new(id.clone());
@@ -1155,7 +1162,7 @@ impl<'a> Scanner<'a> {
                 )
                 .with_location(location.clone()),
             );
-            self.push_missing_test(test_location, test_content);
+            self.push_missing_test(test_location, test_content, &["E-SCAN-007"]);
             return Ok(());
         }
         let targets = target_values

@@ -7,6 +7,8 @@
 //! same operations, which is what keeps the two outputs equal (DS-1563).
 //! `vtest mcp` itself is served by the binary (`src/main.rs`).
 
+pub mod test_spec_markdown;
+
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};

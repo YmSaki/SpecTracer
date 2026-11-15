@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-SPEC-MARKDOWN-ENCODING
+parent: null
+derives_from:
+  - doc: DS-1747
+claim: 'Markdown 符号化は、ASCII 記号（U+0021〜U+002F、U+003A〜U+0040、U+005B〜U+0060、U+007B〜U+007E）の各文字の直前に `\` を置き、LF を `<br>` へ、LF 以外の U+0000〜U+001F と U+007F を `&#` と code point の10進と `;` へ、値の先頭に連続する空白（U+0020）と末尾に連続する空白の各文字を `&#32;` へ置き換え、それ以外の文字をそのまま書く。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

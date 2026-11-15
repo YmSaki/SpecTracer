@@ -1,0 +1,11 @@
+id: VO-SCAN-TEST-SPEC-KEY-FROM-TEST-ID
+parent: null
+derives_from:
+  - doc: DS-1708
+claim: '`data.tests` の要素の `key` は、同じ Test ID を持つ要素が `data.tests` に1件だけの場合は Test ID の識別子符号化とし、2件以上の場合は Test ID の識別子符号化に `~` と、同じ Test ID を持つ要素の中での `data.tests` の並び順による1始まりの順位（10進、先頭に0を付けない）を続けた文字列とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

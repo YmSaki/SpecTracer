@@ -472,6 +472,7 @@ impl<'a> FileScan<'a> {
                     outcome.missing_tests.push(MissingTestConstruct {
                         location,
                         construct_text: self.source[start..end].to_owned(),
+                        codes: vec!["E-SCAN-001".to_owned()],
                     });
                     continue;
                 }
@@ -516,6 +517,10 @@ impl<'a> FileScan<'a> {
         construct: &str,
     ) {
         let missing = |outcome: &mut DiscoveryOutcome, diagnostics: Vec<Diagnostic>| {
+            let codes = diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.code.clone())
+                .collect();
             for diagnostic in diagnostics {
                 outcome
                     .diagnostics
@@ -524,6 +529,7 @@ impl<'a> FileScan<'a> {
             outcome.missing_tests.push(MissingTestConstruct {
                 location: location.clone(),
                 construct_text: construct.to_owned(),
+                codes,
             });
         };
         let name = &location.locator;

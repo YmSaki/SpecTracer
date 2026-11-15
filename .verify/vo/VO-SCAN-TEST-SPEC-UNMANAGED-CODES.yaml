@@ -1,0 +1,11 @@
+id: VO-SCAN-TEST-SPEC-UNMANAGED-CODES
+parent: null
+derives_from:
+  - doc: DS-1720
+claim: '`data.unmanaged` の要素の `codes` は、管理宣言を持たない Test では W-SCAN-101 を含み、管理宣言が不完全な Test では当該 construct に付いた E-SCAN-* の診断コードを含み、重複を除いて昇順に並べる。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00
