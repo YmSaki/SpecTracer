@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-SHOW-EVIDENCE-NEVER-AN-OLDER-RECORD
+parent: null
+derives_from:
+  - doc: DS-1855
+claim: '`data.evidence` は、最新の Evidence レコードが有効でない場合も、それより古い Evidence レコードを示さない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

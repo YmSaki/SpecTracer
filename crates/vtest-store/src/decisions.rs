@@ -217,6 +217,43 @@ pub fn effective_judgment(
     current_hash: &ContentHash,
     current_dependencies: &[DecisionDependency],
 ) -> (EffectiveJudgment, Vec<Diagnostic>) {
+    let set = effective_set(
+        records,
+        subject,
+        judgment_kind,
+        Some((current_hash, current_dependencies)),
+    );
+    (set.judgment, set.diagnostics)
+}
+
+/// How the records of one `(subject, judgment_kind)` divide when its
+/// effective judgment is derived (本冊 §8.5). Every record of that subject
+/// and kind is in exactly one of `effective`, `superseded` and `invalid`;
+/// each list is in ascending id order.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EffectiveSet {
+    pub judgment: EffectiveJudgment,
+    /// E: the valid records no other valid record supersedes.
+    pub effective: Vec<String>,
+    /// The valid records outside E.
+    pub superseded: Vec<String>,
+    /// The records that are not valid: ill-formed, or bound to another
+    /// subject hash or dependency closure.
+    pub invalid: Vec<String>,
+    /// W-STORE-004 / W-STORE-005 of the derivation.
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+/// The derivation behind [`effective_judgment`], with the division of the
+/// records it rests on. `current` is the subject's current hash and
+/// dependency closure; `None` means they cannot be computed now, and then no
+/// record is valid (DS-724).
+pub fn effective_set(
+    records: &[DecisionRecord],
+    subject: &str,
+    judgment_kind: &str,
+    current: Option<(&ContentHash, &[DecisionDependency])>,
+) -> EffectiveSet {
     let own: Vec<&DecisionRecord> = records
         .iter()
         .filter(|record| record.subject == subject && record.judgment_kind == judgment_kind)
@@ -267,7 +304,9 @@ pub fn effective_judgment(
         .copied()
         .filter(|record| !ill_formed.contains(record.id.as_str()))
         .filter(|record| {
-            &record.subject_hash == current_hash && record.dependencies == current_dependencies
+            current.is_some_and(|(hash, dependencies)| {
+                &record.subject_hash == hash && record.dependencies == dependencies
+            })
         })
         .collect();
     let superseded: BTreeSet<&str> = valid
@@ -294,7 +333,23 @@ pub fn effective_judgment(
             EffectiveJudgment::Unknown
         }
     };
-    (judgment, diagnostics)
+    let ids = |keep: &dyn Fn(&DecisionRecord) -> bool| {
+        let mut ids: Vec<String> = own
+            .iter()
+            .filter(|record| keep(record))
+            .map(|record| record.id.clone())
+            .collect();
+        ids.sort();
+        ids
+    };
+    let is_valid = |record: &DecisionRecord| valid.iter().any(|kept| kept.id == record.id);
+    EffectiveSet {
+        effective: ids(&|record| is_valid(record) && !superseded.contains(record.id.as_str())),
+        superseded: ids(&|record| is_valid(record) && superseded.contains(record.id.as_str())),
+        invalid: ids(&|record| !is_valid(record)),
+        judgment,
+        diagnostics,
+    }
 }
 
 /// Ids of records on a `supersedes` cycle, following only edges between

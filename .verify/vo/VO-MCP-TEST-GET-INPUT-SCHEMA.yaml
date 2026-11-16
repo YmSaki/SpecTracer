@@ -1,0 +1,11 @@
+id: VO-MCP-TEST-GET-INPUT-SCHEMA
+parent: null
+derives_from:
+  - doc: DS-1858
+claim: MCP の `tools/list` が返す `test_get` の入力 schema は、property として文字列型の `id` だけを持ち、`id` を必須とし、それ以外の property を許さない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

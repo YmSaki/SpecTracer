@@ -1,0 +1,11 @@
+id: VO-MCP-TEST-GET-TAKES-ID-ONLY
+parent: null
+derives_from:
+  - doc: DS-1830
+claim: MCP ツール `test_get` は、文字列の `id` だけを入力とし、`id` は必須である。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

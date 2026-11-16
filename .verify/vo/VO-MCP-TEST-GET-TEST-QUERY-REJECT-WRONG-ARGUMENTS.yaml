@@ -1,0 +1,11 @@
+id: VO-MCP-TEST-GET-TEST-QUERY-REJECT-WRONG-ARGUMENTS
+parent: null
+derives_from:
+  - doc: DS-1860
+claim: '`test_get` は、`id` が文字列でない場合と `id` 以外の引数を与えられた場合、`test_query` は、`vo` または `source` が文字列でない場合と `vo`・`source`・`unregistered` 以外の引数を与えられた場合、E-OP-001 のツールエラーで拒否する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

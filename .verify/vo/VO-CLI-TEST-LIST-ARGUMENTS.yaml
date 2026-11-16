@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-LIST-ARGUMENTS
+parent: null
+derives_from:
+  - doc: DS-1816
+claim: '`vtest test list` は、グローバルオプション（`--project`・`--format`・`--quiet`）のほかに option として `--vo <VO ID>` と `--unregistered` だけを受理し、位置引数を取らず、位置引数、それ以外の option、`--vo` の2回以上の指定、`--vo` と `--unregistered` の同時指定を、引数不正として終了コード2で拒否する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-QUERY-COMMANDS-WRITE-NOTHING
+parent: null
+derives_from:
+  - doc: DS-1812
+claim: '`vtest test list`・`vtest test query`・`vtest test show` は、ファイル・ディレクトリを1件も作成・変更・削除しない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

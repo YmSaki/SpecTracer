@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-SHOW-UNKNOWN-OR-DUPLICATED-ID
+parent: null
+derives_from:
+  - doc: DS-1826
+claim: '`vtest test show <Test ID>` は、当該 Test ID を持つ managed Test Entity が0件の場合は E-OP-001、2件以上の場合は E-SCAN-002 で、終了コード2として拒否し、`--format json` では `ok: false`・`data: null` とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

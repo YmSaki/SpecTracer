@@ -1,0 +1,11 @@
+id: VO-OPS-TEST-QUERY-COMPARES-CANONICAL-SOURCE-TARGETS
+parent: null
+derives_from:
+  - doc: DES-614
+claim: query の操作は、`--source` の参照と各 Test の target 参照を、scan が target 参照の解決に使うのと同じ解決で canonical Source Target へ解決して比較し、参照の綴りを比較しない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

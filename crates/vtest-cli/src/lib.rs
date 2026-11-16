@@ -268,6 +268,24 @@ pub enum TestCommand {
         #[arg(long = "dry-run")]
         dry_run: bool,
     },
+    /// DS-1816: the managed Tests, the ones that cover one VO, or the Test
+    /// constructs without a management declaration.
+    List {
+        /// DS-1818: only the Tests that declare this VO ID in `covers`.
+        #[arg(long, value_name = "VO_ID", conflicts_with = "unregistered")]
+        vo: Option<String>,
+        /// DS-1820: the Test constructs without a management declaration.
+        #[arg(long)]
+        unregistered: bool,
+    },
+    /// DS-1821: the managed Tests that declare one Source Target.
+    Query {
+        /// DS-1822: `SRC-…` or `<adapter ID>::<locator>`.
+        #[arg(long, value_name = "SOURCE_REF")]
+        source: String,
+    },
+    /// DS-1825: one Test with its verification, judgments and Evidence.
+    Show { id: String },
 }
 
 #[derive(Subcommand, Debug)]
@@ -672,53 +690,275 @@ fn run_test(project: &Path, command: TestCommand, format: OutputFormat, quiet: b
         Ok(registry) => registry,
         Err(code) => return code,
     };
-    let (exit, envelope) = match command {
+    type Render = fn(&serde_json::Value) -> String;
+    let (exit, envelope, render): (ExitCode, serde_json::Value, Render) = match command {
+        TestCommand::List { vo, unregistered } => {
+            let filter = match (vo, unregistered) {
+                (Some(vo), _) => ops::test_query::ListFilter::Vo(vo),
+                (None, true) => ops::test_query::ListFilter::Unregistered,
+                (None, false) => ops::test_query::ListFilter::All,
+            };
+            let (exit, envelope) = ops::test_query::list(&root, &registry, &filter);
+            (exit, envelope, render_test_list)
+        }
+        TestCommand::Query { source } => {
+            let (exit, envelope) = ops::test_query::query(&root, &registry, &source);
+            (exit, envelope, render_test_list)
+        }
+        TestCommand::Show { id } => {
+            let (exit, envelope) = ops::test_query::show(&root, &registry, &id);
+            (exit, envelope, render_test_show)
+        }
         TestCommand::Create {
             form,
             answers,
             id,
             dry_run,
-        } => match vtest_store::read_form_answers(&absolute_path(&answers)) {
-            Ok(answers) => {
-                ops::test_op::create(&root, &registry, &form, &answers, id.as_deref(), dry_run)
-            }
-            Err(error) => ops::test_op::input_failure(Diagnostic::error(
-                "E-OP-001",
-                format!("cannot read answers file: {error}"),
-            )),
-        },
+        } => {
+            let (exit, envelope) = match vtest_store::read_form_answers(&absolute_path(&answers)) {
+                Ok(answers) => {
+                    ops::test_op::create(&root, &registry, &form, &answers, id.as_deref(), dry_run)
+                }
+                Err(error) => ops::test_op::input_failure(Diagnostic::error(
+                    "E-OP-001",
+                    format!("cannot read answers file: {error}"),
+                )),
+            };
+            (exit, envelope, render_test_change)
+        }
         TestCommand::Edit {
             id,
             answers,
             set,
             body_file,
             dry_run,
-        } => edit_from_args(&root, &registry, &id, answers, &set, body_file, dry_run),
+        } => {
+            let (exit, envelope) =
+                edit_from_args(&root, &registry, &id, answers, &set, body_file, dry_run);
+            (exit, envelope, render_test_change)
+        }
     };
-    emit_value(format, quiet, &envelope, |envelope| {
-        let data = envelope.get("data");
-        let field = |key: &str| {
-            data.and_then(|data| data.get(key))
+    emit_value(format, quiet, &envelope, render);
+    exit
+}
+
+/// `test create` / `test edit`: the Test, its file and the diff.
+fn render_test_change(envelope: &serde_json::Value) -> String {
+    let data = envelope.get("data");
+    let field = |key: &str| {
+        data.and_then(|data| data.get(key))
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_owned()
+    };
+    if data.is_none_or(serde_json::Value::is_null) {
+        return String::new();
+    }
+    let dry_run = data
+        .and_then(|data| data.get("dry_run"))
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or_default();
+    format!(
+        "test {}: {}{}\n{}",
+        field("test_id"),
+        field("file"),
+        if dry_run { " (dry run)" } else { "" },
+        field("diff")
+    )
+}
+
+/// DS-1829: one line per Test with its Test ID, or one line per unmanaged
+/// construct with its path and locator, in the order of the JSON output.
+fn render_test_list(envelope: &serde_json::Value) -> String {
+    let text = |value: &serde_json::Value, key: &str| {
+        value
+            .get(key)
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_owned()
+    };
+    let list = |key: &str| {
+        envelope
+            .get("data")
+            .and_then(|data| data.get(key))
+            .and_then(serde_json::Value::as_array)
+    };
+    let mut out = String::new();
+    for test in list("tests").into_iter().flatten() {
+        let location = test.get("location").unwrap_or(&serde_json::Value::Null);
+        out.push_str(&format!(
+            "{}  {}  {}\n",
+            text(test, "id"),
+            text(location, "path"),
+            text(location, "locator")
+        ));
+    }
+    for entry in list("unmanaged").into_iter().flatten() {
+        let location = entry.get("location").unwrap_or(&serde_json::Value::Null);
+        out.push_str(&format!(
+            "{}  {}\n",
+            text(location, "path"),
+            text(location, "locator")
+        ));
+    }
+    out
+}
+
+/// The spelling of one target reference of a Test JSON: the SRC ID, or
+/// `<adapter ID>::<locator>`, the form `test query --source` reads.
+fn target_reference_text(target: &serde_json::Value) -> String {
+    match target.get("value") {
+        Some(serde_json::Value::String(src_id)) => src_id.clone(),
+        Some(locator) => format!(
+            "{}::{}",
+            locator
+                .get("adapter")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default(),
+            locator
+                .get("value")
                 .and_then(serde_json::Value::as_str)
                 .unwrap_or_default()
-                .to_owned()
+        ),
+        None => String::new(),
+    }
+}
+
+/// Every `check: state` of the verification, structural checks first and
+/// then the checks of each node of the tree, without repeating a line.
+fn verification_check_lines(verification: &serde_json::Value) -> Vec<String> {
+    fn check_line(check: &serde_json::Value, node: Option<&str>) -> String {
+        let field = |key: &str| {
+            check
+                .get(key)
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default()
         };
-        if data.is_none_or(serde_json::Value::is_null) {
-            return String::new();
+        match node {
+            Some(node) => format!("check {}: {} ({node})", field("check"), field("state")),
+            None => format!("check {}: {}", field("check"), field("state")),
         }
-        let dry_run = data
-            .and_then(|data| data.get("dry_run"))
-            .and_then(serde_json::Value::as_bool)
-            .unwrap_or_default();
-        format!(
-            "test {}: {}{}\n{}",
-            field("test_id"),
-            field("file"),
-            if dry_run { " (dry run)" } else { "" },
-            field("diff")
-        )
-    });
-    exit
+    }
+    fn walk(node: &serde_json::Value, lines: &mut Vec<String>) {
+        let id = node.get("id").and_then(serde_json::Value::as_str);
+        for check in node
+            .get("checks")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            let line = check_line(check, id);
+            if !lines.contains(&line) {
+                lines.push(line);
+            }
+        }
+        for child in node
+            .get("children")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            walk(child, lines);
+        }
+    }
+    let mut lines = Vec::new();
+    for check in verification
+        .get("structural")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        lines.push(check_line(check, None));
+    }
+    for node in verification
+        .get("tree")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        walk(node, &mut lines);
+    }
+    lines
+}
+
+/// DS-1856: the Test, each check of its verification, its judgments and its
+/// latest Evidence; `evidence: none` when it has no Evidence record.
+fn render_test_show(envelope: &serde_json::Value) -> String {
+    let Some(data) = envelope.get("data").filter(|data| !data.is_null()) else {
+        return String::new();
+    };
+    let null = serde_json::Value::Null;
+    let text = |value: &serde_json::Value, key: &str| {
+        value
+            .get(key)
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_owned()
+    };
+    let strings = |value: &serde_json::Value, key: &str| -> Vec<String> {
+        value
+            .get(key)
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|item| item.as_str().map(str::to_owned))
+            .collect()
+    };
+    let test = data.get("test").unwrap_or(&null);
+    let location = test.get("location").unwrap_or(&null);
+    let verification = data.get("verification").unwrap_or(&null);
+    let mut out = format!("test {}\n", text(test, "id"));
+    out.push_str(&format!("intent: {}\n", text(test, "intent")));
+    out.push_str(&format!("covers: {}\n", strings(test, "covers").join(", ")));
+    for target in test
+        .get("targets")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        out.push_str(&format!("target: {}\n", target_reference_text(target)));
+    }
+    out.push_str(&format!("path: {}\n", text(location, "path")));
+    out.push_str(&format!("locator: {}\n", text(location, "locator")));
+    out.push_str(&format!(
+        "verification: {} ({})\n",
+        text(verification, "result"),
+        text(verification, "state")
+    ));
+    for line in verification_check_lines(verification) {
+        out.push_str(&line);
+        out.push('\n');
+    }
+    for judgment in data
+        .get("judgments")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let decision = judgment
+            .get("decision")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("UNKNOWN");
+        out.push_str(&format!(
+            "judgment {}: {decision} (effective: {})\n",
+            text(judgment, "judgment_kind"),
+            strings(judgment, "effective").join(", ")
+        ));
+    }
+    match data.get("evidence").filter(|evidence| !evidence.is_null()) {
+        None => out.push_str("evidence: none\n"),
+        Some(evidence) => {
+            let id = evidence
+                .get("id")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("(unreadable)");
+            match evidence.get("result").and_then(serde_json::Value::as_str) {
+                Some(result) => out.push_str(&format!("evidence: {id} {result}\n")),
+                None => out.push_str(&format!("evidence: {id} (invalid)\n")),
+            }
+        }
+    }
+    out
 }
 
 fn edit_from_args(

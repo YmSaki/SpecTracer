@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-QUERY-SOURCE-REFERENCE-FORMS
+parent: null
+derives_from:
+  - doc: DS-1822
+claim: '`--source` の値は、`SRC-` で始まる場合は SRC ID 参照、それ以外は最初の `::` の前を adapter ID、後を locator 値とする Locator 参照として読み、`SRC-` で始まらず `::` を含まない値は E-OP-001 と終了コード2で拒否する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

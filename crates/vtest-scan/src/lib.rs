@@ -36,8 +36,8 @@ pub mod operations;
 pub mod test_spec;
 pub use operations::*;
 pub use test_spec::{
-    test_specification, ConstructCodes, DeclaredReference, ReferenceResolution, TestSpecBasis,
-    TestSpecification,
+    ordered_tests, test_specification, ConstructCodes, DeclaredReference, ReferenceResolution,
+    TestSpecBasis, TestSpecification,
 };
 
 #[derive(Debug, Error)]
@@ -616,7 +616,7 @@ fn check_vo_references(
 /// canonical locator の索引キー。`(adapter, opaque value)` の完全一致だけ
 /// で比較し、`value`の内部構文は解釈しない（本冊:522「coreがpath、module、
 /// symbol種別を分解しない」）。
-type LocatorKey = (AdapterId, String);
+pub type LocatorKey = (AdapterId, String);
 
 fn locator_key(locator: &vtest_model::Locator) -> LocatorKey {
     (locator.adapter.clone(), locator.value.clone())
@@ -635,13 +635,70 @@ fn locator_key(locator: &vtest_model::Locator) -> LocatorKey {
 /// 「曖昧な解決から代表候補を選ばず…後段へ候補を1件も引き渡さない」を型で
 /// 強制する）。
 #[derive(Clone, Debug, Eq, PartialEq)]
-enum TargetResolution {
-    /// 解決済み。
+pub enum TargetResolution {
+    /// 解決済み。canonical locator を持つ。
     Resolved(LocatorKey),
     /// 対象なし（一致するSource Targetが0件）。
     NotFound,
     /// 曖昧（一致するSource Targetが2件以上）。fail-closedな終端状態。
-    Ambiguous,
+    /// 候補の canonical locator を、重複なしの昇順で持つ。
+    Ambiguous(Vec<LocatorKey>),
+}
+
+/// 宣言された `TargetRef` を canonical Source Target へ解決する索引。
+///
+/// scan が Test の target 参照を解決するときと、Test の照会
+/// （`vtest test query --source`）が参照を解決するときの両方がこれを使う
+/// （DES-614）。locator は `(adapter, value)` の完全一致、恒久 SRC ID は
+/// それを宣言した Source Target で引く。
+pub struct SourceIndex {
+    locators: BTreeMap<LocatorKey, usize>,
+    src_ids: BTreeMap<String, Vec<LocatorKey>>,
+}
+
+impl SourceIndex {
+    pub fn new(sources: &[SourceFunction]) -> Self {
+        let mut locators = BTreeMap::<LocatorKey, usize>::new();
+        let mut src_ids = BTreeMap::<String, Vec<LocatorKey>>::new();
+        for source in sources {
+            let key = locator_key(&source.locator);
+            *locators.entry(key.clone()).or_default() += 1;
+            if let Some(src_id) = &source.src_id {
+                src_ids
+                    .entry(src_id.as_str().to_owned())
+                    .or_default()
+                    .push(key);
+            }
+        }
+        Self { locators, src_ids }
+    }
+
+    /// 1件の参照を解決する。locator が2件以上の Source Target に一致する
+    /// 場合と、恒久 SRC ID が2件以上に宣言されている場合は曖昧とする。
+    pub fn resolve(&self, target: &TargetRef) -> TargetResolution {
+        match target {
+            TargetRef::Locator(locator) => {
+                let key = locator_key(locator);
+                match self.locators.get(&key).copied().unwrap_or(0) {
+                    0 => TargetResolution::NotFound,
+                    1 => TargetResolution::Resolved(key),
+                    _ => TargetResolution::Ambiguous(vec![key]),
+                }
+            }
+            TargetRef::SrcId(src_id) => {
+                match self.src_ids.get(src_id.as_str()).map(Vec::as_slice) {
+                    Some([single]) => TargetResolution::Resolved(single.clone()),
+                    Some(several) => {
+                        let mut candidates = several.to_vec();
+                        candidates.sort();
+                        candidates.dedup();
+                        TargetResolution::Ambiguous(candidates)
+                    }
+                    None => TargetResolution::NotFound,
+                }
+            }
+        }
+    }
 }
 
 /// Target Reference 解決（本冊 §6.1・§6.1.1、E-SCAN-004/005/011）。opaque
@@ -654,31 +711,22 @@ fn resolve_targets(
     references: &mut Vec<ReferenceResolution>,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    // §6.2 のSRC索引: locatorの完全一致検索に使う。1件だけ一致すれば
-    // 解決、0件または複数件は解決失敗（E-SCAN-004。本冊:979-988）。
-    let mut locators = BTreeMap::<LocatorKey, usize>::new();
-    // 恒久SRC IDごとの宣言元canonical locator一覧。1件なら`SRC索引`
-    // （本冊:571・§6.1）を経て一意にcanonical locatorへ解決する。2件以上は
-    // 恒久SRC IDのrepository全体一意性違反であり、E-SCAN-011とする
+    // §6.2 のSRC索引。locator の完全一致と恒久 SRC ID の両方を
+    // `SourceIndex` が解決する。恒久 SRC ID が2件以上の Source Target に
+    // 宣言されていれば、repository全体一意性違反として E-SCAN-011 とする
     // （基本仕様§9.2「同一SRC IDの複数宣言を曖昧参照として受理しない」、
     // 本冊§5.1手順5「adapter間を含む...SRC ID衝突...を検査する」）。この
     // 検査は当該SRC IDを参照するTestの有無に関わらず、索引構築時点で行う。
-    let mut src_id_locators = BTreeMap::<String, Vec<LocatorKey>>::new();
+    let index = SourceIndex::new(sources);
     let mut src_id_first_location = BTreeMap::<String, SourceLocation>::new();
     for source in sources {
-        let key = locator_key(&source.locator);
-        *locators.entry(key.clone()).or_default() += 1;
         if let Some(src_id) = &source.src_id {
-            src_id_locators
-                .entry(src_id.as_str().to_owned())
-                .or_default()
-                .push(key);
             src_id_first_location
                 .entry(src_id.as_str().to_owned())
                 .or_insert_with(|| source.location.clone());
         }
     }
-    for (src_id, locs) in &src_id_locators {
+    for (src_id, locs) in &index.src_ids {
         if locs.len() > 1 {
             diagnostics.push(
                 Diagnostic::error(
@@ -710,18 +758,12 @@ fn resolve_targets(
             };
             match target {
                 TargetRef::Locator(locator) => {
-                    let key = locator_key(locator);
-                    let resolution = match locators.get(&key).copied().unwrap_or(0) {
-                        0 => TargetResolution::NotFound,
-                        1 => TargetResolution::Resolved(key),
-                        _ => TargetResolution::Ambiguous,
-                    };
-                    match resolution {
+                    match index.resolve(target) {
                         TargetResolution::Resolved(canonical) => {
                             record(None);
                             resolved_canonical.push((locator.value.clone(), canonical));
                         }
-                        TargetResolution::NotFound | TargetResolution::Ambiguous => {
+                        TargetResolution::NotFound | TargetResolution::Ambiguous(_) => {
                             record(Some("E-SCAN-004"));
                             // 要確認C（PR #26 review round 2）: メッセージに
                             // 不正だった宣言値（`locator.value`）自体を含め
@@ -746,17 +788,12 @@ fn resolve_targets(
                     }
                 }
                 TargetRef::SrcId(src_id) => {
-                    let resolution = match src_id_locators.get(src_id.as_str()).map(Vec::as_slice) {
-                        Some([single]) => TargetResolution::Resolved(single.clone()),
-                        Some(_) => TargetResolution::Ambiguous,
-                        None => TargetResolution::NotFound,
-                    };
-                    match resolution {
+                    match index.resolve(target) {
                         TargetResolution::Resolved(canonical) => {
                             record(None);
                             resolved_canonical.push((src_id.as_str().to_owned(), canonical));
                         }
-                        TargetResolution::Ambiguous => {
+                        TargetResolution::Ambiguous(_) => {
                             record(Some("E-SCAN-011"));
                             // 恒久SRC IDが衝突している。いずれのSource
                             // Targetも選択しない（本冊:901「E-SCAN-011が

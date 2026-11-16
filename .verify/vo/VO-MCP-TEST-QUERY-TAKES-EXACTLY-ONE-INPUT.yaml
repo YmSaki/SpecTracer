@@ -1,0 +1,11 @@
+id: VO-MCP-TEST-QUERY-TAKES-EXACTLY-ONE-INPUT
+parent: null
+derives_from:
+  - doc: DS-1832
+claim: MCP ツール `test_query` は、文字列の `vo`、文字列の `source`、値が `true` の `unregistered` のうち、ちょうど1つだけを入力とする。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

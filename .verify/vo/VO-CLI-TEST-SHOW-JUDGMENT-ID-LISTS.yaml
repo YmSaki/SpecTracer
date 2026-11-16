@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-SHOW-JUDGMENT-ID-LISTS
+parent: null
+derives_from:
+  - doc: DS-1850
+claim: '`data.judgments` の要素の `effective` は実効集合 E に属する判断記録、`superseded` は有効な判断記録のうち E に属さないもの、`invalid` は当該 subject・当該 `judgment_kind` の判断記録のうち有効でないものの decision ID の list であり、それぞれ decision ID の昇順に並べ、当該 subject・当該 `judgment_kind` の判断記録の decision ID は、3つの list のちょうど1つに1回だけ現れる。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

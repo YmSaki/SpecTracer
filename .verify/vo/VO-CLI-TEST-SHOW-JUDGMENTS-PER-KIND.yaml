@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-SHOW-JUDGMENTS-PER-KIND
+parent: null
+derives_from:
+  - doc: DS-1849
+claim: '`data.judgments` は、当該 Test を subject とし `judgment_kind` が §8.1 の値域内である判断記録が1件以上ある `judgment_kind` ごとに1要素を持ち、各要素は `judgment_kind`・`decision`・`effective`・`superseded`・`invalid` を持ち、`judgment_kind` の昇順に並べる。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

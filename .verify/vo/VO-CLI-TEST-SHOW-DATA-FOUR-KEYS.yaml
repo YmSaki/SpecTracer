@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-SHOW-DATA-FOUR-KEYS
+parent: null
+derives_from:
+  - doc: DS-1827
+claim: '`vtest test show <Test ID>` の `data` は `test`・`verification`・`judgments`・`evidence` の4つだけを持ち、`test` は当該 Test の Test JSON、`verification` は同じプロジェクトルート・同じ実行環境・同じ repository 内容に対する `vtest verify --test <Test ID>` の JSON 出力の `data` と同じ値である。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

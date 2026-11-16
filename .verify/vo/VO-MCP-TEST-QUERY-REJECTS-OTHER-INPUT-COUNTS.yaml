@@ -1,0 +1,11 @@
+id: VO-MCP-TEST-QUERY-REJECTS-OTHER-INPUT-COUNTS
+parent: null
+derives_from:
+  - doc: DS-1833
+claim: '`test_query` は、`vo`・`source`・`unregistered` を1つも与えられない場合、2つ以上与えられた場合、`unregistered` が `true` でない場合、E-OP-001 のツールエラーで拒否する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-SHOW-ARGUMENTS
+parent: null
+derives_from:
+  - doc: DS-1825
+claim: '`vtest test show` は、位置引数として Test ID をちょうど1件必要とし、グローバルオプション（`--project`・`--format`・`--quiet`）以外の option を持たず、位置引数が0件または2件以上の場合と、グローバルオプション以外の option を与えられた場合を、引数不正として終了コード2で拒否する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

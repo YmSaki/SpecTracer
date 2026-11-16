@@ -1,0 +1,11 @@
+id: VO-MCP-INPUT-ERROR-CANDIDATES
+parent: null
+derives_from:
+  - doc: DS-1192
+claim: 入力検証エラーには可能な限り `candidates` を含める。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00
