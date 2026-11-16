@@ -923,6 +923,31 @@ fn test_get_and_test_query_match_their_cli_commands() {
         rejected("E-OP-001"),
     );
 
+    // DS-1192: the near Test ID reaches both surfaces as the same candidate.
+    assert_same(
+        "test-query-get-near",
+        &["test", "show", "TEST-Y"],
+        "test_get",
+        json!({"id": "TEST-Y"}),
+        rejected("E-OP-001"),
+    );
+    let root = std::env::temp_dir().join(format!(
+        "vtest-tool-equivalence-{}-test-query-candidates",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&root);
+    tool_fixture(&root);
+    let (_, via_cli) = cli_with_exit(&root, &["test", "show", "TEST-Y"]);
+    let via_mcp = mcp(&root, "test_get", json!({"id": "TEST-Y"}));
+    for envelope in [&via_cli, &via_mcp] {
+        assert_eq!(
+            envelope["diagnostics"][0]["candidates"],
+            json!(["TEST-X"]),
+            "{envelope}"
+        );
+    }
+    fs::remove_dir_all(&root).ok();
+
     // The data of an `ok: false` result reaches both surfaces.
     let root = std::env::temp_dir().join(format!(
         "vtest-tool-equivalence-{}-test-query-data",
