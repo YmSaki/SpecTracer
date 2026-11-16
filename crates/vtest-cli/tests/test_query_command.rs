@@ -384,13 +384,17 @@ fn query_returns_the_tests_whose_targets_resolve_to_the_same_source_target() {
 }
 
 /// @vtest.id TEST-CLI-TEST-QUERY-REJECTS-UNRESOLVED-SOURCE
-/// @vtest.covers VO-CLI-TEST-QUERY-SOURCE-REFERENCE-FORMS, VO-CLI-TEST-QUERY-UNRESOLVED-SOURCE-REJECTED, VO-OPS-TEST-QUERY-INPUT-ERROR-RETURNS-NO-RESULT
+/// @vtest.covers VO-CLI-TEST-QUERY-SOURCE-REFERENCE-FORMS, VO-CLI-TEST-QUERY-UNRESOLVED-SOURCE-REJECTED, VO-OPS-TEST-QUERY-INPUT-ERROR-RETURNS-NO-RESULT, VO-MCP-INPUT-ERROR-CANDIDATES
 /// @vtest.target crates/vtest-ops/src/test_query.rs::query
-/// @vtest.intent `vtest test query --source` rejects a value that neither starts with `SRC-` nor contains `::`, an adapter ID that is not registered, a reference that resolves to no Source Target and a SRC ID two Source Targets declare with E-OP-001, exit code 2, `ok: false` and `data: null`, and names the canonical Locators of the candidates when there are any
+/// @vtest.target crates/vtest-scan/src/operations.rs::source_target_candidates
+/// @vtest.intent `vtest test query --source` rejects a value that neither starts with `SRC-` nor contains `::`, an adapter ID that is not registered, a reference that resolves to no Source Target and a SRC ID two Source Targets declare with E-OP-001, exit code 2, `ok: false` and `data: null`, names the canonical Locators of the near Source Targets of the same adapter and of the Source Targets that declare a near SRC ID in `candidates`, each once, and has no `candidates` when none is near
 /// @vtest.case no `::` and no `SRC-`
 /// @vtest.case unregistered adapter ID
 /// @vtest.case no such Source Target
 /// @vtest.case unknown SRC ID
+/// @vtest.case near Locator
+/// @vtest.case same last segment in another file
+/// @vtest.case near SRC ID
 /// @vtest.case SRC ID declared twice
 #[test]
 fn query_rejects_a_source_that_does_not_resolve_to_one_source_target() {
@@ -410,6 +414,40 @@ fn query_rejects_a_source_that_does_not_resolve_to_one_source_target() {
             rejected["diagnostics"][0].get("candidates").is_none(),
             "{source}: {rejected}"
         );
+    }
+
+    // DS-1823 / DS-1192: the near Source Targets are the candidates, as
+    // canonical Locators: the same last segment first (DES-404), then the
+    // last segments within edit distance 2 (DES-405), each once.
+    fs::create_dir_all(root.join("src/deep")).unwrap();
+    fs::write(root.join("src/deep/mod.rs"), "pub fn add() {}\n").unwrap();
+    fs::write(root.join("src/lib.rs"), format!("pub mod deep;\n{LIB_RS}")).unwrap();
+    for (source, expected) in [
+        (
+            "rust-cargo::src/lib.rs::ad",
+            json!([
+                "rust-cargo::src/deep/mod.rs::add",
+                "rust-cargo::src/lib.rs::add",
+                "rust-cargo::tests/query.rs::adds"
+            ]),
+        ),
+        (
+            "rust-cargo::src/nowhere.rs::adds",
+            json!([
+                "rust-cargo::tests/query.rs::adds",
+                "rust-cargo::src/deep/mod.rs::add",
+                "rust-cargo::src/lib.rs::add"
+            ]),
+        ),
+        ("SRC-AD", json!(["rust-cargo::src/lib.rs::add"])),
+    ] {
+        for _ in 0..2 {
+            let (code, near) = json_of(&root, &["test", "query", "--source", source]);
+            assert_eq!(code, 2, "{source}: {near}");
+            assert_eq!(near["data"], Value::Null, "{source}");
+            assert_eq!(codes(&near), ["E-OP-001"], "{source}");
+            assert_eq!(near["diagnostics"][0]["candidates"], expected, "{source}");
+        }
     }
 
     fs::write(
