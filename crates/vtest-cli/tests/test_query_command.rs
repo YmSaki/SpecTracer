@@ -516,10 +516,11 @@ fn show_returns_the_test_with_the_result_of_verify_for_that_test() {
 }
 
 /// @vtest.id TEST-CLI-TEST-SHOW-REJECTS-UNKNOWN-AND-DUPLICATED-ID
-/// @vtest.covers VO-CLI-TEST-SHOW-UNKNOWN-OR-DUPLICATED-ID, VO-OPS-TEST-QUERY-INPUT-ERROR-RETURNS-NO-RESULT
+/// @vtest.covers VO-CLI-TEST-SHOW-UNKNOWN-OR-DUPLICATED-ID, VO-OPS-TEST-QUERY-INPUT-ERROR-RETURNS-NO-RESULT, VO-MCP-INPUT-ERROR-CANDIDATES
 /// @vtest.target crates/vtest-ops/src/test_query.rs::show
-/// @vtest.intent `vtest test show` rejects a Test ID no managed Test has with E-OP-001 and a Test ID two managed Tests have with E-SCAN-002, both with exit code 2, `ok: false` and `data: null`, while `vtest test list` still returns both Tests of the duplicated ID
+/// @vtest.intent `vtest test show` rejects a Test ID no managed Test has with E-OP-001 and a Test ID two managed Tests have with E-SCAN-002, both with exit code 2, `ok: false` and `data: null`, names the Test IDs within edit distance 2 of an unknown one in `candidates`, each once and in ascending order, and has no `candidates` when none is near, while `vtest test list` still returns both Tests of the duplicated ID
 /// @vtest.case unknown Test ID
+/// @vtest.case unknown Test ID near existing ones
 /// @vtest.case Test ID of two managed Tests
 #[test]
 fn show_rejects_a_test_id_that_does_not_name_exactly_one_test() {
@@ -529,6 +530,22 @@ fn show_rejects_a_test_id_that_does_not_name_exactly_one_test() {
     assert_eq!(unknown["ok"], false);
     assert_eq!(unknown["data"], Value::Null);
     assert_eq!(codes(&unknown), ["E-OP-001"]);
+    assert!(
+        unknown["diagnostics"][0].get("candidates").is_none(),
+        "no Test ID is near: {unknown}"
+    );
+
+    // DS-1192: a near Test ID is named, each once, in ascending order.
+    for (requested, expected) in [
+        ("TEST-AD", json!(["TEST-ADD"])),
+        ("TEST-SUD", json!(["TEST-ADD", "TEST-SUB"])),
+    ] {
+        let (code, near) = json_of(&root, &["test", "show", requested]);
+        assert_eq!(code, 2, "{near}");
+        assert_eq!(near["data"], Value::Null);
+        assert_eq!(codes(&near), ["E-OP-001"]);
+        assert_eq!(near["diagnostics"][0]["candidates"], expected, "{near}");
+    }
 
     fs::write(
         root.join("tests/again.rs"),
@@ -542,6 +559,9 @@ fn show_rejects_a_test_id_that_does_not_name_exactly_one_test() {
     assert_eq!(duplicated["ok"], false);
     assert_eq!(duplicated["data"], Value::Null);
     assert_eq!(codes(&duplicated), ["E-SCAN-002"]);
+    // The duplicated ID is one candidate, not two.
+    let (_, near) = json_of(&root, &["test", "show", "TEST-AD"]);
+    assert_eq!(near["diagnostics"][0]["candidates"], json!(["TEST-ADD"]));
 
     // DS-1817: the unfiltered list holds the Tests whose IDs collide.
     let (code, listed) = json_of(&root, &["test", "list"]);

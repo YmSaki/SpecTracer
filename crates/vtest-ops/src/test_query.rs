@@ -266,7 +266,18 @@ pub fn show(root: &Path, registry: &AdapterRegistry, test_id: &str) -> (ExitCode
         .filter(|test| test.id.as_str() == test_id)
         .count();
     if holders == 0 {
-        return Failure::usage("E-OP-001", format!("no Test with id '{test_id}' exists")).result();
+        // DS-1192: the near Test IDs, by the rule every rejection of an
+        // unknown Test ID uses (DES-405), each once.
+        let mut candidates = vtest_scan::test_id_candidates(&scan, test_id);
+        candidates.dedup();
+        return (
+            ExitCode::Usage,
+            failure_envelope_with_candidates(
+                "E-OP-001",
+                format!("no Test with id '{test_id}' exists"),
+                (!candidates.is_empty()).then_some(candidates.as_slice()),
+            ),
+        );
     }
     if holders > 1 {
         return Failure::usage(

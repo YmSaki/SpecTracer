@@ -1864,7 +1864,10 @@ fn symbol_candidates(scan: &ScanResult, requested: &str) -> Vec<String> {
     exact_suffix
 }
 
-fn test_id_candidates(scan: &ScanResult, requested: &str) -> Vec<String> {
+/// The Test IDs of the scan within edit distance 2 of `requested`, in
+/// ascending order (DES-405): the candidates a rejection of an unknown Test
+/// ID carries (DS-1192).
+pub fn test_id_candidates(scan: &ScanResult, requested: &str) -> Vec<String> {
     let ids = scan
         .tests
         .iter()
