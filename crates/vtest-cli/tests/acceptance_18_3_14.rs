@@ -155,6 +155,10 @@ fn show_returns_what_verify_returns_for_the_test() {
 
     let (code, unknown) = json_of(&project.root, &["test", "show", "TEST-NOBODY"]);
     assert_eq!((code, codes(&unknown)), (2, vec!["E-OP-001".to_owned()]));
+    // A near Test ID is named as a candidate (DS-1192).
+    let (code, near) = json_of(&project.root, &["test", "show", "TEST-SU"]);
+    assert_eq!((code, codes(&near)), (2, vec!["E-OP-001".to_owned()]));
+    assert_eq!(near["diagnostics"][0]["candidates"], json!(["TEST-SUB"]));
 
     project.write(
         "tests/again.rs",
