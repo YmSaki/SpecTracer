@@ -8,7 +8,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use vtest_cli::{run, Cli, Command, DocCommand, OutputFormat};
+use vtest_cli::{run, Cli, Command, DocCommand};
 use vtest_model::ExitCode;
 use vtest_store::init_project;
 
@@ -57,7 +57,7 @@ fn build_fixture_project(root: &std::path::Path) {
 fn cli(root: &std::path::Path, command: Command) -> Cli {
     Cli {
         project: root.to_path_buf(),
-        format: OutputFormat::Json,
+        format: Some(vtest_cli::FormatArg::Json),
         quiet: true,
         command,
     }

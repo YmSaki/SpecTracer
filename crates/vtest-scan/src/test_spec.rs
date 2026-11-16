@@ -192,8 +192,8 @@ pub fn identifier_encoding(value: &str) -> String {
     encoded
 }
 
-/// DS-1765: a string of the comparison JSON.
-fn comparison_string(value: &str, out: &mut String) {
+/// DS-1765: a string of the comparison JSON, appended to `out`.
+pub fn comparison_string(value: &str, out: &mut String) {
     out.push('"');
     for character in value.chars() {
         match character {

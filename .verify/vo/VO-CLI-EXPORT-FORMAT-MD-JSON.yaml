@@ -1,0 +1,11 @@
+id: VO-CLI-EXPORT-FORMAT-MD-JSON
+parent: null
+derives_from:
+  - doc: DS-1692
+claim: '`vtest export` は `--format` に `md` と `json` を受理し、省略時は `md` とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

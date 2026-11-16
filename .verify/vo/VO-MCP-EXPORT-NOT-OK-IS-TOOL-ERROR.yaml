@@ -1,0 +1,11 @@
+id: VO-MCP-EXPORT-NOT-OK-IS-TOOL-ERROR
+parent: null
+derives_from:
+  - doc: DS-1775
+claim: '`export` は、結果の `ok` が `false` の場合、その結果を MCP のツールエラーとして返す。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

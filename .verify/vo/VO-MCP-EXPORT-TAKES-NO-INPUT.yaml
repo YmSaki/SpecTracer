@@ -1,0 +1,11 @@
+id: VO-MCP-EXPORT-TAKES-NO-INPUT
+parent: null
+derives_from:
+  - doc: DS-1773
+claim: '`export` は、引数を1件以上与えられた場合、`code` が E-OP-001 のツールエラーで拒否し、テスト仕様書を返さない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

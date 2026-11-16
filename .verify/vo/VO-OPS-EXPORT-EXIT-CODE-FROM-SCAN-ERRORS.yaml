@@ -1,0 +1,11 @@
+id: VO-OPS-EXPORT-EXIT-CODE-FROM-SCAN-ERRORS
+parent: null
+derives_from:
+  - doc: DS-1698
+claim: '`vtest export` は、scan が完了した場合はテスト仕様書を出力し、severity が error の診断が1件以上あれば終了コード1、なければ0とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

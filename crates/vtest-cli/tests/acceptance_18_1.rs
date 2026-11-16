@@ -31,9 +31,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use vtest_cli::{
-    run, ApprovalCommand, ApproverKindArg, Cli, Command, OutputFormat, SubjectTypeArg,
-};
+use vtest_cli::{run, ApprovalCommand, ApproverKindArg, Cli, Command, SubjectTypeArg};
 use vtest_model::{
     DerivesFrom, DocumentFile, DocumentId, ExitCode, NodeSource, RootNode, SentenceNode, VoId,
     VoRecord,
@@ -60,7 +58,7 @@ fn temp_root(name: &str) -> PathBuf {
 fn cli(root: &std::path::Path, command: Command) -> Cli {
     Cli {
         project: root.to_path_buf(),
-        format: OutputFormat::Json,
+        format: Some(vtest_cli::FormatArg::Json),
         quiet: true,
         command,
     }

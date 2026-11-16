@@ -7,7 +7,7 @@
 
 use std::path::{Path, PathBuf};
 
-use vtest_cli::{run, Cli, Command, OutputFormat};
+use vtest_cli::{run, Cli, Command};
 use vtest_model::ExitCode;
 
 fn temp_root(name: &str) -> PathBuf {
@@ -29,7 +29,7 @@ fn temp_root(name: &str) -> PathBuf {
 fn cli(root: &Path, command: Command) -> Cli {
     Cli {
         project: root.to_path_buf(),
-        format: OutputFormat::Json,
+        format: Some(vtest_cli::FormatArg::Json),
         quiet: true,
         command,
     }

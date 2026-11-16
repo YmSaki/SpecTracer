@@ -9,8 +9,7 @@ use std::{
 };
 
 use vtest_cli::{
-    run, ApprovalCommand, ApprovedStateArg, ApproverKindArg, Cli, Command, OutputFormat,
-    SubjectTypeArg,
+    run, ApprovalCommand, ApprovedStateArg, ApproverKindArg, Cli, Command, SubjectTypeArg,
 };
 use vtest_model::{
     DerivesFrom, DocumentFile, DocumentId, ExitCode, NodeSource, RootNode, SentenceNode, VoId,
@@ -110,7 +109,7 @@ fn approval_record_count(root: &std::path::Path) -> usize {
 fn cli(root: &std::path::Path, command: Command) -> Cli {
     Cli {
         project: root.to_path_buf(),
-        format: OutputFormat::Json,
+        format: Some(vtest_cli::FormatArg::Json),
         quiet: true,
         command,
     }

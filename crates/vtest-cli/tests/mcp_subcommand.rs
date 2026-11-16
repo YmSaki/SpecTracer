@@ -81,7 +81,7 @@ fn vtest_mcp_serves_initialize_tools_list_and_scan_over_stdio() {
 fn the_library_run_rejects_the_mcp_command() {
     let exit = vtest_cli::run(vtest_cli::Cli {
         project: std::env::temp_dir(),
-        format: vtest_cli::OutputFormat::Json,
+        format: Some(vtest_cli::FormatArg::Json),
         quiet: true,
         command: vtest_cli::Command::Mcp,
     });

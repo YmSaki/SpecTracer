@@ -1,0 +1,11 @@
+id: VO-CLI-EXPORT-JSON-OK-FROM-EXIT-CODE
+parent: null
+derives_from:
+  - doc: DS-1699
+claim: '`vtest export --format json` の `ok` は、終了コード0の場合に `true`、終了コード1・2・3の場合に `false` とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

@@ -15,7 +15,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use vtest_cli::{run, Cli, Command, OutputFormat};
+use vtest_cli::{run, Cli, Command};
 use vtest_model::{
     DerivesFrom, DocumentFile, DocumentId, ExitCode, NodeSource, RootNode, SentenceNode, VoId,
     VoRecord,
@@ -240,7 +240,7 @@ fn build_broken_fixture_project(root: &Path) {
 fn cli(root: &Path, command: Command) -> Cli {
     Cli {
         project: root.to_path_buf(),
-        format: OutputFormat::Json,
+        format: Some(vtest_cli::FormatArg::Json),
         quiet: true,
         command,
     }
