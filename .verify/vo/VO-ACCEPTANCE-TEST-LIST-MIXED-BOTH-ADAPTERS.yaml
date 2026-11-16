@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-LIST-MIXED-BOTH-ADAPTERS
+parent: null
+derives_from:
+  - doc: DS-1861
+claim: '`rust-cargo` adapter と `synthetic` adapter を登録した受入専用の registry を in-process で渡した list の操作は、両方の adapter が managed Test を返し、管理宣言を持たない Test construct が1件以上ある混在プロジェクトに対して、両方の adapter の Test を `data.tests` に含み、その Test ID の列は、同じ registry を渡した export の操作の `data.tests` の `id` の列と順を含めて一致し、どの要素も `execution` を持つ。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

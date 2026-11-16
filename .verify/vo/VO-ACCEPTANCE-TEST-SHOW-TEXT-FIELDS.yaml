@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-SHOW-TEXT-FIELDS
+parent: null
+derives_from:
+  - doc: DS-1874
+claim: '判断記録と Evidence レコードを持つ Test について、`vtest test show <Test ID> --format text` の標準出力は、当該 Test の Test ID、intent、`covers` の各 VO ID、path、locator、`--format json` の `data.verification` が持つ各検査の検査名と state、`data.judgments` の各 `judgment_kind` と実効判断と `effective` の各 decision ID、`data.evidence` の Evidence ID と `result` を含み、Evidence レコードがない Test では `evidence: none` の行を含む。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

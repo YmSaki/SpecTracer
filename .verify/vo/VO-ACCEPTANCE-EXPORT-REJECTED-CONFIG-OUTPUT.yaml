@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-REJECTED-CONFIG-OUTPUT
+parent: null
+derives_from:
+  - doc: DS-1798
+claim: 'config が E-CONFIG-001 で拒否されるプロジェクトで、`vtest export --format json` は終了コード2を返して `ok: false`・`data: null` の envelope を標準出力へ出力し、`vtest export --format md` は終了コード2を返して標準出力へ何も出力せず、診断を標準エラーへ出力する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

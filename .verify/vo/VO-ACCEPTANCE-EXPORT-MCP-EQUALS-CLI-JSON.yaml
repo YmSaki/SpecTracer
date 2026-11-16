@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-MCP-EQUALS-CLI-JSON
+parent: null
+derives_from:
+  - doc: DS-1793
+claim: 同じプロジェクトルートと同じ実行環境で、同じ repository 内容に対して、`vtest export --format json` の標準出力の JSON と MCP ツール `export` の結果は、severity が error の診断がない場合も、ある場合も、`ok`・`data`・`diagnostics` が一致する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

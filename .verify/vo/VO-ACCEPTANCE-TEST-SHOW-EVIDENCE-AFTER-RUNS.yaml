@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-SHOW-EVIDENCE-AFTER-RUNS
+parent: null
+derives_from:
+  - doc: DS-1873
+claim: Evidence レコードがない Test の `data.evidence` は `null` であり、`vtest run` で当該 Test を実行した後は、`data.evidence` の `id` が `vtest run` の出力した当該 Test の Evidence ID、`result` が当該実行の結果、`valid` が `true` になり、もう一度実行した後は、`id` が2回目の Evidence ID になる。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

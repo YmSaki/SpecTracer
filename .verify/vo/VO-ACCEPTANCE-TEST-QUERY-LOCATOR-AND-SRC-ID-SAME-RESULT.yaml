@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-QUERY-LOCATOR-AND-SRC-ID-SAME-RESULT
+parent: null
+derives_from:
+  - doc: DS-1841
+claim: 同じ Source Target を Locator 参照で宣言した Test と SRC ID 参照で宣言した Test があるプロジェクトで、`vtest test query --source` は、Locator 参照を与えても SRC ID 参照を与えても、両方の Test を含む同じ `data.tests` を返し、その Source Target を宣言していない Test を含まない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

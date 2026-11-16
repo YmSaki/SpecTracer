@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-EXIT-0-WHEN-VERIFY-NG
+parent: null
+derives_from:
+  - doc: DS-1795
+claim: '`vtest verify` が NG を返すプロジェクトでも、severity が error の scan 診断がなければ、`vtest export` は終了コード0を返し、`--format json` の `ok` は `true` である。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

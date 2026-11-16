@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-SHOW-ACCEPTED-JUDGMENT
+parent: null
+derives_from:
+  - doc: DS-1870
+claim: '`case-coverage` の実効判断が `accepted` である Test について、`vtest verify --test <Test ID> --format json` の `data.pending` は当該 Test の `case-coverage` の項目を含まず、`vtest test show <Test ID> --format json` の `data.judgments` は、`judgment_kind` が `case-coverage`、`decision` が `accepted`、`effective` が当該判断記録の decision ID の1件だけ、`superseded` と `invalid` が空の list である要素を含む。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

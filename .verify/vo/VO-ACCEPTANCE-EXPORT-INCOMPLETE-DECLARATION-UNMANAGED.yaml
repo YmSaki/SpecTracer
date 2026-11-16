@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-INCOMPLETE-DECLARATION-UNMANAGED
+parent: null
+derives_from:
+  - doc: DS-1784
+claim: 管理宣言が不完全な Test construct は、`data.tests` に含まれず、`data.unmanaged` に、当該 construct に付いた E-SCAN-* の診断コードを `codes` に持つ要素として含まれる。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

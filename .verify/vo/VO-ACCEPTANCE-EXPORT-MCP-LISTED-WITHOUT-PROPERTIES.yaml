@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-MCP-LISTED-WITHOUT-PROPERTIES
+parent: null
+derives_from:
+  - doc: DS-1806
+claim: MCP の `tools/list` の結果は、名前が `export` で、入力 schema が property を1件も持たないツールを含む。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

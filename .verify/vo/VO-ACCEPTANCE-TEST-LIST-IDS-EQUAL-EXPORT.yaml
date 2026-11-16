@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-LIST-IDS-EQUAL-EXPORT
+parent: null
+derives_from:
+  - doc: DS-1837
+claim: 配布物の `vtest test list --format json` の `data.tests` の Test ID の列は、同じプロジェクトに対する `vtest export --format json` の `data.tests` の `id` の列と、順を含めて一致し、各要素は `execution` と `targets` を持つ。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

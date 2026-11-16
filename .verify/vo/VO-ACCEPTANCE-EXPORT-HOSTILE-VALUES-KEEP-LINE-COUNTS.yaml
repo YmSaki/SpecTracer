@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-HOSTILE-VALUES-KEEP-LINE-COUNTS
+parent: null
+derives_from:
+  - doc: DS-1792
+claim: 宣言された値が Markdown の記法として解釈されうる文字（`#`・`|`・`` ` ``・`<`・`*`・`[`）と改行を含む Test でも、Markdown 文書の行数と見出し行の数は、同じ宣言の値を英数字だけにした場合と変わらない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

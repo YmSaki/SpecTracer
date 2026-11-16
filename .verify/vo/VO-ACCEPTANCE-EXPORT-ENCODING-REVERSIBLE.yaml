@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-ENCODING-REVERSIBLE
+parent: null
+derives_from:
+  - doc: DS-1810
+claim: ASCII 記号、LF、LF 以外の U+0000〜U+001F、U+007F、先頭と末尾の空白、非 ASCII 文字を併せて含む値について、Markdown 文書の当該値に DS-1747 の置き換えを逆に適用した結果は、元の値と byte 単位で一致する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

@@ -141,3 +141,77 @@ config projections separately. Previously recorded hashes may become STALE and
 need a fresh execution; the Evidence wire shape and snapshot schema name remain
 unchanged. Single-workspace-root collection remains a supported subset: external
 local path dependencies report incomplete snapshots rather than a complete hash.
+
+## Issue #71: test specification output and `vtest test show / list / query`
+
+Each clause of DS-S164 (§18.3.13) and DS-S167 (§18.3.14) is mapped to the test
+that observes it. The clauses that name the shipped `vtest` run the binary; the
+MCP clauses go through the `vtest mcp` stdio transport; the clauses that name
+the acceptance-only registry call the operation in-process with `rust-cargo`
+and `synthetic` registered (`tests/support/spec_acceptance.rs`), because
+`synthetic` is not in the shipped registry. `vtest run` is called with `--fast`,
+so no observation depends on `cargo-llvm-cov`.
+
+| Clause | Test | Status |
+|---|---|---|
+| DS-1780 | `a_mixed_project_exports_the_tests_of_both_adapters_in_one_form` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1781 | `a_mixed_project_exports_the_tests_of_both_adapters_in_one_form` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1782 | `constructs_without_a_complete_declaration_are_exported_as_unmanaged` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1783 | `constructs_without_a_complete_declaration_are_exported_as_unmanaged` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1784 | `constructs_without_a_complete_declaration_are_exported_as_unmanaged` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1785 | `unresolved_references_are_exported_and_not_dropped` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1786 | `unresolved_references_are_exported_and_not_dropped` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1787 | `unresolved_references_are_exported_and_not_dropped` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1788 | `unresolved_references_are_exported_and_not_dropped` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1789 | `two_tests_with_one_id_are_both_exported_with_numbered_keys` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1790 | `the_export_does_not_depend_on_the_run_or_on_enumeration_order` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1791 | `the_export_does_not_depend_on_the_run_or_on_enumeration_order` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1792 | `values_that_look_like_markdown_do_not_change_the_document_structure` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1793 | `the_mcp_export_tool_returns_what_the_cli_prints` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1794 | `evidence_approvals_and_judgments_do_not_change_the_export` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1795 | `evidence_approvals_and_judgments_do_not_change_the_export` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1796 | `export_leaves_the_project_files_as_they_were` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1797 | `a_project_without_document_records_is_exported` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1798 | `a_rejected_config_and_quiet_keep_the_exit_code_of_export` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1799 | `a_rejected_config_and_quiet_keep_the_exit_code_of_export` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1800 | `export_rejects_formats_and_arguments_outside_its_contract` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1801 | `the_mcp_export_tool_returns_what_the_cli_prints` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1802 | `export_rejects_formats_and_arguments_outside_its_contract` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1803 | `export_rejects_formats_and_arguments_outside_its_contract` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1804 | `export_rejects_formats_and_arguments_outside_its_contract` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1805 | `export_rejects_formats_and_arguments_outside_its_contract` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1806 | `the_mcp_export_tool_returns_what_the_cli_prints` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1807 | `the_mcp_export_tool_returns_what_the_cli_prints` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1808 | `markdown_values_are_encoded_without_losing_a_character` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1809 | `markdown_values_are_encoded_without_losing_a_character` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1810 | `markdown_values_are_encoded_without_losing_a_character` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1811 | `the_shipped_export_prints_the_data_and_document_of_the_operation` (`acceptance_18_3_13.rs`) | PASS |
+| DS-1837 | `list_agrees_with_the_test_specification` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1838 | `list_vo_returns_the_declaring_tests_only` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1839 | `list_agrees_with_the_test_specification` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1840 | `list_vo_returns_the_declaring_tests_only` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1841 | `query_resolves_the_source_before_comparing` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1842 | `query_resolves_the_source_before_comparing` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1843 | `show_returns_what_verify_returns_for_the_test` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1844 | `show_returns_what_verify_returns_for_the_test` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1845 | `the_mcp_tools_return_what_the_cli_prints` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1846 | `the_mcp_tools_return_what_the_cli_prints` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1847 | `the_mcp_tools_return_what_the_cli_prints` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1848 | `the_query_commands_and_tools_leave_the_project_files_as_they_were` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1861 | `list_and_query_handle_both_adapters_of_a_mixed_project` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1862 | `list_and_query_handle_both_adapters_of_a_mixed_project` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1863 | `list_and_query_handle_both_adapters_of_a_mixed_project` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1864 | `list_and_query_handle_both_adapters_of_a_mixed_project` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1865 | `the_query_commands_reject_arguments_outside_their_forms` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1866 | `the_query_commands_reject_arguments_outside_their_forms` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1867 | `list_and_query_keep_their_result_next_to_a_scan_error` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1868 | `text_lists_one_test_per_line_and_quiet_prints_nothing` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1869 | `text_lists_one_test_per_line_and_quiet_prints_nothing` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1870 | `show_reports_the_state_of_the_judgment_records` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1871 | `show_reports_the_state_of_the_judgment_records` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1872 | `show_reports_the_state_of_the_judgment_records` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1873 | `show_reports_the_latest_evidence_and_prints_every_field_as_text` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1874 | `show_reports_the_latest_evidence_and_prints_every_field_as_text` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1875 | `the_mcp_tools_return_what_the_cli_prints` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1876 | `the_mcp_tools_return_what_the_cli_prints` (`acceptance_18_3_14.rs`) | PASS |
+| DS-1877 | `show_reports_the_latest_evidence_and_prints_every_field_as_text` (`acceptance_18_3_14.rs`) | PASS |

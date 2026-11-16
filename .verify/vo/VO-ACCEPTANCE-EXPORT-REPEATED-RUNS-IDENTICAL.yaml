@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-REPEATED-RUNS-IDENTICAL
+parent: null
+derives_from:
+  - doc: DS-1790
+claim: 同じ repository 内容に対して `vtest export` を2回実行すると、`--format json` の `data` と `--format md` の標準出力は、それぞれ byte 単位で同一である。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

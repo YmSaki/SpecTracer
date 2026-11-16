@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-QUERY-PROJECT-FILES-UNCHANGED
+parent: null
+derives_from:
+  - doc: DS-1848
+claim: '`vtest test list`・`vtest test query`・`vtest test show` の実行と、`test_get`・`test_query` の呼び出しの前後で、プロジェクトルート配下のファイルとディレクトリの集合、および各ファイルの内容は変わらない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

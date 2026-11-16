@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-UNRESOLVED-COVERS-EXIT-1
+parent: null
+derives_from:
+  - doc: DS-1786
+claim: '解決できない `covers` 参照があるプロジェクトで、`vtest export` は終了コード1を返し、`--format json` では `ok: false` と `null` でない `data` を出力し、`--format md` では Markdown 文書を標準出力へ出力する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

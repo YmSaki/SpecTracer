@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-SHOW-CONFLICTING-AND-SUPERSEDING-JUDGMENTS
+parent: null
+derives_from:
+  - doc: DS-1871
+claim: 同じ Test の `case-coverage` に判断値の異なる2件の有効な判断記録がある場合、`data.judgments` の当該要素は、`decision` が `null` で、`effective` に2件の decision ID を持ち、一方が他方を `supersedes` で名指しする場合は、`decision` が名指しした側の判断値で、`effective` が名指しした側の decision ID だけ、`superseded` が名指しされた側の decision ID だけになる。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

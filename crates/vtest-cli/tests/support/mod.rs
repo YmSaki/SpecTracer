@@ -5,6 +5,8 @@
 //! unmodified `vtest-scan` / `vtest-verify` core.
 #![allow(dead_code)]
 
+pub mod spec_acceptance;
+
 use std::{
     env, fs,
     path::{Path, PathBuf},

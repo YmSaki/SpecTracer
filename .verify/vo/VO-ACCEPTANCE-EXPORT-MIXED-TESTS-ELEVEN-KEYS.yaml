@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-MIXED-TESTS-ELEVEN-KEYS
+parent: null
+derives_from:
+  - doc: DS-1780
+claim: '`rust-cargo` adapter と `synthetic` adapter を登録した受入専用の registry を in-process で渡した export の操作は、両方の adapter が Test を返す混在プロジェクトに対して、両方の adapter の managed Test を `data.tests` に含み、どの要素も `key`・`id`・`intent`・`covers`・`targets`・`input`・`expect`・`kind`・`cases`・`related`・`location` の11個の key だけを持つ `data` を返す。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00
