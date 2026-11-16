@@ -2072,25 +2072,28 @@ fn argument_error(quiet: bool, message: &str) -> ExitCode {
 /// Whether the raw arguments are a `vtest export` call with `--quiet`.
 /// Such a call prints nothing even when its arguments are rejected
 /// (DS-1706), which the binary has to decide before the parser reports.
+///
+/// The arguments are compared as `OsStr` and none is dropped: the value of
+/// `--project` may be a path that is not UTF-8, and it still has to be
+/// skipped as the value it is.
 pub fn is_quiet_export<S: AsRef<std::ffi::OsStr>>(arguments: &[S]) -> bool {
-    let arguments: Vec<&str> = arguments
-        .iter()
-        .filter_map(|argument| argument.as_ref().to_str())
-        .collect();
     let mut subcommand = None;
     let mut index = 0;
     while index < arguments.len() {
-        match arguments[index] {
-            "--project" | "--format" => index += 1,
-            argument if argument.starts_with('-') => {}
-            argument => {
-                subcommand = Some(argument);
-                break;
-            }
+        let argument = arguments[index].as_ref();
+        if argument == "--project" || argument == "--format" {
+            // The next token is this option's value, whatever it is.
+            index += 1;
+        } else if !argument.as_encoded_bytes().starts_with(b"-") {
+            subcommand = Some(argument);
+            break;
         }
         index += 1;
     }
-    subcommand == Some("export") && arguments.contains(&"--quiet")
+    subcommand.is_some_and(|subcommand| subcommand == "export")
+        && arguments
+            .iter()
+            .any(|argument| argument.as_ref() == "--quiet")
 }
 
 /// Walk upwards looking for a `.verify/` directory, so the CLI works from a

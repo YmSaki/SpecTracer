@@ -283,6 +283,66 @@ fn quiet_export_prints_nothing_and_keeps_the_exit_code() {
     }
 }
 
+/// @vtest.id TEST-CLI-EXPORT-QUIET-NON-UTF8-PROJECT
+/// @vtest.covers VO-CLI-EXPORT-QUIET-PRINTS-NOTHING
+/// @vtest.target crates/vtest-cli/src/lib.rs::is_quiet_export
+/// @vtest.intent `vtest export --quiet` with a rejected argument prints nothing and returns exit code 2 when the `--project` value is a path that is not UTF-8, in both positions of `--quiet`, and the same call without `--quiet` reports the argument error on stderr
+/// @vtest.case --project <non UTF-8> export --unknown --quiet
+/// @vtest.case --quiet --project <non UTF-8> export extra
+#[cfg(unix)]
+#[test]
+fn quiet_export_prints_nothing_with_a_project_path_that_is_not_utf8() {
+    use std::{ffi::OsString, os::unix::ffi::OsStringExt};
+
+    let project = OsString::from_vec(b"/tmp/vtest-export-\xff\xfe-project".to_vec());
+    assert!(project.to_str().is_none(), "the path must not be UTF-8");
+    let run = |before: &[&str], after: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_vtest"))
+            .args(before)
+            .arg("--project")
+            .arg(&project)
+            .args(after)
+            .output()
+            .unwrap()
+    };
+
+    for (before, after) in [
+        (&[][..], &["export", "--unknown", "--quiet"][..]),
+        (&[], &["export", "--quiet", "extra"]),
+        (&["--quiet"], &["export", "extra"]),
+        (&["--quiet"], &["export", "--format", "json", "--unknown"]),
+    ] {
+        let output = run(before, after);
+        assert_eq!(exit(&output), 2, "{before:?} {after:?}");
+        assert!(output.stdout.is_empty(), "{before:?} {after:?}");
+        assert!(
+            output.stderr.is_empty(),
+            "{before:?} {after:?}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    let loud = run(&[], &["export", "--unknown"]);
+    assert_eq!(exit(&loud), 2);
+    assert!(loud.stdout.is_empty());
+    assert!(!loud.stderr.is_empty());
+
+    // The value of `--project` is skipped, so `export` as that value is not
+    // the subcommand: `scan --quiet` with a bad argument still reports.
+    assert!(!vtest_cli::is_quiet_export(&[
+        "--project",
+        "export",
+        "scan",
+        "--quiet"
+    ]));
+    assert!(vtest_cli::is_quiet_export(&[
+        OsString::from("--project"),
+        project.clone(),
+        OsString::from("export"),
+        OsString::from("--quiet"),
+    ]));
+}
+
 /// @vtest.id TEST-CLI-EXPORT-WRITES-NOTHING
 /// @vtest.covers VO-CLI-EXPORT-WRITES-NOTHING
 /// @vtest.target crates/vtest-cli/src/lib.rs::run_export
