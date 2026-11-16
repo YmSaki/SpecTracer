@@ -909,6 +909,13 @@ fn test_get_and_test_query_match_their_cli_commands() {
         rejected("E-OP-001"),
     );
     assert_same(
+        "test-query-source-near",
+        &["test", "query", "--source", "rust-cargo::src/lib.rs::targe"],
+        "test_query",
+        json!({"source": "rust-cargo::src/lib.rs::targe"}),
+        rejected("E-OP-001"),
+    );
+    assert_same(
         "test-query-source-malformed",
         &["test", "query", "--source", "target"],
         "test_query",
@@ -943,6 +950,18 @@ fn test_get_and_test_query_match_their_cli_commands() {
         assert_eq!(
             envelope["diagnostics"][0]["candidates"],
             json!(["TEST-X"]),
+            "{envelope}"
+        );
+    }
+    // DS-1823: the near Source Target reaches both surfaces as the same
+    // canonical Locator.
+    let near_source = "rust-cargo::src/lib.rs::targe";
+    let (_, via_cli) = cli_with_exit(&root, &["test", "query", "--source", near_source]);
+    let via_mcp = mcp(&root, "test_query", json!({"source": near_source}));
+    for envelope in [&via_cli, &via_mcp] {
+        assert_eq!(
+            envelope["diagnostics"][0]["candidates"],
+            json!(["rust-cargo::src/lib.rs::target"]),
             "{envelope}"
         );
     }

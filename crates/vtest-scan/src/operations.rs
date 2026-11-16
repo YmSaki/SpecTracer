@@ -1864,6 +1864,71 @@ fn symbol_candidates(scan: &ScanResult, requested: &str) -> Vec<String> {
     exact_suffix
 }
 
+/// The Source Targets near a reference that resolves to none, as canonical
+/// locator keys without duplicates: the candidates a rejection of such a
+/// reference carries (DS-1192).
+///
+/// A Locator reference is compared with the Source Targets of its own
+/// adapter by the rule `symbol_candidates` uses: the ones whose last
+/// segment equals the last segment of the reference (DES-404), then the
+/// ones whose last segment is within edit distance 2 of it (DES-405), each
+/// group in ascending order. A SRC ID reference names the Source Targets
+/// that declare a SRC ID within edit distance 2 of it, in ascending order of
+/// that SRC ID and then of the locator.
+pub fn source_target_candidates(
+    scan: &ScanResult,
+    reference: &TargetRef,
+) -> Vec<crate::LocatorKey> {
+    let key = |source: &vtest_model::SourceFunction| {
+        (source.locator.adapter.clone(), source.locator.value.clone())
+    };
+    match reference {
+        TargetRef::Locator(locator) => {
+            let last = |value: &str| value.rsplit("::").next().unwrap_or(value).to_owned();
+            let item = last(&locator.value);
+            let own = scan
+                .sources
+                .iter()
+                .filter(|source| source.locator.adapter == locator.adapter);
+            let mut exact_suffix = Vec::new();
+            let mut near = Vec::new();
+            for source in own {
+                let candidate = last(&source.locator.value);
+                if candidate == item {
+                    exact_suffix.push(key(source));
+                } else if edit_distance(&candidate, &item) <= 2 {
+                    near.push(key(source));
+                }
+            }
+            exact_suffix.sort();
+            exact_suffix.dedup();
+            near.sort();
+            near.dedup();
+            exact_suffix.append(&mut near);
+            exact_suffix
+        }
+        TargetRef::SrcId(requested) => {
+            let mut near = scan
+                .sources
+                .iter()
+                .filter_map(|source| {
+                    let src_id = source.src_id.as_ref()?.as_str();
+                    (edit_distance(src_id, requested.as_str()) <= 2)
+                        .then(|| (src_id.to_owned(), key(source)))
+                })
+                .collect::<Vec<_>>();
+            near.sort();
+            let mut candidates = Vec::new();
+            for (_, candidate) in near {
+                if !candidates.contains(&candidate) {
+                    candidates.push(candidate);
+                }
+            }
+            candidates
+        }
+    }
+}
+
 /// The Test IDs of the scan within edit distance 2 of `requested`, in
 /// ascending order (DES-405): the candidates a rejection of an unknown Test
 /// ID carries (DS-1192).

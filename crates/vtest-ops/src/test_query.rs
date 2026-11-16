@@ -153,10 +153,12 @@ pub fn query(root: &Path, registry: &AdapterRegistry, source: &str) -> (ExitCode
     let wanted = match index.resolve(&reference) {
         TargetResolution::Resolved(key) => key,
         TargetResolution::NotFound => {
+            // DS-1823 / DS-1192: the near Source Targets, by the rule every
+            // rejection of an unresolved target reference uses.
             return source_rejection(
                 format!("--source `{source}` resolves to no Source Target"),
-                &[],
-            )
+                &vtest_scan::source_target_candidates(&scan, &reference),
+            );
         }
         TargetResolution::Ambiguous(candidates) => {
             return source_rejection(
