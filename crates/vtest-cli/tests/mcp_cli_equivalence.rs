@@ -794,6 +794,154 @@ fn export_matches_its_cli_command() {
     fs::remove_dir_all(&root).ok();
 }
 
+/// @vtest.id TEST-MCP-TRANSPORT-TEST-GET-AND-TEST-QUERY-MATCH-CLI
+/// @vtest.covers VO-MCP-TEST-GET-MATCHES-TEST-SHOW, VO-MCP-TEST-QUERY-MATCHES-LIST-AND-QUERY, VO-CLI-TEST-QUERY-COMMANDS-FAILURE-CLASSES, VO-MCP-TEST-GET-TEST-QUERY-NOT-OK-IS-TOOL-ERROR
+/// @vtest.target crates/vtest-mcp/src/lib.rs::tools_call_result
+/// @vtest.intent `test_get` against `vtest test show`, and `test_query` with `vo`, `source` and `unregistered` against `vtest test list --vo`, `vtest test query --source` and `vtest test list --unregistered`, return the same `ok`, `data` and `diagnostics` over the real `vtest mcp` stdio transport and leave the same project files, for accepted inputs, a result with an error diagnostic, E-OP-001 inputs, a rejected config (E-CONFIG-001, exit code 2) and an unreadable config (E-INTERNAL-001, exit code 3)
+/// @vtest.case accepted inputs
+/// @vtest.case unresolved target
+/// @vtest.case E-OP-001 inputs
+/// @vtest.case rejected config
+/// @vtest.case unreadable config
+#[test]
+fn test_get_and_test_query_match_their_cli_commands() {
+    let unresolved_target = |root: &Path| {
+        replace_in(
+            root,
+            "src/lib.rs",
+            "src/lib.rs::target",
+            "src/lib.rs::missing",
+        )
+    };
+    let source = "rust-cargo::src/lib.rs::target";
+    type Case<'a> = (&'a str, Vec<&'a str>, &'a str, Value);
+    let cases: [Case; 4] = [
+        (
+            "vo",
+            vec!["test", "list", "--vo", "VO-X"],
+            "test_query",
+            json!({"vo": "VO-X"}),
+        ),
+        (
+            "source",
+            vec!["test", "query", "--source", source],
+            "test_query",
+            json!({"source": source}),
+        ),
+        (
+            "unregistered",
+            vec!["test", "list", "--unregistered"],
+            "test_query",
+            json!({"unregistered": true}),
+        ),
+        (
+            "get",
+            vec!["test", "show", "TEST-X"],
+            "test_get",
+            json!({"id": "TEST-X"}),
+        ),
+    ];
+
+    for (name, cli_args, tool, mcp_args) in &cases {
+        // `test show` carries the verification, which is not OK without
+        // Evidence (exit code 1); the lists are OK.
+        let expect = if *tool == "test_get" {
+            NOT_OK
+        } else {
+            ACCEPTED
+        };
+        assert_same(
+            &format!("test-query-{name}"),
+            cli_args,
+            tool,
+            mcp_args.clone(),
+            expect,
+        );
+        assert_same_after(
+            &format!("test-query-{name}-config"),
+            &break_config,
+            cli_args,
+            tool,
+            mcp_args.clone(),
+            rejected("E-CONFIG-001"),
+        );
+        assert_same_after(
+            &format!("test-query-{name}-config-unreadable"),
+            &make_config_unreadable,
+            cli_args,
+            tool,
+            mcp_args.clone(),
+            INTERNAL,
+        );
+    }
+
+    // An error diagnostic of the scan: the lists keep their data.
+    assert_same_after(
+        "test-query-vo-unresolved-target",
+        &unresolved_target,
+        &["test", "list", "--vo", "VO-X"],
+        "test_query",
+        json!({"vo": "VO-X"}),
+        Expect {
+            code: Some("E-SCAN-004"),
+            ..NOT_OK
+        },
+    );
+    assert_same_after(
+        "test-query-get-unresolved-target",
+        &unresolved_target,
+        &["test", "show", "TEST-X"],
+        "test_get",
+        json!({"id": "TEST-X"}),
+        NOT_OK,
+    );
+
+    assert_same(
+        "test-query-source-unknown",
+        &[
+            "test",
+            "query",
+            "--source",
+            "rust-cargo::src/lib.rs::missing",
+        ],
+        "test_query",
+        json!({"source": "rust-cargo::src/lib.rs::missing"}),
+        rejected("E-OP-001"),
+    );
+    assert_same(
+        "test-query-source-malformed",
+        &["test", "query", "--source", "target"],
+        "test_query",
+        json!({"source": "target"}),
+        rejected("E-OP-001"),
+    );
+    assert_same(
+        "test-query-get-unknown",
+        &["test", "show", "TEST-NOBODY"],
+        "test_get",
+        json!({"id": "TEST-NOBODY"}),
+        rejected("E-OP-001"),
+    );
+
+    // The data of an `ok: false` result reaches both surfaces.
+    let root = std::env::temp_dir().join(format!(
+        "vtest-tool-equivalence-{}-test-query-data",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&root);
+    tool_fixture(&root);
+    let (exit, via_cli) = cli_with_exit(&root, &["test", "show", "TEST-X"]);
+    let via_mcp = mcp(&root, "test_get", json!({"id": "TEST-X"}));
+    assert_eq!(exit, 1, "{via_cli}");
+    for envelope in [&via_cli, &via_mcp] {
+        assert_eq!(envelope["ok"], false, "{envelope}");
+        assert_eq!(envelope["data"]["test"]["id"], "TEST-X", "{envelope}");
+        assert_eq!(envelope["data"]["evidence"], Value::Null, "{envelope}");
+    }
+    assert_eq!(via_mcp["data"], via_cli["data"]);
+    fs::remove_dir_all(&root).ok();
+}
+
 /// @vtest.id TEST-MCP-TRANSPORT-SCAN-RUN-MATCH-CLI
 /// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE
 /// @vtest.target crates/vtest-mcp/src/lib.rs::tools_call_result

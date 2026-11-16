@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-SHOW-EVIDENCE-LATEST-RECORD
+parent: null
+derives_from:
+  - doc: DS-1854
+claim: '`data.evidence` は、当該 Test の Evidence レコードが1件もない場合は `null` とし、ある場合は、`verify` が当該 Test の `target_binding` の評価に選択する最新の Evidence レコードについて `id`・`result`・`executed_at`・`valid` を持つ object とし、`valid` は当該レコードが有効な Evidence レコードである場合に `true`、そうでない場合に `false` とし、`valid` が `false` の場合は `result` と `executed_at` を `null`、レコードから Evidence ID を読めない場合は `id` を `null` とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

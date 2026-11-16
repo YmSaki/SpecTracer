@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-SHOW-JUDGMENT-DECISION
+parent: null
+derives_from:
+  - doc: DS-1851
+claim: '`data.judgments` の要素の `decision` は、当該 `(subject, judgment_kind)` の実効判断が確定している場合はその判断値、未確定の場合は `null` とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

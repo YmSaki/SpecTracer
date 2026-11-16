@@ -339,6 +339,33 @@ fn resolution_key(
     )
 }
 
+/// The managed Test Entities of `scan`, Test ID collisions included, in the
+/// order of the test specification's `data.tests` (DS-1730): adapter ID,
+/// path, Test ID, locator, declared content, each compared as bytes.
+///
+/// `test_specification` and the Test queries (`vtest test list` / `query`)
+/// both take the order from here (BD-343).
+pub fn ordered_tests(scan: &ScanResult) -> Vec<&TestEntity> {
+    let mut ordered = scan
+        .tests
+        .iter()
+        .map(|test| {
+            (
+                (
+                    test.location.adapter.as_str(),
+                    test.location.path.as_str(),
+                    test.id.as_str(),
+                    test.location.locator.as_str(),
+                    declaration_comparison_json(test),
+                ),
+                test,
+            )
+        })
+        .collect::<Vec<_>>();
+    ordered.sort_by(|left, right| left.0.cmp(&right.0));
+    ordered.into_iter().map(|(_, test)| test).collect()
+}
+
 /// Builds the test specification from a finished scan (BD-332).
 ///
 /// The result does not depend on the order of `scan.tests`,
@@ -376,24 +403,7 @@ pub fn test_specification(scan: &ScanResult) -> TestSpecification {
         };
     }
 
-    // DS-1730: adapter ID, path, Test ID, locator, declared content.
-    let mut ordered = scan
-        .tests
-        .iter()
-        .map(|test| {
-            (
-                (
-                    test.location.adapter.as_str(),
-                    test.location.path.as_str(),
-                    test.id.as_str(),
-                    test.location.locator.as_str(),
-                    declaration_comparison_json(test),
-                ),
-                test,
-            )
-        })
-        .collect::<Vec<_>>();
-    ordered.sort_by(|left, right| left.0.cmp(&right.0));
+    let ordered = ordered_tests(scan);
 
     // DS-1708: the key is the encoded Test ID, plus `~<rank>` when the ID is
     // shared.
@@ -404,7 +414,7 @@ pub fn test_specification(scan: &ScanResult) -> TestSpecification {
     let mut ranks = BTreeMap::<&str, usize>::new();
     let mut keys = Vec::with_capacity(ordered.len());
     let mut keys_by_id = BTreeMap::<&str, Vec<String>>::new();
-    for (_, test) in &ordered {
+    for test in &ordered {
         let id = test.id.as_str();
         let key = if id_counts[id] == 1 {
             identifier_encoding(id)
@@ -420,7 +430,7 @@ pub fn test_specification(scan: &ScanResult) -> TestSpecification {
     let mut tests = Vec::with_capacity(ordered.len());
     let mut unresolved = Vec::new();
     let mut unresolved_vos = BTreeSet::<&str>::new();
-    for ((_, test), key) in ordered.iter().zip(&keys) {
+    for (test, key) in ordered.iter().zip(&keys) {
         let covers = test
             .covers
             .iter()

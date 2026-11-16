@@ -95,6 +95,21 @@ pub enum VerifyOpError {
     Internal { message: String },
 }
 
+impl VerifyOpError {
+    /// The exit code and the diagnostic of this rejection. `candidates` of a
+    /// usage error are not carried; a caller that reports them builds its
+    /// envelope from the variant.
+    pub fn failure(&self) -> crate::envelope::Failure {
+        match self {
+            Self::Usage { code, message, .. } => {
+                crate::envelope::Failure::usage(code, message.clone())
+            }
+            Self::Scan(error) => crate::envelope::scan_failure(error),
+            Self::Internal { message } => crate::envelope::Failure::internal(message.clone()),
+        }
+    }
+}
+
 /// DS-943/947/957/1114/1214: the `verify` JSON (CLI `--format json` and the
 /// MCP tool) carries the requested scope as a top-level `scope` field next
 /// to the common `ok` / `data` / `diagnostics` envelope, also on a complete
@@ -160,7 +175,27 @@ pub fn evaluate(
         candidates: None,
     })?;
 
-    let config = load_config(root).map_err(|error| match error.config_load_code() {
+    let config = load_verify_config(root)?;
+
+    let gate_config = resolve_gate(&config, gate)?;
+
+    let scan: ScanResult = scan_project(root, registry).map_err(VerifyOpError::Scan)?;
+    evaluate_scanned(
+        root,
+        &config,
+        scan,
+        requested.as_deref(),
+        entity,
+        gate_config,
+        summary,
+        registry,
+    )
+}
+
+/// The config `verify` evaluates against, with the failure `verify` reports
+/// when it cannot be loaded.
+pub fn load_verify_config(root: &Path) -> Result<ProjectConfig, VerifyOpError> {
+    load_config(root).map_err(|error| match error.config_load_code() {
         Some(code) => VerifyOpError::Usage {
             code,
             message: error.to_string(),
@@ -169,13 +204,25 @@ pub fn evaluate(
         None => VerifyOpError::Internal {
             message: error.to_string(),
         },
-    })?;
+    })
+}
 
-    let gate_config = resolve_gate(&config, gate)?;
-
-    let scan: ScanResult = scan_project(root, registry).map_err(VerifyOpError::Scan)?;
-
-    let outcome = verify_project(root, &scan, requested.as_deref(), entity, registry);
+/// [`evaluate`] from the point where the config is loaded and the project is
+/// scanned. `vtest test show` enters here with the scan it already used to
+/// find its Test, so its verification is the one `verify --test` computes
+/// (BD-345).
+#[allow(clippy::too_many_arguments)]
+pub fn evaluate_scanned(
+    root: &Path,
+    config: &ProjectConfig,
+    scan: ScanResult,
+    requested: Option<&[VerificationCheck]>,
+    entity: Option<EntityScope>,
+    gate_config: Option<&GateConfig>,
+    summary: bool,
+    registry: &AdapterRegistry,
+) -> Result<Evaluated, VerifyOpError> {
+    let outcome = verify_project(root, &scan, requested, entity, registry);
     if let Some(internal) = outcome
         .diagnostics
         .iter()
@@ -188,7 +235,7 @@ pub fn evaluate(
     let mut diagnostics = scan.diagnostics.clone();
     diagnostics.extend(outcome.diagnostics.iter().cloned());
     let gate_evaluation = gate_config.map(|gate| {
-        let (evaluation, gate_diagnostics) = evaluate_gate(root, &config, gate, &outcome);
+        let (evaluation, gate_diagnostics) = evaluate_gate(root, config, gate, &outcome);
         diagnostics.extend(gate_diagnostics);
         evaluation
     });

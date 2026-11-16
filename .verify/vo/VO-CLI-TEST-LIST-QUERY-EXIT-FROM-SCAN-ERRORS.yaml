@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-LIST-QUERY-EXIT-FROM-SCAN-ERRORS
+parent: null
+derives_from:
+  - doc: DS-1815
+claim: '`vtest test list` と `vtest test query` は、scan が完了し、引数が受理された場合、結果を出力し、severity が error の scan の診断が1件以上あれば終了コード1と `ok: false`、なければ終了コード0と `ok: true` とし、`diagnostics` に scan の診断を全件含める。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

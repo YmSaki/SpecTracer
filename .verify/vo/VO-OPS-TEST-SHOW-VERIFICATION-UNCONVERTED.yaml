@@ -1,0 +1,11 @@
+id: VO-OPS-TEST-SHOW-VERIFICATION-UNCONVERTED
+parent: null
+derives_from:
+  - doc: DES-616
+claim: show の操作の結果の `verification`・`ok`・`diagnostics`・終了コードは、verify の操作が返した値をそのまま持ち、変換しない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

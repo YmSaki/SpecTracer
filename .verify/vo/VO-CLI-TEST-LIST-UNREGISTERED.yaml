@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-LIST-UNREGISTERED
+parent: null
+derives_from:
+  - doc: DS-1820
+claim: '`vtest test list --unregistered` の `data` は `unmanaged` だけを持ち、`unmanaged` は、テスト仕様書の `data.unmanaged` と同じ要素を同じ順で含む。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

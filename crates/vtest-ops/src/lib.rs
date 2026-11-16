@@ -35,5 +35,6 @@ pub mod report;
 pub mod run;
 pub mod scan;
 pub mod test_op;
+pub mod test_query;
 pub mod verify;
 pub mod vo;

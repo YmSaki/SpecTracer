@@ -1,0 +1,11 @@
+id: VO-OPS-TEST-SHOW-JUDGMENTS-SPLIT-BY-VALIDITY-AND-SUPERSEDES
+parent: null
+derives_from:
+  - doc: DES-617
+claim: show の操作の結果の `judgments` は、当該 subject の判断記録を `judgment_kind` ごとに、有効性と `supersedes` だけで `effective`・`superseded`・`invalid` に分けたものであり、判断記録の新旧、判断値、件数で分けない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

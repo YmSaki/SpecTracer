@@ -1,0 +1,11 @@
+id: VO-OPS-TEST-QUERY-INPUT-ERROR-RETURNS-NO-RESULT
+parent: null
+derives_from:
+  - doc: DES-615
+claim: list・query・show の操作は、入力不正（E-OP-001）を返す場合、検証結果と Test の一覧を返さない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

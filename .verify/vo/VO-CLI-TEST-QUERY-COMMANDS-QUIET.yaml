@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-QUERY-COMMANDS-QUIET
+parent: null
+derives_from:
+  - doc: DS-1857
+claim: 引数が受理され、`--quiet` を指定した `vtest test list`・`vtest test query`・`vtest test show` は、標準出力にも標準エラーにも何も出力せず、`--quiet` を指定しない場合と同じ終了コードを返す。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

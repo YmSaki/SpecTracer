@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-LIST-VO-FILTER
+parent: null
+derives_from:
+  - doc: DS-1818
+claim: '`vtest test list --vo <VO ID>` の `data` は `tests` だけを持ち、`tests` は、`covers` に当該 VO ID を宣言した managed Test Entity だけを、DS-1817 と同じ順で含む。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

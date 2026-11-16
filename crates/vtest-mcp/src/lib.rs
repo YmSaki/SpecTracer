@@ -13,6 +13,9 @@
 //! `doc_upsert` for `doc show` / `doc add`. `init` and `doctor` are not in
 //! that list and stay CLI-only. `form_get` (DS-1205) has no CLI command.
 //! `export` (DS-1771) returns the JSON of `vtest export --format json`.
+//! `test_get` (DS-1204) is `vtest test show`; `test_query` (DS-1203) is
+//! `vtest test list --vo` / `--unregistered` or `vtest test query --source`,
+//! by which of its three inputs is given.
 
 use std::{
     fs,
@@ -50,6 +53,8 @@ const TOOL_NAMES: &[&str] = &[
     "vo_expand",
     "vo_approve",
     "export",
+    "test_get",
+    "test_query",
 ];
 
 #[derive(Default)]
@@ -566,6 +571,18 @@ fn tool_input_schema(name: &str) -> Value {
             vec!["form", "answers"],
         ),
         "form_get" => (json!({"kind": {"type": "string"}}), vec!["kind"]),
+        // DS-1858: `id` only, required.
+        "test_get" => (json!({"id": {"type": "string"}}), vec!["id"]),
+        // DS-1859: which one of the three is given is checked at the call
+        // (DS-1832), so none is required by the schema.
+        "test_query" => (
+            json!({
+                "vo": {"type": "string"},
+                "source": {"type": "string"},
+                "unregistered": {"type": "boolean"}
+            }),
+            Vec::new(),
+        ),
         "test_edit" => (
             json!({
                 "id": {"type": "string"},
@@ -621,6 +638,8 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
         "test_create" => &["form", "answers", "id", "dry_run"],
         "test_edit" => &["id", "answers", "set", "body", "dry_run"],
         "form_get" => &["kind"],
+        "test_get" => &["id"],
+        "test_query" => &["vo", "source", "unregistered"],
         "audit_static" => &["test", "all"],
         "audit_bundle" => &["test", "vo", "kind"],
         "audit_submit" => &[
@@ -656,6 +675,44 @@ fn validate_tool_arguments(name: &str, args: &Map<String, Value>) -> Result<(), 
     }
     match name {
         "scan" | "export" => Ok(()),
+        // DS-1830 / DS-1860: `id` is required and is a string.
+        "test_get" => match args.get("id") {
+            Some(Value::String(_)) => Ok(()),
+            Some(_) => Err(failure_envelope(
+                "E-OP-001",
+                "argument `id` must be a string",
+            )),
+            None => Err(failure_envelope("E-OP-001", "test_get requires id")),
+        },
+        // DS-1832 / DS-1833 / DS-1860: exactly one of a string `vo`, a
+        // string `source` and `unregistered: true`.
+        "test_query" => {
+            for key in ["vo", "source"] {
+                if args.get(key).is_some_and(|value| !value.is_string()) {
+                    return Err(failure_envelope(
+                        "E-OP-001",
+                        format!("argument `{key}` must be a string"),
+                    ));
+                }
+            }
+            if args
+                .get("unregistered")
+                .is_some_and(|value| value != &Value::Bool(true))
+            {
+                return Err(failure_envelope(
+                    "E-OP-001",
+                    "argument `unregistered` must be `true` when given",
+                ));
+            }
+            if args.len() == 1 {
+                Ok(())
+            } else {
+                Err(failure_envelope(
+                    "E-OP-001",
+                    "test_query requires exactly one of vo, source and unregistered",
+                ))
+            }
+        }
         "run_tests" => {
             optional_string_array(args, "test")?;
             optional_nonempty_string(args, "vo")?;
@@ -837,6 +894,8 @@ fn dispatch_tool(root: &Path, name: &str, args: &Value) -> Value {
         "doc_get" => doc_show_tool(root, args),
         "test_create" => test_create_tool(root, args),
         "test_edit" => test_edit_tool(root, args),
+        "test_get" => test_get_tool(root, args),
+        "test_query" => test_query_tool(root, args),
         "form_get" => match (string_arg(args, "kind"), resolve_registry()) {
             (None, _) => failure_envelope("E-OP-001", "form_get requires kind"),
             (Some(kind), Ok(registry)) => ops::form::get(root, &registry, kind).1,
@@ -851,6 +910,40 @@ fn dispatch_tool(root: &Path, name: &str, args: &Value) -> Value {
         "audit_bundle" => audit_bundle_tool(root, args),
         "audit_submit" => audit_submit_tool(root, args),
         _ => failure_envelope("E-OP-001", format!("unknown MCP tool `{name}`")),
+    }
+}
+
+/// DS-1204 / BD-344: `test_get` — the operation `vtest test show` calls.
+fn test_get_tool(root: &Path, args: &Value) -> Value {
+    let Some(id) = args.get("id").and_then(Value::as_str) else {
+        return failure_envelope("E-OP-001", "test_get requires id");
+    };
+    match resolve_registry() {
+        Ok(registry) => ops::test_query::show(root, &registry, id).1,
+        Err(envelope) => envelope,
+    }
+}
+
+/// DS-1203 / BD-344: `test_query` — `vo` and `unregistered` call the
+/// operation of `vtest test list`, `source` the one of `vtest test query`.
+fn test_query_tool(root: &Path, args: &Value) -> Value {
+    let text = |key: &str| args.get(key).and_then(Value::as_str);
+    let registry = match resolve_registry() {
+        Ok(registry) => registry,
+        Err(envelope) => return envelope,
+    };
+    if let Some(vo) = text("vo") {
+        let filter = ops::test_query::ListFilter::Vo(vo.to_owned());
+        ops::test_query::list(root, &registry, &filter).1
+    } else if let Some(source) = text("source") {
+        ops::test_query::query(root, &registry, source).1
+    } else if args.get("unregistered") == Some(&Value::Bool(true)) {
+        ops::test_query::list(root, &registry, &ops::test_query::ListFilter::Unregistered).1
+    } else {
+        failure_envelope(
+            "E-OP-001",
+            "test_query requires exactly one of vo, source and unregistered",
+        )
     }
 }
 
@@ -2264,6 +2357,135 @@ mod tests {
             rejected["structuredContent"]["diagnostics"][0]["code"],
             "E-CONFIG-001"
         );
+    }
+
+    /// @vtest.id TEST-MCP-TEST-GET-AND-TEST-QUERY-INPUT-CONTRACT
+    /// @vtest.covers VO-MCP-TEST-GET-TEST-QUERY-LISTED, VO-MCP-TEST-GET-INPUT-SCHEMA, VO-MCP-TEST-QUERY-INPUT-SCHEMA, VO-MCP-TEST-GET-TAKES-ID-ONLY, VO-MCP-TEST-QUERY-TAKES-EXACTLY-ONE-INPUT, VO-MCP-TEST-QUERY-REJECTS-OTHER-INPUT-COUNTS, VO-MCP-TEST-GET-TEST-QUERY-REJECT-WRONG-ARGUMENTS, VO-MCP-TEST-GET-TEST-QUERY-NOT-OK-IS-TOOL-ERROR
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::validate_tool_arguments
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::tool_input_schema
+    /// @vtest.intent tools/list names `test_get` with the single required string property `id` and `test_query` with the string properties `vo` and `source` and the boolean property `unregistered`, neither allowing another property; `test_get` without `id`, with a non-string `id` or with another argument, and `test_query` with no input, two inputs, `unregistered` other than true, a non-string `vo` or `source`, or another argument are E-OP-001 tool errors without data; each single accepted input returns its result, and a result whose `ok` is false is a tool error
+    /// @vtest.case test_get rejected inputs
+    /// @vtest.case test_query rejected inputs
+    /// @vtest.case accepted inputs
+    /// @vtest.case ok false result
+    #[test]
+    fn test_get_and_test_query_accept_only_their_declared_inputs() {
+        let listed = tools_list_result();
+        let schema = |name: &str| {
+            listed["tools"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|tool| tool["name"] == name)
+                .unwrap_or_else(|| panic!("tools/list must name {name}"))["inputSchema"]
+                .clone()
+        };
+        let get = schema("test_get");
+        assert_eq!(get["properties"], json!({"id": {"type": "string"}}));
+        assert_eq!(get["required"], json!(["id"]));
+        assert_eq!(get["additionalProperties"], false);
+        let query = schema("test_query");
+        assert_eq!(
+            query["properties"],
+            json!({
+                "vo": {"type": "string"},
+                "source": {"type": "string"},
+                "unregistered": {"type": "boolean"}
+            })
+        );
+        assert_eq!(query.get("required"), None);
+        assert_eq!(query["additionalProperties"], false);
+
+        let root = temp_root("test-query-contract");
+        assert_eq!(init_fixture(&root), ExitCode::Ok);
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"query_contract\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("src/lib.rs"),
+            "pub fn f() {}\n/// @vtest.id TEST-F\n/// @vtest.covers VO-GONE\n\
+             /// @vtest.target src/lib.rs::f\n/// @vtest.intent f\n#[test]\nfn t() { f(); }\n\
+             #[test]\nfn bare() { f(); }\n",
+        )
+        .unwrap();
+        let call = |name: &str, arguments: Value| {
+            tools_call_result(
+                &root,
+                &json!({"name": name, "arguments": arguments}),
+                &mut MtimeRescan::default(),
+            )
+        };
+
+        for (name, arguments) in [
+            ("test_get", json!({})),
+            ("test_get", json!({"id": 1})),
+            ("test_get", json!({"id": null})),
+            ("test_get", json!({"id": "TEST-F", "vo": "VO-GONE"})),
+            ("test_query", json!({})),
+            ("test_query", json!({"vo": "VO-GONE", "source": "SRC-X"})),
+            ("test_query", json!({"vo": "VO-GONE", "unregistered": true})),
+            (
+                "test_query",
+                json!({"source": "SRC-X", "unregistered": true}),
+            ),
+            ("test_query", json!({"unregistered": false})),
+            (
+                "test_query",
+                json!({"vo": "VO-GONE", "unregistered": false}),
+            ),
+            ("test_query", json!({"unregistered": "true"})),
+            ("test_query", json!({"vo": 1})),
+            ("test_query", json!({"source": ["SRC-X"]})),
+            ("test_query", json!({"id": "TEST-F"})),
+            ("test_query", json!({"vo": "VO-GONE", "format": "json"})),
+        ] {
+            let rejected = call(name, arguments.clone());
+            assert_eq!(rejected["isError"], true, "{name} {arguments}");
+            let envelope = &rejected["structuredContent"];
+            assert_eq!(envelope["ok"], false, "{name} {arguments}");
+            assert_eq!(
+                envelope["diagnostics"][0]["code"], "E-OP-001",
+                "{name} {arguments}"
+            );
+            assert_eq!(envelope["data"], Value::Null, "{name} {arguments}");
+        }
+
+        // VO-GONE has no VO record: the scan reports E-SCAN-003, so the
+        // results are `ok: false` with their data, and tool errors.
+        let by_vo = call("test_query", json!({"vo": "VO-GONE"}));
+        assert_eq!(by_vo["isError"], true, "{by_vo}");
+        assert_eq!(by_vo["structuredContent"]["ok"], false);
+        assert_eq!(
+            by_vo["structuredContent"]["data"]["tests"][0]["id"], "TEST-F",
+            "{by_vo}"
+        );
+        let by_source = call("test_query", json!({"source": "rust-cargo::src/lib.rs::f"}));
+        assert_eq!(
+            by_source["structuredContent"]["data"],
+            by_vo["structuredContent"]["data"]
+        );
+        let unregistered = call("test_query", json!({"unregistered": true}));
+        assert_eq!(
+            unregistered["structuredContent"]["data"]["unmanaged"][0]["location"]["locator"],
+            "bare",
+            "{unregistered}"
+        );
+        let got = call("test_get", json!({"id": "TEST-F"}));
+        assert_eq!(got["isError"], true, "{got}");
+        assert_eq!(got["structuredContent"]["data"]["test"]["id"], "TEST-F");
+
+        // Without the unresolved VO the list is `ok: true` and no tool error.
+        std::fs::write(
+            root.join("src/lib.rs"),
+            "pub fn f() {}\n#[test]\nfn bare() { f(); }\n",
+        )
+        .unwrap();
+        let accepted = call("test_query", json!({"vo": "VO-GONE"}));
+        assert_eq!(accepted["isError"], false, "{accepted}");
+        assert_eq!(accepted["structuredContent"]["data"], json!({"tests": []}));
     }
 
     /// @vtest.id TEST-MCP-SCAN-MATCHES-CLI

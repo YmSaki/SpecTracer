@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-LIST-VO-WITHOUT-RECORD
+parent: null
+derives_from:
+  - doc: DS-1819
+claim: '`vtest test list --vo <VO ID>` は、当該 VO ID の VO レコードが存在しない場合も拒否せず、`covers` に当該 VO ID を宣言した managed Test Entity を返し、該当がなければ `tests` を空の list とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-SHOW-JUDGMENT-KIND-OUTSIDE-DOMAIN
+parent: null
+derives_from:
+  - doc: DS-1852
+claim: '`judgment_kind` を欠くか §8.1 の値域外の判断記録は、`data.judgments` のどの要素にも含めない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

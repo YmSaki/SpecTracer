@@ -1,0 +1,11 @@
+id: VO-MCP-TEST-QUERY-MATCHES-LIST-AND-QUERY
+parent: null
+derives_from:
+  - doc: DS-1834
+claim: '`test_query` の結果は、同じプロジェクトルート・同じ実行環境・同じ repository 内容に対して、`vo` を与えた場合は `vtest test list --vo <vo> --format json`、`source` を与えた場合は `vtest test query --source <source> --format json`、`unregistered` を与えた場合は `vtest test list --unregistered --format json` の標準出力の JSON と、`ok`・`data`・`diagnostics` が同じ値である。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00
