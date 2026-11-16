@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-UNRESOLVED-TARGET-KEPT
+parent: null
+derives_from:
+  - doc: DS-1787
+claim: '解決できない target 参照を持つ Test は、`data.tests` に含まれ、当該参照を `targets` に `resolved: false` で持ち、`data.unresolved` に `field` が `target` の要素として含まれる。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-UNRESOLVED-COVERS-KEPT
+parent: null
+derives_from:
+  - doc: DS-1785
+claim: '解決できない `covers` 参照を持つ Test は、`data.tests` に含まれ、当該参照を `covers` に `claim: null` で持ち、`data.unresolved` に `field` が `covers`・`code` が E-SCAN-003 の要素として含まれ、Markdown 文書の `## Unresolved references` の節に1行として現れる。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

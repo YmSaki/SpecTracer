@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-UNMANAGED-W-SCAN-101
+parent: null
+derives_from:
+  - doc: DS-1782
+claim: 管理宣言を持たない Test construct は、`data.tests` に含まれず、`data.unmanaged` に `codes` が W-SCAN-101 を含む要素として含まれ、Markdown 文書の `## Unmanaged tests` の節に1行として現れる。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

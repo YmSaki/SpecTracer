@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-MCP-OTHER-ARGUMENTS-REJECTED
+parent: null
+derives_from:
+  - doc: DS-1876
+claim: '`test_get` に `id` 以外の引数を与えた呼び出しと、`test_query` に `vo`・`source`・`unregistered` 以外の引数を与えた呼び出しは、E-OP-001 のツールエラーになる。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

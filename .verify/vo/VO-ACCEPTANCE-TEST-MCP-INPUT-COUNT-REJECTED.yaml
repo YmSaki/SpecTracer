@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-MCP-INPUT-COUNT-REJECTED
+parent: null
+derives_from:
+  - doc: DS-1846
+claim: 引数を与えない `test_query`、`vo` と `source` を同時に与えた `test_query`、`unregistered` に `false` を与えた `test_query`、`id` を欠く `test_get` は、E-OP-001 のツールエラーになる。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-CONTROLS-AND-EDGE-SPACES-REPLACED
+parent: null
+derives_from:
+  - doc: DS-1809
+claim: テスト仕様書のデータの値が LF、LF 以外の U+0000〜U+001F、U+007F、先頭の空白、末尾の空白を含む場合、Markdown 文書の当該値は、LF の位置に `<br>`、LF 以外の U+0000〜U+001F と U+007F の位置に `&#` と code point の10進と `;`、先頭と末尾の各空白の位置に `&#32;` を含み、それ以外の文字を元の順のまま含む。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

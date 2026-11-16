@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-MIXED-MARKDOWN-ITEM-LINES
+parent: null
+derives_from:
+  - doc: DS-1781
+claim: 同じ受入専用の registry と混在プロジェクトで、export の操作が返した `data` から、CLI の Markdown 文書を生成する部品が生成した文書の `## Tests` の節は、どの adapter の Test 項目も、`- intent:` から `- locator:` までの11個の行頭を同じ順に持つ。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

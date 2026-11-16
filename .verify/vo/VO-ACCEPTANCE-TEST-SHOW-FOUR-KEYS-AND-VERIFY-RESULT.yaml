@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-SHOW-FOUR-KEYS-AND-VERIFY-RESULT
+parent: null
+derives_from:
+  - doc: DS-1843
+claim: '`vtest test show <Test ID> --format json` の `data` は `test`・`verification`・`judgments`・`evidence` の4個の key だけを持ち、`data.verification`・`ok`・`diagnostics` と終了コードは、同じプロジェクトに対する `vtest verify --test <Test ID> --format json` の `data`・`ok`・`diagnostics` と終了コードに一致し、`data.test` は当該 Test の `execution` と `targets` を持つ。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

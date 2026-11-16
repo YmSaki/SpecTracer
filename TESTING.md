@@ -51,7 +51,7 @@ cargo install cargo-llvm-cov --locked
 Acceptance tests live in `crates/vtest-cli/tests/` and are organized by 別紙C
 （詳細設計 v0.1 別紙C 受入仕様）§18 section, one file per subsection —
 `acceptance_18_1.rs`, `acceptance_18_3_7.rs`, `acceptance_18_3_8.rs`,
-`acceptance_18_3_9.rs`. Each `#[test]` cites the 別紙C node id(s) it covers in
+`acceptance_18_3_9.rs`, `acceptance_18_3_13.rs`, `acceptance_18_3_14.rs`. Each `#[test]` cites the 別紙C node id(s) it covers in
 a doc comment. The predecessor `m1_acceptance.rs`…`m9_acceptance.rs` files
 (keyed to 別紙B §18.3, a non-normative implementation-plan document, not the
 normative 別紙C) have been retired; `autotests` is on, so every file in

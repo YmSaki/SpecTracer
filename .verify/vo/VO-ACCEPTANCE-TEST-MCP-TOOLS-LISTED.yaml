@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-MCP-TOOLS-LISTED
+parent: null
+derives_from:
+  - doc: DS-1847
+claim: MCP の `tools/list` の結果は、`test_get` と `test_query` を含む。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-SHOW-UNKNOWN-AND-DUPLICATED-ID-REJECTED
+parent: null
+derives_from:
+  - doc: DS-1844
+claim: '`vtest test show` は、存在しない Test ID を E-OP-001、2件の managed Test が持つ Test ID を E-SCAN-002 で、どちらも終了コード2として拒否する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

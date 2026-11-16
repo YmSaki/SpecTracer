@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-LIST-AND-QUERY-ARGUMENT-FORMS
+parent: null
+derives_from:
+  - doc: DS-1866
+claim: '`vtest test list` は位置引数と `--vo` の2回の指定を、`vtest test query` は `--source` の欠落・`--source` の2回の指定・位置引数を、終了コード2で拒否する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

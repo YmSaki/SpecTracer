@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-LIST-VO-WITH-UNREGISTERED-REJECTED
+parent: null
+derives_from:
+  - doc: DS-1840
+claim: '`vtest test list --vo <VO ID> --unregistered` は、終了コード2で拒否される。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

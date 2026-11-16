@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-DUPLICATED-ID-KEYS
+parent: null
+derives_from:
+  - doc: DS-1789
+claim: Test ID が同じ2件の managed Test は、どちらも `data.tests` に含まれ、`key` はそれぞれ Test ID の識別子符号化に `~1`・`~2` を続けた値である。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

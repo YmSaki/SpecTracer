@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-LIST-MIXED-UNREGISTERED-EQUALS-EXPORT
+parent: null
+derives_from:
+  - doc: DS-1862
+claim: 同じ受入専用の registry と混在プロジェクトで、`unregistered` を指定した list の操作の `data.unmanaged` は1件以上の要素を持ち、同じ registry を渡した export の操作の `data.unmanaged` と JSON の値として一致する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

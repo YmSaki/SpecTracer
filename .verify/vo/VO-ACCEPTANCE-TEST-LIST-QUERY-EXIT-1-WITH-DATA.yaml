@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-LIST-QUERY-EXIT-1-WITH-DATA
+parent: null
+derives_from:
+  - doc: DS-1867
+claim: '解決できない `covers` 参照を持つ Test があるプロジェクトで、`vtest test list --format json` と、当該 Test が宣言した target を指定した `vtest test query --format json` は、終了コード1を返し、`ok: false`、当該 Test を含む `null` でない `data.tests`、E-SCAN-003 を含む `diagnostics` を出力する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-ASCII-SYMBOLS-ESCAPED
+parent: null
+derives_from:
+  - doc: DS-1808
+claim: テスト仕様書のデータの値が DS-1747 の挙げる ASCII 記号32文字のすべてを含む場合、Markdown 文書の当該値は、各記号の直前に `\` を置いた形で、32文字を1文字も欠かさず元の順に含む。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

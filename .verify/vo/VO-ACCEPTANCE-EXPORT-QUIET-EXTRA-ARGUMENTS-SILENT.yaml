@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-QUIET-EXTRA-ARGUMENTS-SILENT
+parent: null
+derives_from:
+  - doc: DS-1805
+claim: '`--quiet` を指定した `vtest export` は、余分な位置引数、または `--project`・`--format`・`--quiet` 以外の option を与えられた場合、終了コード2を返し、標準出力と標準エラーへ何も出力しない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

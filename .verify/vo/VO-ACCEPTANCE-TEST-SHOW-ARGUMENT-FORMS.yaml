@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-SHOW-ARGUMENT-FORMS
+parent: null
+derives_from:
+  - doc: DS-1865
+claim: '`vtest test show` は、Test ID を与えない場合、Test ID を2件与えた場合、グローバルオプション以外の option を与えた場合に終了コード2で拒否され、`vtest test show <Test ID> --format json`・`vtest test show <Test ID> --format text`・`vtest test show <Test ID> --project <dir>` は引数不正として拒否されない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00
