@@ -610,7 +610,9 @@ pub fn verify_project(
                     evaluate_chain_integrity(scan, &vos, &document_node_ids)
                 }
                 VerificationCheck::OrphanDetection => evaluate_orphan_detection(scan),
-                _ => unreachable!("STRUCTURAL_CHECKS holds only the two structural checks"),
+                VerificationCheck::TargetBinding | VerificationCheck::OraclePresence => {
+                    unreachable!("STRUCTURAL_CHECKS holds only the two structural checks")
+                }
             }
         })
         .collect::<Vec<_>>();
@@ -1313,7 +1315,11 @@ fn canonical_target_locators(test: &TestEntity, scan: &ScanResult) -> Vec<String
                 .iter()
                 .find(|source| &source.locator == locator)
                 .map(|source| source.locator.to_string()),
-            _ => None,
+            // Not reached today: `evidence_validity_failure` already rejected
+            // a Test with a `SrcId` target, because `current_target_hashes`
+            // cannot resolve one. Resolving `SrcId` targets there means
+            // resolving them here too.
+            TargetRef::SrcId(_) => None,
         })
         .collect()
 }
@@ -1910,7 +1916,9 @@ fn test_node(
                     evaluate_target_binding(test, test_resolution, scan, evidence)
                 }
                 VerificationCheck::OraclePresence => evaluate_oracle_presence(test, evidence),
-                _ => unreachable!("PER_TEST_CHECKS holds only the two per-Test checks"),
+                VerificationCheck::ChainIntegrity | VerificationCheck::OrphanDetection => {
+                    unreachable!("PER_TEST_CHECKS holds only the two per-Test checks")
+                }
             }
         })
         .collect::<Vec<_>>();
