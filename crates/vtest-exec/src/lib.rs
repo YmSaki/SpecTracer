@@ -408,7 +408,7 @@ pub fn run_tests_with_runner(
                 let record = EvidenceRecord {
                     id: record_id.clone(),
                     test_id: test.entity.id.clone(),
-                    adapter: adapter_id.clone(),
+                    adapter: adapter_id,
                     result: if observed_pass {
                         TestResult::Pass
                     } else {
