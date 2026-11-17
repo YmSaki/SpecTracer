@@ -1196,7 +1196,11 @@ mod tests {
                     root_identity: "workspace".into(),
                     root_relative_path: "helper.input".into(),
                     kind: "file".into(),
-                    bytes: vec![if self.change { call as u8 } else { 0 }],
+                    bytes: vec![if self.change {
+                        call.to_le_bytes()[0]
+                    } else {
+                        0
+                    }],
                 }],
             };
             let mut second = draft.inputs[0].clone();

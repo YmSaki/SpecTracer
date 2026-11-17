@@ -1578,7 +1578,8 @@ describe("Calc", () => {
                 let range = &found.location.byte_range;
                 (
                     found.locator.value.as_str(),
-                    &source[range.start as usize..range.end as usize],
+                    &source[usize::try_from(range.start).unwrap()
+                        ..usize::try_from(range.end).unwrap()],
                 )
             })
             .collect::<Vec<_>>();

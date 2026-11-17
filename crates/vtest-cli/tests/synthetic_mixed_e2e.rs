@@ -220,7 +220,10 @@ fn mixed_rust_cargo_and_synthetic_adapters_merge_in_one_scan() {
     assert_eq!(scan.tests[0].id, TestId::new("TEST-MIXED-RUST"));
     assert_eq!(scan.tests[1].id, TestId::new("TEST-MIXED-SYNTHETIC"));
     assert_eq!(scan.summary.tests, 2);
-    assert_eq!(scan.summary.sources as usize, scan.sources.len());
+    assert_eq!(
+        usize::try_from(scan.summary.sources).unwrap(),
+        scan.sources.len()
+    );
 }
 
 /// @vtest.id TEST-CLI-MIXED-DUPLICATE-TEST-ID-REJECTED

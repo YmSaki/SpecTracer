@@ -1254,7 +1254,8 @@ end
             let found = &outcome.sources[0];
             assert_eq!(found.locator.value, "lib/a.rb::f");
             let range = &found.location.byte_range;
-            source[range.start as usize..range.end as usize].to_owned()
+            source[usize::try_from(range.start).unwrap()..usize::try_from(range.end).unwrap()]
+                .to_owned()
         };
         for source in [
             "def f = if true\n  1\nelse\n  2\nend\n",

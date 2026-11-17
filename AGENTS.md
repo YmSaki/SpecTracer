@@ -456,6 +456,7 @@ crates/<crate>/
 - 新しく書く公開の関数では、`bool` の引数の代わりに 2 列挙子の enum か別の関数を使う。呼び出し側の `f(true, false)` は意味が読めず、3 つ目の選択肢も足せないためです。clap の引数をそのまま受ける入口の関数は除く。
 - 自分の crate の列挙型を `match` するときは、なるべく全列挙子を書く。列挙子を追加したときに、扱いの漏れをコンパイラが検出するためです。`_` を使うときは、追加された列挙子をその腕で扱ってよい理由をコメントに書く。
 - 所有権を持たない引数は `&str`、`&Path`、`&[T]` で受け取る。
+- 数値の型を変えるときは、値を変えない変換は `From`、値を変えうる変換は `TryFrom` で書き、失敗をその場所のエラーとして扱う（`clippy::cast_possible_truncation`、`cast_possible_wrap`、`cast_sign_loss`、`cast_lossless`）。`as` は桁あふれと符号の変化を黙って通すためです。整数から浮動小数点への変換は精度を失いうるが、対応する `TryFrom` がない（`clippy::cast_precision_loss`）。判定、ハッシュ、record の値には使わず、表示用の値などで必要なときだけ、精度を失ってよい理由を `#[expect(clippy::cast_precision_loss, reason = "...")]` に書く。`usize` から `u64` への変換と `u8` から `char` への変換は値を変えないので、`as` のままでよい。
 - 戻り値を無視してはならない関数には `#[must_use]` を付ける。
 - `unsafe` は、OS の API の呼び出しなど安全な代替がない場合だけに使い、直前に `// SAFETY:` で前提を書く（`clippy::undocumented_unsafe_blocks`）。新しく `unsafe` を足すときは、PR の概要に理由を書く。
 
