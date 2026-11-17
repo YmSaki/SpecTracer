@@ -3,6 +3,10 @@
 //! arguments. The content of the test specification itself is covered by
 //! `test_spec_core.rs`; the comparison with the MCP tool `export` is in
 //! `mcp_cli_equivalence.rs`.
+#![expect(
+    clippy::unwrap_used,
+    reason = "a panic in a test helper is the assertion; `allow-unwrap-in-tests` covers only `#[test]` functions"
+)]
 
 use std::{
     fs,

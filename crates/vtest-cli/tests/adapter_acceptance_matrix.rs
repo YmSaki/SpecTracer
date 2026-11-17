@@ -4,6 +4,10 @@
 //! each row to its current clause and records where the plan's expected value
 //! is out of date (for example the predecessor "fixed 12 items", which is now
 //! the fixed four checks, DS-1494 / SPEC-399).
+#![expect(
+    clippy::unwrap_used,
+    reason = "a panic in a test helper is the assertion; `allow-unwrap-in-tests` covers only `#[test]` functions"
+)]
 use std::{
     fs,
     path::{Path, PathBuf},

@@ -53,6 +53,7 @@ use vtest_model::{
 /// project-relative な include root の一覧。root × `scan.include` の path
 /// 演算は Rust 固有の処理ではないため core（`vtest-scan::resolve_adapter_
 /// includes`）が行い、adapter へは解決済みの path だけを渡す。
+#[derive(Debug)]
 pub struct AdapterScanConfig {
     pub include_paths: Vec<PathBuf>,
 }
@@ -85,6 +86,7 @@ pub struct AdapterScanConfig {
 /// （E-SCAN-003）は、本冊:571「VO参照の解決とTest IDの大局的一意性は
 /// adapterではなくcoreが検査する」により、この draft を返す時点では未検査
 /// である。同じ Test ID を宣言する複数の draft が返ることを許容する。
+#[derive(Debug)]
 pub struct TestDraft {
     pub id: TestId,
     pub covers: Vec<VoId>,
@@ -111,6 +113,7 @@ pub struct TestDraft {
 
 /// hash 未計算の Source Target draft（本冊 §5.2 の `SourceTargetDraft` に
 /// 相当する簡略版。`TestDraft` 同様、hash は core が計算する）。
+#[derive(Debug)]
 pub struct SourceDraft {
     pub locator: Locator,
     pub src_id: Option<SrcId>,
@@ -136,6 +139,7 @@ pub struct SourceDraft {
 /// 意味を持つ2 fieldと、当該 construct に付けた診断のコード（`codes`）を持ち、hash 未計算・adapter 名なし（core 側で
 /// discovery batch から adapter を束ねる。`vtest-scan::scan_project_with_
 /// config` の `test_drafts` 同様の扱い）である点も `TestDraft` と揃える。
+#[derive(Debug)]
 pub struct MissingTestConstruct {
     pub location: SourceLocation,
     pub construct_text: String,
@@ -151,6 +155,7 @@ pub struct MissingTestConstruct {
 /// 1 adapter の discovery 結果。Target Reference 解決（§6.1）、Test ID の
 /// 大域的一意性、VO 参照解決は含まない — これらは core が複数 adapter の
 /// 出力を統合してから行う（本冊 §5.1 手順4・5・7）。
+#[derive(Debug)]
 pub struct DiscoveryOutcome {
     pub files_scanned: usize,
     pub tests: Vec<TestDraft>,
@@ -527,6 +532,7 @@ pub struct AdapterDescriptor {
 /// 引き回さない。「選択adapterの現在config」は config namespace の型
 /// （本 PR 範囲外）を新設せず、現在の唯一の消費対象（DS-617
 /// `assertion_macros`）だけをプレーンな `Vec<String>` として渡す。
+#[derive(Debug)]
 pub struct StaticAnalysisInput<'a> {
     pub test: &'a TestEntity,
     pub construct_text: &'a str,
@@ -669,12 +675,21 @@ struct RegisteredAdapter {
     adapter: Box<dyn Adapter>,
 }
 
+// `dyn Adapter` has no `Debug`; the descriptor identifies the entry.
+impl std::fmt::Debug for RegisteredAdapter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RegisteredAdapter")
+            .field("descriptor", &self.descriptor)
+            .finish_non_exhaustive()
+    }
+}
+
 /// 登録済み adapter を ID で引く registry（本冊 §5.1 手順1「registryとconfig
 /// の検証」・§6.1「coreはregistryで解決」、BD-007「CLI・MCP・検証coreは
 /// adapter registryを介して能力を選択する」）。「該当実装が無ければ
 /// `None`」を返すだけで、その先の診断コード割り当ては呼び出し元が行う
 /// （`DiscoveryError`/`ScanError`と同じ方針）。
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct AdapterRegistry {
     adapters: Vec<RegisteredAdapter>,
 }

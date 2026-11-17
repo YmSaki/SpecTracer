@@ -53,7 +53,7 @@ pub const ADAPTER_ID: &str = "synthetic";
 /// The file extension this adapter discovers (deliberately not `.rs`).
 pub const FILE_EXTENSION: &str = "synthetic";
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct SyntheticAdapter;
 
 impl SyntheticAdapter {
@@ -268,7 +268,7 @@ fn parse_test_block(
             adapter: AdapterId::new(ADAPTER_ID),
             project: Some(fallback_package.to_owned()),
             suite: None,
-            selector: location.locator.clone(),
+            selector: location.locator,
         },
     });
 }

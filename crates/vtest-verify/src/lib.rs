@@ -678,7 +678,7 @@ pub fn verify_project(
     // that contradicts its per-target entries), in check order with
     // duplicates removed: one Evidence record can be reached from more than
     // one VO.
-    let mut diagnostics = evidence.diagnostics.clone();
+    let mut diagnostics = evidence.diagnostics;
     for check in outcome.all_outcomes() {
         for diagnostic in &check.diagnostics {
             if !diagnostics.contains(diagnostic) {
@@ -1812,7 +1812,10 @@ fn is_selection_root(record: &VoRecord, selection: &EntitySelection) -> bool {
         .is_none_or(|parent| !selection.vos.contains(parent.as_str()))
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "passes the context of the aggregation tree down each level of the recursion"
+)]
 fn build_vo_node(
     id: &str,
     vos: &BTreeMap<String, VoRecord>,
@@ -3614,7 +3617,7 @@ mod tests {
         record.execution_state.hash = Some(ContentHash::from_text("deliberately-mismatched"));
         let registry = test_registry();
         let evidence = EvidenceContext {
-            root: root.clone(),
+            root,
             latest_by_test: BTreeMap::new(),
             invalid: Vec::new(),
             diagnostics: Vec::new(),

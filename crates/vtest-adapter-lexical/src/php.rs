@@ -461,7 +461,10 @@ impl Reader<'_> {
     /// (`if ($a): ... endif;`); `if` and `elseif` continue with `else` or
     /// `elseif`. The outer `None` means the keyword has no head (it is not
     /// a control statement); the inner one that the file ends first.
-    #[allow(clippy::option_option)]
+    #[expect(
+        clippy::option_option,
+        reason = "the two levels mean different things, as the doc comment above says"
+    )]
     fn control_end(&self, keyword: usize, word: &str) -> Option<Option<usize>> {
         let open = self.next_significant(keyword + 1)?;
         if self.kind(open) != Some(Kind::Open('(')) {

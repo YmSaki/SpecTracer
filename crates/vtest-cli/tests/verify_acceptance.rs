@@ -4,6 +4,10 @@
 //! 受入テストである。前身の `m1_acceptance.rs` … `m9_acceptance.rs` は旧
 //! 12 項目 CLI を対象としており、正典モデル上でコンパイルできないため
 //! `Cargo.toml` の `autotests = false` によりビルド対象から外してある。
+#![expect(
+    clippy::unwrap_used,
+    reason = "a panic in a test helper is the assertion; `allow-unwrap-in-tests` covers only `#[test]` functions"
+)]
 
 use std::path::{Path, PathBuf};
 

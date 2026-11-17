@@ -642,7 +642,10 @@ pub fn bundle(
 struct Submission {
     // Read from the raw value first (E-AUDIT-001 precedes schema checks);
     // kept here so the schema still requires it.
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "the schema requires the field; its value is read from the raw JSON"
+    )]
     bundle_id: String,
     subject: String,
     judgment_kind: String,

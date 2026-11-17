@@ -16,8 +16,14 @@ pub fn materialize_execution_state(
         complete: false,
         hash: None,
     };
+    let Some(head_revision) = draft
+        .head_revision
+        .as_deref()
+        .filter(|revision| !revision.is_empty())
+    else {
+        return incomplete();
+    };
     if !draft.complete
-        || draft.head_revision.as_deref().is_none_or(str::is_empty)
         || draft.schema_id.is_empty()
         || draft.schema_version.is_empty()
         || draft.runner_kind.is_empty()
@@ -60,10 +66,7 @@ pub fn materialize_execution_state(
             "schema_version",
             FieldValue::text_fragment(&draft.schema_version),
         )
-        .field(
-            "head_revision",
-            FieldValue::text_fragment(draft.head_revision.as_deref().unwrap()),
-        )
+        .field("head_revision", FieldValue::text_fragment(head_revision))
         .field("runner_kind", FieldValue::text_fragment(&draft.runner_kind))
         .field(
             "invocation",
@@ -161,7 +164,7 @@ mod tests {
             baseline.hash,
             materialize_execution_state(&AdapterId::new("other"), &original).hash
         );
-        let mut two = original.clone();
+        let mut two = original;
         let mut extra = two.inputs[0].clone();
         extra.root_relative_path = "src/second".into();
         two.inputs.push(extra);

@@ -8,3 +8,6 @@ license.workspace = true
 ignore.workspace = true
 vtest-adapter-api = { path = "../vtest-adapter-api" }
 vtest-model = { path = "../vtest-model" }
+
+[lints]
+workspace = true

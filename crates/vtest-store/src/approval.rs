@@ -25,6 +25,7 @@ use crate::{read_document_dir, records::DependencyRecord, StoreError, VerifyLayo
 /// every `.verify/doc/*.json` file, built fresh from canonical records (this
 /// crate never persists a derived index — see `AGENTS.md`'s "Canonical and
 /// derived data remain separate").
+#[derive(Debug)]
 pub struct DocumentNodeIndex(BTreeMap<String, (ContentHash, Vec<String>)>);
 
 impl DocumentNodeIndex {
@@ -1005,7 +1006,7 @@ mod tests {
         assert_eq!(state, EffectiveApprovalState::Approved);
         assert_eq!(codes, vec!["W-STORE-005".to_owned()]);
 
-        let superseding = [broken.clone(), rec("01B", "VO-X", "approved", &["01A"])];
+        let superseding = [broken, rec("01B", "VO-X", "approved", &["01A"])];
         let (state, codes) = state_and_codes(&superseding);
         assert_eq!(state, EffectiveApprovalState::Approved);
         assert_eq!(codes, vec!["W-STORE-005".to_owned()]);

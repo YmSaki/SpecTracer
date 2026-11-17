@@ -23,7 +23,7 @@ use vtest_verify::{
 /// Owned counterpart of the CLI's `VerifyData` — owned so it can be handed
 /// to a caller (CLI or MCP) instead of borrowing from a stack-local
 /// `VerifyOutcome`.
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct VerifyData {
     pub scope: ScopeReport,
     pub state: &'static str,
@@ -45,7 +45,7 @@ pub struct VerifyData {
 /// DES-554「`--gate` を指定した `verify` / `report` の JSON は `data.gate`
 /// に `name`・`verification.{required, actual, satisfied}`・
 /// `approvals[].{role, satisfied, missing_subjects}`・`satisfied` を返す」。
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct GateEvaluation {
     pub name: String,
     pub verification: GateVerification,
@@ -53,7 +53,7 @@ pub struct GateEvaluation {
     pub satisfied: bool,
 }
 
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct GateVerification {
     pub required: String,
     pub actual: String,
@@ -67,7 +67,7 @@ pub struct GateVerification {
 /// entities when none is given) that has no effective approval by an
 /// approver of this role. `satisfied` is true only when the scope has at
 /// least one subject and none is missing (fail-closed).
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct GateApproval {
     pub role: String,
     pub satisfied: bool,
@@ -128,7 +128,10 @@ pub fn scoped_envelope(
     })
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "takes the arguments of the operation one to one, from both CLI and MCP"
+)]
 pub fn execute(
     root: &Path,
     items: &[String],
@@ -145,6 +148,7 @@ pub fn execute(
 
 /// One verification run plus the scan it ran on, so `report` can build its
 /// projection from the same inputs `verify` aggregated (SPEC-401).
+#[derive(Debug)]
 pub struct Evaluated {
     pub exit: ExitCode,
     pub data: VerifyData,
@@ -153,7 +157,10 @@ pub struct Evaluated {
 }
 
 /// The shared core of `verify` and `report`.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "takes the arguments of the operation one to one, from both CLI and MCP"
+)]
 pub fn evaluate(
     root: &Path,
     items: &[String],
@@ -211,7 +218,10 @@ pub fn load_verify_config(root: &Path) -> Result<ProjectConfig, VerifyOpError> {
 /// scanned. `vtest test show` enters here with the scan it already used to
 /// find its Test, so its verification is the one `verify --test` computes
 /// (BD-345).
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "takes the arguments of the operation one to one, from both CLI and MCP"
+)]
 pub fn evaluate_scanned(
     root: &Path,
     config: &ProjectConfig,

@@ -1,5 +1,9 @@
 //! Acceptance coverage for `vtest audit static` (SPEC-297/SPEC-387,
 //! DS-1208/DS-1209/DS-1227).
+#![expect(
+    clippy::unwrap_used,
+    reason = "a panic in a test helper is the assertion; `allow-unwrap-in-tests` covers only `#[test]` functions"
+)]
 
 use std::{
     collections::BTreeSet,

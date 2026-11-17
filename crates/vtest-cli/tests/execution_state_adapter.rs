@@ -1,4 +1,8 @@
 //! Adapter collection plus core hashing regression coverage for Issue #74.
+#![expect(
+    clippy::unwrap_used,
+    reason = "a panic in a test helper is the assertion; `allow-unwrap-in-tests` covers only `#[test]` functions"
+)]
 
 use std::{
     fs,

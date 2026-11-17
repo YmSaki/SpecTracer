@@ -166,7 +166,7 @@ fn cli_verify_json_carries_the_requested_scope_at_the_top_level() {
         ),
         (
             &["--vo", "VO-X"],
-            all.clone(),
+            all,
             serde_json::json!([{"kind": "vo", "id": "VO-X"}]),
             true,
         ),

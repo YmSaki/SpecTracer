@@ -34,3 +34,16 @@ syn = { version = "2.0.117", features = ["full", "extra-traits", "visit"] }
 thiserror = "2.0.17"
 toml = "0.8.23"
 yaml_serde = "0.10.7"
+
+# Rust の規則（AGENTS.md 8.1 / 8.2）のうち、機械的に検査できるもの。CI は
+# `cargo clippy ... -- -D warnings` でこれらを失敗として扱う。
+[workspace.lints.rust]
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+unwrap_used = "warn"
+allow_attributes_without_reason = "warn"
+redundant_clone = "warn"
+dbg_macro = "warn"
+undocumented_unsafe_blocks = "warn"
+match_wildcard_for_single_variants = "warn"

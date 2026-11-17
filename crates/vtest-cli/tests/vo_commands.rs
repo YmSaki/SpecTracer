@@ -2,6 +2,10 @@
 //! (別紙A §12.2, DS-1021〜DS-1048). Every case drives the real binary so the
 //! order-sensitive `--derives-from` / `--anchor` binding is exercised as a
 //! user types it.
+#![expect(
+    clippy::unwrap_used,
+    reason = "a panic in a test helper is the assertion; `allow-unwrap-in-tests` covers only `#[test]` functions"
+)]
 
 use std::{
     fs,

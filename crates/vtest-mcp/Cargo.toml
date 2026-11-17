@@ -12,3 +12,6 @@ vtest-ops = { path = "../vtest-ops" }
 [dev-dependencies]
 vtest-scan = { path = "../vtest-scan" }
 vtest-store = { path = "../vtest-store" }
+
+[lints]
+workspace = true

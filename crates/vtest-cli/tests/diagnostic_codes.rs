@@ -1,5 +1,9 @@
 //! #25: DS-1676 / DS-929 / DS-930 require record rejection and internal
 //! failure to remain distinguishable in the public JSON and process status.
+#![expect(
+    clippy::unwrap_used,
+    reason = "a panic in a test helper is the assertion; `allow-unwrap-in-tests` covers only `#[test]` functions"
+)]
 use std::{fs, path::Path, process::Command};
 
 fn fixture(name: &str) -> std::path::PathBuf {

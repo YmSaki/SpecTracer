@@ -11,3 +11,6 @@ thiserror.workspace = true
 vtest-adapter-api = { path = "../vtest-adapter-api" }
 vtest-model = { path = "../vtest-model" }
 vtest-store = { path = "../vtest-store" }
+
+[lints]
+workspace = true

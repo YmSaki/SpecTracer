@@ -111,7 +111,7 @@ pub struct EvidenceRef {
     pub invalid: Option<String>,
 }
 
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct ReportData {
     #[serde(flatten)]
     pub verify: VerifyData,
@@ -406,7 +406,10 @@ fn evidence_refs(root: &Path, registry: &AdapterRegistry, tree: &[TreeNode]) -> 
 }
 
 /// `vtest report` / MCP `report`.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "takes the arguments of the operation one to one, from both CLI and MCP"
+)]
 pub fn execute(
     root: &Path,
     items: &[String],

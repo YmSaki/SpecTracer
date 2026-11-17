@@ -134,7 +134,7 @@ pub fn create_test(
     })?;
     let result = TestMutationResult {
         test_id: test_id.clone(),
-        file: file.clone(),
+        file,
         dry_run,
         changed: true,
         start_byte,
@@ -196,7 +196,6 @@ pub fn parse_test_set_values(values: &[String]) -> Result<BTreeMap<String, FormV
     Ok(parsed)
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn edit_test(
     root: &Path,
     test_id: &str,
@@ -341,7 +340,7 @@ pub fn edit_test(
             )
         })?;
     let range = start_byte..end_byte;
-    let current_slice = original.get(range.clone()).ok_or_else(|| {
+    let current_slice = original.get(range).ok_or_else(|| {
         Diagnostic::error(
             "E-OP-002",
             format!("Test `{test_id}` source range is stale"),

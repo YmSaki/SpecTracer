@@ -1,6 +1,10 @@
 //! Acceptance coverage for `vtest report`, its projection and the
 //! `pending` section (SPEC-401, DS-1133〜DS-1147, DS-1215, DS-1441,
 //! DS-1505, DS-1524).
+#![expect(
+    clippy::unwrap_used,
+    reason = "a panic in a test helper is the assertion; `allow-unwrap-in-tests` covers only `#[test]` functions"
+)]
 
 use std::{
     fs,
@@ -412,7 +416,7 @@ fn sources_of_two_adapters_with_the_same_locator_value_stay_distinct() {
         .find(|source| source.locator.value == "src/lib.rs::add")
         .cloned()
         .expect("rust-cargo Source for add");
-    let mut other = rust.clone();
+    let mut other = rust;
     other.locator.adapter = vtest_model::AdapterId::new("synthetic");
     scan.sources.push(other.clone());
     let mut test = scan
@@ -422,7 +426,7 @@ fn sources_of_two_adapters_with_the_same_locator_value_stay_distinct() {
         .cloned()
         .unwrap();
     test.id = vtest_model::TestId::new("TEST-SYNTHETIC");
-    test.targets = vec![vtest_model::TargetRef::Locator(other.locator.clone())];
+    test.targets = vec![vtest_model::TargetRef::Locator(other.locator)];
     scan.tests.push(test);
 
     let layout = VerifyLayout::new(&root);

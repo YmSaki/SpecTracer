@@ -62,6 +62,7 @@ impl ApprovalOpError {
     }
 }
 
+#[derive(Debug)]
 pub struct CreateArgs {
     pub subject_type: String,
     pub subject_id: String,
@@ -161,7 +162,10 @@ fn validate_supersedes(
 /// `approved_state`/`supersedes`. In particular `subject_hash`/
 /// `dependencies` are always freshly resolved here (DS-1058 applies
 /// identically to both callers), never copied from a prior record.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "takes the fields of the Approval record one to one"
+)]
 fn build_and_write(
     layout: &VerifyLayout,
     subject_type: String,
@@ -226,6 +230,7 @@ pub fn create(layout: &VerifyLayout, args: CreateArgs) -> Result<ApprovalRecord,
     )
 }
 
+#[derive(Debug)]
 pub struct WithdrawArgs {
     pub approval_id: String,
     pub approver_kind: String,
@@ -271,6 +276,7 @@ pub fn withdraw(
     )
 }
 
+#[derive(Debug)]
 pub struct ShowResult {
     pub records: Vec<ApprovalRecord>,
     pub effective_state: EffectiveApprovalState,

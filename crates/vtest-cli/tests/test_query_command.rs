@@ -3,6 +3,10 @@
 //! text output, `--quiet`, and that none of them writes anything. The
 //! comparison with the MCP tools `test_query` and `test_get` is in
 //! `mcp_cli_equivalence.rs`.
+#![expect(
+    clippy::unwrap_used,
+    reason = "a panic in a test helper is the assertion; `allow-unwrap-in-tests` covers only `#[test]` functions"
+)]
 
 use std::{
     fs,

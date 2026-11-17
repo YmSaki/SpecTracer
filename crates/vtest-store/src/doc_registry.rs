@@ -38,6 +38,7 @@ use crate::{canonical::document_file_from_json, records::read_text, StoreError, 
 
 /// A read-only, fully-derived view of one registered document — nothing
 /// here is persisted separately from `.verify/doc/<id>.json` itself.
+#[derive(Debug)]
 pub struct DocView {
     pub id: String,
     /// DS-1017: the document's current path — `.verify/doc/<id>.json`

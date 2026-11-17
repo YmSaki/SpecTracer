@@ -651,6 +651,7 @@ pub enum TargetResolution {
 /// （`vtest test query --source`）が参照を解決するときの両方がこれを使う
 /// （DES-614）。locator は `(adapter, value)` の完全一致、恒久 SRC ID は
 /// それを宣言した Source Target で引く。
+#[derive(Debug)]
 pub struct SourceIndex {
     locators: BTreeMap<LocatorKey, usize>,
     src_ids: BTreeMap<String, Vec<LocatorKey>>,

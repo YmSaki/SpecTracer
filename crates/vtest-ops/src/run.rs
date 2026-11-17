@@ -72,6 +72,7 @@ impl RunOpError {
 /// layer enforces mutual exclusivity before constructing this (mirroring
 /// `ops::verify`'s `EntityScope` exclusivity for the same reason: an
 /// ambiguous combination must not silently narrow to one axis's guess).
+#[derive(Debug)]
 pub enum RunTarget {
     Test(Vec<String>),
     Vo(String),
