@@ -538,7 +538,8 @@ func TestAdd(t *testing.T) {
             assert_eq!(outcome.sources[0].locator.value, "p/p.go::f", "{source}");
             let range = &outcome.sources[0].location.byte_range;
             assert!(
-                source[range.start as usize..range.end as usize].ends_with("{}"),
+                source[usize::try_from(range.start).unwrap()..usize::try_from(range.end).unwrap()]
+                    .ends_with("{}"),
                 "{source}"
             );
             assert_eq!(

@@ -1088,7 +1088,7 @@ pub fn new_record_id() -> String {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default();
     let millis = elapsed.as_millis() & ((1u128 << 48) - 1);
-    let entropy = ((elapsed.subsec_nanos() as u128) << 48)
+    let entropy = (u128::from(elapsed.subsec_nanos()) << 48)
         | (u128::from(std::process::id()) << 16)
         | u128::from(COUNTER.fetch_add(1, Ordering::Relaxed) & 0xffff);
     let mut value = (millis << 80) | (entropy & ((1u128 << 80) - 1));
@@ -1140,7 +1140,8 @@ pub fn now_rfc3339() -> String {
         .as_secs();
     let days = seconds / 86_400;
     let day_seconds = seconds % 86_400;
-    let (year, month, day) = civil_from_days(days as i64);
+    let days = i64::try_from(days).expect("u64 seconds divided by 86_400 fit in i64");
+    let (year, month, day) = civil_from_days(days);
     let hour = day_seconds / 3_600;
     let minute = (day_seconds % 3_600) / 60;
     let second = day_seconds % 60;

@@ -204,7 +204,8 @@ fn discovers_annotated_tests_and_qualified_sources() {
 fn every_range_selects_its_construct_bytes() {
     let outcome = discover(&[("src/calc.toy", CALCULATOR)]);
     let slice = |location: &SourceLocation| {
-        &CALCULATOR[location.byte_range.start as usize..location.byte_range.end as usize]
+        let range = &location.byte_range;
+        &CALCULATOR[usize::try_from(range.start).unwrap()..usize::try_from(range.end).unwrap()]
     };
     for test in &outcome.tests {
         assert_eq!(slice(&test.location), test.construct_text);
