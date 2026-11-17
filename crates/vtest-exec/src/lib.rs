@@ -9,8 +9,8 @@ use std::{
 use serde::Serialize;
 use thiserror::Error;
 use vtest_adapter_api::{
-    AdapterRegistry, CoverageAdapter, CoverageTargetMeasurement, RunnerOutput, RunnerTestResult,
-    TestRunnerAdapter,
+    AdapterRegistry, CoverageAdapter, CoverageTargetMeasurement, CoverageUnavailable, RunnerOutput,
+    RunnerTestResult, TestRunnerAdapter,
 };
 use vtest_model::{
     ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, Locator, Revision, RunnerInfo,
@@ -97,8 +97,10 @@ impl CoverageAdapter for NoCoverageCapability {
         ""
     }
 
-    fn availability(&self, _root: &Path) -> Result<(), String> {
-        Err("adapter declares no Coverage capability (DS-925/DS-1581)".to_owned())
+    fn availability(&self, _root: &Path) -> Result<(), CoverageUnavailable> {
+        Err(CoverageUnavailable::new(
+            "adapter declares no Coverage capability (DS-925/DS-1581)",
+        ))
     }
 
     fn measure(
@@ -372,8 +374,10 @@ pub fn run_tests_with_runner(
                     let reason = coverage_availability
                         .as_ref()
                         .and_then(|result| result.as_ref().err())
-                        .cloned()
-                        .unwrap_or_else(|| "coverage capability unavailable".to_owned());
+                        .map_or_else(
+                            || "coverage capability unavailable".to_owned(),
+                            ToString::to_string,
+                        );
                     diagnostics.push(
                         Diagnostic::warning("W-EXEC-101", reason)
                             .with_location(test.entity.location.clone()),
@@ -610,7 +614,7 @@ mod tests {
     #[derive(Clone, Debug)]
     struct FakeCoverageAdapter {
         method: &'static str,
-        availability: Result<(), String>,
+        availability: Result<(), CoverageUnavailable>,
         result: TargetCoverageResult,
         count: Option<u64>,
     }
@@ -624,7 +628,7 @@ mod tests {
             self.method
         }
 
-        fn availability(&self, _root: &Path) -> Result<(), String> {
+        fn availability(&self, _root: &Path) -> Result<(), CoverageUnavailable> {
             self.availability.clone()
         }
 
@@ -647,7 +651,7 @@ mod tests {
     fn never_available_coverage(reason: &str) -> FakeCoverageAdapter {
         FakeCoverageAdapter {
             method: "fake-coverage",
-            availability: Err(reason.to_owned()),
+            availability: Err(CoverageUnavailable::new(reason)),
             result: TargetCoverageResult::Unknown,
             count: None,
         }

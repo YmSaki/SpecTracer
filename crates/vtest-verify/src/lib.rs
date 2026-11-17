@@ -1327,7 +1327,9 @@ fn canonical_target_locators(test: &TestEntity, scan: &ScanResult) -> Vec<String
 /// DS-1411/DS-1412/DES-188/DES-189/DS-1404/DS-1405: the per-target entries of
 /// a `checked: true` measurement, validated against the current canonical
 /// target set. Returns the entries to judge, or a reason the record cannot
-/// be used (DS-1679: such Evidence is not used as a result).
+/// be used (DS-1679: such Evidence is not used as a result). The reason is
+/// the text of the E-SCAN-010 diagnostic; nothing matches on it, so it stays
+/// a `String`.
 fn validated_target_entries(
     coverage: &vtest_model::TargetCoverage,
     expected: &[String],
@@ -2147,7 +2149,7 @@ mod tests {
             "fake"
         }
 
-        fn availability(&self, _root: &Path) -> Result<(), String> {
+        fn availability(&self, _root: &Path) -> Result<(), vtest_adapter_api::CoverageUnavailable> {
             Ok(())
         }
 

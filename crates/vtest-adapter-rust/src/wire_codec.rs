@@ -9,7 +9,7 @@
 //! `{"kind": "integration_test", "name": ...}` (`execution.suite`).
 
 use serde_json::{json, Value};
-use vtest_adapter_api::{TestWireCodec, WireFields};
+use vtest_adapter_api::{TestWireCodec, WireError, WireFields};
 use vtest_model::{AdapterId, ExecutionDescriptor, TestSuite};
 
 use crate::ADAPTER_ID;
@@ -52,22 +52,28 @@ impl TestWireCodec for RustCargoWireCodec {
 
     /// DS-1578/1579: only a complete, consistent field set derives a
     /// descriptor.
-    fn decode(&self, fields: &WireFields) -> Result<ExecutionDescriptor, String> {
+    fn decode(&self, fields: &WireFields) -> Result<ExecutionDescriptor, WireError> {
         let text = |name: &str| match fields.get(name) {
             Some(Value::String(value)) if !value.is_empty() => Ok(value.clone()),
-            Some(_) => Err(format!(
+            Some(_) => Err(WireError(format!(
                 "compatibility field `{name}` must be a non-empty string"
-            )),
-            None => Err(format!("compatibility field `{name}` is missing")),
+            ))),
+            None => Err(WireError(format!(
+                "compatibility field `{name}` is missing"
+            ))),
         };
         let filter = text("filter")?;
         let package = text("package")?;
         let Some(Value::Object(target)) = fields.get("test_target") else {
-            return Err("compatibility field `test_target` must be an object".to_owned());
+            return Err(WireError(
+                "compatibility field `test_target` must be an object".to_owned(),
+            ));
         };
         let name = target.get("name");
         if target.keys().any(|key| key != "kind" && key != "name") {
-            return Err("`test_target` has an undeclared field".to_owned());
+            return Err(WireError(
+                "`test_target` has an undeclared field".to_owned(),
+            ));
         }
         let suite = match (target.get("kind").and_then(Value::as_str), name) {
             (Some("lib"), None) => TestSuite {
@@ -83,9 +89,9 @@ impl TestWireCodec for RustCargoWireCodec {
                 }
             }
             _ => {
-                return Err(
+                return Err(WireError(
                     "`test_target` is not a runnable lib / bin / integration_test".to_owned(),
-                )
+                ))
             }
         };
         Ok(ExecutionDescriptor {

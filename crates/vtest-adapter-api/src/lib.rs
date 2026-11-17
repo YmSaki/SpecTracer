@@ -351,7 +351,7 @@ pub struct CoverageTargetMeasurement {
 /// `TestRunnerAdapter`'s own doc comment) — DES-352 fixes only that a
 /// capability adapter returns hash-uncomputed DTOs for core to finalize.
 /// This trait's concrete shape (four methods named `id`/`method`/
-/// `availability`/`measure`, `availability` returning `Result<(), String>`,
+/// `availability`/`measure`, `availability` returning `Result<(), CoverageUnavailable>`,
 /// `measure` taking a target slice and returning a `Vec` in the same order)
 /// is this PR's derivation from that responsibility split, not a literal
 /// spec requirement.
@@ -364,11 +364,10 @@ pub trait CoverageAdapter {
     fn method(&self) -> &'static str;
 
     /// Whether this environment can measure coverage right now (e.g.
-    /// whether the required tool binary is installed and runs). `Err`
-    /// carries the adapter's own diagnostic text for why not; `vtest-exec`
-    /// reports it as `W-EXEC-101` and records `target_coverage` as
-    /// `checked: false` (DS-473/DS-760/DS-1581).
-    fn availability(&self, root: &Path) -> Result<(), String>;
+    /// whether the required tool binary is installed and runs). On `Err`,
+    /// `vtest-exec` reports the reason as `W-EXEC-101` and records
+    /// `target_coverage` as `checked: false` (DS-473/DS-760/DS-1581).
+    fn availability(&self, root: &Path) -> Result<(), CoverageUnavailable>;
 
     /// Parses the coverage output written to `coverage_output_path` and
     /// reports, for each of `targets` (in the same order), whether it was
@@ -382,6 +381,40 @@ pub trait CoverageAdapter {
         coverage_output_path: &Path,
         targets: &[Locator],
     ) -> Vec<CoverageTargetMeasurement>;
+}
+
+/// Why a [`CoverageAdapter`] cannot measure coverage in this environment.
+/// The reason is the adapter's own diagnostic text; it is shown to the
+/// user and never matched on.
+#[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
+#[error("{reason}")]
+pub struct CoverageUnavailable {
+    reason: String,
+}
+
+impl CoverageUnavailable {
+    pub fn new(reason: impl Into<String>) -> Self {
+        Self {
+            reason: reason.into(),
+        }
+    }
+}
+
+/// A text the language's grammar rejects, as a [`StructuredTestAdapter`]
+/// reports it. The message is the adapter's parser message; it is shown to
+/// the user and never matched on.
+#[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
+#[error("{message}")]
+pub struct SyntaxRejection {
+    message: String,
+}
+
+impl SyntaxRejection {
+    pub fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
 }
 
 /// The Structured Test Operation capability (BD-016/BD-101/BD-197/BD-310):
@@ -398,19 +431,19 @@ pub trait CoverageAdapter {
 pub trait StructuredTestAdapter {
     /// `text` is exactly one syntactically valid Test construct (a test
     /// function, for `rust-cargo`). The error is the parser's message.
-    fn check_test_construct(&self, text: &str) -> Result<(), String>;
+    fn check_test_construct(&self, text: &str) -> Result<(), SyntaxRejection>;
 
     /// `text` is a syntactically valid whole source file.
-    fn check_source_file(&self, text: &str) -> Result<(), String>;
+    fn check_source_file(&self, text: &str) -> Result<(), SyntaxRejection>;
 
     /// `text` is a syntactically valid replacement body (a block).
-    fn check_body(&self, text: &str) -> Result<(), String>;
+    fn check_body(&self, text: &str) -> Result<(), SyntaxRejection>;
 
     /// `name` is a valid identifier in this language.
     fn is_identifier(&self, name: &str) -> bool;
 
     /// The byte range of the body inside one Test construct's text.
-    fn body_range(&self, construct: &str) -> Result<std::ops::Range<usize>, String>;
+    fn body_range(&self, construct: &str) -> Result<std::ops::Range<usize>, SyntaxRejection>;
 
     /// The variants of every enum named `type_name` declared in `source`
     /// (nested modules included). `None` when `source` does not parse.
@@ -1002,8 +1035,13 @@ mod tests {
             );
             fields
         }
-        fn decode(&self, _fields: &WireFields) -> Result<vtest_model::ExecutionDescriptor, String> {
-            Err("fake codec does not derive descriptors".to_owned())
+        fn decode(
+            &self,
+            _fields: &WireFields,
+        ) -> Result<vtest_model::ExecutionDescriptor, WireError> {
+            Err(WireError(
+                "fake codec does not derive descriptors".to_owned(),
+            ))
         }
     }
 

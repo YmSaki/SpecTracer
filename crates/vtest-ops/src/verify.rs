@@ -330,6 +330,8 @@ pub fn evaluate_scanned(
     })
 }
 
+/// The `Err` is the message of the E-OP-001 usage error the caller builds;
+/// it stays a `String` because nothing matches on it.
 fn entity_scope(
     doc: Option<String>,
     vo: Option<String>,
@@ -350,6 +352,8 @@ fn entity_scope(
     }
 }
 
+/// The `Err` is the message of the E-OP-001 usage error the caller builds;
+/// it stays a `String` because nothing matches on it.
 fn parse_items(items: &[String]) -> Result<Option<Vec<VerificationCheck>>, String> {
     if items.is_empty() {
         return Ok(None);

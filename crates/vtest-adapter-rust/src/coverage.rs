@@ -14,7 +14,7 @@
 
 use std::{path::Path, process::Command};
 
-use vtest_adapter_api::{CoverageAdapter, CoverageTargetMeasurement};
+use vtest_adapter_api::{CoverageAdapter, CoverageTargetMeasurement, CoverageUnavailable};
 use vtest_model::{Locator, TargetCoverageResult};
 
 use crate::ADAPTER_ID;
@@ -44,7 +44,7 @@ impl CoverageAdapter for RustCargoCoverageAdapter {
         COVERAGE_METHOD
     }
 
-    fn availability(&self, root: &Path) -> Result<(), String> {
+    fn availability(&self, root: &Path) -> Result<(), CoverageUnavailable> {
         probe_availability("cargo", root)
     }
 
@@ -92,7 +92,7 @@ impl CoverageAdapter for RustCargoCoverageAdapter {
 /// 何も検証しない」を、実環境のtool有無に依存しない決定論的なテストへ直す
 /// ための足場。存在しないbinary名を渡せば`Command::new(...).output()`は
 /// 環境を問わず必ず失敗するため、Err分岐を無条件に踏める。
-fn probe_availability(cargo_binary: &str, root: &Path) -> Result<(), String> {
+fn probe_availability(cargo_binary: &str, root: &Path) -> Result<(), CoverageUnavailable> {
     Command::new(cargo_binary)
         .current_dir(root)
         .args(["llvm-cov", "--version"])
@@ -100,7 +100,11 @@ fn probe_availability(cargo_binary: &str, root: &Path) -> Result<(), String> {
         .ok()
         .filter(|output| output.status.success())
         .map(|_| ())
-        .ok_or_else(|| "cargo-llvm-cov is unavailable; target_coverage is NOT_CHECKED".to_owned())
+        .ok_or_else(|| {
+            CoverageUnavailable::new(
+                "cargo-llvm-cov is unavailable; target_coverage is NOT_CHECKED",
+            )
+        })
 }
 
 /// `target.value` は `rust-cargo` adapter が所有する opaque locator 文字列
@@ -563,7 +567,7 @@ mod tests {
             probe_availability("vtest-nonexistent-cargo-binary-for-testing", &missing_root)
                 .expect_err("a nonexistent binary must always fail to launch");
         assert_eq!(
-            reason,
+            reason.to_string(),
             "cargo-llvm-cov is unavailable; target_coverage is NOT_CHECKED"
         );
         std::fs::remove_dir_all(&missing_root).expect("remove fixture root");

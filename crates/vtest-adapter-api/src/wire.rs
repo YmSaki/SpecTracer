@@ -32,7 +32,7 @@ pub trait TestWireCodec {
     /// DS-1578: the descriptor that complete, mutually consistent
     /// compatibility fields describe. `fields` holds only this codec's own
     /// field names. Incomplete or inconsistent fields are an error.
-    fn decode(&self, fields: &WireFields) -> Result<ExecutionDescriptor, String>;
+    fn decode(&self, fields: &WireFields) -> Result<ExecutionDescriptor, WireError>;
 }
 
 /// A Test JSON input the wire layer rejects.
@@ -139,7 +139,7 @@ pub fn decode_test_json(
 
     match (&declared_adapter, codec) {
         (Some(_), Some(codec)) if !compat.is_empty() => {
-            let derived = codec.decode(&compat).map_err(WireError)?;
+            let derived = codec.decode(&compat)?;
             if declared.as_ref() != Some(&derived) {
                 return Err(WireError(
                     "execution and the compatibility fields describe different descriptors"
@@ -148,7 +148,7 @@ pub fn decode_test_json(
             }
         }
         (None, Some(codec)) => {
-            let derived = codec.decode(&compat).map_err(WireError)?;
+            let derived = codec.decode(&compat)?;
             object.insert(
                 "execution".to_owned(),
                 serde_json::to_value(derived).expect("descriptor serializes"),

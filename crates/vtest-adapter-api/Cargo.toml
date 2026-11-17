@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 serde_json.workspace = true
+thiserror.workspace = true
 vtest-model = { path = "../vtest-model" }
 
 [lints]

@@ -143,6 +143,8 @@ pub struct Annotated {
     /// removed.
     pub lines: Vec<String>,
     /// The byte range of the construct, or why it could not be determined.
+    /// The reason is the text of the E-SCAN-001 diagnostic; nothing matches
+    /// on it, so it stays a `String`.
     pub construct: Result<(usize, usize), String>,
 }
 

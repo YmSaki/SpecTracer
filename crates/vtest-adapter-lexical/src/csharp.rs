@@ -261,6 +261,9 @@ impl Reader<'_> {
 
     /// Where the member declaration starting at `start` ends (see the
     /// module documentation).
+    ///
+    /// The `Err` is the reason text of the E-SCAN-001 diagnostic the caller
+    /// builds; nothing matches on it, so it stays a `String`.
     fn member_end(&self, start: usize) -> Result<Member, String> {
         let mut value = false;
         let mut arrow = false;

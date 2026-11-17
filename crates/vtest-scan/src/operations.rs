@@ -322,6 +322,8 @@ pub fn edit_test(
         .byte_range
         .start
         .try_into()
+        // `TryFromIntError` says only that the value does not fit; the
+        // message below already says so.
         .map_err(|_| {
             Diagnostic::error(
                 "E-OP-002",
@@ -333,6 +335,7 @@ pub fn edit_test(
         .byte_range
         .end
         .try_into()
+        // As for the start offset: the discarded error adds nothing.
         .map_err(|_| {
             Diagnostic::error(
                 "E-OP-002",
