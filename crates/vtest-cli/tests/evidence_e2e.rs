@@ -243,7 +243,7 @@ fn run_and_verify(root: &Path) -> vtest_verify::VerifyOutcome {
         .find(|source| source.locator == target_locator)
         .expect("declared target resolved to a discovered Source Target");
     let runnable = RunnableTest {
-        entity: entity.clone(),
+        entity,
         target_hashes: vec![source_fn.content_hash.clone()],
         target_locators: vec![target_locator],
     };
@@ -290,7 +290,7 @@ fn a_covered_test_with_a_git_committed_environment_reaches_ok_true() {
         .expect("declared target resolved to a discovered Source Target");
 
     let runnable = RunnableTest {
-        entity: entity.clone(),
+        entity,
         target_hashes: vec![source_fn.content_hash.clone()],
         target_locators: vec![target_locator],
     };
@@ -367,7 +367,7 @@ fn a_stale_test_subject_hash_never_reaches_pass() {
         .find(|source| source.locator == target_locator)
         .expect("declared target resolved to a discovered Source Target");
     let runnable = RunnableTest {
-        entity: entity.clone(),
+        entity,
         target_hashes: vec![source_fn.content_hash.clone()],
         target_locators: vec![target_locator],
     };
@@ -952,7 +952,7 @@ fn run_writes_no_evidence_for_a_test_with_an_unresolved_target() {
     );
 
     let exit = vtest_cli::run(vtest_cli::Cli {
-        project: root.clone(),
+        project: root,
         format: Some(vtest_cli::FormatArg::Json),
         quiet: true,
         command: vtest_cli::Command::Run {

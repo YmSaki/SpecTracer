@@ -13,6 +13,10 @@
 //! - `doc_get` takes `tree` / `roots`, which `doc show` does not have.
 //! - Input-shape errors that only one surface can express (a missing
 //!   required flag is rejected by clap before any JSON is produced).
+#![expect(
+    clippy::unwrap_used,
+    reason = "a panic in a test helper is the assertion; `allow-unwrap-in-tests` covers only `#[test]` functions"
+)]
 
 use std::{
     fs,

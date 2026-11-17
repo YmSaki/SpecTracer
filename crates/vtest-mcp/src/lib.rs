@@ -174,7 +174,7 @@ fn json_rpc_error(code: i64, message: impl Into<String>, diagnostic_code: &str) 
             "code": code,
             "message": message,
             "isError": true,
-            "structuredContent": envelope.clone(),
+            "structuredContent": envelope,
             "data": {
                 "isError": true,
                 "structuredContent": envelope
@@ -3091,7 +3091,7 @@ mod tests {
         );
         assert_eq!(
             direct_withdrawn.supersedes,
-            vec![direct_created.id.clone()],
+            vec![direct_created.id],
             "direct `ops::approval::withdraw` must supersede exactly the id it was given"
         );
 

@@ -8,6 +8,10 @@
 //! `CARGO_TARGET_DIR`), which every Cargo invocation in this process
 //! inherits, so they run one at a time under `ENVIRONMENT_LOCK` in their own
 //! test binary.
+#![expect(
+    clippy::unwrap_used,
+    reason = "a panic in a test helper is the assertion; `allow-unwrap-in-tests` covers only `#[test]` functions"
+)]
 
 use std::{
     env, fs,

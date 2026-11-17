@@ -148,6 +148,7 @@ pub struct Annotated {
 
 /// A [`LanguageProfile`] registered as an adapter with the
 /// `source_discovery` capability only.
+#[derive(Debug)]
 pub struct LexicalAdapter<P> {
     profile: P,
 }

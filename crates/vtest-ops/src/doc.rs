@@ -41,6 +41,7 @@ impl DocOpError {
     }
 }
 
+#[derive(Debug)]
 pub struct AddArgs {
     pub id: String,
     pub path: String,
@@ -127,6 +128,7 @@ pub fn add(
     Ok(read_doc_view(layout, &args.id)?)
 }
 
+#[derive(Debug)]
 pub struct ListResult {
     pub records: Vec<DocView>,
     /// DS-1018: dangling `derives_from` links across the registered set.
@@ -192,6 +194,7 @@ pub fn list(layout: &VerifyLayout) -> Result<ListResult, DocOpError> {
 /// DS-1466）: DS-1017新は「各トップレベルノードの id を subject とする
 /// 実効承認」と明文化した（`233caec`/PR #50）。node id → 状態 の map と
 /// いう形は、この明文引用と一致する。
+#[derive(Debug)]
 pub struct ShowResult {
     pub view: DocView,
     pub freshness: BTreeMap<String, Option<bool>>,

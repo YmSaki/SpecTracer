@@ -1,5 +1,9 @@
 //! Acceptance coverage for the judgment-record protocol: `vtest audit
 //! bundle` / `vtest audit submit` (本冊 §8, DS-692〜DS-724, DS-1084〜DS-1090).
+#![expect(
+    clippy::unwrap_used,
+    reason = "a panic in a test helper is the assertion; `allow-unwrap-in-tests` covers only `#[test]` functions"
+)]
 
 use std::{
     fs,

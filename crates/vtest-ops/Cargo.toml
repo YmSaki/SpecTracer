@@ -16,3 +16,6 @@ vtest-model = { path = "../vtest-model" }
 vtest-scan = { path = "../vtest-scan" }
 vtest-store = { path = "../vtest-store" }
 vtest-verify = { path = "../vtest-verify" }
+
+[lints]
+workspace = true

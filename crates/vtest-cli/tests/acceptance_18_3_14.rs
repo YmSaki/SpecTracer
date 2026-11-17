@@ -6,6 +6,10 @@
 //! name the acceptance-only registry call the list and query operations
 //! in-process with `rust-cargo` and `synthetic` registered, because
 //! `synthetic` is not in the shipped registry.
+#![expect(
+    clippy::unwrap_used,
+    reason = "a panic in a test helper is the assertion; `allow-unwrap-in-tests` covers only `#[test]` functions"
+)]
 
 mod support;
 
@@ -587,7 +591,7 @@ fn show_reports_the_state_of_the_judgment_records() {
     let rejected = submit_judgment(root, "TEST-ADD", "case-coverage", "rejected", &[]);
     let conflicting = case_coverage(root);
     assert_eq!(conflicting["decision"], Value::Null);
-    let mut both = vec![accepted.clone(), rejected.clone()];
+    let mut both = vec![accepted, rejected];
     both.sort();
     assert_eq!(conflicting["effective"], json!(both));
 

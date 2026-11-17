@@ -58,7 +58,7 @@ mod tests {
         let config = unreadable.join(".verify/config.yaml");
         fs::remove_file(&config).unwrap();
         fs::create_dir(&config).unwrap();
-        let failure = load_scanned(&unreadable).err().expect("must be rejected");
+        let failure = load_scanned(&unreadable).expect_err("must be rejected");
         assert_eq!(failure.exit, ExitCode::Internal);
         assert_eq!(failure.diagnostic.code, vtest_model::INTERNAL_ERROR_CODE);
         let envelope = failure.envelope();
@@ -78,7 +78,7 @@ mod tests {
         let mut text = fs::read_to_string(&config).unwrap();
         text.push_str("not_a_config_field: 1\n");
         fs::write(&config, text).unwrap();
-        let failure = load_scanned(&rejected).err().expect("must be rejected");
+        let failure = load_scanned(&rejected).expect_err("must be rejected");
         assert_eq!(failure.exit, ExitCode::Usage);
         assert_eq!(failure.diagnostic.code, "E-CONFIG-001");
         assert_eq!(failure.result(), (ExitCode::Usage, failure.envelope()));

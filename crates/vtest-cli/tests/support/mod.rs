@@ -3,7 +3,10 @@
 //! its adapter as the only one in `config.yaml`, and scans and verifies them
 //! through the CLI's composition root (`builtin_registry`) and the
 //! unmodified `vtest-scan` / `vtest-verify` core.
-#![allow(dead_code)]
+#![allow(
+    dead_code,
+    reason = "each test binary includes this module and uses a different part of it"
+)]
 
 pub mod spec_acceptance;
 

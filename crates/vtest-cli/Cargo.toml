@@ -27,3 +27,6 @@ path = "src/main.rs"
 # The binary is a thin entry point (parse, run, exit) with no unit tests of
 # its own; the library and the integration tests carry the coverage.
 test = false
+
+[lints]
+workspace = true

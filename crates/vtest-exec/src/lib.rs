@@ -408,7 +408,7 @@ pub fn run_tests_with_runner(
                 let record = EvidenceRecord {
                     id: record_id.clone(),
                     test_id: test.entity.id.clone(),
-                    adapter: adapter_id.clone(),
+                    adapter: adapter_id,
                     result: if observed_pass {
                         TestResult::Pass
                     } else {
@@ -854,11 +854,8 @@ mod tests {
         assert_eq!(coverage.result, Some(TargetCoverageResult::Fail));
         assert_eq!(coverage.count, None);
 
-        let both = target_coverage_from_measurements(
-            "fake-cov",
-            &[double.clone(), unused.clone()],
-            measurements,
-        );
+        let both =
+            target_coverage_from_measurements("fake-cov", &[double.clone(), unused], measurements);
         assert_eq!(both.result, Some(TargetCoverageResult::Fail));
         assert_eq!(both.count, Some(0));
         let reached = target_coverage_from_measurements(

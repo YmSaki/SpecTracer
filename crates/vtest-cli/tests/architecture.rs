@@ -10,6 +10,10 @@
 //! - the two entrypoints share the operation layer and stay apart from each
 //!   other: `vtest-mcp` does not depend on `vtest-cli`, `vtest-ops` depends on
 //!   neither, and only the binary's `main.rs` uses `vtest-mcp` (BD-260)
+#![expect(
+    clippy::unwrap_used,
+    reason = "a panic in a test helper is the assertion; `allow-unwrap-in-tests` covers only `#[test]` functions"
+)]
 
 use std::{
     fs,

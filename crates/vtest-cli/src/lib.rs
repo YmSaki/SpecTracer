@@ -1013,7 +1013,6 @@ fn edit_from_args(
 // run
 // ---------------------------------------------------------------------------
 
-#[allow(clippy::too_many_arguments)]
 fn run_run(
     project: &Path,
     test_ids: Vec<String>,
@@ -1822,7 +1821,10 @@ fn emit_value(
 
 use ops::verify::{state_name, VerifyData};
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "takes the clap arguments of the subcommand one to one"
+)]
 fn run_verify(
     project: &Path,
     items: &[String],
@@ -1905,7 +1907,10 @@ fn run_verify(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "takes the clap arguments of the subcommand one to one"
+)]
 fn run_report(
     project: &Path,
     items: &[String],

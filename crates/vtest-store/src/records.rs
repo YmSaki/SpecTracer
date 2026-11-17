@@ -1637,7 +1637,7 @@ mod tests {
     fn approval_self_referencing_supersedes_is_rejected() {
         let id = new_record_id();
         let mut record = sample_approval(&id);
-        record.supersedes = vec![id.clone()];
+        record.supersedes = vec![id];
         assert!(record.to_yaml().is_err());
     }
 
@@ -1873,7 +1873,7 @@ mod tests {
         // An empty `target_fns` is written as the single `target_fn`, so that
         // is what comes back.
         let mut read_back = minimal.clone();
-        read_back.hashes.target_fns = vec![minimal.hashes.target_fn.clone()];
+        read_back.hashes.target_fns = vec![minimal.hashes.target_fn];
         assert_eq!(read_evidence(&minimal_path).unwrap(), read_back);
     }
 

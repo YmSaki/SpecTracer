@@ -610,7 +610,9 @@ pub fn verify_project(
                     evaluate_chain_integrity(scan, &vos, &document_node_ids)
                 }
                 VerificationCheck::OrphanDetection => evaluate_orphan_detection(scan),
-                _ => unreachable!("STRUCTURAL_CHECKS holds only the two structural checks"),
+                VerificationCheck::TargetBinding | VerificationCheck::OraclePresence => {
+                    unreachable!("STRUCTURAL_CHECKS holds only the two structural checks")
+                }
             }
         })
         .collect::<Vec<_>>();
@@ -676,7 +678,7 @@ pub fn verify_project(
     // that contradicts its per-target entries), in check order with
     // duplicates removed: one Evidence record can be reached from more than
     // one VO.
-    let mut diagnostics = evidence.diagnostics.clone();
+    let mut diagnostics = evidence.diagnostics;
     for check in outcome.all_outcomes() {
         for diagnostic in &check.diagnostics {
             if !diagnostics.contains(diagnostic) {
@@ -1313,7 +1315,11 @@ fn canonical_target_locators(test: &TestEntity, scan: &ScanResult) -> Vec<String
                 .iter()
                 .find(|source| &source.locator == locator)
                 .map(|source| source.locator.to_string()),
-            _ => None,
+            // Not reached today: `evidence_validity_failure` already rejected
+            // a Test with a `SrcId` target, because `current_target_hashes`
+            // cannot resolve one. Resolving `SrcId` targets there means
+            // resolving them here too.
+            TargetRef::SrcId(_) => None,
         })
         .collect()
 }
@@ -1806,7 +1812,10 @@ fn is_selection_root(record: &VoRecord, selection: &EntitySelection) -> bool {
         .is_none_or(|parent| !selection.vos.contains(parent.as_str()))
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "passes the context of the aggregation tree down each level of the recursion"
+)]
 fn build_vo_node(
     id: &str,
     vos: &BTreeMap<String, VoRecord>,
@@ -1910,7 +1919,9 @@ fn test_node(
                     evaluate_target_binding(test, test_resolution, scan, evidence)
                 }
                 VerificationCheck::OraclePresence => evaluate_oracle_presence(test, evidence),
-                _ => unreachable!("PER_TEST_CHECKS holds only the two per-Test checks"),
+                VerificationCheck::ChainIntegrity | VerificationCheck::OrphanDetection => {
+                    unreachable!("PER_TEST_CHECKS holds only the two per-Test checks")
+                }
             }
         })
         .collect::<Vec<_>>();
@@ -3606,7 +3617,7 @@ mod tests {
         record.execution_state.hash = Some(ContentHash::from_text("deliberately-mismatched"));
         let registry = test_registry();
         let evidence = EvidenceContext {
-            root: root.clone(),
+            root,
             latest_by_test: BTreeMap::new(),
             invalid: Vec::new(),
             diagnostics: Vec::new(),

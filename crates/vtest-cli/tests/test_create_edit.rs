@@ -1,5 +1,9 @@
 //! #85: `vtest test create` / `vtest test edit` (SPEC-385 / SPEC-386) drive the
 //! adapter's Structured Test capability end to end through the binary.
+#![expect(
+    clippy::unwrap_used,
+    reason = "a panic in a test helper is the assertion; `allow-unwrap-in-tests` covers only `#[test]` functions"
+)]
 use std::{
     fs,
     path::{Path, PathBuf},

@@ -2247,7 +2247,7 @@ updated: 2026-08-08
             Err(StoreError::InvalidVoId(_))
         ));
         assert_eq!(std::fs::read(layout.config()).unwrap(), config_before);
-        let mut ok = record.clone();
+        let mut ok = record;
         ok.id = VoId::new("VO-ONE");
         write_vo_record(&layout, &ok).unwrap();
         assert_eq!(read_vo_record(&layout, "VO-ONE").unwrap().0.id, ok.id);

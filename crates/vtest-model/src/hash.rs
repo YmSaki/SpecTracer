@@ -239,6 +239,7 @@ impl FieldValue {
 /// - a 1-byte kind tag distinguishing absent/scalar/ordered-sequence/
 ///   set-like-sequence/map before the length+bytes — DES-598
 /// - fixed-width 64-bit unsigned big-endian length prefixes — DES-599
+#[derive(Debug)]
 pub struct SubjectHashInput {
     buf: Vec<u8>,
 }
@@ -443,7 +444,7 @@ mod tests {
             .field("f", FieldValue::Set(vec![same.clone()]))
             .finish();
         let mut map = BTreeMap::new();
-        map.insert("f".to_string(), same.clone());
+        map.insert("f".to_string(), same);
         let map_hash = SubjectHashInput::new(SubjectDomain::TestSubject)
             .field("f", FieldValue::Map(map))
             .finish();

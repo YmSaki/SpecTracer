@@ -381,7 +381,7 @@ pub fn locator_from_declared_value(raw: &str) -> Locator {
 /// 複数 capability を宣言する」を、trait ごとに独立した小さな実装を保った
 /// まま満たすための構成であり、4 つの capability trait 自体は分離したまま
 /// 変えない。
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct RustCargoAdapter {
     runner: RustCargoTestRunner,
     coverage: RustCargoCoverageAdapter,
@@ -620,7 +620,7 @@ impl<'a> Scanner<'a> {
                         "E-SCAN-001",
                         format!("failed to read {}: {source}", path.display()),
                     )
-                    .with_location(file_location.clone()),
+                    .with_location(file_location),
                 );
                 return Ok(());
             }
@@ -658,7 +658,10 @@ impl<'a> Scanner<'a> {
         )
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "passes the context of the file being walked down each level of the recursion"
+    )]
     fn collect_items(
         &mut self,
         items: &[Item],
@@ -795,7 +798,10 @@ impl<'a> Scanner<'a> {
         Ok(())
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "passes the context of the file being walked down each level of the recursion"
+    )]
     fn collect_non_function_source(
         &mut self,
         attrs: &[Attribute],
@@ -838,7 +844,10 @@ impl<'a> Scanner<'a> {
         Ok(())
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "passes the context of the file being walked down each level of the recursion"
+    )]
     fn collect_impl(
         &mut self,
         item_impl: &ItemImpl,
@@ -885,7 +894,10 @@ impl<'a> Scanner<'a> {
         result
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "passes the context of the file being walked down each level of the recursion"
+    )]
     fn collect_impl_items(
         &mut self,
         item_impl: &ItemImpl,
@@ -925,7 +937,10 @@ impl<'a> Scanner<'a> {
         Ok(())
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "passes the context of the file being walked down each level of the recursion"
+    )]
     fn collect_fn(
         &mut self,
         item_fn: &ItemFn,
@@ -958,7 +973,10 @@ impl<'a> Scanner<'a> {
         )
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "passes the context of the file being walked down each level of the recursion"
+    )]
     fn collect_function_parts(
         &mut self,
         attrs: &[Attribute],
@@ -1192,7 +1210,7 @@ impl<'a> Scanner<'a> {
             id: test_id,
             covers,
             targets,
-            intent: intent.clone(),
+            intent,
             input: annotation.input,
             expect: annotation.expect,
             kind: annotation.kind,

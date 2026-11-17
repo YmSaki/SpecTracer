@@ -16,6 +16,7 @@ use crate::ADAPTER_ID;
 
 const FIELDS: &[&str] = &["filter", "package", "test_target"];
 
+#[derive(Debug)]
 pub struct RustCargoWireCodec;
 
 impl TestWireCodec for RustCargoWireCodec {
@@ -254,7 +255,7 @@ mod tests {
         // Absent: derived from the complete compat fields (DS-1578).
         let mut absent = json.clone();
         absent.as_object_mut().unwrap().remove("execution");
-        assert_eq!(decode_test_json(&absent, &registry), Ok(original.clone()));
+        assert_eq!(decode_test_json(&absent, &registry), Ok(original));
 
         // Present but invalid: rejected, never replaced by `module::wire`.
         for (name, execution) in [
@@ -307,7 +308,7 @@ mod tests {
         assert!(decode_test_json(&misplaced, &registry).is_err());
 
         assert_eq!(json["target"], json["targets"][0]);
-        let mut singular = json.clone();
+        let mut singular = json;
         singular["target"] =
             json!({"locator": {"adapter": "rust-cargo", "value": "src/lib.rs::x"}});
         assert!(decode_test_json(&singular, &registry).is_err());
