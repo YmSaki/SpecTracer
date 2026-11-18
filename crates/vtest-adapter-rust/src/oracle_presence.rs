@@ -1150,7 +1150,9 @@ impl<'ast> Visit<'ast> for MacroUseVisitor<'_> {
 /// block uses where it flows; and the elements of a tuple, array or struct literal,
 /// except that a literal projected directly (`(a, b).1`, `S { a, b }.b`,
 /// `[a, b][1]`, `vec![a, b][1]`) passes only the element that is projected, and none
-/// when that cannot be told; a chain of projections (`((a, b), c).0.1`) is applied
+/// when that cannot be told. A closure body is not a flowing position (DS-629 reads
+/// dataflow inside a closure as UNKNOWN) and neither is a `match` scrutinee (outside
+/// the range DS-628 gives the tracking, so DS-615 reads it as UNKNOWN). A chain of projections (`((a, b), c).0.1`) is applied
 /// step by step. The same test applied to the initializer of a `let` decides whether
 /// its binding is derived from the target's result (`find_let_bindings_containing_call`).
 /// A `let` name is followed only through the tail expression of its own
@@ -1172,7 +1174,7 @@ struct CheckedCallVisitor<'a> {
     probe_dropped: bool,
     /// `probe` is bound or assigned again.
     probe_rebound: bool,
-    /// The expression is the initializer of a `let` (`let_initializer_calls`), where
+    /// The expression is the initializer of a `let` (`find_let_bindings_containing_call`), where
     /// calls in macro tokens are not read.
     init_mode: bool,
 }
@@ -1934,7 +1936,10 @@ impl<'ast> Visit<'ast> for CallSiteVisitor<'_> {
 /// the initializer. A call whose value is dropped there (a block statement, a
 /// short-circuit, a `match` scrutinee, a projection that leaves it out, a closure
 /// body) leaves the binding underived, so the call stays unverified, UNKNOWN
-/// (DS-615). Calls in macro tokens are not read here: `macro_target_use` reads them.
+/// (DS-615). A closure body is UNKNOWN because DS-629 reads dataflow inside a
+/// closure as UNKNOWN. A `match` scrutinee is outside the range DS-628 gives the
+/// tracking (a `let` binding, a method chain, a field access), so DS-615 reads it as
+/// UNKNOWN. Calls in macro tokens are not read here: `macro_target_use` reads them.
 fn find_let_bindings_containing_call(text: &str, symbol: &str) -> Vec<(String, bool)> {
     let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
         return Vec::new();
@@ -3414,12 +3419,8 @@ mod tests {
             "let r = match double(2) { _ => 1 };\n    assert_eq!(r, 1);",
             "let f = |x| { double(x); 1 };\n    assert_eq!(f(2), 1);",
             "let f = |x| double(x);\n    assert_eq!(f(2), 4);",
-            "let f = |x: i32| double(x);\n    assert_eq!(f(2), 4);",
-            "assert_eq!((|x| double(x))(2), 4);",
             "let r = ((double(2), 1), 2).0.1;\n    assert_eq!(r, 1);",
             "let r = vec![double(2), 1][1];\n    assert_eq!(r, 1);",
-            "assert_eq!(((double(2), 1), 2).0.1, 1);",
-            "assert_eq!(vec![double(2), 1][1], 1);",
             "let r = [double(2), 1][1];\n    assert_eq!(r, 1);",
             "let r = Pair { a: double(2), b: 1 }.b;\n    assert_eq!(r, 1);",
             "let r = { let _ = double(2); 1 };\n    assert_eq!(r, 1);",
@@ -3445,6 +3446,30 @@ mod tests {
         }
     }
 
+    /// A closure body and a nested projection inside an assert's checked argument
+    /// do not carry the call's value (DS-629; a projection selects one element).
+    /// @vtest.id TEST-ORACLE-DA-003-CLOSURE-AND-NESTED-PROJECTION-IN-ASSERT-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN, VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.intent assert の検査される引数の中で、インラインのクロージャの本体、入れ子の射影で残らない要素、vec! の添字で残らない要素にある target の呼出は検証済みと数えず、DA-003 が UNKNOWN になり合成結果が PASS にならないことを確認する
+    #[test]
+    fn a_closure_or_nested_projection_inside_an_assert_argument_is_unknown() {
+        for text in [
+            "assert_eq!((|x| double(x))(2), 4);",
+            "assert_eq!(((double(2), 1), 2).0.1, 1);",
+            "assert_eq!(vec![double(2), 1][1], 1);",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {text}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            let (is_fail, is_unknown, basis) = compose(&analysis);
+            assert!(
+                !is_fail && is_unknown,
+                "{text}: not UNKNOWN: {basis:?} / {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
     /// A `let` initializer in which the target's value flows to the initializer's
     /// value still derives the binding from the result.
     /// @vtest.id TEST-ORACLE-DA-003-LET-INITIALIZER-FLOWING-CALL-STAYS-NO-VIOLATION
@@ -3454,7 +3479,6 @@ mod tests {
     #[test]
     fn a_let_initializer_that_carries_the_call_stays_no_violation() {
         for text in [
-            "let r = double(2);\n    assert_eq!(r, 4);",
             "let r = double(2) + 1;\n    assert_eq!(r, 5);",
             "let r = c.double(2).unwrap();\n    assert_eq!(r, 4);",
             "let r = if c { double(2) } else { 0 };\n    assert_eq!(r, 4);",
