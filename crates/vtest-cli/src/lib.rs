@@ -2295,6 +2295,8 @@ fn general_format(cli: &Cli) -> Result<OutputFormat, ExitCode> {
 }
 
 /// DS-1692 / DS-1693: `vtest export` takes `md` (the default) and `json`.
+/// The `Err` is the message of the argument error; it stays a `String`
+/// because the caller only prints it.
 fn export_format(format: Option<FormatArg>) -> Result<ExportFormat, String> {
     match format {
         None | Some(FormatArg::Md) => Ok(ExportFormat::Md),
@@ -2348,7 +2350,8 @@ fn resolve_root(project: &Path, format: OutputFormat, quiet: bool) -> Result<Pat
 }
 
 /// The nearest directory at or above `project` that holds `.verify/`, or
-/// the message of the E-OP-001 rejection.
+/// the message of the E-OP-001 rejection (a `String`: the callers only
+/// report it).
 fn find_root(project: &Path) -> Result<PathBuf, String> {
     let start = absolute_path(project);
     let mut current = start.as_path();

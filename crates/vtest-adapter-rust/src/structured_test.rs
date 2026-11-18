@@ -9,7 +9,7 @@ use std::{
 };
 
 use syn::spanned::Spanned;
-use vtest_adapter_api::{BuiltInForm, ParsedLocator, StructuredTestAdapter};
+use vtest_adapter_api::{BuiltInForm, ParsedLocator, StructuredTestAdapter, SyntaxRejection};
 
 use crate::RustLocator;
 
@@ -208,37 +208,38 @@ impl StructuredTestAdapter for RustStructuredTest {
         BUILT_IN_FORMS
     }
 
-    fn check_test_construct(&self, text: &str) -> Result<(), String> {
+    fn check_test_construct(&self, text: &str) -> Result<(), SyntaxRejection> {
         syn::parse_str::<syn::ItemFn>(text)
             .map(|_| ())
-            .map_err(|error| error.to_string())
+            .map_err(|error| SyntaxRejection::new(error.to_string()))
     }
 
-    fn check_source_file(&self, text: &str) -> Result<(), String> {
+    fn check_source_file(&self, text: &str) -> Result<(), SyntaxRejection> {
         syn::parse_file(text)
             .map(|_| ())
-            .map_err(|error| error.to_string())
+            .map_err(|error| SyntaxRejection::new(error.to_string()))
     }
 
-    fn check_body(&self, text: &str) -> Result<(), String> {
+    fn check_body(&self, text: &str) -> Result<(), SyntaxRejection> {
         syn::parse_str::<syn::Block>(text)
             .map(|_| ())
-            .map_err(|error| error.to_string())
+            .map_err(|error| SyntaxRejection::new(error.to_string()))
     }
 
     fn is_identifier(&self, name: &str) -> bool {
         syn::parse_str::<syn::Ident>(name).is_ok()
     }
 
-    fn body_range(&self, construct: &str) -> Result<Range<usize>, String> {
-        let parsed = syn::parse_str::<syn::ItemFn>(construct).map_err(|error| error.to_string())?;
+    fn body_range(&self, construct: &str) -> Result<Range<usize>, SyntaxRejection> {
+        let parsed = syn::parse_str::<syn::ItemFn>(construct)
+            .map_err(|error| SyntaxRejection::new(error.to_string()))?;
         let span = parsed.block.span();
         let start = source_offset(construct, span.start().line, span.start().column)
-            .ok_or_else(|| "Test body start is out of range".to_owned())?;
+            .ok_or_else(|| SyntaxRejection::new("Test body start is out of range"))?;
         let end = source_offset(construct, span.end().line, span.end().column)
-            .ok_or_else(|| "Test body end is out of range".to_owned())?;
+            .ok_or_else(|| SyntaxRejection::new("Test body end is out of range"))?;
         if start >= end || construct.get(start..end).is_none() {
-            return Err("Test function body range is invalid".to_owned());
+            return Err(SyntaxRejection::new("Test function body range is invalid"));
         }
         Ok(start..end)
     }

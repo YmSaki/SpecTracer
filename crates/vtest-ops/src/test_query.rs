@@ -93,7 +93,9 @@ pub fn list(root: &Path, registry: &AdapterRegistry, filter: &ListFilter) -> (Ex
 }
 
 /// DS-1822: `SRC-…` is a SRC ID reference; anything else is
-/// `<adapter ID>::<locator value>`, split at the first `::`.
+/// `<adapter ID>::<locator value>`, split at the first `::`. The `Err` is
+/// the message of the rejection the caller returns; it stays a `String`
+/// because nothing matches on it.
 fn parse_source(source: &str) -> Result<TargetRef, String> {
     if source.starts_with("SRC-") {
         return Ok(TargetRef::SrcId(SrcId::new(source)));

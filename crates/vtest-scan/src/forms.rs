@@ -273,19 +273,22 @@ mod tests {
     }
 
     impl StructuredTestAdapter for Fake {
-        fn check_test_construct(&self, _: &str) -> Result<(), String> {
+        fn check_test_construct(&self, _: &str) -> Result<(), vtest_adapter_api::SyntaxRejection> {
             Ok(())
         }
-        fn check_source_file(&self, _: &str) -> Result<(), String> {
+        fn check_source_file(&self, _: &str) -> Result<(), vtest_adapter_api::SyntaxRejection> {
             Ok(())
         }
-        fn check_body(&self, _: &str) -> Result<(), String> {
+        fn check_body(&self, _: &str) -> Result<(), vtest_adapter_api::SyntaxRejection> {
             Ok(())
         }
         fn is_identifier(&self, _: &str) -> bool {
             true
         }
-        fn body_range(&self, construct: &str) -> Result<std::ops::Range<usize>, String> {
+        fn body_range(
+            &self,
+            construct: &str,
+        ) -> Result<std::ops::Range<usize>, vtest_adapter_api::SyntaxRejection> {
             Ok(0..construct.len())
         }
         fn enum_variants(&self, _: &str, _: &str) -> Option<Vec<String>> {

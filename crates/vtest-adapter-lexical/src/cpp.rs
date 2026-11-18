@@ -305,6 +305,9 @@ impl Reader<'_> {
 
     /// Where the declaration starting at `start` ends (see the module
     /// documentation).
+    ///
+    /// The `Err` is the reason text of the E-SCAN-001 diagnostic the caller
+    /// builds; nothing matches on it, so it stays a `String`.
     fn declaration_end(&self, start: usize) -> Result<Declaration, String> {
         let mut initialized = false;
         let mut init_list = false;

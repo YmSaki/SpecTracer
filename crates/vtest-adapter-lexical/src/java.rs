@@ -199,6 +199,9 @@ impl Reader<'_> {
     /// inside `(...)` and `[...]` are skipped whole. A declaration that
     /// reaches the end of its enclosing block without a body or `;` cannot
     /// be read.
+    ///
+    /// The `Err` is the reason text of the E-SCAN-001 diagnostic the caller
+    /// builds; nothing matches on it, so it stays a `String`.
     fn member_end(&self, start: usize) -> Result<Member, String> {
         let mut assigned = false;
         let mut index = start;
