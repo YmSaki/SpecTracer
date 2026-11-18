@@ -33,9 +33,7 @@
 //!   as before, but only when no function call of the target stays unverified
 //!   beside it; otherwise it is `Unknown` too, since the verifying call may be
 //!   another type's same-named method. (These are derivations from DS-1680, not
-//!   stated in it.) A comparison of composed verdicts against the base over 22
-//!   shapes found no move toward PASS. A target
-//!   declared by `SrcId` has no call symbol, so `RustCargoStaticAnalysisAdapter::
+//!   stated in it.) A target declared by `SrcId` has no call symbol, so `RustCargoStaticAnalysisAdapter::
 //!   analyze` reports `Unknown` instead of a PASS composed without it.
 //!   Still unseen: a call written inside a macro invocation's tokens (assert macros
 //!   included; the tokens are not parsed, so such a call is read as not called).
