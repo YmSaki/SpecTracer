@@ -376,8 +376,15 @@ pub trait CoverageAdapter {
     /// covers both an unreadable/unparsable output file and a target the
     /// output simply does not mention; `vtest-exec` does not need to
     /// distinguish those cases further.
+    ///
+    /// `root` is the project root the Locators of `targets` were resolved
+    /// against (the same `root` `availability` and the runner receive). A
+    /// target is the Source Target its canonical Locator names (DS-1412), so
+    /// the adapter needs the root to tell that target's own source from
+    /// another one the output also mentions (#257).
     fn measure(
         &self,
+        root: &Path,
         coverage_output_path: &Path,
         targets: &[Locator],
     ) -> Vec<CoverageTargetMeasurement>;

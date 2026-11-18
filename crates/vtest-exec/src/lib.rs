@@ -105,6 +105,7 @@ impl CoverageAdapter for NoCoverageCapability {
 
     fn measure(
         &self,
+        _root: &Path,
         _coverage_output_path: &Path,
         _targets: &[Locator],
     ) -> Vec<CoverageTargetMeasurement> {
@@ -363,7 +364,7 @@ pub fn run_tests_with_runner(
                     let measurements = if test.target_locators.is_empty() {
                         Vec::new()
                     } else {
-                        coverage.measure(coverage_path, &test.target_locators)
+                        coverage.measure(root, coverage_path, &test.target_locators)
                     };
                     target_coverage_from_measurements(
                         coverage.method(),
@@ -634,6 +635,7 @@ mod tests {
 
         fn measure(
             &self,
+            _root: &Path,
             _coverage_output_path: &Path,
             targets: &[Locator],
         ) -> Vec<CoverageTargetMeasurement> {

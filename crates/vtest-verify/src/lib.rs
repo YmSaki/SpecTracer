@@ -2155,6 +2155,7 @@ mod tests {
 
         fn measure(
             &self,
+            _root: &Path,
             _coverage_output_path: &Path,
             _targets: &[vtest_model::Locator],
         ) -> Vec<vtest_adapter_api::CoverageTargetMeasurement> {
