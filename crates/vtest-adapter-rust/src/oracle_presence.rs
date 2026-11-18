@@ -33,7 +33,9 @@
 //!   DS-652, DS-1345). It therefore never reports `NoViolation` through
 //!   delegation. A call written inside a macro invocation is not seen
 //!   (the macro's tokens are not parsed), so a body whose only calls are
-//!   there still reports `FAIL`.
+//!   there still reports `FAIL`. DA-003 treats the same way a body with no
+//!   assert-equivalent macro and a call other than the declared targets and
+//!   the assert-equivalent methods: `Unknown`, not `FAIL` (DS-642, DS-640).
 //! - DA-001's constant-expression classifier only recognizes literals
 //!   (numeric/string/bool/char) and simple arithmetic/comparison
 //!   combinations of literals; any identifier reference (a `const` item
@@ -483,7 +485,14 @@ fn da_003_result_unverified(
         // structurally certain: there is no assert-equivalent construct in
         // the function at all for any path to reach, tracked or not — a
         // genuine DS-623 `Fail`.
-        return if assert_spans.is_empty() {
+        //
+        // DS-642: with no assert-equivalent construct, every other call in the
+        // body is a delegation target of the Test. Its termination (§7.2.1,
+        // #242) is not confirmed here, so DA-003 is neither a violation nor
+        // its absence (DS-640, DS-652). The target's own call is excluded:
+        // a derivation (DS-642 does not exclude it), so that a body that
+        // only calls and discards the target stays FAIL.
+        return if assert_spans.is_empty() && !has_non_target_call(text, target_symbols) {
             DaVerdict::Fail(
                 "a declared target's call result reaches no assert-equivalent construct, \
                  and no #[should_panic] is present (DS-623)",
@@ -501,6 +510,53 @@ fn da_003_result_unverified(
         };
     }
     DaVerdict::NoViolation
+}
+
+/// `true` when the body calls a function or method that is neither a
+/// declared target nor an assert-equivalent method (DS-642 delegation).
+fn has_non_target_call(text: &str, target_symbols: &[String]) -> bool {
+    let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
+        return false;
+    };
+    let mut visitor = NonTargetCallVisitor {
+        symbols: target_symbols,
+        found: false,
+    };
+    visitor.visit_block(&function.block);
+    visitor.found
+}
+
+struct NonTargetCallVisitor<'a> {
+    symbols: &'a [String],
+    found: bool,
+}
+
+impl<'ast> Visit<'ast> for NonTargetCallVisitor<'_> {
+    fn visit_expr_call(&mut self, node: &'ast syn::ExprCall) {
+        let is_target =
+            match node.func.as_ref() {
+                syn::Expr::Path(path) => path.path.segments.last().is_some_and(|segment| {
+                    self.symbols.iter().any(|symbol| segment.ident == symbol)
+                }),
+                _ => false,
+            };
+        if !is_target {
+            self.found = true;
+        }
+        syn::visit::visit_expr_call(self, node);
+    }
+
+    fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
+        let name = node.method.to_string();
+        let is_excluded = matches!(
+            name.as_str(),
+            "unwrap" | "expect" | "unwrap_err" | "expect_err"
+        ) || self.symbols.contains(&name);
+        if !is_excluded {
+            self.found = true;
+        }
+        syn::visit::visit_expr_method_call(self, node);
+    }
 }
 
 enum TargetCallVerification {
@@ -1280,6 +1336,50 @@ mod tests {
         let text = "#[test]\nfn delegated() {\n    check(parse(input));\n}\n";
         let analysis = analyze(text, &["parse".to_owned()], &[]);
         assert!(matches!(analysis.da_003, DaVerdict::Unknown(_)));
+    }
+
+    /// DS-642: a body with no assert-equivalent construct delegates to every
+    /// non-target call in it; the delegation target's termination is not
+    /// confirmed (DS-640, DS-652), so DA-003 is UNKNOWN, not FAIL.
+    /// @vtest.id TEST-ORACLE-DA-003-RESULT-FLOWING-TO-OTHER-CALL-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent assert相当が無く、target以外の関数へ結果が流れる本体はDA-003がFAILではなくUNKNOWNになることを確認する
+    #[test]
+    fn a_result_flowing_into_a_non_target_call_without_assert_is_unknown() {
+        for text in [
+            "#[test]\nfn flows() {\n    let data = build(&scan);\n    let json = to_json(&data);\n    golden(\"a\", &json);\n}\n",
+            "#[test]\nfn method_flows() {\n    let data = build(&scan);\n    data.render();\n}\n",
+        ] {
+            let analysis = analyze(text, &["build".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// The target's own call is not a delegation target (a derivation: DS-642
+    /// does not exclude it), so a discarded result stays FAIL.
+    /// @vtest.id TEST-ORACLE-DA-003-DISCARDED-RESULT-STAYS-FAIL
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent target呼出だけで結果を捨てる本体(double(2); と let _ = double(2);)はDA-003がFAILのままであることを確認する
+    #[test]
+    fn a_discarded_target_result_with_no_other_call_stays_fail() {
+        for text in [
+            "#[test]\nfn bare() {\n    double(2);\n}\n",
+            "#[test]\nfn discarded() {\n    let _ = double(2);\n}\n",
+            "#[test]\nfn qualified() {\n    let _ = Type::double(2);\n}\n",
+        ] {
+            let analysis = analyze(text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Fail(_)),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
     }
 
     /// @vtest.id TEST-ORACLE-DA-004-IDENTICAL-ARGUMENTS-FAILS
