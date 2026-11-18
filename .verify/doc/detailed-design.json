@@ -952,7 +952,7 @@
     },
     {
       "id": "SPEC-S084",
-      "title": "7. Static Analysis orchestrationと`rust-cargo`ルール",
+      "title": "7. Static Analysis orchestrationとルール",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
         "heading": "7. Static Analysis orchestrationと`rust-cargo`ルール",
@@ -965,7 +965,7 @@
       "sections": [
         {
           "id": "SPEC-S085",
-          "title": "7.2 `rust-cargo` ルール一覧",
+          "title": "7.2 ルール一覧",
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "7.2 `rust-cargo` ルール一覧",
@@ -1407,7 +1407,7 @@
     },
     {
       "id": "SPEC-S091",
-      "title": "10. `rust-cargo` Target Binding 動的計測",
+      "title": "10. Target Binding 動的計測",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
         "heading": "10. `rust-cargo` Target Binding 動的計測",
@@ -2381,7 +2381,7 @@
         },
         {
           "id": "SPEC-361",
-          "statement": "`rust-cargo`以外のproduction language adapter（synthetic adapterは受入fixture専用）は提供範囲外とする。",
+          "statement": "`rust-cargo`・`go`・`javascript`以外のproduction language adapter（synthetic adapterは受入fixture専用）は提供範囲外とする。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -2428,6 +2428,22 @@
             "lines": [
               1687,
               1687
+            ]
+          }
+        },
+        {
+          "id": "SPEC-489",
+          "statement": "vitest以外のJavaScript / TypeScriptのtest runner（jest等）への対応は提供範囲外とする。",
+          "derives_from": [
+            "REQ-345",
+            "REQ-347"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              28,
+              28
             ]
           }
         }

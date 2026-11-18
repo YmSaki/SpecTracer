@@ -6460,8 +6460,38 @@
           }
         },
         {
+          "id": "SPEC-484",
+          "statement": "`go` はGoのTest関数（`_test.go` ファイルにあり `go test` が実行する関数）を対象とする。",
+          "derives_from": [
+            "REQ-344"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "目的",
+            "lines": [
+              5,
+              5
+            ]
+          }
+        },
+        {
+          "id": "SPEC-485",
+          "statement": "`javascript` はJavaScript・TypeScriptのTest（vitest が実行する `test(...)` / `it(...)` の呼出し）を対象とする。",
+          "derives_from": [
+            "REQ-345"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "目的",
+            "lines": [
+              5,
+              5
+            ]
+          }
+        },
+        {
           "id": "SPEC-011",
-          "statement": "`rust-cargo` 以外の production language adapter はv0.1の提供範囲に含めない。",
+          "statement": "`rust-cargo`・`go`・`javascript` 以外の production language adapter はv0.1の提供範囲に含めない。",
           "derives_from": [
             "REQ-258",
             "REQ-259",
@@ -11264,8 +11294,38 @@
           }
         },
         {
+          "id": "SPEC-486",
+          "statement": "`go` はGo・`go test` で実行するTestを対象とする。",
+          "derives_from": [
+            "REQ-344"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "目的",
+            "lines": [
+              5,
+              5
+            ]
+          }
+        },
+        {
+          "id": "SPEC-487",
+          "statement": "`javascript` はJavaScript・TypeScript・vitest で実行するTestを対象とする。",
+          "derives_from": [
+            "REQ-345"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "目的",
+            "lines": [
+              5,
+              5
+            ]
+          }
+        },
+        {
           "id": "SPEC-218",
-          "statement": "`rust-cargo` 以外のproduction language adapterはv0.1の提供範囲に含めない。",
+          "statement": "`rust-cargo`・`go`・`javascript` 以外のproduction language adapterはv0.1の提供範囲に含めない。",
           "derives_from": [
             "R-2"
           ],
@@ -11278,6 +11338,21 @@
             "lines": [
               722,
               722
+            ]
+          }
+        },
+        {
+          "id": "SPEC-488",
+          "statement": "`rust-cargo`・`go`・`javascript` 以外のlanguage adapterを配布物に登録する場合、そのadapterはproduction language adapterではない。",
+          "derives_from": [
+            "REQ-264"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
             ]
           }
         },
@@ -12807,7 +12882,7 @@
     },
     {
       "id": "SPEC-S084",
-      "title": "7. Static Analysis orchestrationと`rust-cargo`ルール",
+      "title": "7. Static Analysis orchestrationとルール",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
         "heading": "7. Static Analysis orchestrationと`rust-cargo`ルール",
@@ -12820,7 +12895,7 @@
       "sections": [
         {
           "id": "SPEC-S085",
-          "title": "7.2 `rust-cargo` ルール一覧",
+          "title": "7.2 ルール一覧",
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "7.2 `rust-cargo` ルール一覧",
@@ -13262,7 +13337,7 @@
     },
     {
       "id": "SPEC-S091",
-      "title": "10. `rust-cargo` Target Binding 動的計測",
+      "title": "10. Target Binding 動的計測",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
         "heading": "10. `rust-cargo` Target Binding 動的計測",
@@ -14236,7 +14311,7 @@
         },
         {
           "id": "SPEC-361",
-          "statement": "`rust-cargo`以外のproduction language adapter（synthetic adapterは受入fixture専用）は提供範囲外とする。",
+          "statement": "`rust-cargo`・`go`・`javascript`以外のproduction language adapter（synthetic adapterは受入fixture専用）は提供範囲外とする。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -14283,6 +14358,22 @@
             "lines": [
               1687,
               1687
+            ]
+          }
+        },
+        {
+          "id": "SPEC-489",
+          "statement": "vitest以外のJavaScript / TypeScriptのtest runner（jest等）への対応は提供範囲外とする。",
+          "derives_from": [
+            "REQ-345",
+            "REQ-347"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              28,
+              28
             ]
           }
         }
@@ -17089,7 +17180,7 @@
         },
         {
           "id": "SPEC-458",
-          "statement": "`rust-cargo`以外のproduction language adapterは提供範囲外である。",
+          "statement": "`rust-cargo`・`go`・`javascript`以外のproduction language adapterは提供範囲外である。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",

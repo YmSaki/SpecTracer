@@ -1048,7 +1048,7 @@
         },
         {
           "id": "SPEC-458",
-          "statement": "`rust-cargo`以外のproduction language adapterは提供範囲外である。",
+          "statement": "`rust-cargo`・`go`・`javascript`以外のproduction language adapterは提供範囲外である。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
