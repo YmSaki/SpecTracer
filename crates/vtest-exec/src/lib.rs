@@ -1,5 +1,7 @@
 //! Test execution, target coverage attribution, and append-only Evidence recording.
 
+mod state_diff;
+
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -307,11 +309,18 @@ pub fn run_tests_with_runner(
         // DS-532 / DES-371: never bind a result to inputs captured only after
         // execution. Even incomplete drafts may reveal an input change.
         if before_draft != after_draft || before_state != after_state {
+            let summary = state_diff::summarize_execution_state_change(
+                root,
+                before_draft.as_ref(),
+                after_draft.as_ref(),
+                before_state.as_ref(),
+                after_state.as_ref(),
+            );
             diagnostics.push(
                 Diagnostic::error(
                     "E-EXEC-004",
                     format!(
-                        "Execution State changed while running Test {}",
+                        "Execution State changed while running Test {}: {summary}",
                         test.entity.id
                     ),
                 )
@@ -1315,5 +1324,289 @@ mod tests {
             }
             fs::remove_dir_all(root).unwrap();
         }
+    }
+
+    struct SequenceDraftRunner {
+        before: Option<vtest_model::ExecutionStateDraft>,
+        after: Option<vtest_model::ExecutionStateDraft>,
+        calls: std::sync::atomic::AtomicUsize,
+    }
+
+    impl TestRunnerAdapter for SequenceDraftRunner {
+        fn id(&self) -> &'static str {
+            "synthetic"
+        }
+
+        fn execution_state(
+            &self,
+            _root: &Path,
+            _execution: &ExecutionDescriptor,
+            _head: Option<&str>,
+            _runner_kind: &str,
+        ) -> Option<vtest_model::ExecutionStateDraft> {
+            let call = self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            if call == 0 {
+                self.before.clone()
+            } else {
+                self.after.clone()
+            }
+        }
+
+        fn command(
+            &self,
+            root: &Path,
+            execution: &ExecutionDescriptor,
+            coverage: bool,
+            output: Option<&Path>,
+        ) -> Result<RunnerCommand, TestRunnerError> {
+            FixedResultRunner.command(root, execution, coverage, output)
+        }
+
+        fn parse(
+            &self,
+            execution: &ExecutionDescriptor,
+            output: RunnerOutput<'_>,
+        ) -> RunnerTestResult {
+            FixedResultRunner.parse(execution, output)
+        }
+    }
+
+    fn base_draft() -> vtest_model::ExecutionStateDraft {
+        vtest_model::ExecutionStateDraft {
+            schema_id: "synthetic-inputs".into(),
+            schema_version: "1".into(),
+            complete: true,
+            head_revision: Some("abc1234".into()),
+            runner_kind: "fake-runner".into(),
+            invocation: serde_json::json!(["synthetic", "test"]),
+            toolchain_identity: "synthetic-toolchain-1.0".into(),
+            effective_config: serde_json::json!({
+                "environment": {"RUSTFLAGS": "--cfg initial"},
+                "cargo_config": []
+            }),
+            inputs: vec![vtest_model::ExecutionInputDraft {
+                root_identity: "workspace-root".into(),
+                root_relative_path: "src/lib.rs".into(),
+                kind: "file".into(),
+                bytes: b"initial".to_vec(),
+            }],
+        }
+    }
+
+    fn run_with_drafts(
+        root: &Path,
+        before: Option<vtest_model::ExecutionStateDraft>,
+        after: Option<vtest_model::ExecutionStateDraft>,
+    ) -> ExecutionResult {
+        let runner = SequenceDraftRunner {
+            before,
+            after,
+            calls: std::sync::atomic::AtomicUsize::new(0),
+        };
+        let test = runnable_test_with_target("TEST-DIFF", None);
+        let layout = VerifyLayout::new(root);
+        run_tests_with_runner(
+            root,
+            &layout,
+            &[test],
+            true,
+            &runner,
+            &never_available_coverage("fast"),
+        )
+        .unwrap()
+    }
+
+    /// @vtest.id TEST-EXEC-STATE-DIFF-ADDED-REMOVED-MODIFIED
+    /// @vtest.covers VO-EXEC-STATE-PREPOST-STABILITY
+    /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
+    /// @vtest.intent E-EXEC-004 names the relative paths of inputs added, removed, or modified during execution without emitting file contents
+    #[test]
+    fn e_exec_004_reports_added_removed_and_modified_relative_paths() {
+        let root = std::env::temp_dir().join(format!("vtest-diff-paths-{}", new_record_id()));
+        fs::create_dir_all(&root).unwrap();
+
+        let mut before = base_draft();
+        before.inputs.push(vtest_model::ExecutionInputDraft {
+            root_identity: "workspace-root".into(),
+            root_relative_path: "stale.tmp".into(),
+            kind: "file".into(),
+            bytes: b"SECRET_REMOVED_CONTENT".to_vec(),
+        });
+
+        let mut after = base_draft();
+        after.inputs[0].bytes = b"SECRET_MODIFIED_CONTENT".to_vec();
+        after.inputs.push(vtest_model::ExecutionInputDraft {
+            root_identity: "workspace-root".into(),
+            root_relative_path: "generated/output.txt".into(),
+            kind: "file".into(),
+            bytes: b"SECRET_ADDED_CONTENT".to_vec(),
+        });
+
+        let result = run_with_drafts(&root, Some(before), Some(after));
+        assert!(result.evidence.is_empty());
+        let diag = result
+            .diagnostics
+            .iter()
+            .find(|d| d.code == "E-EXEC-004")
+            .expect("E-EXEC-004 diagnostic");
+        assert!(
+            diag.message.contains("added: generated/output.txt"),
+            "missing added path in: {}",
+            diag.message
+        );
+        assert!(
+            diag.message.contains("removed: stale.tmp"),
+            "missing removed path in: {}",
+            diag.message
+        );
+        assert!(
+            diag.message.contains("modified: src/lib.rs"),
+            "missing modified path in: {}",
+            diag.message
+        );
+        for secret in [
+            "SECRET_REMOVED_CONTENT",
+            "SECRET_MODIFIED_CONTENT",
+            "SECRET_ADDED_CONTENT",
+        ] {
+            assert!(
+                !diag.message.contains(secret),
+                "diagnostic leaked file content {secret}: {}",
+                diag.message
+            );
+        }
+        assert!(
+            !diag.message.contains(&root.to_string_lossy().into_owned()),
+            "diagnostic leaked root absolute path: {}",
+            diag.message
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// @vtest.id TEST-EXEC-STATE-DIFF-TRUNCATION-AND-ORDER
+    /// @vtest.covers VO-EXEC-STATE-PREPOST-STABILITY
+    /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
+    /// @vtest.intent E-EXEC-004 lists changed input paths in deterministic sorted order, caps listed entries, and reports the omitted count
+    #[test]
+    fn e_exec_004_truncates_input_paths_above_limit_with_omitted_count() {
+        let root = std::env::temp_dir().join(format!("vtest-diff-limit-{}", new_record_id()));
+        fs::create_dir_all(&root).unwrap();
+
+        let before = base_draft();
+        let mut after = base_draft();
+        // Push in reverse order to verify deterministic lexicographical sorting.
+        for index in (1..=15).rev() {
+            after.inputs.push(vtest_model::ExecutionInputDraft {
+                root_identity: "workspace-root".into(),
+                root_relative_path: format!("generated/file-{index:02}.txt"),
+                kind: "file".into(),
+                bytes: vec![index],
+            });
+        }
+
+        let result = run_with_drafts(&root, Some(before), Some(after));
+        let diag = result
+            .diagnostics
+            .iter()
+            .find(|d| d.code == "E-EXEC-004")
+            .expect("E-EXEC-004 diagnostic");
+        for index in 1..=10 {
+            let expected = format!("generated/file-{index:02}.txt");
+            assert!(
+                diag.message.contains(&expected),
+                "expected {expected} in {}",
+                diag.message
+            );
+        }
+        for index in 11..=15 {
+            let omitted = format!("generated/file-{index:02}.txt");
+            assert!(
+                !diag.message.contains(&omitted),
+                "expected {omitted} to be truncated in {}",
+                diag.message
+            );
+        }
+        assert!(
+            diag.message.contains("(+5 omitted)"),
+            "expected omitted count in {}",
+            diag.message
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// @vtest.id TEST-EXEC-STATE-DIFF-REDACTION-AND-ELEMENTS
+    /// @vtest.covers VO-EXEC-STATE-PREPOST-STABILITY
+    /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
+    /// @vtest.intent E-EXEC-004 names changed non-input elements and never leaks absolute paths, file contents, or environment variable values
+    #[test]
+    fn e_exec_004_names_changed_elements_without_leaking_paths_or_env_values() {
+        let root = std::env::temp_dir().join(format!("vtest-diff-redact-{}", new_record_id()));
+        fs::create_dir_all(&root).unwrap();
+
+        let before = base_draft();
+        let mut after = base_draft();
+        after.head_revision = Some("def5678".into());
+        after.toolchain_identity = "synthetic-toolchain-2.0".into();
+        after.invocation = serde_json::json!(["synthetic", "test", "--extra"]);
+        after.effective_config = serde_json::json!({
+            "environment": {"RUSTFLAGS": "--cfg SECRET_ENV_VALUE"},
+            "cargo_config": [{"location": "cargo-home/config.toml", "text": "SECRET_CFG_TEXT"}]
+        });
+        after.inputs.push(vtest_model::ExecutionInputDraft {
+            root_identity: "workspace-root".into(),
+            root_relative_path: root.join("inside/added.txt").to_string_lossy().into_owned(),
+            kind: "file".into(),
+            bytes: b"SECRET_INSIDE_BYTES".to_vec(),
+        });
+        after.inputs.push(vtest_model::ExecutionInputDraft {
+            root_identity: "workspace-root".into(),
+            root_relative_path: "/secret/outside/private.key".into(),
+            kind: "file".into(),
+            bytes: b"SECRET_OUTSIDE_BYTES".to_vec(),
+        });
+
+        let result = run_with_drafts(&root, Some(before), Some(after));
+        let diag = result
+            .diagnostics
+            .iter()
+            .find(|d| d.code == "E-EXEC-004")
+            .expect("E-EXEC-004 diagnostic");
+
+        for element in ["head_revision", "invocation", "toolchain", "config"] {
+            assert!(
+                diag.message.contains(element),
+                "expected changed element {element} in {}",
+                diag.message
+            );
+        }
+        assert!(
+            diag.message.contains("inside/added.txt"),
+            "expected stripped root-relative path in {}",
+            diag.message
+        );
+        assert!(
+            diag.message.contains("<non-relative-path>"),
+            "expected redacted placeholder for external path in {}",
+            diag.message
+        );
+        for forbidden in [
+            root.to_string_lossy().as_ref(),
+            "/secret/outside/private.key",
+            "private.key",
+            "SECRET_ENV_VALUE",
+            "SECRET_CFG_TEXT",
+            "SECRET_INSIDE_BYTES",
+            "SECRET_OUTSIDE_BYTES",
+        ] {
+            assert!(
+                !diag.message.contains(forbidden),
+                "diagnostic leaked forbidden value {forbidden:?}: {}",
+                diag.message
+            );
+        }
+
+        fs::remove_dir_all(root).unwrap();
     }
 }
