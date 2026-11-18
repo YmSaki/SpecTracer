@@ -1143,7 +1143,8 @@ impl<'ast> Visit<'ast> for MacroUseVisitor<'_> {
 /// fix, nor of an assignment); the receiver and the arguments of a method call; the
 /// arguments of a function call (the value of a function of the result is a
 /// derivation from it, so `drop(double(2))` flows); a reference, a cast, `?`,
-/// `.await` and parentheses; the base of a field access or an index; the tail
+/// `.await` and parentheses; the base of a field access and the base and the index
+/// of an index expression (the index decides the element, as an argument does); the tail
 /// expression of a block; the tail expression of each branch of an `if` or a
 /// `match`; the initializer of a `let` whose single name the tail expression of the
 /// block uses where it flows; and the elements of a tuple, array or struct literal,
@@ -1361,7 +1362,9 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
     }
 
     fn visit_expr_index(&mut self, node: &'ast syn::ExprIndex) {
-        self.dropping(|visitor| visitor.visit_expr(&node.index));
+        // Derivation (from DS-623, as a function's argument is): the value of the index
+        // decides which element is compared (`function[range]`), so it flows.
+        self.visit_expr(&node.index);
         let projected = match node.index.as_ref() {
             syn::Expr::Lit(syn::ExprLit {
                 lit: syn::Lit::Int(index),
@@ -3196,7 +3199,7 @@ mod tests {
     /// @vtest.id TEST-ORACLE-DA-003-UNLISTED-POSITION-IN-ASSERT-IS-UNKNOWN
     /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN, VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
-    /// @vtest.intent assert の検査される引数の中で、流れる位置として列挙されていない位置(|| の被演算子、射影で残らない集約リテラルの要素、添字、match の被検査式、ガード、if let、let-else、範囲、ラベル付きブロックの break、可変の束縛、末尾で使われない束縛、matches! のパターン側)にある target の呼出は検証済みと数えず、DA-003 が UNKNOWN になることを確認する
+    /// @vtest.intent assert の検査される引数の中で、流れる位置として列挙されていない位置(|| の被演算子、射影で残らない集約リテラルの要素、match の被検査式、ガード、if let、let-else、範囲、ラベル付きブロックの break、可変の束縛、末尾で使われない束縛、matches! のパターン側)にある target の呼出は検証済みと数えず、DA-003 が UNKNOWN になることを確認する
     #[test]
     fn a_call_in_a_position_that_is_not_listed_as_flowing_is_unknown() {
         for text in [
@@ -3208,7 +3211,6 @@ mod tests {
             "assert_eq!([double(2), 1][1], 1);",
             "assert_eq!([double(2), 1][i], 1);",
             "assert_eq!({ let r = double(2); (r, 1).1 }, 1);",
-            "assert_eq!(xs[double(2)], 4);",
             "assert!(match double(2) { _ => true });",
             "assert!(match c { _ if double(2) == 4 => true, _ => false });",
             "assert!(if let Some(x) = double(2) { x == 4 } else { false });",
@@ -3247,6 +3249,8 @@ mod tests {
             "assert_eq!((double(2), 1).0, 4);",
             "assert_eq!(Pair { a: double(2), b: 1 }.a, 4);",
             "assert_eq!([double(2), 1][0], 4);",
+            "assert_eq!(xs[double(2)], 4);",
+            "assert_eq!(&function[rust.double(2)], \"x\");",
             "assert_eq!((double(2), 1), (4, 1));",
             "assert_eq!(double(2)[0], 4);",
             "assert_eq!(double(2) && ok, true);",
@@ -3297,6 +3301,7 @@ mod tests {
             "let r = double(2);\n    assert!({ r == 4 });",
             "let r = double(2);\n    assert_eq!({ let t = r; t }, 4);",
             "let f = |x: i32| double(x);\n    assert_eq!(f(2), 4);",
+            "let range = double(2);\n    assert_eq!(&function[range], \"x\");",
         ] {
             let text = format!("#[test]\nfn t() {{\n    {text}\n}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
