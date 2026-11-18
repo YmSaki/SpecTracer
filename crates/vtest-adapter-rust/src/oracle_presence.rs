@@ -56,6 +56,10 @@
 //!   assert's message argument, or in tokens that do not parse as expressions
 //!   makes DA-003 `Unknown`. A bare reference or a path prefix (`name::item`) is
 //!   not a call there, as it is not a call site outside a macro.
+//!   Outside macros, the target's name as an expression path that is not a direct
+//!   call's callee (`(name)(..)`, `let f = name;`, `apply(name)`) may be an indirect
+//!   call that is not followed, so it makes DA-003 `Unknown` too (#288; derivation
+//!   from DS-615 / DS-1680).
 //! - §7.2.1's cross-Test delegation-chain search (DA-003/DA-006's "照合の
 //!   委譲先") is not implemented: this capability never confirms that a
 //!   delegation target terminates (DS-643). For DA-006 it only recognizes
@@ -554,9 +558,9 @@ fn da_003_result_unverified(
         return DaVerdict::Unknown(
             "a declared target is called in the tokens of a macro invocation that is not read \
              as a call whose result an assert checks (a macro other than an assert, an \
-             assert's message argument, or tokens that do not parse as expressions), so \
-             whether its result is verified is neither proven nor refuted (DS-615, DS-651, \
-             DS-1680)"
+             assert's message argument, or tokens that do not parse as expressions), or its \
+             name is used as a value (an indirect call), so whether it is called and whether \
+             its result is verified is neither proven nor refuted (DS-615, DS-651, DS-1680)"
                 .to_owned(),
         );
     }
@@ -890,7 +894,8 @@ struct MacroUse {
     verified_method: bool,
     /// A call-shaped use of the name where it is not read as a call whose result
     /// is checked: in a macro other than an assert, in an assert's message
-    /// argument or in tokens that do not parse as expressions.
+    /// argument or in tokens that do not parse as expressions; or the name used as
+    /// a value outside a macro (`ValueUseVisitor`).
     opaque: bool,
 }
 
@@ -901,9 +906,9 @@ struct MacroUse {
 /// outside a macro that reaches an assert does. A call hidden anywhere else (any
 /// other macro, a message argument, tokens that do not parse) may or may not exist
 /// and may or may not be verified, and DS-651 reads a call hidden in a macro
-/// expansion as UNKNOWN, so a call-shaped use of the name there is `opaque`
-/// (`tokens_call_ident`; a bare reference or a path prefix is not). Reading macro
-/// tokens only moves a verdict toward UNKNOWN or turns "not called" into
+/// expansion as UNKNOWN, so a use of the name there that is not read as a call
+/// whose result an assert checks is `opaque` (`NameUse::tokens_use_name`). Reading
+/// macro tokens only moves a verdict toward UNKNOWN or turns "not called" into
 /// verified: `target_call_result_is_verified` takes a call read in an assert as
 /// verifying only when the Test has no call outside a macro, so it never clears
 /// a call outside a macro that stays unverified, and a verified method call
@@ -913,22 +918,190 @@ fn macro_target_use(text: &str, symbol: &str) -> MacroUse {
     let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
         return MacroUse::default();
     };
+    let names = NameUse::new(text, symbol, &function);
     let mut visitor = MacroUseVisitor {
-        symbol,
+        names: &names,
         found: MacroUse::default(),
     };
     visitor.visit_item_fn(&function);
+    let mut values = ValueUseVisitor {
+        names: &names,
+        found: false,
+    };
+    values.visit_item_fn(&function);
+    visitor.found.opaque |= values.found;
     visitor.found
 }
 
-struct MacroUseVisitor<'a> {
+/// Which uses of the target's name are the target's own, for `ValueUseVisitor`
+/// and the macro readers.
+struct NameUse<'a> {
     symbol: &'a str,
+    text: &'a str,
+    /// Derivation (not stated in DS-615 / DS-1680): a constant or static is not
+    /// callable, and Rust names them in upper case, so its value is not an
+    /// indirect call.
+    is_constant: bool,
+    /// The byte ranges in which the name is bound by a `let` statement: from the
+    /// end of the `let` to the end of its block. A single-segment path inside one
+    /// names that local, not the target (derivation: lexical scope). A binding in
+    /// a closure, a match arm, a nested fn or an assignment is no exception, and
+    /// neither is a use before the `let` or outside its block.
+    local_ranges: Vec<(usize, usize)>,
+}
+
+impl<'a> NameUse<'a> {
+    fn new(text: &'a str, symbol: &'a str, function: &syn::ItemFn) -> Self {
+        let mut scopes = LetScopeVisitor {
+            text,
+            symbol,
+            ranges: Vec::new(),
+        };
+        scopes.visit_item_fn(function);
+        Self {
+            symbol,
+            text,
+            is_constant: is_constant_name(symbol),
+            local_ranges: scopes.ranges,
+        }
+    }
+
+    fn is_local_at(&self, location: proc_macro2::LineColumn) -> bool {
+        let offset = span_offset(location, self.text);
+        self.local_ranges
+            .iter()
+            .any(|&(from, to)| offset >= from && offset < to)
+    }
+
+    /// An expression path that is a value use of the target.
+    fn path_is_value_use(&self, node: &syn::ExprPath) -> bool {
+        let names_symbol = node
+            .path
+            .segments
+            .last()
+            .is_some_and(|segment| segment.ident == self.symbol);
+        let names_local = node.qself.is_none()
+            && node.path.get_ident().is_some()
+            && self.is_local_at(node.span().start());
+        names_symbol && !self.is_constant && !names_local
+    }
+
+    /// Whether the tokens of a macro use the name where it is not a direct call
+    /// read as an expression: followed by an argument list (`name(..)`) or by
+    /// `::<`, or standing alone (a value). Not a use: after `.` (a method or a
+    /// field), before `::` (a path prefix), before `!` (a macro name), before a
+    /// single `:` (a field label), a constant, or a local bound by a `let` earlier in the same block.
+    fn tokens_use_name(&self, tokens: proc_macro2::TokenStream) -> bool {
+        use proc_macro2::{Delimiter, TokenTree};
+        let trees: Vec<TokenTree> = tokens.into_iter().collect();
+        trees.iter().enumerate().any(|(index, tree)| match tree {
+            TokenTree::Group(group) => self.tokens_use_name(group.stream()),
+            TokenTree::Ident(ident) if ident == self.symbol => {
+                let next = trees.get(index + 1);
+                let punct_after = |offset: usize, expected: char| {
+                    matches!(trees.get(index + offset), Some(TokenTree::Punct(p)) if p.as_char() == expected)
+                };
+                if matches!(next, Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Parenthesis)
+                    || (punct_after(1, ':') && punct_after(2, ':') && punct_after(3, '<'))
+                {
+                    return true;
+                }
+                let after_dot = index > 0
+                    && matches!(&trees[index - 1], TokenTree::Punct(p) if p.as_char() == '.');
+                let path_prefix = punct_after(1, ':') && punct_after(2, ':');
+                let field_label = punct_after(1, ':') && !punct_after(2, ':');
+                let macro_name = punct_after(1, '!') && !punct_after(2, '=');
+                !(after_dot
+                    || path_prefix
+                    || field_label
+                    || macro_name
+                    || self.is_constant
+                    || self.is_local_at(ident.span().start()))
+            }
+            TokenTree::Ident(_) | TokenTree::Punct(_) | TokenTree::Literal(_) => false,
+        })
+    }
+}
+
+struct LetScopeVisitor<'a> {
+    text: &'a str,
+    symbol: &'a str,
+    ranges: Vec<(usize, usize)>,
+}
+
+impl<'ast> Visit<'ast> for LetScopeVisitor<'_> {
+    fn visit_block(&mut self, node: &'ast syn::Block) {
+        let block_end = span_offset(node.brace_token.span.join().end(), self.text);
+        for statement in &node.stmts {
+            if let syn::Stmt::Local(local) = statement {
+                if pattern_binds(&local.pat, self.symbol) {
+                    self.ranges
+                        .push((span_offset(local.span().end(), self.text), block_end));
+                }
+            }
+        }
+        syn::visit::visit_block(self, node);
+    }
+}
+
+/// Whether a pattern binds `name` as its own identifier (`name`, `mut name`,
+/// `name: T`).
+fn pattern_binds(pattern: &syn::Pat, name: &str) -> bool {
+    match pattern {
+        syn::Pat::Ident(ident) => ident.ident == name,
+        syn::Pat::Type(typed) => pattern_binds(&typed.pat, name),
+        _ => false,
+    }
+}
+
+fn is_constant_name(name: &str) -> bool {
+    name.chars().any(|c| c.is_ascii_uppercase())
+        && name
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
+}
+
+/// Derivation (not stated in DS-615 / DS-623 / DS-1680): the target's name as an
+/// expression path that is not the callee of a direct call (`(name)(..)`,
+/// `let f = name;`, `apply(name)`, `Type::name` passed as a value) may be called
+/// later through another name, which this capability does not follow. It is
+/// `opaque`, like a call hidden in macro tokens: UNKNOWN, not "not called". A
+/// `use`, a type, a path prefix, a field, a method name and a string are not
+/// expression paths of the target. Inside macros the same uses are read from the
+/// tokens (`NameUse::tokens_use_name`) or, in an assert's checked arguments, from
+/// the parsed expressions (`CheckedCallVisitor`).
+struct ValueUseVisitor<'a> {
+    names: &'a NameUse<'a>,
+    found: bool,
+}
+
+impl<'ast> Visit<'ast> for ValueUseVisitor<'_> {
+    fn visit_expr_call(&mut self, node: &'ast syn::ExprCall) {
+        // A path callee is a direct call, read by `find_call_sites`; any other
+        // callee expression (`(name)`) is visited as a value.
+        if !matches!(node.func.as_ref(), syn::Expr::Path(_)) {
+            self.visit_expr(&node.func);
+        }
+        for argument in &node.args {
+            self.visit_expr(argument);
+        }
+    }
+
+    fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
+        if self.names.path_is_value_use(node) {
+            self.found = true;
+        }
+    }
+}
+
+struct MacroUseVisitor<'a> {
+    names: &'a NameUse<'a>,
     found: MacroUse,
 }
 
 impl<'ast> Visit<'ast> for MacroUseVisitor<'_> {
     fn visit_macro(&mut self, node: &'ast syn::Macro) {
-        if !tokens_call_ident(node.tokens.clone(), self.symbol) {
+        if !self.names.tokens_use_name(node.tokens.clone()) {
             return;
         }
         let is_assert = node.path.segments.last().is_some_and(|segment| {
@@ -939,7 +1112,7 @@ impl<'ast> Visit<'ast> for MacroUseVisitor<'_> {
             return;
         };
         let mut calls = CheckedCallVisitor {
-            symbol: self.symbol,
+            names: self.names,
             path: false,
             method: false,
             opaque: false,
@@ -953,14 +1126,15 @@ impl<'ast> Visit<'ast> for MacroUseVisitor<'_> {
             || arguments
                 .unchecked
                 .iter()
-                .any(|tokens| tokens_call_ident(tokens.clone(), self.symbol));
+                .any(|tokens| self.names.tokens_use_name(tokens.clone()));
     }
 }
 
 /// Finds calls of the target in the checked arguments of an assert, reading a
-/// nested macro as `macro_arguments` does.
+/// nested macro as `macro_arguments` does. The target's name as a value there is
+/// `opaque`, as outside a macro.
 struct CheckedCallVisitor<'a> {
-    symbol: &'a str,
+    names: &'a NameUse<'a>,
     path: bool,
     method: bool,
     opaque: bool,
@@ -973,23 +1147,33 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
                 .path
                 .segments
                 .last()
-                .is_some_and(|segment| segment.ident == self.symbol)
+                .is_some_and(|segment| segment.ident == self.names.symbol)
             {
                 self.path = true;
             }
+        } else {
+            self.visit_expr(&node.func);
         }
-        syn::visit::visit_expr_call(self, node);
+        for argument in &node.args {
+            self.visit_expr(argument);
+        }
     }
 
     fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
-        if node.method == self.symbol {
+        if node.method == self.names.symbol {
             self.method = true;
         }
         syn::visit::visit_expr_method_call(self, node);
     }
 
+    fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
+        if self.names.path_is_value_use(node) {
+            self.opaque = true;
+        }
+    }
+
     fn visit_macro(&mut self, node: &'ast syn::Macro) {
-        if !tokens_call_ident(node.tokens.clone(), self.symbol) {
+        if !self.names.tokens_use_name(node.tokens.clone()) {
             return;
         }
         let Some(arguments) = macro_arguments(node) else {
@@ -1002,32 +1186,8 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
         self.opaque |= arguments
             .unchecked
             .iter()
-            .any(|tokens| tokens_call_ident(tokens.clone(), self.symbol));
+            .any(|tokens| self.names.tokens_use_name(tokens.clone()));
     }
-}
-
-/// Whether `name` appears in the tokens in the form of a call: followed by an
-/// argument list (`name(..)`, `.name(..)`) or by `::<` (`name::<T>(..)`). A path
-/// prefix (`name::item`), a macro name (`name!`) and a bare reference are not
-/// calls, as they are not call sites outside a macro.
-fn tokens_call_ident(tokens: proc_macro2::TokenStream, name: &str) -> bool {
-    use proc_macro2::{Delimiter, TokenTree};
-    let trees: Vec<TokenTree> = tokens.into_iter().collect();
-    trees.iter().enumerate().any(|(index, tree)| match tree {
-        TokenTree::Group(group) => tokens_call_ident(group.stream(), name),
-        TokenTree::Ident(ident) if ident == name => match trees.get(index + 1) {
-            Some(TokenTree::Group(group)) => group.delimiter() == Delimiter::Parenthesis,
-            Some(TokenTree::Punct(first)) if first.as_char() == ':' => {
-                matches!(
-                    (trees.get(index + 2), trees.get(index + 3)),
-                    (Some(TokenTree::Punct(second)), Some(TokenTree::Punct(angle)))
-                        if second.as_char() == ':' && angle.as_char() == '<'
-                )
-            }
-            _ => false,
-        },
-        TokenTree::Ident(_) | TokenTree::Punct(_) | TokenTree::Literal(_) => false,
-    })
 }
 
 struct BindingUseVisitor<'a> {
@@ -2502,18 +2662,19 @@ mod tests {
         }
     }
 
-    /// A name inside macro tokens that is not call-shaped is not a call, as it is
-    /// not a call site outside a macro: a path prefix, a bare reference and a
-    /// macro of the same name do not make DA-003 UNKNOWN; the turbofish call does.
+    /// A name inside macro tokens that is not a use of the target is not read as
+    /// one: a path prefix, a field, a method of another name, a macro of the same
+    /// name and a field label do not make DA-003 UNKNOWN; the turbofish call does.
     /// @vtest.id TEST-ORACLE-DA-003-NON-CALL-NAME-IN-MACRO-IS-NOT-A-CALL
     /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::tokens_call_ident
-    /// @vtest.intent マクロのトークンの中の target の名前が、パスの前置(double::VALUE)、呼出でない参照、同名のマクロであるときは呼出と読まず、turbofish 付きの呼出(double::<u8>(2))は呼出と読むことを確認する
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::NameUse::tokens_use_name
+    /// @vtest.intent マクロのトークンの中の target の名前が、パスの前置(double::VALUE)、フィールド、メソッド名、同名のマクロ、構造体のフィールドのラベルであるときは使用と読まず、turbofish 付きの呼出(double::<u8>(2))は使用と読むことを確認する
     #[test]
-    fn a_name_in_macro_tokens_that_is_not_call_shaped_is_not_a_call() {
+    fn a_name_in_macro_tokens_that_is_not_a_use_is_not_read_as_one() {
         for text in [
             "#[test]\nfn t() {\n    println!(\"{}\", double::VALUE);\n    assert_eq!(other(), 1);\n}\n",
-            "#[test]\nfn t() {\n    let f = vec![double];\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    println!(\"{}\", s.double);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    println!(\"{:?}\", Cfg { double: 1 });\n    assert_eq!(other(), 1);\n}\n",
             "#[test]\nfn t() {\n    double!(1);\n    assert_eq!(other(), 1);\n}\n",
         ] {
             let analysis = analyze(text, &["double".to_owned()], &[]);
@@ -2530,6 +2691,141 @@ mod tests {
             "{:?}",
             analysis.da_003
         );
+    }
+
+    /// #288: the target's name as a value (not the callee of a direct call) may be
+    /// an indirect call, which is not read: UNKNOWN, never PASS.
+    /// @vtest.id TEST-ORACLE-DA-003-TARGET-USED-AS-VALUE-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent target の名前が直接呼出の callee 以外の値の位置(括弧つきの callee、let への代入、引数、配列、型付きの束縛、パス)に現れ、target と無関係な assert_eq! が本体にある Test は、DA-003 が UNKNOWN になり合成結果が PASS にならないことを確認する
+    #[test]
+    fn a_target_used_as_a_value_is_unknown_not_pass() {
+        for text in [
+            "#[test]\nfn t() {\n    (double)(2);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let f = double;\n    f(2);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    apply(double);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let f: fn(i32) -> i32 = double;\n    let _ = f(2);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let v = [double];\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let r: Vec<_> = xs.iter().map(Calc::double).collect();\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let f = double as fn(i32) -> i32;\n    assert_eq!(f(2), 4);\n}\n",
+            "#[test]\nfn t() {\n    let f = double;\n    assert_eq!(f(2), 4);\n}\n",
+            "#[test]\nfn t() {\n    let f = double;\n}\n",
+            "#[test]\nfn t() {\n    let fs = vec![double];\n    fs[0](2);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    println!(\"{}\", apply(double, 2));\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    run_with!(double);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    assert_eq!(apply(double), 4);\n}\n",
+            "#[test]\nfn t() {\n    assert_eq!(vec![double][0](2), 4);\n}\n",
+            "#[test]\nfn t() {\n    assert_eq!(other(), 1, \"{}\", apply(double));\n}\n",
+        ] {
+            let analysis = analyze(text, &["double".to_owned()], &[]);
+            let (is_fail, is_unknown, basis) = compose(&analysis);
+            assert!(is_fail || is_unknown, "{text}: composed to PASS: {basis:?}");
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// The local exception covers only a `let` and the uses after it in its own
+    /// block: a use outside that block or before the `let`, and a binding in a
+    /// closure, a match arm, a nested fn or an assignment, are no exception.
+    /// @vtest.id TEST-ORACLE-DA-003-LOCAL-EXCEPTION-IS-SCOPED
+    /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN, VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::NameUse::new
+    /// @vtest.intent 同名のローカルの例外は、let とその同じブロックの中の後ろの使用だけに効き、ブロックの外の使用、let より前の使用、クロージャの引数、match のアーム、ネストした fn の引数、代入には効かず、DA-003 が UNKNOWN になることを確認する
+    #[test]
+    fn the_local_name_exception_is_scoped_to_its_let() {
+        let in_block = "#[test]\nfn t() {\n    for i in 0..2 {\n        let double = make(i);\n        assert_eq!(double[\"a\"], 1);\n    }\n    assert_eq!(other(), 1);\n}\n";
+        let analysis = analyze(in_block, &["double".to_owned()], &[]);
+        assert!(
+            matches!(analysis.da_003, DaVerdict::NoViolation),
+            "{:?}",
+            analysis.da_003
+        );
+        for text in [
+            "#[test]\nfn t() {\n    { let double = 1; }\n    apply(double);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let f = double;\n    let double = 5;\n    f(2);\n    assert_eq!(other(), double);\n}\n",
+            "#[test]\nfn t() {\n    let g = |double: i32| double;\n    apply(double);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    match x { Some(double) => {}, _ => {} }\n    apply(double);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    fn h(double: i32) -> i32 { double }\n    apply(double);\n    assert_eq!(h(1), 1);\n}\n",
+            "#[test]\nfn t() {\n    double = 3;\n    apply(double);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let double = 1;\n    apply(self::double);\n    assert_eq!(other(), double);\n}\n",
+            "#[test]\nfn t() {\n    let double = 1;\n    println!(\"{}\", apply(double));\n    assert_eq!(other(), 1);\n}\n",
+        ] {
+            let analysis = analyze(text, &["double".to_owned()], &[]);
+            let expected_unknown = !text.contains("println!");
+            assert_eq!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                expected_unknown,
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// A constant target is not callable and a local that is named like the
+    /// target is not the target: neither is an indirect call. A path to the target
+    /// through a type still is.
+    /// @vtest.id TEST-ORACLE-DA-003-CONSTANT-OR-LOCAL-NAME-IS-NOT-AN-INDIRECT-CALL
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED, VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::is_constant_name
+    /// @vtest.intent 大文字の名前の target(定数)の値の使用と、同じブロックの前の let で束縛された同名のローカル変数の使用は、間接呼出と読まず DA-003 が違反なしのままで、型を経由する同名の経路は値の使用として UNKNOWN になることを確認する
+    #[test]
+    fn a_constant_or_local_name_is_not_an_indirect_call() {
+        let constant = "#[test]\nfn t() {\n    let form = parse(RUST_FORM);\n    assert_eq!(form.kind, 1);\n}\n";
+        let analysis = analyze(constant, &["RUST_FORM".to_owned()], &[]);
+        assert!(
+            matches!(analysis.da_003, DaVerdict::NoViolation),
+            "{:?}",
+            analysis.da_003
+        );
+        let local = "#[test]\nfn t() {\n    let bundle = &envelope;\n    let n = count(bundle);\n    assert_eq!(n, 1);\n}\n";
+        let analysis = analyze(local, &["bundle".to_owned()], &[]);
+        assert!(
+            matches!(analysis.da_003, DaVerdict::NoViolation),
+            "{:?}",
+            analysis.da_003
+        );
+        let through_type = "#[test]\nfn t() {\n    let bundle = 1;\n    let f = Calc::bundle;\n    assert_eq!(other(), bundle);\n}\n";
+        let analysis = analyze(through_type, &["bundle".to_owned()], &[]);
+        assert!(
+            matches!(analysis.da_003, DaVerdict::Unknown(_)),
+            "{:?}",
+            analysis.da_003
+        );
+    }
+
+    /// A name that is not a value use of the target is not an indirect call: a
+    /// `use`, a type, a path prefix, a field, a method name, a string, and a
+    /// direct call that is verified stay no violation.
+    /// @vtest.id TEST-ORACLE-DA-003-NON-VALUE-NAME-IS-NOT-AN-INDIRECT-CALL
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent use 文、型、パスの前置、フィールド名、メソッド名、文字列に現れる target の名前と、検証された直接呼出に併存する値の使用は、間接呼出と読まず DA-003 が違反なしのままであることを確認する
+    #[test]
+    fn a_name_that_is_not_a_value_use_is_not_an_indirect_call() {
+        for text in [
+            "#[test]\nfn t() {\n    use helpers::double;\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let x: double::Kind = other();\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let x: Vec<double> = other();\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let x = double::VALUE;\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let x = s.double;\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let x = s.double_it();\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let x = s.double(2);\n    assert_eq!(x, 4);\n}\n",
+            "#[test]\nfn t() {\n    let x = \"double\";\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    assert_eq!(double(2), 4);\n}\n",
+            "#[test]\nfn t() {\n    let r = double(2);\n    assert_eq!(r, 4);\n    let f = double;\n}\n",
+        ] {
+            let analysis = analyze(text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::NoViolation),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
     }
 
     /// A SrcId target has no call symbol, so its call cannot be found: the
