@@ -736,27 +736,12 @@ enum BindingReach {
 /// known), or when the name appears in a nested macro other than `matches!`,
 /// `format!`, `vec!` and the assert macros, or in one of those whose tokens do not
 /// parse as expressions.
-///
-/// A binding of a closure (`callee_only`) is derived from the target's result only
-/// where it is called, so a use of its name that is not the callee of a call does
-/// not reach (derivation: DS-623, the value that reaches is the closure's return
-/// value, which only a call produces).
-fn binding_reach(
-    text: &str,
-    binding: &str,
-    assert_spans: &[(usize, usize)],
-    callee_only: bool,
-) -> BindingReach {
+fn binding_reach(text: &str, binding: &str, assert_spans: &[(usize, usize)]) -> BindingReach {
     let reaches = |outcome: &BindingReach| matches!(outcome, BindingReach::Reaches);
     let outcomes: Vec<BindingReach> = assert_spans
         .iter()
         .map(|&(start, end)| {
-            span_binding_reach(
-                &text[start..end],
-                macro_name_before(text, start),
-                binding,
-                callee_only,
-            )
+            span_binding_reach(&text[start..end], macro_name_before(text, start), binding)
         })
         .collect();
     if outcomes.iter().any(reaches) {
@@ -804,12 +789,7 @@ fn checked_argument_count(macro_name: &str) -> Option<usize> {
     }
 }
 
-fn span_binding_reach(
-    span_text: &str,
-    macro_name: Option<&str>,
-    binding: &str,
-    callee_only: bool,
-) -> BindingReach {
+fn span_binding_reach(span_text: &str, macro_name: Option<&str>, binding: &str) -> BindingReach {
     let Ok(tokens) = span_text.parse::<proc_macro2::TokenStream>() else {
         return BindingReach::Uncertain;
     };
@@ -831,7 +811,6 @@ fn span_binding_reach(
         return BindingReach::Uncertain;
     };
     let mut visitor = CheckedCallVisitor::new(None, Some(binding));
-    visitor.probe_callee_only = callee_only;
     for argument in arguments.iter().take(checked) {
         visitor.visit_expr(argument);
     }
@@ -1070,20 +1049,6 @@ impl<'ast> Visit<'ast> for LetScopeVisitor<'_> {
     }
 }
 
-/// The names a pattern binds. A name that starts with an upper-case letter is a unit
-/// variant or a constant (`None`), which syn reads as an identifier pattern too.
-struct PatternNames(Vec<String>);
-
-impl<'ast> Visit<'ast> for PatternNames {
-    fn visit_pat_ident(&mut self, node: &'ast syn::PatIdent) {
-        let name = node.ident.to_string();
-        if !name.starts_with(|c: char| c.is_uppercase()) {
-            self.0.push(name);
-        }
-        syn::visit::visit_pat_ident(self, node);
-    }
-}
-
 /// Whether a pattern binds `name` as its own identifier (`name`, `mut name`,
 /// `name: T`).
 fn pattern_binds(pattern: &syn::Pat, name: &str) -> bool {
@@ -1210,13 +1175,6 @@ struct CheckedCallVisitor<'a> {
     /// The expression is the initializer of a `let` (`let_initializer_calls`), where
     /// calls in macro tokens are not read.
     init_mode: bool,
-    /// `probe` names a closure: only a use as the callee of a call carries its value.
-    probe_callee_only: bool,
-    /// The callee of a call is being visited.
-    at_callee: bool,
-    /// Inside a closure body: whether the closure's return value flows, which is where
-    /// a `return`'s value goes.
-    return_flows: Option<bool>,
 }
 
 /// One step of a field access or an index expression, applied to a literal.
@@ -1239,66 +1197,7 @@ impl<'a> CheckedCallVisitor<'a> {
             probe_dropped: false,
             probe_rebound: false,
             init_mode: false,
-            probe_callee_only: false,
-            at_callee: false,
-            return_flows: None,
         }
-    }
-
-    /// Visits the parameters and the body of a closure whose return value flows
-    /// where `self.flows` says.
-    ///
-    /// Derivation (from DS-623: a value computed from the result is derived from it):
-    /// the tail expression of a closure body and the value of a `return` in it are the
-    /// closure's return value, so they flow where a call of the closure flows. A
-    /// closure flows only where it is called there (`(|x| ..)(2)`, a bound closure
-    /// called as the callee) or passed as an argument of a call there (`.map(|x| ..)`,
-    /// as a function's argument flows); a body statement that drops the value (`{
-    /// double(x); 1 }`) still drops it.
-    fn closure_body(&mut self, node: &syn::ExprClosure) {
-        let outer = self.return_flows.replace(self.flows);
-        for input in &node.inputs {
-            self.visit_pat(input);
-        }
-        self.visit_expr(&node.body);
-        self.return_flows = outer;
-    }
-
-    /// Visits an argument of a call: a closure passed there is read as called.
-    fn visit_argument(&mut self, argument: &syn::Expr) {
-        if let syn::Expr::Closure(closure) = unwrap_parens(argument) {
-            self.closure_body(closure);
-        } else {
-            self.visit_expr(argument);
-        }
-    }
-
-    /// Derivation (from DS-623): the value of a `match` reaches the arms only through
-    /// the names their patterns bind, so the scrutinee flows only when the pattern of
-    /// some arm binds a name that the arm uses where it flows (`Err(e) => { ..;
-    /// e.to_string() }`). A pattern that binds none (`_ => 1`) drops it. A scrutinee
-    /// that is a literal is dropped: the name may bind an element of it that is not the
-    /// call's.
-    fn match_scrutinee_flows(node: &syn::ExprMatch) -> bool {
-        if matches!(
-            unwrap_parens(&node.expr),
-            syn::Expr::Tuple(_)
-                | syn::Expr::Array(_)
-                | syn::Expr::Struct(_)
-                | syn::Expr::Repeat(_)
-                | syn::Expr::Macro(_)
-        ) {
-            return false;
-        }
-        node.arms.iter().any(|arm| {
-            let mut names = PatternNames(Vec::new());
-            names.visit_pat(&arm.pat);
-            names.0.iter().any(|name| {
-                let mut probe = CheckedCallVisitor::new(None, Some(name));
-                probe.visit_expr(&arm.body);
-                probe.probe_flows && !probe.probe_rebound && !probe.opaque
-            })
-        })
     }
 
     /// Visits the index of `node` as flowing and returns the step it makes.
@@ -1502,18 +1401,7 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
             | syn::Expr::Array(_)
             | syn::Expr::Struct(_)
             | syn::Expr::Macro(_) => syn::visit::visit_expr(self, node),
-            // A closure that is not called or passed as an argument here is only held.
-            syn::Expr::Closure(closure) => self.dropping(|visitor| visitor.closure_body(closure)),
-            // The value of a `return` in a closure is the closure's return value.
-            syn::Expr::Return(syn::ExprReturn {
-                expr: Some(value), ..
-            }) if self.return_flows.is_some() => {
-                let outer = self.flows;
-                self.flows = self.return_flows.unwrap_or(false);
-                self.visit_expr(value);
-                self.flows = outer;
-            }
-            // Every other position (a loop, a range, `let`, `return`,
+            // Every other position (a closure, a loop, a range, `let`, `return`,
             // `break`, an assignment, `async`, ...) drops or holds the value.
             _ => self.dropping(|visitor| syn::visit::visit_expr(visitor, node)),
         }
@@ -1535,17 +1423,13 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
             }
             // A probed `let` name may be the callee (`let f = |x| ..; f(2)`).
             if self.probe.is_some() {
-                self.at_callee = true;
                 self.visit_expr(&node.func);
-                self.at_callee = false;
             }
-        } else if let syn::Expr::Closure(closure) = unwrap_parens(&node.func) {
-            self.closure_body(closure);
         } else {
             self.visit_expr(&node.func);
         }
         for argument in &node.args {
-            self.visit_argument(argument);
+            self.visit_expr(argument);
         }
     }
 
@@ -1557,16 +1441,13 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
                 self.opaque = true;
             }
         }
-        self.visit_expr(&node.receiver);
-        for argument in &node.args {
-            self.visit_argument(argument);
-        }
+        syn::visit::visit_expr_method_call(self, node);
     }
 
     fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
         if let Some(name) = self.probe {
             if node.qself.is_none() && node.path.is_ident(name) {
-                if self.flows && (self.at_callee || !self.probe_callee_only) {
+                if self.flows {
                     self.probe_flows = true;
                 } else {
                     self.probe_dropped = true;
@@ -1632,11 +1513,7 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
     }
 
     fn visit_expr_match(&mut self, node: &'ast syn::ExprMatch) {
-        if Self::match_scrutinee_flows(node) {
-            self.visit_expr(&node.expr);
-        } else {
-            self.dropping(|visitor| visitor.visit_expr(&node.expr));
-        }
+        self.dropping(|visitor| visitor.visit_expr(&node.expr));
         for arm in &node.arms {
             self.visit_pat(&arm.pat);
             if let Some((_, guard)) = &arm.guard {
@@ -1819,10 +1696,10 @@ fn target_call_result_is_verified(
     // where `NAME` (optionally followed by `.field`/`.method()`) later
     // appears inside an assert span as an identifier of its own (#281).
     let mut binding_uncertain = false;
-    for binding in find_let_bindings_containing_call(text, symbol) {
-        match binding_reach(text, &binding.name, assert_spans, binding.is_closure) {
+    for (binding, has_path_call) in find_let_bindings_containing_call(text, symbol) {
+        match binding_reach(text, &binding, assert_spans) {
             BindingReach::Reaches => {
-                if binding.has_path_call {
+                if has_path_call {
                     path_verified = true;
                 } else {
                     method_verified = true;
@@ -2058,7 +1935,7 @@ impl<'ast> Visit<'ast> for CallSiteVisitor<'_> {
 /// short-circuit, a `match` scrutinee, a projection that leaves it out, a closure
 /// body) leaves the binding underived, so the call stays unverified, UNKNOWN
 /// (DS-615). Calls in macro tokens are not read here: `macro_target_use` reads them.
-fn find_let_bindings_containing_call(text: &str, symbol: &str) -> Vec<LetBinding> {
+fn find_let_bindings_containing_call(text: &str, symbol: &str) -> Vec<(String, bool)> {
     let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
         return Vec::new();
     };
@@ -2071,18 +1948,9 @@ fn find_let_bindings_containing_call(text: &str, symbol: &str) -> Vec<LetBinding
     visitor.bindings
 }
 
-/// A `let` binding whose initializer carries the target's value.
-struct LetBinding {
-    name: String,
-    /// The carried call is a function call of the target (not only a method call).
-    has_path_call: bool,
-    /// The initializer is a closure, so the binding carries the value only when called.
-    is_closure: bool,
-}
-
 struct LetBindingVisitor<'a> {
     names: &'a NameUse<'a>,
-    bindings: Vec<LetBinding>,
+    bindings: Vec<(String, bool)>,
 }
 
 impl<'ast> Visit<'ast> for LetBindingVisitor<'_> {
@@ -2090,21 +1958,9 @@ impl<'ast> Visit<'ast> for LetBindingVisitor<'_> {
         if let (syn::Pat::Ident(pattern), Some(init)) = (&node.pat, &node.init) {
             let mut calls = CheckedCallVisitor::new(Some(self.names), None);
             calls.init_mode = true;
-            let closure = match unwrap_parens(init.expr.as_ref()) {
-                syn::Expr::Closure(closure) => Some(closure),
-                _ => None,
-            };
-            if let Some(closure) = closure {
-                calls.closure_body(closure);
-            } else {
-                calls.visit_expr(init.expr.as_ref());
-            }
+            calls.visit_expr(init.expr.as_ref());
             if calls.path || calls.method {
-                self.bindings.push(LetBinding {
-                    name: pattern.ident.to_string(),
-                    has_path_call: calls.path,
-                    is_closure: closure.is_some(),
-                });
+                self.bindings.push((pattern.ident.to_string(), calls.path));
             }
         }
         syn::visit::visit_local(self, node);
@@ -3328,7 +3184,8 @@ mod tests {
             "assert_ne!({ let _ = double(2); 1 }, 2);",
             "assert_eq!(1, { double(2); 1 });",
             "assert!((|| { double(2); true })());",
-            "assert_eq!(xs.iter().for_each(|x| { double(*x); }), ());",
+            "assert!((|| double(2) == 4)());",
+            "assert_eq!(xs.iter().map(|x| double(*x)).sum::<i32>(), 4);",
             "assert!({ for i in 0..2 { double(i); } true });",
             "assert!({ while c { double(2); } true });",
             "assert!({ loop { double(2); break; } true });",
@@ -3336,8 +3193,7 @@ mod tests {
             "assert!({ let x = double(2); let _y = 1; true });",
             "assert_eq!({ let (a, b) = (double(2), 1); b }, 1);",
             "assert!({ let r = double(2); true && { r; false } });",
-            "assert!({ let r = double(2); (|| { r; 4 })() == 4 });",
-            "let f = |x| double(x);\n    assert_eq!(h(f), 4);",
+            "assert!({ let r = double(2); (|| r)() == 4 });",
             "assert!({ let r = double(2); let r = 4; r == 4 });",
             "assert!({ let mut r = 0; r = double(2); r == 4 });",
             "assert!({ let mut r = 0; r += double(2); r == 4 });",
@@ -3410,16 +3266,6 @@ mod tests {
             "assert_eq!(if c { double(2) } else { 0 }, 4);",
             "assert!(match c { true => double(2) == 4, false => false });",
             "assert_eq!(match c { 0 => 1, _ => double(2) }, 4);",
-            "assert!((|| double(2) == 4)());",
-            "assert!((|x| { x == 4 })(double(2)));",
-            "assert!((|| { return double(2) == 4; })());",
-            "assert!({ let r = double(2); (|| r)() == 4 });",
-            "assert_eq!(xs.iter().map(|x| double(*x)).sum::<i32>(), 4);",
-            "assert!(xs.iter().any(|x| double(*x) == 4));",
-            "assert!(xs.iter().all(|x| { let y = double(*x); y > 0 }));",
-            "assert!(match double(2) { Some(x) => x == 4, None => false });",
-            "assert_eq!(match double(2) { Err(e) => { e.to_string() } other => panic!(\"{other:?}\") }, \"x\");",
-            "assert_eq!(match double(2) { x => x }, 4);",
         ] {
             let text = format!("#[test]\nfn t() {{\n    {text}\n}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
@@ -3460,11 +3306,7 @@ mod tests {
             "assert_eq!({ let r = double(2); { let r = 1; r } }, 1);",
             "assert_eq!({ let r = double(2); format!(\"{r}\") }, \"4\");",
             "assert!(matches!(x, Some(_) if double(2) == 4));",
-            "assert!(xs.iter().any(|x| { double(*x); true }));",
-            "assert!(match double(2) { Some(_) => true, None => false });",
-            "assert!(match double(2) { x if x > 0 => true, _ => false });",
-            "assert!(match double(2) { x => { x; true } });",
-            "assert!(match (double(2), 1) { (a, b) => b == 1 });",
+            "assert!(xs.iter().any(|x| double(*x) == 4));",
             "assert_eq!(v, 0..double(2));",
             "assert!({ println!(\"{}\", double(2)); true });",
             "assert!(other(), \"{}\", double(2));",
@@ -3562,7 +3404,7 @@ mod tests {
     /// @vtest.id TEST-ORACLE-DA-003-LET-INITIALIZER-DROPPING-CALL-IS-UNKNOWN
     /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN, VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::find_let_bindings_containing_call
-    /// @vtest.intent let の初期化式の中で target の値が捨てられる位置(ブロックの文、||、アームで使われる名前を束縛しない match の被検査式、射影で残らない要素、入れ子の射影、vec! の添字で残らない要素、文で値を捨てるか呼ばれないクロージャの本体)にあるとき、その束縛は target の結果から派生した束縛と数えず、束縛が assert に届いても DA-003 が UNKNOWN になり合成結果が PASS にならないことを確認する
+    /// @vtest.intent let の初期化式の中で target の値が捨てられる位置(ブロックの文、||、match の被検査式、射影で残らない要素、入れ子の射影、vec! の添字で残らない要素、クロージャの本体)にあるとき、その束縛は target の結果から派生した束縛と数えず、束縛が assert に届いても DA-003 が UNKNOWN になり合成結果が PASS にならないことを確認する
     #[test]
     fn a_let_initializer_that_drops_the_call_is_unknown_not_pass() {
         for text in [
@@ -3571,16 +3413,9 @@ mod tests {
             "let r = double(2) == 4 || true;\n    assert!(r);",
             "let r = match double(2) { _ => 1 };\n    assert_eq!(r, 1);",
             "let f = |x| { double(x); 1 };\n    assert_eq!(f(2), 1);",
-            "let f = |x| { double(x); 1 };\n    assert_eq!(f(2), 1);",
-            "let f = |x| { let _ = double(x); 1 };\n    assert_eq!(f(2), 1);",
-            "let f = |x| double(x);\n    assert_eq!(h(f), 4);",
-            "let f = |x| double(x);\n    let g = f;\n    assert_eq!(g(2), 4);",
-            "assert_eq!((|x| { double(x); 1 })(2), 1);",
-            "let r = [1].iter().for_each(|x| { double(*x); });\n    assert_eq!(r, ());",
-            "let r = match double(2) { Some(_) => 1, None => 0 };\n    assert_eq!(r, 1);",
-            "let r = match double(2) { x if x > 0 => 1, _ => 0 };\n    assert_eq!(r, 1);",
-            "let r = match (double(2), 1) { (a, b) => b };\n    assert_eq!(r, 1);",
-            "let r = match double(2) { x => { x; 1 } };\n    assert_eq!(r, 1);",
+            "let f = |x| double(x);\n    assert_eq!(f(2), 4);",
+            "let f = |x: i32| double(x);\n    assert_eq!(f(2), 4);",
+            "assert_eq!((|x| double(x))(2), 4);",
             "let r = ((double(2), 1), 2).0.1;\n    assert_eq!(r, 1);",
             "let r = vec![double(2), 1][1];\n    assert_eq!(r, 1);",
             "assert_eq!(((double(2), 1), 2).0.1, 1);",
@@ -3592,6 +3427,7 @@ mod tests {
             "let r = if c { { double(2); 1 } } else { 0 };\n    assert_eq!(r, 1);",
             "let r = s.double(2).is_some() || true;\n    assert!(r);",
             "let r = { s.double(2); 1 };\n    assert_eq!(r, 1);",
+            "let r = xs.iter().map(|x| double(*x)).count();\n    assert_eq!(r, 1);",
         ] {
             let text = format!("#[test]\nfn t() {{\n    {text}\n}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
@@ -3610,9 +3446,7 @@ mod tests {
     }
 
     /// A `let` initializer in which the target's value flows to the initializer's
-    /// value (also through a closure that is called or passed as an argument, and a
-    /// `match` whose arm uses what its pattern binds) still derives the binding from
-    /// the result.
+    /// value still derives the binding from the result.
     /// @vtest.id TEST-ORACLE-DA-003-LET-INITIALIZER-FLOWING-CALL-STAYS-NO-VIOLATION
     /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::find_let_bindings_containing_call
@@ -3638,16 +3472,6 @@ mod tests {
             "let r = double(2) as u8;\n    assert_eq!(r, 4);",
             "let r = Calc::double(2);\n    assert_eq!(r, 4);",
             "let mut r = double(2);\n    assert_eq!(r, 4);",
-            "let f = |x| double(x);\n    assert_eq!(f(2), 4);",
-            "let f = |x: i32| double(x);\n    assert_eq!(f(2), 4);",
-            "let f = |x| { let y = double(x); y };\n    assert_eq!(f(2), 4);",
-            "let f = |x| { return double(x); };\n    assert_eq!(f(2), 4);",
-            "let r = (|x| double(x))(2);\n    assert_eq!(r, 4);",
-            "let r = (0..4).map(|_| double(2)).count();\n    assert_eq!(r, 4);",
-            "let r = xs.iter().map(|x| double(*x)).sum::<i32>();\n    assert_eq!(r, 4);",
-            "let r = match double(2) { Some(x) => x, None => 0 };\n    assert_eq!(r, 4);",
-            "let r = match double(2) { Err(e) => { e.to_string() } other => panic!(\"{other:?}\") };\n    assert_eq!(r, \"x\");",
-            "let r = match s.double(2) { x => x + 1 };\n    assert_eq!(r, 5);",
         ] {
             let text = format!("#[test]\nfn t() {{\n    {text}\n}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
