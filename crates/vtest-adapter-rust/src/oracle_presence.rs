@@ -16,14 +16,22 @@
 //! failure semantics; not full delegation-chain analysis):
 //! - DA-003's dataflow tracking is bounded to two shapes: a target call
 //!   appearing lexically *inside* an assert-equivalent macro's argument
-//!   list, or bound by a single `let NAME = ...;` whose `NAME` (or a
-//!   `NAME.field`/`NAME.method()` chain starting with `NAME`) then appears
-//!   inside an assert-equivalent argument list. `NAME` is matched as a whole
-//!   identifier read from the argument list's tokens, not as a substring; when
-//!   it cannot be told to mean the binding (the name is bound again in the
-//!   function, or appears in a nested macro other than `matches!`, `format!`,
-//!   `vec!` and the assert macros, whose arguments are read as expressions) DA-003 reports
-//!   `Unknown` (#281; a derivation from DS-1680, not stated in it). This is a real subset of
+//!   list, or bound by a single `let NAME = ...;` whose `NAME` then appears
+//!   as a single identifier in expression position of a *checked* argument of
+//!   an assert-equivalent macro (`NAME`, `NAME.field`, `NAME.method()`, `&NAME`,
+//!   `(NAME, ..)`; not `x.NAME`, not a string literal). Checked arguments are
+//!   `assert!`'s condition and `assert_eq!`/`assert_ne!`'s two compared values;
+//!   the message arguments after them only print on failure and do not count.
+//!   `NAME` is matched as a whole identifier read from the argument list's
+//!   tokens, not as a substring. When it cannot be told to mean the binding DA-003
+//!   reports `Unknown` (#281; derivations from DS-623 / DS-615 / DS-1680, not
+//!   stated in them): the name is bound again in the function (a second `let`, a
+//!   closure parameter, a match arm, an assignment `NAME = ..`); the macro is an
+//!   `assertion_macros` entry of the config, whose argument grammar vtest cannot
+//!   be told (`assert_matches!(expr, pat)`); or the name appears in a nested macro
+//!   other than `matches!` (its first expression), `format!`, `vec!`,
+//!   `assert!`/`assert_eq!`/`assert_ne!` and `debug_assert*!` (read as above),
+//!   or one of those that does not parse as expressions. This is a real subset of
 //!   DS-628 ("let束縛、メソッドチェーン、フィールドアクセス"), not its full
 //!   extent — a target call several bindings removed, or reached only
 //!   through a closure, is not tracked and reports `Unknown` rather than
@@ -678,24 +686,31 @@ enum BindingReach {
     Uncertain,
 }
 
-/// Derivation (not stated in DS-628 / DS-1680 / DS-615): a binding's name reaches
-/// an assert only as a whole identifier in expression position, read from the
-/// tokens of the assert's argument list. A field or method named like the binding
-/// (`x.r`, `x.r()`) and a string literal are not the binding. The name cannot be
-/// told to mean the binding (`Uncertain`, which DS-1680 reads as UNKNOWN) when the
-/// name is bound again anywhere in the function (a second `let`, a closure
-/// parameter, a match arm, a parameter), when the argument list is not a list of
-/// expressions, or when the name appears in a nested macro other than
-/// `matches!`, `format!`, `vec!` and the assert macros, or in one of those whose
-/// tokens do not parse as expressions.
+/// Derivation (not stated in DS-623 / DS-628 / DS-1680 / DS-615): a binding's name
+/// reaches an assert only as a whole identifier in expression position, read from
+/// the tokens of the assert's argument list. A field or method named like the
+/// binding (`x.r`, `x.r()`) and a string literal are not the binding. Only the
+/// arguments that are checked count (`assert!`: the condition; `assert_eq!` /
+/// `assert_ne!`: the two compared values); the message arguments after them only
+/// print on failure and verify nothing. The name cannot be told to mean the
+/// binding (`Uncertain`, which DS-1680 reads as UNKNOWN) when the name is bound
+/// again anywhere in the function (a second `let`, a closure parameter, a match
+/// arm, a parameter, an assignment `name = ..` or `name += ..`), when the
+/// argument list is not a list of expressions, when the macro is an
+/// `assertion_macros` entry of the project config (its argument grammar is not
+/// known), or when the name appears in a nested macro other than `matches!`,
+/// `format!`, `vec!` and the assert macros, or in one of those whose tokens do not
+/// parse as expressions.
 fn binding_reach(text: &str, binding: &str, assert_spans: &[(usize, usize)]) -> BindingReach {
     let reaches = |outcome: &BindingReach| matches!(outcome, BindingReach::Reaches);
     let outcomes: Vec<BindingReach> = assert_spans
         .iter()
-        .map(|&(start, end)| span_binding_reach(&text[start..end], binding))
+        .map(|&(start, end)| {
+            span_binding_reach(&text[start..end], macro_name_before(text, start), binding)
+        })
         .collect();
     if outcomes.iter().any(reaches) {
-        return if count_pattern_bindings(text, binding) > 1 {
+        return if count_rebindings(text, binding) > 1 {
             BindingReach::Uncertain
         } else {
             BindingReach::Reaches
@@ -710,13 +725,50 @@ fn binding_reach(text: &str, binding: &str, assert_spans: &[(usize, usize)]) -> 
     BindingReach::NotReached
 }
 
-fn span_binding_reach(span_text: &str, binding: &str) -> BindingReach {
+/// The name of the macro whose argument list starts at `args_start` (the byte after
+/// its opening delimiter), read from the text before it.
+fn macro_name_before(text: &str, args_start: usize) -> Option<&str> {
+    let before = text[..args_start]
+        .trim_end()
+        .strip_suffix(['(', '[', '{'])?
+        .trim_end()
+        .strip_suffix('!')?
+        .trim_end();
+    let name_start = before
+        .rfind(|c: char| !(c.is_alphanumeric() || c == '_'))
+        .map_or(0, |index| index + 1);
+    let name = &before[name_start..];
+    (!name.is_empty()).then_some(name)
+}
+
+/// How many leading arguments of a macro are checked (the rest is message), or
+/// `None` for a macro whose argument grammar is not known. `usize::MAX`: every
+/// argument is a value.
+fn checked_argument_count(macro_name: &str) -> Option<usize> {
+    match macro_name {
+        "assert" | "debug_assert" => Some(1),
+        "assert_eq" | "assert_ne" | "debug_assert_eq" | "debug_assert_ne" => Some(2),
+        "panic" => Some(0),
+        "format" | "vec" => Some(usize::MAX),
+        _ => None,
+    }
+}
+
+fn span_binding_reach(span_text: &str, macro_name: Option<&str>, binding: &str) -> BindingReach {
     let Ok(tokens) = span_text.parse::<proc_macro2::TokenStream>() else {
         return BindingReach::Uncertain;
     };
     if !tokens_mention_ident(tokens, binding) {
         return BindingReach::NotReached;
     }
+    // An `assertion_macros` entry of the config is not a built-in assert: its
+    // argument grammar (`assert_matches!(expr, pat)`) is not known (DS-615).
+    let Some(checked) = macro_name
+        .filter(|name| STANDARD_ASSERTION_MACROS.contains(&format!("{name}!").as_str()))
+        .and_then(checked_argument_count)
+    else {
+        return BindingReach::Uncertain;
+    };
     let Ok(arguments) = syn::parse::Parser::parse_str(
         syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated,
         span_text,
@@ -728,7 +780,7 @@ fn span_binding_reach(span_text: &str, binding: &str) -> BindingReach {
         path_use: false,
         opaque: false,
     };
-    for argument in &arguments {
+    for argument in arguments.iter().take(checked) {
         visitor.visit_expr(argument);
     }
     if visitor.opaque {
@@ -773,16 +825,17 @@ impl<'ast> Visit<'ast> for BindingUseVisitor<'_> {
             return;
         }
         // Derivation (not stated in DS-615 / DS-1680): the macros below take
-        // expressions in a fixed grammar, so a name in an expression position is
-        // read as in an assert's own argument list. Any other macro, and any of
-        // these whose tokens do not parse that way, keeps the name uncertain.
+        // expressions in a fixed grammar, so a name in an expression position of
+        // a checked argument is read as in an assert's own argument list; message
+        // arguments are not read. Any other macro, and any of these whose tokens do
+        // not parse that way, keeps the name uncertain.
         let Some(segment) = node.path.segments.last() else {
             self.opaque = true;
             return;
         };
         let name = segment.ident.to_string();
-        let expressions = match name.as_str() {
-            "matches" => syn::parse::Parser::parse2(
+        let expressions = if name == "matches" {
+            syn::parse::Parser::parse2(
                 |input: syn::parse::ParseStream<'_>| {
                     let first: syn::Expr = input.parse()?;
                     // The rest is a pattern (and guard); a name there is bound by the
@@ -792,30 +845,70 @@ impl<'ast> Visit<'ast> for BindingUseVisitor<'_> {
                 },
                 node.tokens.clone(),
             )
-            .ok(),
-            "format" | "vec" | "assert" | "assert_eq" | "assert_ne" | "debug_assert"
-            | "debug_assert_eq" | "debug_assert_ne" => syn::parse::Parser::parse2(
-                syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated,
-                node.tokens.clone(),
-            )
             .ok()
-            .map(|arguments| arguments.into_iter().collect::<Vec<_>>()),
-            _ => None,
+        } else {
+            checked_argument_count(&name).and_then(|checked| {
+                syn::parse::Parser::parse2(
+                    syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated,
+                    node.tokens.clone(),
+                )
+                .ok()
+                .map(|arguments| arguments.into_iter().take(checked).collect::<Vec<_>>())
+            })
         };
-        match expressions {
-            Some(expressions) => {
-                for expression in &expressions {
-                    self.visit_expr(expression);
-                }
+        let Some(expressions) = expressions else {
+            self.opaque = true;
+            return;
+        };
+        for expression in &expressions {
+            match expression {
+                // `format!("{r}", r = value)`: a named argument. The left side names
+                // the placeholder, not the binding; only the value is read.
+                syn::Expr::Assign(named) if name == "format" => self.visit_expr(&named.right),
+                _ => self.visit_expr(expression),
             }
-            None => self.opaque = true,
         }
+    }
+
+    fn visit_expr_assign(&mut self, node: &'ast syn::ExprAssign) {
+        if is_assignment_to(&node.left, self.name) {
+            self.opaque = true;
+        }
+        syn::visit::visit_expr_assign(self, node);
+    }
+
+    fn visit_expr_binary(&mut self, node: &'ast syn::ExprBinary) {
+        if is_compound_assignment(node.op) && is_assignment_to(&node.left, self.name) {
+            self.opaque = true;
+        }
+        syn::visit::visit_expr_binary(self, node);
     }
 }
 
-/// Number of patterns in the function that bind `name` (`let`, closure
-/// parameter, match arm, parameter, `for`).
-fn count_pattern_bindings(text: &str, name: &str) -> usize {
+fn is_assignment_to(left: &syn::Expr, name: &str) -> bool {
+    matches!(left, syn::Expr::Path(path) if path.qself.is_none() && path.path.is_ident(name))
+}
+
+fn is_compound_assignment(op: syn::BinOp) -> bool {
+    matches!(
+        op,
+        syn::BinOp::AddAssign(_)
+            | syn::BinOp::SubAssign(_)
+            | syn::BinOp::MulAssign(_)
+            | syn::BinOp::DivAssign(_)
+            | syn::BinOp::RemAssign(_)
+            | syn::BinOp::BitXorAssign(_)
+            | syn::BinOp::BitAndAssign(_)
+            | syn::BinOp::BitOrAssign(_)
+            | syn::BinOp::ShlAssign(_)
+            | syn::BinOp::ShrAssign(_)
+    )
+}
+
+/// Number of places in the function that bind `name` again: patterns (`let`,
+/// closure parameter, match arm, parameter, `for`) and assignments `name = ..` /
+/// `name += ..`.
+fn count_rebindings(text: &str, name: &str) -> usize {
     struct Counter<'a> {
         name: &'a str,
         count: usize,
@@ -826,6 +919,20 @@ fn count_pattern_bindings(text: &str, name: &str) -> usize {
                 self.count += 1;
             }
             syn::visit::visit_pat_ident(self, node);
+        }
+
+        fn visit_expr_assign(&mut self, node: &'ast syn::ExprAssign) {
+            if is_assignment_to(&node.left, self.name) {
+                self.count += 1;
+            }
+            syn::visit::visit_expr_assign(self, node);
+        }
+
+        fn visit_expr_binary(&mut self, node: &'ast syn::ExprBinary) {
+            if is_compound_assignment(node.op) && is_assignment_to(&node.left, self.name) {
+                self.count += 1;
+            }
+            syn::visit::visit_expr_binary(self, node);
         }
     }
     let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
@@ -1872,8 +1979,8 @@ mod tests {
             "assert_eq!(r.field, 1);",
             "assert_eq!(&r, &4);",
             "assert_eq!(*r, 4);",
-            "assert!(other() > 0, \"got {}\", r);",
             "assert_ne!(r, 5, \"msg\");",
+            "assert!(r > 0, \"got {}\", other());",
             "assert_eq!((r, 1), (4, 1));",
         ] {
             let text = format!("#[test]\nfn t() {{\n    let r = double(2);\n    {body}\n}}\n");
@@ -1921,7 +2028,7 @@ mod tests {
     fn a_binding_only_inside_nested_macro_tokens_is_unknown() {
         for body in [
             "assert!(my_check!(r));",
-            "assert!(matches!(r, Some(_)), \"{}\", my_check!(r));",
+            "assert!(matches!(r, Some(_)) && my_check!(r));",
             "assert!(vec![r; 2].len() == 2);",
         ] {
             let text = format!("#[test]\nfn t() {{\n    let r = double(2);\n    {body}\n}}\n");
@@ -1938,7 +2045,7 @@ mod tests {
     /// read as expressions, so the binding named there reaches the assert; a
     /// binding that is not named in an expression position does not.
     /// @vtest.id TEST-ORACLE-DA-003-BINDING-IN-EXPRESSION-MACRO-IS-READ
-    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED, VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent assert 内の matches!/format!/vec! の式位置に束縛名がある Test は違反なしのままであり、束縛名が現れない、または matches! のパターン側にしか現れない Test は PASS にならないことを確認する
     #[test]
@@ -1971,6 +2078,81 @@ mod tests {
             let (is_fail, is_unknown, basis) = compose(&analysis);
             assert!(is_fail || is_unknown, "{body}: composed to PASS: {basis:?}");
         }
+    }
+
+    /// A binding that appears only in the message arguments of an assert, or as the
+    /// left side of a named format argument, verifies nothing: it is printed on
+    /// failure only.
+    /// @vtest.id TEST-ORACLE-DA-003-BINDING-IN-ASSERT-MESSAGE-IS-NOT-PASS
+    /// @vtest.covers VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent 束縛名が assert のメッセージ引数、または名前付き書式引数の左辺にしか現れない Test は、結果が検証されたと読まれず、DA-001〜006 の合成結果が PASS にならないことを確認する
+    #[test]
+    fn a_binding_only_in_an_assert_message_does_not_reach_the_assert() {
+        for body in [
+            "assert!(other() > 0, \"got {}\", r);",
+            "assert!(other() > 0, \"{r}\", r = other());",
+            "assert_eq!(other(), 1, \"{r}\", r = 5);",
+            "assert_eq!(other(), 1, \"{}\", r);",
+            "assert!(format!(\"{r}\", r = other()) == \"4\");",
+            "assert!(matches!(other(), Some(_)), \"{}\", r);",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    let r = double(2);\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            let (is_fail, is_unknown, basis) = compose(&analysis);
+            assert!(is_fail || is_unknown, "{body}: composed to PASS: {basis:?}");
+        }
+    }
+
+    /// A binding assigned again is a new value under the same name, like a second
+    /// `let`: the name in the assert cannot be told to mean the target's result.
+    /// @vtest.id TEST-ORACLE-DA-003-REASSIGNED-BINDING-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent 束縛を同じ名前で再代入する Test(文での代入、複合代入、assert 内の代入)は、assert 内の名前が target の結果を指すと決められず、PASS にならず UNKNOWN になることを確認する
+    #[test]
+    fn a_reassigned_binding_is_unknown_not_no_violation() {
+        for body in [
+            "let mut r = double(2); r = other(); assert_eq!(r, 1);",
+            "let mut r = double(2); r += 1; assert_eq!(r, 1);",
+            "let mut r = double(2); assert!({ r = other(); r == 1 });",
+            "let mut r = double(2); assert!({ r += 1; r == 1 });",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{body}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// An `assertion_macros` entry of the config has a grammar vtest does not know,
+    /// so a binding named in it cannot be read as a checked expression; the same
+    /// shape in a built-in assert is read.
+    /// @vtest.id TEST-ORACLE-DA-003-CONFIG-ASSERT-MACRO-ARGUMENTS-ARE-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent config の assertion_macros に挙げたマクロの引数に束縛名がある Test は、引数の文法が分からないため UNKNOWN になり、組込の assert では同じ形が違反なしのままであることを確認する
+    #[test]
+    fn a_binding_in_a_config_assertion_macro_is_unknown() {
+        let config = ["assert_matches!".to_owned()];
+        let body = |name: &str| {
+            format!("#[test]\nfn t() {{\n    let r = double(2);\n    {name}!(r, Some(_));\n}}\n")
+        };
+        let analysis = analyze(&body("assert_matches"), &["double".to_owned()], &config);
+        assert!(
+            matches!(analysis.da_003, DaVerdict::Unknown(_)),
+            "{:?}",
+            analysis.da_003
+        );
+        let analysis = analyze(&body("assert_eq"), &["double".to_owned()], &config);
+        assert!(
+            matches!(analysis.da_003, DaVerdict::NoViolation),
+            "{:?}",
+            analysis.da_003
+        );
     }
 
     /// A SrcId target has no call symbol, so its call cannot be found: the
