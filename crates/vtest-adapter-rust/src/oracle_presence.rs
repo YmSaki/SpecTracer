@@ -30,7 +30,11 @@
 //!   call of the target that is not verified is such a method call, DA-003 reports
 //!   `Unknown` (DS-1680: neither the call's identity nor the result's non-
 //!   verification is proven), not `FAIL`. A verified method call is no violation
-//!   as before; the reading only moves NoViolation toward FAIL/UNKNOWN. A target
+//!   as before, but only when no function call of the target stays unverified
+//!   beside it; otherwise it is `Unknown` too, since the verifying call may be
+//!   another type's same-named method. (These are derivations from DS-1680, not
+//!   stated in it.) A comparison of composed verdicts against the base over 22
+//!   shapes found no move toward PASS. A target
 //!   declared by `SrcId` has no call symbol, so `RustCargoStaticAnalysisAdapter::
 //!   analyze` reports `Unknown` instead of a PASS composed without it.
 //!   Still unseen: a call written inside a macro invocation's tokens (assert macros
@@ -184,9 +188,10 @@ impl StaticAnalysisAdapter for RustCargoStaticAnalysisAdapter {
     fn analyze(&self, input: StaticAnalysisInput<'_>) -> StaticAnalysisVerdict {
         // DS-628-shaped disclosed narrowing（このmodule冒頭のdoc comment
         // 参照）: `TargetRef::Locator` targetだけがDA-003へsymbol名を渡す。
-        // `SrcId` targetはDA-003の対象から静かに除外される（違反を捏造
-        // しない側への narrowing）。以前は `vtest-verify::
-        // evaluate_oracle_presence` がこのfilter_mapを行っていた。
+        // `SrcId` targetはsymbol名を持たないのでDA-003へは渡さない（違反を
+        // 捏造しない側への narrowing）。ただし除外したままでは他の規則だけで
+        // PASSに合成されるので、下で UNKNOWN に引き上げる。以前は
+        // `vtest-verify::evaluate_oracle_presence` がこのfilter_mapを行っていた。
         let target_symbols: Vec<String> = input
             .test
             .targets
@@ -202,10 +207,11 @@ impl StaticAnalysisAdapter for RustCargoStaticAnalysisAdapter {
             input.extra_assertion_macros,
         );
         let (is_fail, mut is_unknown, mut basis) = compose(&analysis);
-        // #279: a SrcId target has no call symbol here, so DA-003 cannot look
-        // for its call. That is neither a proof of non-verification nor of a
-        // verifying device (DS-1680): a would-be PASS becomes UNKNOWN. A FAIL
-        // from another rule is unaffected.
+        // Derivation (not stated in DS-1680 / DS-615): a SrcId target has no
+        // call symbol here, so DA-003 cannot look for its call. That is neither
+        // a proof of non-verification nor of a verifying device, which DS-1680
+        // reads as UNKNOWN: a would-be PASS becomes UNKNOWN. A FAIL from
+        // another rule is unaffected.
         let has_unidentified_target = input
             .test
             .targets
@@ -504,14 +510,20 @@ fn da_003_result_unverified(
         );
     }
     if any_unidentified {
-        // #279: a method call is matched to the target by name only; the
-        // receiver's type is not resolved. A same-named method of another type
-        // cannot be told from the target, so neither "the target's result is not
-        // verified" (DS-623's FAIL condition) nor "it is verified" (DS-1680's
-        // verifying device) can be said deterministically: UNKNOWN (DS-1680).
-        // This reading only moves a verdict from NoViolation to UNKNOWN.
+        // Derivation (not stated in DS-1680 / DS-615 / DS-623): a method call is
+        // matched to the target by name only; the receiver's type is not
+        // resolved. A same-named method of another type cannot be told from the
+        // target, so neither "the target's result is not verified" (DS-623's
+        // FAIL condition) nor "it is verified" (DS-1680's verifying device) can
+        // be said deterministically, which DS-1680 reads as UNKNOWN. It arises
+        // when every unverified call is a method call, or when the only verified
+        // call is a method call and a function call of the target stays
+        // unverified.
         return DaVerdict::Unknown(
-            "a declared target is called as a method (`receiver.name(..)`); the receiver's              type is not resolved, so this call cannot be identified as the target and its              result being unverified is neither proven nor refuted (DS-1680)"
+            "a declared target's call is identified by name only (a method call \
+             `receiver.name(..)`, whose receiver type is not resolved): it may be another \
+             type's same-named method, or the only verified call may be one, so the result \
+             being unverified is neither proven nor refuted (DS-1680)"
                 .to_owned(),
         );
     }
@@ -665,24 +677,50 @@ fn target_call_result_is_verified(
     // call sites in the function does not change that. Only when no call is
     // verified this way does a call inside a loop make the outcome
     // ambiguous.
-    if call_sites.iter().any(|site| {
+    let mut path_verified = false;
+    let mut method_verified = false;
+    for site in &call_sites {
         let call_start = site.callee_start;
-        assert_spans
+        if assert_spans
             .iter()
             .any(|&(start, end)| call_start >= start && call_start < end)
             || target_call_has_assert_method_chain(text, call_start, symbol)
-    }) {
-        return TargetCallVerification::Verified;
+        {
+            if site.is_method {
+                method_verified = true;
+            } else {
+                path_verified = true;
+            }
+        }
     }
     // DS-628's disclosed bound: a single `let NAME = ...<call>...;` binding,
     // where `NAME` (optionally followed by `.field`/`.method()`) later
     // appears inside an assert span.
-    for binding in find_let_bindings_containing_call(text, symbol) {
+    for (binding, has_path_call) in find_let_bindings_containing_call(text, symbol) {
         if assert_spans.iter().any(|&(start, end)| {
             text[start..end].contains(&binding) || text[start..end].contains(&format!("{binding}."))
         }) {
-            return TargetCallVerification::Verified;
+            if has_path_call {
+                path_verified = true;
+            } else {
+                method_verified = true;
+            }
         }
+    }
+    if path_verified {
+        return TargetCallVerification::Verified;
+    }
+    if method_verified {
+        // #279: a method call is matched by name only, so a verified method call
+        // is evidence for the target only when no function call of the target
+        // is left unverified beside it. Otherwise the verifying device may
+        // belong to another type's same-named method, and the function call's
+        // result is neither shown verified nor shown unverified (DS-1680).
+        return if call_sites.iter().any(|site| !site.is_method) {
+            TargetCallVerification::Unidentified
+        } else {
+            TargetCallVerification::Verified
+        };
     }
     let loop_bodies = loop_body_spans(text);
     if call_sites.iter().any(|site| {
@@ -877,7 +915,9 @@ impl<'ast> Visit<'ast> for CallSiteVisitor<'_> {
     }
 }
 
-fn find_let_bindings_containing_call(text: &str, symbol: &str) -> Vec<String> {
+/// Names bound by `let NAME = ...<call>...;`, each with whether the initializer
+/// holds a function call of `symbol` (not only a method call).
+fn find_let_bindings_containing_call(text: &str, symbol: &str) -> Vec<(String, bool)> {
     let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
         return Vec::new();
     };
@@ -893,7 +933,7 @@ fn find_let_bindings_containing_call(text: &str, symbol: &str) -> Vec<String> {
 struct LetBindingVisitor<'a> {
     text: &'a str,
     symbol: &'a str,
-    bindings: Vec<String>,
+    bindings: Vec<(String, bool)>,
 }
 
 impl<'ast> Visit<'ast> for LetBindingVisitor<'_> {
@@ -906,7 +946,9 @@ impl<'ast> Visit<'ast> for LetBindingVisitor<'_> {
             };
             calls.visit_expr(init.expr.as_ref());
             if !calls.sites.is_empty() {
-                self.bindings.push(pattern.ident.to_string());
+                let has_path_call = calls.sites.iter().any(|site| !site.is_method);
+                self.bindings
+                    .push((pattern.ident.to_string(), has_path_call));
             }
         }
         syn::visit::visit_local(self, node);
@@ -1525,11 +1567,10 @@ mod tests {
     /// @vtest.id TEST-ORACLE-DA-003-METHOD-TARGET-VERIFIED-STAYS-NO-VIOLATION
     /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
-    /// @vtest.intent メソッドとして呼んだ target の結果が assert(直接、let 束縛、.unwrap() / .expect() の連鎖)に到達する Test は、DA-003 が違反なしのままであることを確認する
+    /// @vtest.intent メソッドとして呼んだ target の結果が let 束縛経由の assert、.unwrap()、.expect()、? の連鎖に到達し、関数呼出が混ざらない Test は、DA-003 が違反なしのままであることを確認する
     #[test]
     fn a_method_target_whose_result_reaches_an_assert_is_no_violation() {
         for text in [
-            "#[test]\nfn t() {\n    assert_eq!(c.double(2), 4);\n}\n",
             "#[test]\nfn t() {\n    let r = c.double(2);\n    assert_eq!(r, 4);\n}\n",
             "#[test]\nfn t() {\n    c.double(2).unwrap();\n}\n",
             "#[test]\nfn t() {\n    Calc::default().double(2).expect(\"ok\");\n}\n",
@@ -1538,6 +1579,31 @@ mod tests {
             let analysis = analyze(text, &["double".to_owned()], &[]);
             assert!(
                 matches!(analysis.da_003, DaVerdict::NoViolation),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// B1: a verified method call is matched to the target by name only, so it
+    /// cannot stand in for a function call of the target that stays unverified.
+    /// The composed verdict must not be PASS for any of these.
+    /// @vtest.id TEST-ORACLE-DA-003-VERIFIED-METHOD-CANNOT-CLEAR-UNVERIFIED-CALL
+    /// @vtest.covers VO-ORACLE-DA-003-UNIDENTIFIED-CALL-UNKNOWN
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent 検証済みの根拠がメソッド呼出だけで、検証されていない関数呼出が別に残る本体(.unwrap() の連鎖、assert と併存、let 束縛経由)は、DA-001〜006 の合成結果が PASS にならないことを確認する
+    #[test]
+    fn a_verified_method_call_does_not_clear_an_unverified_function_call() {
+        for text in [
+            "#[test]\nfn t() {\n    double(2);\n    o.double(3).unwrap();\n}\n",
+            "#[test]\nfn t() {\n    double(2);\n    o.double(3).unwrap();\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    double(2);\n    let r = o.double(3);\n    assert_eq!(r, 6);\n}\n",
+        ] {
+            let analysis = analyze(text, &["double".to_owned()], &[]);
+            let (is_fail, is_unknown, basis) = compose(&analysis);
+            assert!(is_fail || is_unknown, "{text}: composed to PASS: {basis:?}");
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
                 "{text}: {:?}",
                 analysis.da_003
             );
