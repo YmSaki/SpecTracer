@@ -395,6 +395,24 @@
           41
         ]
       }
+    },
+    {
+      "id": "R-6",
+      "statement": "v0.1 は、Rust に加えて Go と JavaScript・TypeScript の Test についても、実行による Evidence の記録と検証を提供する。",
+      "derives_from": [
+        "ROOT-050"
+      ],
+      "cites": [
+        "R-3"
+      ],
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+        "heading": "目的",
+        "lines": [
+          5,
+          5
+        ]
+      }
     }
   ],
   "require": [],

@@ -5036,7 +5036,9 @@
           "id": "SPEC-218",
           "statement": "`rust-cargo`・`go`・`javascript` 以外のproduction language adapterはv0.1の提供範囲に含めない。",
           "derives_from": [
-            "R-2"
+            "R-2",
+            "REQ-263",
+            "REQ-264"
           ],
           "cites": [
             "要件定義 R-2"
@@ -11798,7 +11800,10 @@
         {
           "id": "BD-003",
           "statement": "組込 production adapter は `rust-cargo`、`go`、`javascript` とする。",
-          "derives_from": [],
+          "derives_from": [
+            "SPEC-011",
+            "SPEC-218"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "0. 本書の位置付け",
@@ -13718,7 +13723,9 @@
         {
           "id": "BD-104",
           "statement": "組込production adapterは `rust-cargo`、`go`、`javascript` とする。",
-          "derives_from": [],
+          "derives_from": [
+            "SPEC-218"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "27. 対応範囲と adapter 境界",

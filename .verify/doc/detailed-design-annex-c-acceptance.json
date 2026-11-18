@@ -1049,7 +1049,10 @@
         {
           "id": "SPEC-458",
           "statement": "`rust-cargo`・`go`・`javascript`以外のproduction language adapterは提供範囲外である。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-263",
+            "REQ-264"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
             "heading": "18.4 提供範囲外",
@@ -8263,8 +8266,8 @@
           "id": "BD-358",
           "statement": "`javascript` adapterはJavaScript・TypeScriptのdiscovery、static audit、runner、coverageを所有する。",
           "derives_from": [
-            "SPEC-487",
-            "DS-S169"
+            "SPEC-485",
+            "SPEC-487"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/270",

@@ -695,6 +695,24 @@
           41
         ]
       }
+    },
+    {
+      "id": "R-6",
+      "statement": "v0.1 は、Rust に加えて Go と JavaScript・TypeScript の Test についても、実行による Evidence の記録と検証を提供する。",
+      "derives_from": [
+        "ROOT-050"
+      ],
+      "cites": [
+        "R-3"
+      ],
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+        "heading": "目的",
+        "lines": [
+          5,
+          5
+        ]
+      }
     }
   ],
   "require": [
@@ -2739,7 +2757,8 @@
           "id": "REQ-346",
           "statement": "go adapter における判定権威は go test である。",
           "derives_from": [
-            "R-3"
+            "R-3",
+            "R-6"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
@@ -2754,7 +2773,8 @@
           "id": "REQ-347",
           "statement": "javascript adapter における判定権威は vitest である。",
           "derives_from": [
-            "R-3"
+            "R-3",
+            "R-6"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
@@ -5064,7 +5084,9 @@
         {
           "id": "REQ-263",
           "statement": "組込 production adapter は `rust-cargo`、`go`、`javascript` とする。",
-          "derives_from": [],
+          "derives_from": [
+            "R-6"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
             "heading": "## 21. 対応範囲と adapter 境界",
@@ -5091,7 +5113,8 @@
           "id": "REQ-344",
           "statement": "`go` は Go と、`go test` が実行する Test を対象とする。",
           "derives_from": [
-            "R-3"
+            "R-3",
+            "R-6"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
@@ -5106,7 +5129,8 @@
           "id": "REQ-345",
           "statement": "`javascript` は JavaScript・TypeScript と、vitest が実行する Test を対象とする。",
           "derives_from": [
-            "R-3"
+            "R-3",
+            "R-6"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
@@ -5121,7 +5145,8 @@
           "id": "REQ-264",
           "statement": "`rust-cargo`、`go`、`javascript` 以外の production language adapter は v0.1 の提供範囲に含めない。",
           "derives_from": [
-            "R-2"
+            "R-2",
+            "R-6"
           ],
           "cites": [
             "（R-2）"
@@ -11327,7 +11352,9 @@
           "id": "SPEC-218",
           "statement": "`rust-cargo`・`go`・`javascript` 以外のproduction language adapterはv0.1の提供範囲に含めない。",
           "derives_from": [
-            "R-2"
+            "R-2",
+            "REQ-263",
+            "REQ-264"
           ],
           "cites": [
             "要件定義 R-2"
@@ -14312,7 +14339,10 @@
         {
           "id": "SPEC-361",
           "statement": "`rust-cargo`・`go`・`javascript`以外のproduction language adapter（synthetic adapterは受入fixture専用）は提供範囲外とする。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-263",
+            "REQ-264"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "19. 実装選択と提供範囲",
@@ -17181,7 +17211,10 @@
         {
           "id": "SPEC-458",
           "statement": "`rust-cargo`・`go`・`javascript`以外のproduction language adapterは提供範囲外である。",
-          "derives_from": [],
+          "derives_from": [
+            "REQ-263",
+            "REQ-264"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
             "heading": "18.4 提供範囲外",
@@ -23519,7 +23552,10 @@
         {
           "id": "DS-350",
           "statement": "`config.yaml` の各adapterの `scan` 設定の `assertion_macros` は、追加でassert相当として扱う名前（`rust-cargo` ではマクロ名、`go`・`javascript` では呼出し先の名前）を指定する。",
-          "derives_from": [],
+          "derives_from": [
+            "SPEC-486",
+            "SPEC-487"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 2.2 `config.yaml`",
@@ -23532,7 +23568,10 @@
         {
           "id": "DS-351",
           "statement": "`config.yaml` の各adapterの `run` 設定の `coverage` は `target_binding` の動的計測方式を指定し、値域はadapterごとに定める。",
-          "derives_from": [],
+          "derives_from": [
+            "SPEC-217",
+            "SPEC-486"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "### 2.2 `config.yaml`",
@@ -23571,24 +23610,12 @@
           }
         },
         {
-          "id": "DS-1880",
-          "statement": "`javascript` の `run.coverage` の値は `v8` または `off` である。",
-          "derives_from": [
-            "SPEC-487"
-          ],
-          "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-            "heading": "既知の食い違い",
-            "lines": [
-              44,
-              44
-            ]
-          }
-        },
-        {
           "id": "DS-1881",
-          "statement": "`rust-cargo`・`go`・`javascript` の `run.coverage` の値がそのadapterの値域にない場合は、無効なadapter設定（E-CONFIG-001）とする。",
-          "derives_from": [],
+          "statement": "`rust-cargo`・`go` の `run.coverage` の値がそのadapterの値域にない場合は、無効なadapter設定（E-CONFIG-001）とする。",
+          "derives_from": [
+            "SPEC-217",
+            "SPEC-486"
+          ],
           "cites": [
             "DS-352"
           ],
@@ -28282,7 +28309,7 @@
         {
           "id": "DS-1883",
           "statement": "`go`のassert相当の構文はDA-001〜DA-006で共通に用いる。",
-          "description": "Test関数の`*testing.T`引数に対する失敗の報告、`panic(...)`、configの`assertion_macros`に列挙した呼出し、の3分類の総称。",
+          "description": "`*testing.T` / `testing.TB` に対する失敗の報告、`panic(...)`、configの`assertion_macros`に列挙した呼出し、の3分類の総称。",
           "derives_from": [
             "SPEC-486"
           ],
@@ -28297,7 +28324,7 @@
         },
         {
           "id": "DS-1884",
-          "statement": "`go`のassert相当の構文は、Test関数の`*testing.T`引数に対する`Error` / `Errorf` / `Fatal` / `Fatalf` / `Fail` / `FailNow`の呼出し（以下、失敗の報告）を含む。",
+          "statement": "`go`のassert相当の構文は、Test関数の本体（関数リテラルの中を含む）で`*testing.T`型または`testing.TB`型として宣言された引数・変数に対する`Error` / `Errorf` / `Fatal` / `Fatalf` / `Fail` / `FailNow`の呼出し（以下、失敗の報告）を含む。",
           "derives_from": [
             "SPEC-486"
           ],
@@ -28356,8 +28383,23 @@
           }
         },
         {
+          "id": "DS-1928",
+          "statement": "`go`の失敗の報告または`panic(...)`を囲む`if`文・`switch`文がない場合、そのassert相当の引数は無く、DA-001はそのassert相当を定数アサーションとして扱う。",
+          "derives_from": [
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
           "id": "DS-1888",
-          "statement": "`go` configの`assertion_macros`に列挙された呼出しについて、DA-001・DA-003・DA-004が見るassert相当の引数は、Test関数の`*testing.T`引数を除くその呼出しの引数とする。",
+          "statement": "`go` configの`assertion_macros`に列挙された呼出しについて、DA-001・DA-003・DA-004が見るassert相当の引数は、`*testing.T`型または`testing.TB`型の引数を除くその呼出しの引数とする。",
           "derives_from": [
             "SPEC-486"
           ],
@@ -28494,6 +28536,21 @@
         {
           "id": "DS-1897",
           "statement": "`javascript`の`throw`文について、DA-001・DA-003・DA-004が見るassert相当の引数は、Test constructの本体の中でその文を囲む`if`文の条件式と`switch`文の判別式・case式のすべてとする。",
+          "derives_from": [
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1929",
+          "statement": "`javascript`の`throw`文を囲む`if`文・`switch`文がない場合、そのassert相当の引数は無く、DA-001はそのassert相当を定数アサーションとして扱う。",
           "derives_from": [
             "SPEC-487"
           ],
@@ -28649,7 +28706,10 @@
         {
           "id": "DS-628",
           "statement": "DA-002 / DA-003のデータフロー解析は関数内のローカル束縛の追跡（ローカル変数への束縛〔`rust-cargo`では`let`、`go`では`:=`・`var`、`javascript`では`const`・`let`・`var`〕、メソッドチェーン、フィールドアクセス）までとする。",
-          "derives_from": [],
+          "derives_from": [
+            "SPEC-486",
+            "SPEC-487"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "7.2 `rust-cargo` ルール一覧",
@@ -30768,6 +30828,20 @@
               }
             },
             {
+              "id": "DS-1930",
+              "statement": "そのTest関数の名前と一致する結果を`go test`が2件以上報告した場合（同じdirectoryの`package x`と`package x_test`に同名のTest関数がある場合を含む）、Evidenceを記録しない。",
+              "description": "Test 名の一致だけでは、どちらの結果が当該 Test のものかを決められない。",
+              "derives_from": [],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  27,
+                  27
+                ]
+              }
+            },
+            {
               "id": "DS-1910",
               "statement": "`go test`がパッケージのビルド失敗を報告した場合は、テストビルド失敗（E-EXEC-001）とし、そのパッケージのTestのEvidenceを記録しない。",
               "derives_from": [],
@@ -30785,7 +30859,7 @@
             },
             {
               "id": "DS-1911",
-              "statement": "`go test`の終了コードと、報告された全結果の集計が矛盾する場合は、E-EXEC-003とする。",
+              "statement": "`go test`の終了コードと、報告された全結果の集計が矛盾する場合は、E-EXEC-003とし、Evidenceを記録しない。",
               "derives_from": [],
               "cites": [
                 "DS-750"
@@ -30796,171 +30870,6 @@
                 "lines": [
                   27,
                   27
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "id": "DS-S169",
-          "title": "9.6 `javascript` TestRunnerAdapter",
-          "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-            "lines": [
-              28,
-              28
-            ]
-          },
-          "derives_from": [
-            "SPEC-485",
-            "SPEC-487",
-            "SPEC-489",
-            "REQ-347"
-          ],
-          "items": [
-            {
-              "id": "DS-1912",
-              "statement": "`javascript`のrunnerが実行できるTest constructは、呼出し先が識別子`test`または`it`で、第1引数が文字列リテラルである呼出しである。",
-              "derives_from": [],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            },
-            {
-              "id": "DS-1913",
-              "statement": "`javascript`のrunnerは、Test 1件ごとに、Test constructのファイルを対象とし、Test constructの第1引数の文字列（以下、タイトル）で選んでvitestを実行する。",
-              "derives_from": [],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            },
-            {
-              "id": "DS-1914",
-              "statement": "`javascript`のTestの合否は、vitestが報告した結果のうち、ソース上の位置がTest constructの呼出しの開始位置と一致する結果から読み、成功を`PASS`、失敗を`FAIL`とする。",
-              "description": "タイトルの一致は同じファイルの複数のTestに当たりうるため、位置でTestの同一性を確かめる。",
-              "derives_from": [],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            },
-            {
-              "id": "DS-1915",
-              "statement": "位置が一致する結果がスキップ（実行されず）である場合は、runnerが要求したTestを実行しなかったと報告した場合（DS-747、DS-748）として扱う。",
-              "derives_from": [],
-              "cites": [
-                "DS-747",
-                "DS-748"
-              ],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            },
-            {
-              "id": "DS-1916",
-              "statement": "位置が一致する結果がない場合、そのTestの実行は失敗（E-EXEC-002）とし、Evidenceを記録しない。",
-              "derives_from": [],
-              "cites": [
-                "DS-749"
-              ],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            },
-            {
-              "id": "DS-1917",
-              "statement": "位置が一致する結果が2件以上ある場合、Evidenceを記録しない。",
-              "derives_from": [],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            },
-            {
-              "id": "DS-1918",
-              "statement": "vitestがTest constructのファイルの読込み失敗（構文エラー、importの解決失敗等）を報告した場合は、テストビルド失敗（E-EXEC-001）とし、そのファイルのTestのEvidenceを記録しない。",
-              "derives_from": [],
-              "cites": [
-                "DS-758"
-              ],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            },
-            {
-              "id": "DS-1919",
-              "statement": "`javascript`のrunnerは、project rootから解決できるvitestだけを起動する。",
-              "derives_from": [],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  31,
-                  31
-                ]
-              }
-            },
-            {
-              "id": "DS-1920",
-              "statement": "project rootからvitestを解決できない場合、`javascript`のrunnerはE-ADAPTER-002とし、Evidenceを記録しない。",
-              "description": "jest等を使うプロジェクトでは vitest を解決できない。capability がない場合（E-ADAPTER-004）とは区別する。",
-              "derives_from": [],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            },
-            {
-              "id": "DS-1921",
-              "statement": "vitestの終了コードと、報告された全結果の集計が矛盾する場合は、E-EXEC-003とする。",
-              "derives_from": [],
-              "cites": [
-                "DS-750"
-              ],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
                 ]
               }
             }
@@ -31317,21 +31226,6 @@
               }
             },
             {
-              "id": "DS-1924",
-              "statement": "`javascript`の`--fast`モードは、カバレッジproviderを有効にしないvitestで実行する。",
-              "derives_from": [
-                "SPEC-487"
-              ],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            },
-            {
               "id": "DS-779",
               "statement": "既定モード（完全検証向け）は、adapterのcoverage計測を伴うTest単位実行とする。",
               "description": "実行時間と引き換えに `target_binding` の動的証拠を得る。",
@@ -31370,21 +31264,6 @@
                 "lines": [
                   27,
                   27
-                ]
-              }
-            },
-            {
-              "id": "DS-1927",
-              "statement": "`javascript`の既定モードは、vitestのV8カバレッジprovider（`run.coverage: v8`）によるTest単位実行とする。",
-              "derives_from": [
-                "SPEC-487"
-              ],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
                 ]
               }
             }
@@ -47765,7 +47644,10 @@
         {
           "id": "BD-003",
           "statement": "組込 production adapter は `rust-cargo`、`go`、`javascript` とする。",
-          "derives_from": [],
+          "derives_from": [
+            "SPEC-011",
+            "SPEC-218"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "0. 本書の位置付け",
@@ -49685,7 +49567,9 @@
         {
           "id": "BD-104",
           "statement": "組込production adapterは `rust-cargo`、`go`、`javascript` とする。",
-          "derives_from": [],
+          "derives_from": [
+            "SPEC-218"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "27. 対応範囲と adapter 境界",
@@ -50637,9 +50521,8 @@
         },
         {
           "id": "BD-353",
-          "statement": "JavaScript・TypeScript固有の呼出し名の綴りや `v8` 制約は `javascript` adapterに限って適用する。",
+          "statement": "JavaScript・TypeScript固有の呼出し名の綴りは `javascript` adapterに限って適用する。",
           "derives_from": [
-            "DS-1880",
             "DS-1894"
           ],
           "source": {
@@ -52425,22 +52308,6 @@
                 "lines": [
                   27,
                   27
-                ]
-              }
-            },
-            {
-              "id": "BD-355",
-              "statement": "`javascript` CoverageAdapterはvitestのV8カバレッジprovider（`@vitest/coverage-v8`）を使用する（adapter configの`run.coverage: v8`）。",
-              "derives_from": [
-                "DS-1880",
-                "DS-1927"
-              ],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
                 ]
               }
             },
@@ -54300,8 +54167,8 @@
           "id": "BD-358",
           "statement": "`javascript` adapterはJavaScript・TypeScriptのdiscovery、static audit、runner、coverageを所有する。",
           "derives_from": [
-            "SPEC-487",
-            "DS-S169"
+            "SPEC-485",
+            "SPEC-487"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
@@ -58021,7 +57888,8 @@
         },
         {
           "id": "DES-624",
-          "statement": "`go-execution-state-v1` のtoolchain identityは、`go`が報告するGoのversionと、ビルド結果を変えるGoの環境設定（`GOOS`、`GOARCH`、`GOARCH`ごとの命令セットの設定〔`GOAMD64`等〕、`CGO_ENABLED`、`GOFLAGS`、`GOEXPERIMENT`、`GODEBUG`、`GOTOOLCHAIN`、`GO111MODULE`、project rootの相対pathへ正規化した`GOWORK`）の値を含む。",
+          "statement": "`go-execution-state-v1` のtoolchain identityは、`go env`が報告する実効値のうち、`GOVERSION`、`GOOS`、`GOARCH`、`GOARCH`に応じた命令セットの設定（amd64では`GOAMD64`）、`CGO_ENABLED`、`GOFLAGS`、`GOEXPERIMENT`、`GOFIPS140`、`GODEBUG`、`GOTOOLCHAIN`、`GO111MODULE`の値と、project rootの相対pathへ正規化した`GOWORK`の値を含む。",
+          "description": "`go env` の実効値は、環境変数に加えて `go env -w` の設定（GOENV）と `$GOROOT/go.env` を反映する。",
           "derives_from": [
             "DS-1390",
             "BD-357"
@@ -58117,7 +57985,7 @@
         },
         {
           "id": "DES-630",
-          "statement": "`GOFLAGS`がproject rootの外のfileまたはdirectoryを指すflag（`-modfile`、`-overlay`、`-pgo`等）を含む場合、`go` adapterはsnapshotを完全と報告しない。",
+          "statement": "`GOFLAGS`が、fileまたはdirectoryを値に取るflag（`-modfile`、`-overlay`、`-pgo`を含む）でproject rootの外を指すものを含む場合、`go` adapterはsnapshotを完全と報告しない。",
           "derives_from": [
             "DS-1390",
             "BD-357"
@@ -58160,167 +58028,6 @@
             "lines": [
               27,
               27
-            ]
-          }
-        },
-        {
-          "id": "DES-633",
-          "statement": "`javascript-execution-state-v1` のmanifestは、project root配下の通常fileのうち、`.git/`・`.verify/`と、どの深さにあるものも含めた`node_modules/`の配下にないものすべてを含む。",
-          "derives_from": [
-            "DS-1390",
-            "BD-358"
-          ],
-          "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-            "lines": [
-              28,
-              28
-            ]
-          }
-        },
-        {
-          "id": "DES-634",
-          "statement": "`javascript-execution-state-v1` のtoolchain identityは、Node.jsのversion、選択Testを実行するvitestのversion、V8カバレッジproviderのversionを含む。",
-          "derives_from": [
-            "DS-1390",
-            "BD-358"
-          ],
-          "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-            "lines": [
-              28,
-              28
-            ]
-          }
-        },
-        {
-          "id": "DES-635",
-          "statement": "`javascript-execution-state-v1` では、`node_modules/`の内容をproject rootにあるlockfile（`package-lock.json`、`npm-shrinkwrap.json`、`yarn.lock`、`pnpm-lock.yaml`、`bun.lock`、`bun.lockb`のいずれか）で束縛されているとみなす。",
-          "derives_from": [
-            "DS-1390",
-            "BD-358"
-          ],
-          "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-            "lines": [
-              28,
-              28
-            ]
-          }
-        },
-        {
-          "id": "DES-636",
-          "statement": "project rootにlockfileが1つもない場合、`javascript` adapterはsnapshotを完全と報告しない。",
-          "derives_from": [
-            "DS-1390",
-            "BD-358"
-          ],
-          "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-            "lines": [
-              28,
-              28
-            ]
-          }
-        },
-        {
-          "id": "DES-637",
-          "statement": "project root配下（`node_modules/`の配下を含む）にproject rootの外を指すsymbolic linkがある場合、`javascript` adapterはsnapshotを完全と報告しない。",
-          "derives_from": [
-            "DS-1390",
-            "BD-358"
-          ],
-          "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-            "lines": [
-              28,
-              28
-            ]
-          }
-        },
-        {
-          "id": "DES-638",
-          "statement": "`package.json`の依存がproject rootの外のlocal path（`file:`・`link:`・`portal:`の指定）を指す場合、`javascript` adapterはsnapshotを完全と報告しない。",
-          "derives_from": [
-            "DS-1390",
-            "BD-358"
-          ],
-          "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-            "lines": [
-              28,
-              28
-            ]
-          }
-        },
-        {
-          "id": "DES-639",
-          "statement": "project rootの祖先directoryに`node_modules`がある場合、`javascript` adapterはsnapshotを完全と報告しない。",
-          "description": "Node.js の module 解決は、project root の `node_modules` で見つからない package を祖先 directory の `node_modules` から読む。",
-          "derives_from": [
-            "DS-1390",
-            "BD-358"
-          ],
-          "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-            "lines": [
-              28,
-              28
-            ]
-          }
-        },
-        {
-          "id": "DES-640",
-          "statement": "環境変数`NODE_PATH`または`NODE_OPTIONS`が設定されている場合、`javascript` adapterはsnapshotを完全と報告しない。",
-          "derives_from": [
-            "DS-1390",
-            "BD-358"
-          ],
-          "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-            "lines": [
-              28,
-              28
-            ]
-          }
-        },
-        {
-          "id": "DES-641",
-          "statement": "TypeScriptの設定file（`tsconfig.json`等）の`extends`または`references`がproject rootの外を指す場合、`javascript` adapterはsnapshotを完全と報告しない。",
-          "derives_from": [
-            "DS-1390",
-            "BD-358"
-          ],
-          "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-            "lines": [
-              28,
-              28
-            ]
-          }
-        },
-        {
-          "id": "DES-642",
-          "statement": "vitestまたはViteの設定file（`vitest.config.*`、`vite.config.*`、`vitest.workspace.*`）にproject rootの外を指すpathが現れる場合、`javascript` adapterはsnapshotを完全と報告しない。",
-          "derives_from": [
-            "DS-1390",
-            "BD-358"
-          ],
-          "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-            "lines": [
-              28,
-              28
             ]
           }
         },
@@ -62404,173 +62111,6 @@
               }
             }
           ]
-        },
-        {
-          "id": "DES-S110",
-          "title": "9.7 `javascript` TestRunnerAdapter",
-          "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-            "lines": [
-              28,
-              28
-            ]
-          },
-          "derives_from": [
-            "DS-S169",
-            "BD-358"
-          ],
-          "items": [
-            {
-              "id": "DES-653",
-              "statement": "`javascript` adapterは`TestEntity.execution`の`project`を、Test constructのfileを含むadapter root（configの`roots`）のproject rootからの相対pathとして解釈する。",
-              "derives_from": [],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            },
-            {
-              "id": "DES-654",
-              "statement": "`javascript` adapterは`TestEntity.execution`の`suite.kind`を`file`とし、`suite.name`をTest constructのfileの`project`からの相対pathとして解釈する。",
-              "derives_from": [],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            },
-            {
-              "id": "DES-655",
-              "statement": "`javascript` adapterは`TestEntity.execution`の`selector`をTest constructのタイトル（第1引数の文字列リテラルの値）として解釈する。",
-              "derives_from": [],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            },
-            {
-              "id": "DES-656",
-              "statement": "`TestEntity`へJavaScript・TypeScript固有field（Test constructの行・桁を含む）を戻してはならない。",
-              "derives_from": [],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            },
-            {
-              "id": "DES-657",
-              "statement": "`javascript` adapterのrunner kindは`vitest`とする。",
-              "derives_from": [],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            },
-            {
-              "id": "DES-658",
-              "statement": "実行はTest 1件ごととし、`project`のdirectoryをworking directoryとして、project rootから解決したvitestを、`run`、`suite.name`のfile、`-t`にselectorを正規表現としてescapeした文字列、`--reporter=json`、`--includeTaskLocation`を指定して起動する。",
-              "description": "vitest run <suite.name> -t <escape したselector> --reporter=json --includeTaskLocation",
-              "derives_from": [],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  31,
-                  31
-                ]
-              }
-            },
-            {
-              "id": "DES-659",
-              "statement": "Test constructの呼出しの開始位置は、実行直前のdiscovery結果のSource Locationから得る。",
-              "derives_from": [],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "id": "DES-S111",
-          "title": "9.8 `javascript` 結果のパース",
-          "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-            "lines": [
-              28,
-              28
-            ]
-          },
-          "derives_from": [
-            "DS-S169"
-          ],
-          "items": [
-            {
-              "id": "DES-660",
-              "statement": "vitestのJSON reporterの出力のうち、`suite.name`のfileの各Testの結果で、`location`の行と桁がTest constructの呼出しの開始位置（呼出し先の識別子の先頭）と一致するものを、そのTestの結果とする。",
-              "description": "行と桁は、vitest が報告する基準へ Test construct の開始位置を換算して比較する。",
-              "derives_from": [],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            },
-            {
-              "id": "DES-661",
-              "statement": "`status`が`passed`の結果はPASSを、`failed`の結果はFAILを、`skipped` / `pending` / `todo`の結果は実行されずを意味する。",
-              "derives_from": [],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            },
-            {
-              "id": "DES-662",
-              "statement": "stdout / stderrの全文は`cache/logs/<ULID>.log`へ保存し、Evidenceの`log_ref`から参照する。",
-              "derives_from": [],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            }
-          ]
         }
       ]
     },
@@ -62594,7 +62134,7 @@
       "sections": [
         {
           "id": "DES-S071",
-          "title": "10.1 `rust-cargo` 計測方式",
+          "title": "10.1 計測方式",
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "10.1 計測方式",
@@ -62661,7 +62201,7 @@
         },
         {
           "id": "DES-S072",
-          "title": "10.2 `rust-cargo` 判定",
+          "title": "10.2 判定",
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "10.2 判定",
@@ -62811,6 +62351,38 @@
               }
             },
             {
+              "id": "DES-675",
+              "statement": "計測時は、同じパッケージに対してTestを選ばない実行（`-run`に`^$`）も同じ指定で計測する。",
+              "derives_from": [
+                "BD-354"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  27,
+                  27
+                ]
+              }
+            },
+            {
+              "id": "DES-676",
+              "statement": "Testを選ばない実行で、宣言targetのsource範囲に開始位置が入るblockの実行回数が1以上の場合、そのtargetは`UNKNOWN`とする。",
+              "description": "init 関数、パッケージ変数の初期化、TestMain での実行は、Test による到達と区別できない。",
+              "derives_from": [
+                "BD-354",
+                "DS-1406"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  27,
+                  27
+                ]
+              }
+            },
+            {
               "id": "DES-666",
               "statement": "開始位置が宣言targetのsource範囲に入るblockが1件もない場合、そのtargetは関数が見つからない場合（`UNKNOWN`）として扱う。",
               "derives_from": [],
@@ -62836,108 +62408,6 @@
                 "lines": [
                   27,
                   27
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "id": "DES-S113",
-          "title": "10.4 `javascript` 計測方式と判定",
-          "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-            "lines": [
-              28,
-              28
-            ]
-          },
-          "derives_from": [
-            "BD-355",
-            "DS-1927"
-          ],
-          "items": [
-            {
-              "id": "DES-668",
-              "statement": "`javascript` adapterは、project rootからV8カバレッジprovider（`@vitest/coverage-v8`）を解決できることを確認し、解決できなければ計測しない。",
-              "derives_from": [],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            },
-            {
-              "id": "DES-669",
-              "statement": "計測時は、vitestの起動にV8カバレッジproviderを有効にする指定を加え、関数ごとの名前・source上の開始位置・実行回数を含む形式で結果を出力させる。",
-              "derives_from": [],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            },
-            {
-              "id": "DES-674",
-              "statement": "V8カバレッジproviderの出力先は`.verify/cache/cov/<ULID>`とする。",
-              "description": "vitest の既定の出力先（`coverage/`）は project root 配下にあり、Execution State の manifest（DES-633）に入って実行前後の比較で E-EXEC-004 になるため、`.verify/` の配下に置く。",
-              "derives_from": [
-                "BD-355"
-              ],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            },
-            {
-              "id": "DES-670",
-              "statement": "宣言targetの実行回数は、そのtargetのSource Targetと同じfileにあり、開始位置がSource Target constructのsource範囲に入る関数の実行回数の最大値とする。",
-              "derives_from": [],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            },
-            {
-              "id": "DES-671",
-              "statement": "開始位置が宣言targetのsource範囲に入る関数が1件もない場合（source mapで元のsourceへ対応付けられない場合を含む）、そのtargetは関数が見つからない場合（`UNKNOWN`）として扱う。",
-              "derives_from": [],
-              "cites": [
-                "DS-768"
-              ],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
-                ]
-              }
-            },
-            {
-              "id": "DES-672",
-              "statement": "各targetのcanonical Locator（§6.1.1）・result・countとTest単位集約結果を、`method`を`v8`としてEvidenceの`target_coverage`へ記録する。",
-              "derives_from": [],
-              "source": {
-                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-                "lines": [
-                  28,
-                  28
                 ]
               }
             }
