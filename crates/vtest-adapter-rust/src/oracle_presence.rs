@@ -1750,9 +1750,54 @@ fn is_changed_through_place(text: &str, name: &str, assert_spans: &[(usize, usiz
                 .assert_spans
                 .iter()
                 .any(|&(start, end)| offset >= start && offset < end);
+            let read = macro_arguments(node);
             self.found |= !in_assert
-                && macro_arguments(node).is_none()
+                && read.is_none()
                 && tokens_mention_ident(node.tokens.clone(), self.name);
+            if node.path.is_ident("matches") {
+                // Only the first argument is an expression; the pattern and its guard
+                // may bind `ref mut` or mutate the value, so the name there is a change.
+                if let Some(arguments) = read {
+                    for expression in &arguments.checked {
+                        self.visit_expr(expression);
+                    }
+                    self.found |= arguments
+                        .unchecked
+                        .iter()
+                        .any(|tokens| tokens_mention_ident(tokens.clone(), self.name));
+                    let parsed = syn::parse::Parser::parse2(
+                        |input: syn::parse::ParseStream<'_>| {
+                            let scrutinee: syn::Expr = input.parse()?;
+                            input.parse::<syn::Token![,]>()?;
+                            let pattern = syn::Pat::parse_multi_with_leading_vert(input)?;
+                            let guard = if input.peek(syn::Token![if]) {
+                                input.parse::<syn::Token![if]>()?;
+                                Some(input.parse::<syn::Expr>()?)
+                            } else {
+                                None
+                            };
+                            input.parse::<Option<syn::Token![,]>>()?;
+                            Ok((scrutinee, pattern, guard))
+                        },
+                        node.tokens.clone(),
+                    );
+                    match parsed {
+                        Ok((scrutinee, pattern, guard)) => {
+                            self.found |= place_roots_at(&scrutinee, self.name)
+                                && pattern_borrows_mutably(&pattern);
+                            if let Some(guard) = guard {
+                                self.visit_expr(&guard);
+                            }
+                        }
+                        Err(_) => {
+                            self.found |= tokens_mention_ident(node.tokens.clone(), self.name);
+                        }
+                    }
+                } else {
+                    self.found |= tokens_mention_ident(node.tokens.clone(), self.name);
+                }
+                return;
+            }
             if let Ok(arguments) = syn::parse::Parser::parse2(
                 syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated,
                 node.tokens.clone(),
@@ -3081,6 +3126,8 @@ mod tests {
             "let mut r = double(2); let ref mut a = r; *a = other(); assert_eq!(r, 1);",
             "let mut r = double(2); match r { (ref mut a, _) => *a = other() } assert_eq!(r.0, 1);",
             "let mut r = double(2); if let Some(ref mut a) = r { *a = other(); } assert_eq!(r, 1);",
+            "let mut r = double(2); let b = matches!(r.take(), Some(ref a)); assert_eq!(r, None);",
+            "let mut r = double(2); let b = matches!(r, Some(ref mut a) if { *a = 1; true }); assert_eq!(r, Some(1));",
         ] {
             let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
@@ -3111,6 +3158,7 @@ mod tests {
             "let mut r = double(2); let c = &r; assert_eq!(r, 4);",
             "let mut r = double(2); let s = format!(\"{}\", r); assert_eq!(r, 4);",
             "let mut r = double(2); assert!(matches!(r, Some(_)));",
+            "let mut r = double(2); let b = matches!(r, Some(_)); assert_eq!(r, 4);",
             "let mut r = double(2); match r { (a, _) => drop(a) } assert_eq!(r, 4);",
         ] {
             let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
