@@ -990,7 +990,7 @@ impl<'a> NameUse<'a> {
     /// read as an expression: followed by an argument list (`name(..)`) or by
     /// `::<`, or standing alone (a value). Not a use: after `.` (a method or a
     /// field), before `::` (a path prefix), before `!` (a macro name), before a
-    /// single `:` (a field label), a constant, or a local bound at the top level.
+    /// single `:` (a field label), a constant, or a local bound by a `let` earlier in the same block.
     fn tokens_use_name(&self, tokens: proc_macro2::TokenStream) -> bool {
         use proc_macro2::{Delimiter, TokenTree};
         let trees: Vec<TokenTree> = tokens.into_iter().collect();
@@ -2733,7 +2733,7 @@ mod tests {
     /// block: a use outside that block or before the `let`, and a binding in a
     /// closure, a match arm, a nested fn or an assignment, are no exception.
     /// @vtest.id TEST-ORACLE-DA-003-LOCAL-EXCEPTION-IS-SCOPED
-    /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN
+    /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN, VO-ORACLE-DA-003-RESULT-UNVERIFIED
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::NameUse::new
     /// @vtest.intent 同名のローカルの例外は、let とその同じブロックの中の後ろの使用だけに効き、ブロックの外の使用、let より前の使用、クロージャの引数、match のアーム、ネストした fn の引数、代入には効かず、DA-003 が UNKNOWN になることを確認する
     #[test]
@@ -2772,7 +2772,7 @@ mod tests {
     /// @vtest.id TEST-ORACLE-DA-003-CONSTANT-OR-LOCAL-NAME-IS-NOT-AN-INDIRECT-CALL
     /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED, VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::is_constant_name
-    /// @vtest.intent 大文字の名前の target(定数)の値の使用と、最上位の let で束縛された同名のローカル変数の使用は、間接呼出と読まず DA-003 が違反なしのままで、型を経由する同名の経路は値の使用として UNKNOWN になることを確認する
+    /// @vtest.intent 大文字の名前の target(定数)の値の使用と、同じブロックの前の let で束縛された同名のローカル変数の使用は、間接呼出と読まず DA-003 が違反なしのままで、型を経由する同名の経路は値の使用として UNKNOWN になることを確認する
     #[test]
     fn a_constant_or_local_name_is_not_an_indirect_call() {
         let constant = "#[test]\nfn t() {\n    let form = parse(RUST_FORM);\n    assert_eq!(form.kind, 1);\n}\n";
