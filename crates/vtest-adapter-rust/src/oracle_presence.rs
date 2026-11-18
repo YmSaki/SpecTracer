@@ -18,7 +18,11 @@
 //!   appearing lexically *inside* an assert-equivalent macro's argument
 //!   list, or bound by a single `let NAME = ...;` whose `NAME` (or a
 //!   `NAME.field`/`NAME.method()` chain starting with `NAME`) then appears
-//!   inside an assert-equivalent argument list. This is a real subset of
+//!   inside an assert-equivalent argument list. `NAME` is matched as a whole
+//!   identifier read from the argument list's tokens, not as a substring; when
+//!   it cannot be told to mean the binding (the name is bound again in the
+//!   function, or appears in a nested macro's unparsed tokens) DA-003 reports
+//!   `Unknown` (#281; a derivation from DS-1680, not stated in it). This is a real subset of
 //!   DS-628 ("let束縛、メソッドチェーン、フィールドアクセス"), not its full
 //!   extent — a target call several bindings removed, or reached only
 //!   through a closure, is not tracked and reports `Unknown` rather than
@@ -474,6 +478,7 @@ fn da_003_result_unverified(
     let mut any_ambiguous = false;
     let mut any_unidentified = false;
     let mut any_unverified = false;
+    let mut any_binding_uncertain = false;
     for symbol in target_symbols {
         match target_call_result_is_verified(text, symbol, assert_spans) {
             TargetCallVerification::NotCalled => {}
@@ -492,6 +497,10 @@ fn da_003_result_unverified(
                 any_call_found = true;
                 any_unidentified = true;
             }
+            TargetCallVerification::BindingUncertain => {
+                any_call_found = true;
+                any_binding_uncertain = true;
+            }
         }
     }
     if !any_call_found {
@@ -504,6 +513,17 @@ fn da_003_result_unverified(
         return DaVerdict::Unknown(
             "a target call's result may be verified through a mutable reference or \
              global state, which this capability does not track (DS-623)"
+                .to_owned(),
+        );
+    }
+    if any_binding_uncertain {
+        // Derivation (see `binding_reach`): the name of the binding that holds the
+        // result appears in an assert, but it cannot be told to mean that binding.
+        return DaVerdict::Unknown(
+            "a declared target's result is bound to a name that an assert-equivalent \
+             construct mentions, but the name cannot be shown to mean that binding (it is \
+             bound again, or appears in tokens this capability does not parse), so the \
+             result reaching the assert is neither proven nor refuted (DS-1680)"
                 .to_owned(),
         );
     }
@@ -645,6 +665,134 @@ enum TargetCallVerification {
     Ambiguous,
     /// Every unverified call is a method call matched by name only (#279).
     Unidentified,
+    /// The binding that holds a call's result is named in an assert, but the name
+    /// cannot be shown to mean that binding (#281).
+    BindingUncertain,
+}
+
+/// Whether a `let` binding's name reaches an assert-equivalent argument list.
+enum BindingReach {
+    Reaches,
+    NotReached,
+    Uncertain,
+}
+
+/// Derivation (not stated in DS-628 / DS-1680 / DS-615): a binding's name reaches
+/// an assert only as a whole identifier in expression position, read from the
+/// tokens of the assert's argument list. A field or method named like the binding
+/// (`x.r`, `x.r()`) and a string literal are not the binding. The name cannot be
+/// told to mean the binding (`Uncertain`, which DS-1680 reads as UNKNOWN) when the
+/// name is bound again anywhere in the function (a second `let`, a closure
+/// parameter, a match arm, a parameter), when the argument list is not a list of
+/// expressions, or when the name appears in a nested macro's unparsed tokens.
+fn binding_reach(text: &str, binding: &str, assert_spans: &[(usize, usize)]) -> BindingReach {
+    let reaches = |outcome: &BindingReach| matches!(outcome, BindingReach::Reaches);
+    let outcomes: Vec<BindingReach> = assert_spans
+        .iter()
+        .map(|&(start, end)| span_binding_reach(&text[start..end], binding))
+        .collect();
+    if outcomes.iter().any(reaches) {
+        return if count_pattern_bindings(text, binding) > 1 {
+            BindingReach::Uncertain
+        } else {
+            BindingReach::Reaches
+        };
+    }
+    if outcomes
+        .iter()
+        .any(|outcome| matches!(outcome, BindingReach::Uncertain))
+    {
+        return BindingReach::Uncertain;
+    }
+    BindingReach::NotReached
+}
+
+fn span_binding_reach(span_text: &str, binding: &str) -> BindingReach {
+    let Ok(tokens) = span_text.parse::<proc_macro2::TokenStream>() else {
+        return BindingReach::Uncertain;
+    };
+    if !tokens_mention_ident(tokens, binding) {
+        return BindingReach::NotReached;
+    }
+    let Ok(arguments) = syn::parse::Parser::parse_str(
+        syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated,
+        span_text,
+    ) else {
+        return BindingReach::Uncertain;
+    };
+    let mut visitor = BindingUseVisitor {
+        name: binding,
+        path_use: false,
+        opaque: false,
+    };
+    for argument in &arguments {
+        visitor.visit_expr(argument);
+    }
+    if visitor.opaque {
+        BindingReach::Uncertain
+    } else if visitor.path_use {
+        BindingReach::Reaches
+    } else {
+        BindingReach::NotReached
+    }
+}
+
+fn tokens_mention_ident(tokens: proc_macro2::TokenStream, name: &str) -> bool {
+    tokens.into_iter().any(|tree| match tree {
+        proc_macro2::TokenTree::Ident(ident) => ident == name,
+        proc_macro2::TokenTree::Group(group) => tokens_mention_ident(group.stream(), name),
+        proc_macro2::TokenTree::Punct(_) | proc_macro2::TokenTree::Literal(_) => false,
+    })
+}
+
+struct BindingUseVisitor<'a> {
+    name: &'a str,
+    path_use: bool,
+    opaque: bool,
+}
+
+impl<'ast> Visit<'ast> for BindingUseVisitor<'_> {
+    fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
+        if node.qself.is_none() && node.path.is_ident(self.name) {
+            self.path_use = true;
+        }
+    }
+
+    fn visit_pat_ident(&mut self, node: &'ast syn::PatIdent) {
+        if node.ident == self.name {
+            self.opaque = true;
+        }
+        syn::visit::visit_pat_ident(self, node);
+    }
+
+    fn visit_macro(&mut self, node: &'ast syn::Macro) {
+        if tokens_mention_ident(node.tokens.clone(), self.name) {
+            self.opaque = true;
+        }
+    }
+}
+
+/// Number of patterns in the function that bind `name` (`let`, closure
+/// parameter, match arm, parameter, `for`).
+fn count_pattern_bindings(text: &str, name: &str) -> usize {
+    struct Counter<'a> {
+        name: &'a str,
+        count: usize,
+    }
+    impl<'ast> Visit<'ast> for Counter<'_> {
+        fn visit_pat_ident(&mut self, node: &'ast syn::PatIdent) {
+            if node.ident == self.name {
+                self.count += 1;
+            }
+            syn::visit::visit_pat_ident(self, node);
+        }
+    }
+    let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
+        return 0;
+    };
+    let mut counter = Counter { name, count: 0 };
+    counter.visit_item_fn(&function);
+    counter.count
 }
 
 /// One call of a declared target found in the Test body.
@@ -693,20 +841,26 @@ fn target_call_result_is_verified(
     }
     // DS-628's disclosed bound: a single `let NAME = ...<call>...;` binding,
     // where `NAME` (optionally followed by `.field`/`.method()`) later
-    // appears inside an assert span.
+    // appears inside an assert span as an identifier of its own (#281).
+    let mut binding_uncertain = false;
     for (binding, has_path_call) in find_let_bindings_containing_call(text, symbol) {
-        if assert_spans.iter().any(|&(start, end)| {
-            text[start..end].contains(&binding) || text[start..end].contains(&format!("{binding}."))
-        }) {
-            if has_path_call {
-                path_verified = true;
-            } else {
-                method_verified = true;
+        match binding_reach(text, &binding, assert_spans) {
+            BindingReach::Reaches => {
+                if has_path_call {
+                    path_verified = true;
+                } else {
+                    method_verified = true;
+                }
             }
+            BindingReach::Uncertain => binding_uncertain = true,
+            BindingReach::NotReached => {}
         }
     }
     if path_verified {
         return TargetCallVerification::Verified;
+    }
+    if binding_uncertain {
+        return TargetCallVerification::BindingUncertain;
     }
     if method_verified {
         // #279: a method call is matched by name only, so a verified method call
@@ -1629,6 +1783,106 @@ mod tests {
         let analysis = analyze(path, &["double".to_owned()], &[]);
         assert!(
             matches!(analysis.da_003, DaVerdict::Fail(_)),
+            "{:?}",
+            analysis.da_003
+        );
+    }
+
+    /// #281: a let binding reaches an assert only when its name appears there as
+    /// an identifier of its own. `r` inside `other` does not reach.
+    /// @vtest.id TEST-ORACLE-DA-003-BINDING-NAME-INSIDE-ANOTHER-IDENTIFIER-IS-NOT-PASS
+    /// @vtest.covers VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent let 束縛名が assert 内の別の識別子(other)の一部にすぎない Test は、結果が assert に到達したと読まれず、DA-001〜006 の合成結果が PASS にならないことを確認する
+    #[test]
+    fn a_binding_name_inside_another_identifier_does_not_reach_the_assert() {
+        for text in [
+            "#[test]\nfn t() {\n    let r = double(2);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let c = Calc::default();\n    let t = (c.double(2), 1);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let r = double(2);\n    assert_eq!(x.r, 1);\n}\n",
+            "#[test]\nfn t() {\n    let r = double(2);\n    assert_eq!(x.r(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let r = double(2);\n    assert_eq!(\"r\", \"r\");\n}\n",
+        ] {
+            let analysis = analyze(text, &["double".to_owned()], &[]);
+            let (is_fail, is_unknown, basis) = compose(&analysis);
+            assert!(is_fail || is_unknown, "{text}: composed to PASS: {basis:?}");
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// A binding that reaches an assert by its exact name stays no violation,
+    /// through any expression shape the name can take there.
+    /// @vtest.id TEST-ORACLE-DA-003-BINDING-IDENTIFIER-IN-ASSERT-STAYS-NO-VIOLATION
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent 束縛名が assert の引数に識別子としてそのまま現れる Test(比較、メソッド、フィールド、参照、メッセージ引数)は、DA-003 が違反なしのままであることを確認する
+    #[test]
+    fn a_binding_named_exactly_in_the_assert_is_no_violation() {
+        for body in [
+            "assert_eq!(r, 4);",
+            "assert_eq!(4, r);",
+            "assert!(r > 0);",
+            "assert!(r.is_ok());",
+            "assert_eq!(r.len(), 1);",
+            "assert_eq!(r.field, 1);",
+            "assert_eq!(&r, &4);",
+            "assert_eq!(*r, 4);",
+            "assert!(other() > 0, \"got {}\", r);",
+            "assert_ne!(r, 5, \"msg\");",
+            "assert_eq!((r, 1), (4, 1));",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    let r = double(2);\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::NoViolation),
+                "{body}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// A binding made again under the same name cannot be followed to the assert
+    /// by name alone: the name in the assert may belong to either binding.
+    /// @vtest.id TEST-ORACLE-DA-003-SHADOWED-BINDING-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent 同じ名前の束縛を作り直す(let、closure 引数、match 腕)Test は、assert 内の名前がどの束縛を指すか決められないため、DA-001〜006 の合成結果が PASS にならず UNKNOWN になることを確認する
+    #[test]
+    fn a_shadowed_binding_is_unknown_not_no_violation() {
+        for text in [
+            "#[test]\nfn t() {\n    let r = double(2);\n    let r = 1;\n    assert_eq!(r, 1);\n}\n",
+            "#[test]\nfn t() {\n    let r = double(2);\n    assert!(xs.iter().all(|r| *r > 0));\n}\n",
+            "#[test]\nfn t() {\n    let r = double(2);\n    match o {\n        Some(r) => assert_eq!(r, 1),\n        None => {}\n    }\n}\n",
+            "#[test]\nfn t(r: u8) {\n    let r = double(r);\n    assert_eq!(r, 1);\n}\n",
+        ] {
+            let analysis = analyze(text, &["double".to_owned()], &[]);
+            let (is_fail, is_unknown, basis) = compose(&analysis);
+            assert!(is_fail || is_unknown, "{text}: composed to PASS: {basis:?}");
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// A name inside a nested macro's tokens is not parsed, so whether it is the
+    /// binding cannot be told: UNKNOWN, not a reach.
+    /// @vtest.id TEST-ORACLE-DA-003-BINDING-IN-NESTED-MACRO-TOKENS-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent 束縛名が assert 内の入れ子のマクロのトークンの中にしか現れない Test は、識別子を確実に判定できないため PASS にならず UNKNOWN になることを確認する
+    #[test]
+    fn a_binding_only_inside_nested_macro_tokens_is_unknown() {
+        let text =
+            "#[test]\nfn t() {\n    let r = double(2);\n    assert!(matches!(r, Some(_)));\n}\n";
+        let analysis = analyze(text, &["double".to_owned()], &[]);
+        assert!(
+            matches!(analysis.da_003, DaVerdict::Unknown(_)),
             "{:?}",
             analysis.da_003
         );
