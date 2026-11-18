@@ -162,6 +162,21 @@ const TEST_BODY: &str = "/// @vtest.id TEST-RUN-CLI-DOUBLE\n\
      fn it_doubles() {\n    assert_eq!(vtest_run_cli_fixture::double(2), 4);\n}\n";
 
 fn build_fixture_project(root: &Path) {
+    build_fixture_project_with_test_body(root, TEST_BODY);
+}
+
+/// The same Test declaration as [`TEST_BODY`], on a `#[should_panic]` Test
+/// that calls the target and then panics on a failed assertion. libtest
+/// prints its result line as `test it_doubles - should panic ... ok`.
+const SHOULD_PANIC_TEST_BODY: &str = "/// @vtest.id TEST-RUN-CLI-DOUBLE\n\
+     /// @vtest.covers VO-RUN-CLI-DOUBLE\n\
+     /// @vtest.target src/lib.rs::double\n\
+     /// @vtest.intent doubling never yields an odd number\n\
+     #[test]\n\
+     #[should_panic]\n\
+     fn it_doubles() {\n    assert_eq!(vtest_run_cli_fixture::double(2), 5);\n}\n";
+
+fn build_fixture_project_with_test_body(root: &Path, test_body: &str) {
     fs::create_dir_all(root.join("src")).expect("mkdir src");
     fs::create_dir_all(root.join("tests")).expect("mkdir tests");
     fs::write(
@@ -175,7 +190,7 @@ fn build_fixture_project(root: &Path) {
         "pub fn double(x: i32) -> i32 { x * 2 }\n",
     )
     .expect("write src/lib.rs");
-    fs::write(root.join("tests").join("registered.rs"), TEST_BODY).expect("write test file");
+    fs::write(root.join("tests").join("registered.rs"), test_body).expect("write test file");
 
     // Settle dependency inputs before the measured run (DES-371).
     let status = ProcessCommand::new("cargo")
@@ -321,6 +336,45 @@ fn running_a_real_test_writes_evidence_and_exits_ok() {
     assert!(
         count >= 1,
         "expected at least one Evidence record on disk, found {count}"
+    );
+}
+
+/// A `#[should_panic]` Test that passes is recorded like any other passing
+/// Test (#259): libtest prints `test <name> - should panic ... ok`, and that
+/// line is the selector's result line (DES-443).
+/// @vtest.id TEST-RUN-SHOULD-PANIC-TEST-EVIDENCE
+/// @vtest.covers VO-EXEC-RUNNER-OUTPUT-RESULT-PARSING
+/// @vtest.target crates/vtest-cli/src/lib.rs::run
+/// @vtest.intent #[should_panic]のTestをrunすると結果行なし（E-EXEC-002）にならず、PASSのEvidenceを1件記録して終了コード0になることを確認する
+#[test]
+fn running_a_should_panic_test_writes_pass_evidence_and_exits_ok() {
+    clear_outer_coverage_environment();
+    let root = temp_root("should-panic-test");
+    build_fixture_project_with_test_body(&root, SHOULD_PANIC_TEST_BODY);
+    let exit = run(cli(
+        &root,
+        Command::Run {
+            test: vec!["TEST-RUN-CLI-DOUBLE".to_owned()],
+            vo: None,
+            all: false,
+            fast: false,
+        },
+    ));
+    assert_eq!(exit, ExitCode::Ok);
+    let records: Vec<String> = fs::read_dir(root.join(".verify").join("evidence"))
+        .expect("evidence dir exists")
+        .map(|entry| entry.expect("evidence entry").path())
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "yaml")
+        })
+        .map(|path| fs::read_to_string(path).expect("read Evidence record"))
+        .collect();
+    assert_eq!(records.len(), 1, "one Evidence record: {records:?}");
+    assert!(
+        records[0].contains("\nresult: 'PASS'\n"),
+        "the should_panic Test is recorded as PASS: {}",
+        records[0]
     );
 }
 
