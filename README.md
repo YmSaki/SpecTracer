@@ -9,17 +9,19 @@
 ![Rust 2021](https://img.shields.io/badge/Rust-2021-000000?logo=rust&logoColor=white)
 [![CI](https://github.com/YmSaki/SpecTracer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/YmSaki/SpecTracer/actions/workflows/ci.yml)
 ![License MIT](https://img.shields.io/badge/license-MIT-blue)
-![Status v0.2 in progress](https://img.shields.io/badge/status-v0.2%20in%20progress-orange)
+![Status v0.1.0-beta.1](https://img.shields.io/badge/status-v0.1.0--beta.1-orange)
 ![Fail Closed](https://img.shields.io/badge/design-fail--closed-purple)
 
 `SpecTracer` connects specifications, verification obligations, tests, source code, audits, and execution evidence into one traceable verification graph.
 
 SpecTracer's verification model is language- and test-runner-agnostic by design.
 The current implementation ships one production adapter, Rust/Cargo
-(`vtest-adapter-rust`), behind a language-neutral adapter API. An experimental
-Java discovery adapter (`vtest-adapter-lexical`) traces Tests without running
-them; adapters for TypeScript, JavaScript, Go, C#, and other ecosystems are
-future work.
+(`rust-cargo` in `vtest-adapter-rust`), behind a language-neutral adapter API.
+Only `rust-cargo` supports the full `scan` → `run` → `verify` path to `PASS`.
+Eleven experimental discovery-only adapters (`vtest-adapter-lexical`: C, C++, C#,
+Go, Java, JavaScript/TypeScript, Kotlin, PHP, Python, Ruby, and Swift) trace
+`@vtest.` declarations without running tests; test runners and coverage for
+those languages are not implemented yet.
 
 **The current CLI binary is `vtest`.**
 
@@ -94,28 +96,48 @@ ecosystem-specific machinery used to discover and execute tests.
 - **Language-independent contract:** specifications, requirements, Verification
   Obligations, Test identity and intent, approvals, audits, Evidence, content
   hashes, fail-closed states, aggregation, and reporting.
-- **Current adapter:** `vtest-adapter-rust` provides Rust `#[test]` discovery,
-  Rust symbol resolution (canonical Locators), Cargo test execution, and
-  `cargo-llvm-cov` target measurement. `vtest-adapter-synthetic` is a test-only
-  adapter that proves the core does not depend on Rust.
-- **Experimental adapter:** `vtest-adapter-lexical` is a framework-neutral
-  discovery engine for other languages. Java (`java`) is its only registered
-  language today. It declares only `source_discovery`, so execution and
-  coverage stay `NO_EVIDENCE`.
-- **Intended expansion:** TypeScript/JavaScript, Go, C#, and other languages and
-  test runners through explicit adapters that declare their capabilities
-  (source discovery, static analysis, test runner, coverage, ...). A missing
-  capability yields `NO_EVIDENCE` with a `NOT_EXECUTED` / `NOT_CHECKED`
-  diagnostic label, never `PASS`.
+- **Production adapter (`rust-cargo`):** `vtest-adapter-rust` provides Rust
+  `#[test]` discovery, Rust symbol resolution (canonical Locators), static
+  oracle analysis, Structured Test Operations (`test create` / `test edit`),
+  Cargo test execution, and `cargo-llvm-cov` target measurement. `rust-cargo` is
+  the only adapter with the full `scan` → `run` → `verify` path that can reach
+  `PASS`. `vtest run` on Rust needs `cargo-llvm-cov` and the
+  `llvm-tools-preview` rustup component to measure the declared targets;
+  `vtest run --fast` runs `cargo test` alone and records no target coverage, so
+  `target_binding` stays `NO_EVIDENCE`.
+  `vtest-adapter-synthetic` is a test-only adapter that proves the core does not
+  depend on Rust.
+- **Experimental discovery adapters (`vtest-adapter-lexical`):** Eleven
+  discovery-only adapters are registered in `crates/vtest-ops/src/registry.rs`:
+  `c` (C), `cpp` (C++), `csharp` (C#), `go` (Go), `java` (Java), `javascript`
+  (JavaScript and TypeScript), `kotlin` (Kotlin), `php` (PHP), `python`
+  (Python), `ruby` (Ruby), and `swift` (Swift). Each declares only
+  `source_discovery`. `vtest scan` reads their `@vtest.` declarations, and
+  `vtest verify` evaluates `chain_integrity` and `orphan_detection`.
+  `vtest run` rejects them with `E-ADAPTER-004`. A `vtest verify` run that
+  completes always reports `Result: NG`, including when `--items` limits the
+  run to `chain_integrity,orphan_detection`, because `target_binding` and
+  `oracle_presence` remain `NO_EVIDENCE`. Its exit code is `1`, unless `--gate`
+  names a gate that the result satisfies; the reported result is still `NG`. `vtest init` writes a configuration
+  for `rust-cargo` only, so projects in these eleven languages are not scanned
+  until `.verify/config.yaml` is edited (set `adapters[].id`, list paths in
+  `adapters[].scan.include`, and set `adapters[].run.coverage` to `off`).
+- **Intended expansion:** Adding test runners, coverage measurement, and static
+  analysis for languages other than Rust through explicit adapters that declare
+  their capabilities. A missing capability yields `NO_EVIDENCE` with
+  `NOT_EXECUTED` or `NOT_CHECKED` diagnostic labels, never `PASS`.
 
-The adapter separation (v0.2) is in progress: the neutral
-`ExecutionDescriptor`, config v2, the adapter registry, and the synthetic
-adapter exist, while some boundaries (for example Structured Test Operations
-still parsing Rust directly in `vtest-scan`) are tracked as open issues.
+The core adapter separation is in place (`ExecutionDescriptor`, config v2,
+`AdapterRegistry`, `StructuredTestAdapter`, the `vtest-ops` composition root,
+and `vtest-adapter-synthetic`). Remaining adapter-boundary items (such as
+emitting `W-ADAPTER-101` on missing capabilities, per-adapter Form conflict
+detection, and validating `adapters[].scan.assertion_macros`) are tracked as
+open issues.
 
-Framework-neutral discovery adapters for other languages are documented in
+The eleven framework-neutral discovery adapters are documented in
 [`docs/adapters/`](docs/adapters/lexical.md). They trace `@vtest.` declarations
-written in ordinary comments and leave execution and coverage `NO_EVIDENCE`.
+written in ordinary comments and leave execution, coverage, and static oracle
+checks `NO_EVIDENCE`.
 
 Support is evidence-based: an ecosystem is supported only after its discovery,
 execution, freshness, and target-measurement behavior has reproducible acceptance
@@ -127,7 +149,14 @@ support is added, promote the result only through reproducible acceptance covera
 
 ## 60-second tour: current Rust adapter
 
-This is the current procedure.
+This is the current procedure. For Rust execution and coverage evidence,
+`vtest run` needs `cargo-llvm-cov` and the `llvm-tools-preview` rustup
+component (`vtest run --fast` does not, and records no target coverage):
+
+```bash
+rustup component add llvm-tools-preview
+cargo install cargo-llvm-cov --locked
+```
 
 ### 1. Build the CLI
 
@@ -140,12 +169,13 @@ vtest --help
 
 Version tags on `main` are built for Linux x86_64, macOS x86_64, and Windows
 x86_64 by GitHub Actions. Each release contains a compressed archive and a
-SHA-256 checksum file. Download the matching asset from the
-[GitHub Releases page](https://github.com/YmSaki/SpecTracer/releases/latest),
-extract `vtest` (or `vtest.exe` on Windows), and put it on your `PATH`.
+SHA-256 checksum file. The `v0.1.0-beta.1` release is a pre-release, so it does
+not appear at `/releases/latest`; pick it from the
+[GitHub Releases list](https://github.com/YmSaki/SpecTracer/releases), extract
+`vtest` (or `vtest.exe` on Windows), and put it on your `PATH`.
 
 Release tags must use the `vMAJOR.MINOR.PATCH` form, optionally followed by an
-ASCII SemVer pre-release identifier such as `-alpha.1`, and match the workspace
+ASCII SemVer pre-release identifier such as `-beta.1`, and match the workspace
 version in `Cargo.toml`; tags that are not reachable from `main` are rejected.
 
 ### 2. Initialize verification metadata
@@ -154,13 +184,50 @@ version in `Cargo.toml`; tags that are not reachable from `main` are rejected.
 vtest init --name my-project
 ```
 
-This creates the canonical `.verify/` layout.
+This creates the canonical `.verify/` layout with `.verify/config.yaml`
+configured for `rust-cargo` only.
 
 ### 3. Register a specification document
 
 Specifications are registered as document node trees: one JSON file per
 document, whose nodes carry stable IDs and `derives_from` links to upstream
-nodes.
+nodes. `orphan_detection` passes when every non-`root` node has an upstream,
+either through its own `derives_from` or through that of a node that contains
+it. For example, `docs/calculator.json`:
+
+```json
+{
+  "schema_version": "0.1",
+  "root": [
+    {
+      "id": "ROOT-001",
+      "statement": "Calculator operations must be accurate.",
+      "source": { "doc": "docs/calculator.md", "heading": "Root", "lines": [1, 1] }
+    }
+  ],
+  "request": [],
+  "require": [],
+  "spec": [
+    {
+      "id": "SPEC-S001",
+      "title": "Arithmetic",
+      "source": { "doc": "docs/calculator.md", "heading": "Arithmetic", "lines": [2, 3] },
+      "derives_from": ["ROOT-001"],
+      "items": [
+        {
+          "id": "SPEC-001",
+          "statement": "add(a, b) returns a + b",
+          "derives_from": ["ROOT-001"],
+          "source": { "doc": "docs/calculator.md", "heading": "Arithmetic", "lines": [3, 3] }
+        }
+      ]
+    }
+  ],
+  "detailed_spec": [],
+  "basic_design": [],
+  "design": []
+}
+```
 
 ```bash
 vtest doc add --id calculator --path docs/calculator.json
@@ -169,29 +236,23 @@ vtest doc list --tree
 
 ### 4. Declare a Verification Obligation (VO)
 
-VOs are plain YAML records under `.verify/vo/`, one file per VO, deriving from
-one or more document nodes:
+VOs are YAML records under `.verify/vo/`, one file per VO, deriving from one or
+more document nodes:
 
-```yaml
-# .verify/vo/VO-CALC-001.yaml
-id: VO-CALC-001
-parent: null
-derives_from:
-  - doc: SPEC-001   # a node id from a registered document
-claim: add(a, b) returns a + b
-dimensions: []
-coverage_policy: null
-combinations: []
-representative_cases: []
-created: 2026-01-01T00:00:00Z
-updated: 2026-01-01T00:00:00Z
+```bash
+vtest vo add --id VO-CALC-001 --derives-from SPEC-001 --claim "add(a, b) returns a + b"
+vtest vo show VO-CALC-001
 ```
-
-A `vtest vo` command family is not provided yet; it is tracked as an open issue.
 
 ### 5. Bind a test to the obligation and its target
 
+In `src/lib.rs`:
+
 ```rust
+pub fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+
 /// @vtest.id TEST-CALC-001
 /// @vtest.covers VO-CALC-001
 /// @vtest.target src/lib.rs::add
@@ -206,14 +267,23 @@ The annotation is not just documentation. It gives the test an identity, states 
 
 ### 6. Scan, run, and verify
 
+In a new Cargo project without `Cargo.lock`, the first `vtest run` reports
+`E-EXEC-004` without writing Evidence because Cargo creates `Cargo.lock` during
+the run. Create `Cargo.lock` first with `cargo generate-lockfile`. Also ensure
+the project has a git commit, because Evidence binds to git `HEAD` (without a
+commit, `target_binding` stays `NO_EVIDENCE (STALE)`):
+
 ```bash
+cargo generate-lockfile
+git init                                  # if not already a git repository
+git add . && git commit -m "initial spec and test"
 vtest doctor          # config and adapter preconditions
 vtest scan            # consistency diagnostics
 vtest run --all       # execute Tests and record Evidence
 vtest verify          # aggregate the four checks: OK / NG
 ```
 
-For automation, every command accepts `--format json` and returns the same
+For automation, these commands accept `--format json` and return the same
 `{ok, data, diagnostics}` envelope.
 
 ### 7. Approve
@@ -224,6 +294,7 @@ vtest approval create --subject-type vo --subject-id VO-CALC-001 \
 vtest approval show --subject-type vo --subject-id VO-CALC-001
 ```
 
+(`vtest vo approve` is an alias for `vtest approval create --subject-type vo`.)
 An approval is bound to the subject's content hash and its upstream
 dependencies; editing either returns the effective state to `draft`.
 
@@ -301,7 +372,7 @@ SpecTracer keeps canonical records under `.verify/`:
 ├── vo/              # Verification Obligations, one YAML file per VO
 ├── rel/             # explicit relations
 ├── forms/           # structured operation schemas
-├── decisions/       # judgment records (reserved; not implemented yet)
+├── decisions/       # append-only judgment records (written by vtest audit submit)
 ├── approvals/       # append-only approval records
 ├── evidence/        # append-only execution Evidence
 └── cache/           # derived data; safe to rebuild
@@ -332,7 +403,7 @@ The verification layer therefore favors:
 - **machine-readable JSON** for agent and CI integration,
 - **conservative UNKNOWN** over unjustified certainty.
 
-The MCP stdio server (`vtest-mcp`) exposes the same core operations to AI agents instead of creating a second behavior model: each tool calls the same shared operation as the CLI and returns the same envelope. Start it with `vtest mcp`. It currently advertises nine tools: `scan`, `run_tests`, `verify`, `approval_create`, `approval_withdraw`, `approval_get`, `doc_upsert`, `doc_list`, and `doc_get`. The remaining tools in the specification (for example `form_get`, `test_create`, and `report`) are not provided yet.
+The MCP stdio server (`vtest-mcp`) exposes the same core operations to AI agents instead of creating a second behavior model: each tool calls the same shared operation (`vtest-ops`) as the CLI and returns the same envelope. Start it with `vtest mcp`. It advertises 24 tools: `scan`, `run_tests`, `verify`, `report`, `export`, `approval_create`, `approval_withdraw`, `approval_get`, `doc_upsert`, `doc_list`, `doc_get`, `vo_list`, `vo_get`, `vo_upsert`, `vo_expand`, `vo_approve`, `test_create`, `test_edit`, `test_get`, `test_query`, `form_get`, `audit_static`, `audit_bundle`, and `audit_submit`. (`init` and `doctor` stay CLI-only by specification.)
 
 ---
 
@@ -351,14 +422,14 @@ Current state:
 
 | Area | State |
 |---|---|
-| `init`, `scan`, `doctor`, `mcp`, `run`, `verify`, `approval`, `doc` CLI | Implemented; acceptance tests under `crates/vtest-cli/tests/` |
+| `init`, `scan`, `doctor`, `export`, `mcp`, `run`, `verify`, `report`, `approval`, `doc`, `test`, `audit`, `vo` CLI | Implemented; acceptance and integration tests under `crates/vtest-cli/tests/` |
 | Four checks / five states / fail-closed aggregation | Implemented (`vtest-verify`) |
 | Phase gates (`verify --gate`) | Implemented, including approval-role evaluation of the scoped subjects |
-| Adapter API, registry, Rust and synthetic adapters | Implemented; separation (v0.2) still in progress |
-| Java discovery adapter (`vtest-adapter-lexical`) | Experimental; discovery only, no runner or coverage |
-| MCP stdio server (`vtest mcp`) | Nine tools; the remaining tools are open work |
-| Self-verify CI (`vtest run --all` + `verify` on this repository) | Nightly and on demand; informational, not a required check |
-| `vo`, `audit`, `report`, judgment records | Not provided yet |
+| Adapter API, registry, Rust (`rust-cargo`), and synthetic adapters | Implemented; `rust-cargo` is the only production adapter (`vtest run` needs `cargo-llvm-cov` and `llvm-tools-preview` unless `--fast` is given). Remaining adapter-boundary items (`W-ADAPTER-101`, per-adapter Form conflicts, `assertion_macros` validation) are open issues |
+| Eleven experimental discovery adapters (`vtest-adapter-lexical`: `c`, `cpp`, `csharp`, `go`, `java`, `javascript`, `kotlin`, `php`, `python`, `ruby`, `swift`) | Experimental; `source_discovery` only (`vtest run` rejects with `E-ADAPTER-004`; a completed `vtest verify` ends with `Result: NG`) |
+| MCP stdio server (`vtest mcp`) | Implemented; 24 tools sharing `vtest-ops` with the CLI |
+| Judgment records (`.verify/decisions/`) | `vtest audit bundle` / `audit submit` and reads in `test show` / `report` are implemented; `vtest approval --subject-type judgment` (`E-APPROVAL-001`) and `vtest audit bundle --include-failed` are not implemented yet |
+| Self-verify CI (`vtest run --all` + `verify` on this repository) | Nightly and on demand; informational, not a required check. This repository does not yet pass its own `vtest verify` |
 
 Work is tracked with GitHub
 [milestones](https://github.com/YmSaki/SpecTracer/milestones) and
@@ -370,11 +441,9 @@ Work is tracked with GitHub
 
 Next steps, in the order the open issues track them:
 
-1. finish the v0.2 adapter separation and its acceptance matrix;
-2. bring the CLI and MCP surfaces to the canonical command and tool lists
-   (`vo`, `audit`, `report`, `form_get`, `test_create`);
-3. add judgment records and the semantic audit flow; and
-4. publish the first tagged release with documentation that matches it.
+1. resolve known `v0.1.0-beta.1` defects and unimplemented options (see [`CHANGELOG.md`](CHANGELOG.md), including `vtest approval --subject-type judgment`, `E-INTERNAL-001` panic handling, and remaining adapter-boundary items);
+2. bring this repository's own self-verification (`vtest run --all` + `vtest verify`) toward passing; and
+3. add test-runner, coverage, and static-analysis capabilities for languages beyond Rust after canonical specification updates and reproducible acceptance coverage.
 
 The goal is to make the provenance of every green result inspectable, so a check turns green through evidence rather than assumption.
 
@@ -419,7 +488,7 @@ MCP tool results use the same envelope as the CLI JSON output; a tool error sets
 - [Architecture](ARCHITECTURE.md) — crate boundaries, canonical data, and adapter seams.
 - [Development guide](DEVELOPMENT.md) — local setup, Git Flow, and release preparation.
 - [Testing guide](TESTING.md) — required checks and acceptance evidence.
-- [Roadmap](ROADMAP.md) — completed milestones and planned language adapters.
+- [Roadmap](ROADMAP.md) — current status and next steps.
 - [Contributing guide](CONTRIBUTING.md) — branch, pull request, and review expectations.
 - [Changelog](CHANGELOG.md) — user-visible changes.
 - [Security policy](SECURITY.md) and [Code of Conduct](CODE_OF_CONDUCT.md).
@@ -431,7 +500,7 @@ MCP tool results use the same envelope as the CLI JSON output; a tool error sets
 
 SpecTracer works with the tools you already use:
 
-- your language test runners such as `cargo test`, `go test`, `dotnet test`, or JavaScript/TypeScript test runners keep deciding pass and fail, and SpecTracer consumes their results as evidence,
+- your language's test runner keeps deciding pass and fail, and SpecTracer consumes its result as evidence (today for `cargo test` only; runners for other languages are not connected yet),
 - your code coverage tooling keeps measuring, and SpecTracer uses the measurement as target-execution evidence,
 - semantic judgment comes from an external discoverer (an agent or a person), and SpecTracer records it bound to the current subject,
 - a mismatch between layers is reported as `MISMATCH` pointing upstream, and a person or agent fixes the declaration,
@@ -448,13 +517,14 @@ crates/
 ├── vtest-model              # shared entities, hashes, diagnostics, states
 ├── vtest-store              # canonical record persistence
 ├── vtest-adapter-api        # adapter traits, capabilities, registry
-├── vtest-adapter-rust       # Rust/Cargo adapter
-├── vtest-adapter-lexical    # framework-neutral discovery for other languages (experimental: Java)
+├── vtest-adapter-rust       # Rust/Cargo adapter (production)
+├── vtest-adapter-lexical    # framework-neutral discovery for 11 languages (experimental)
 ├── vtest-adapter-synthetic  # test-only adapter proving language neutrality
 ├── vtest-scan               # scan orchestration and structured test operations
 ├── vtest-exec               # test execution and Evidence
 ├── vtest-verify             # four checks and fail-closed aggregation
-├── vtest-cli                # CLI and shared operation layer
+├── vtest-ops                # shared operation layer, adapter registry, JSON envelope
+├── vtest-cli                # CLI entrypoint and text rendering
 └── vtest-mcp                # MCP stdio server
 
 docs/              # requirements, specifications, detailed design

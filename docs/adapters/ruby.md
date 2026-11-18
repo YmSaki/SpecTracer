@@ -1,7 +1,7 @@
 # Ruby adapter (`ruby`)
 
 Discovers `.rb` and `.rake` files (skipping `vendor/`, `.bundle/`, `tmp/`,
-`log/`, `coverage/`). See [lexical.md](lexical.md) for the declaration
+`log/`). See [lexical.md](lexical.md) for the declaration
 rules shared by all framework-neutral adapters.
 
 - **Source Targets**: `def` methods, including predicate and bang methods
