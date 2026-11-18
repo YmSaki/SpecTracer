@@ -28478,7 +28478,7 @@
         },
         {
           "id": "DS-1933",
-          "statement": "`go`で、Test関数の本体の中の`t.Run`（`*testing.T`型の引数・変数に対する`Run`の呼出し）の第2引数に渡した関数リテラルの本体は、DA-002・DA-003ではTest関数の本体の続きとして読み、DS-629のクロージャとして扱わない。",
+          "statement": "`go`で、Test関数の本体の中の`t.Run`（`*testing.T`型の引数・変数に対する`Run`の呼出し）の第2引数に渡した関数リテラルの本体は、DA-002・DA-003ではTest関数の本体の続きとして読む。外すのはDS-629のクロージャとしてのUNKNOWN扱いだけであり、関数リテラルの引数と、その本体の中で`:=`により宣言し直した同名の変数は、関数リテラルのスコープの束縛として扱う。",
           "description": "導出: R-6・ROOT-051 の「同様に」から、javascript の DS-1900 と同型の規則とした。",
           "derives_from": [
             "SPEC-486"
@@ -30812,6 +30812,7 @@
             {
               "id": "DS-1904",
               "statement": "`go`のrunnerが実行できるTest constructは、ファイル名が`_test.go`で終わるファイルの最上位に宣言され、名前が`Test`であるか`Test`に小文字以外の文字が続き、型引数を持たず、引数が`*testing.T`型の1つだけで、戻り値を持たない関数である。レシーバを持つメソッドは、名前がこの条件に合ってもTest constructではない。",
+              "description": "レシーバを持つメソッドは、DS-1901 の「runner が実行できない Test construct」ではなく、Test construct ではない。",
               "derives_from": [],
               "source": {
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
@@ -30897,7 +30898,7 @@
             {
               "id": "DS-1930",
               "statement": "同じGo moduleの同じpackage directoryに、関数名が完全一致するTest constructが2件以上ある場合（build constraintで同時にはビルドされない場合と、`package x`と`package x_test`に分かれる場合を含む）、または関数名の完全一致で選んだ結果を`go test`が2件以上報告した場合は、それらのTestのどれについてもE-EXEC-005とし、Evidenceを記録しない。",
-              "description": "関数名の一致だけでは、報告された結果がどの Test construct のものかを決められない。build constraint で除外された側の Test に、ビルドされた側の結果が付くのを防ぐ。",
+              "description": "関数名の一致だけでは、報告された結果がどの Test construct のものかを決められない。build constraint で除外された側の Test に、ビルドされた側の結果が付くのを防ぐ。discovery の spec へ引き渡す義務: (1) build constraint に関わらず、package directory のすべての `_test.go` を列挙する。(2) 管理宣言（`@vtest.`）のない construct も、同名の件数に数える。",
               "derives_from": [],
               "source": {
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
@@ -57985,7 +57986,7 @@
         },
         {
           "id": "DES-624",
-          "statement": "`go-execution-state-v1` のtoolchain identityは、`go env`が報告する実効値のうち、`GOVERSION`、`GOOS`、`GOARCH`、`GOARCH`に応じた命令セットの設定（amd64では`GOAMD64`）、`CGO_ENABLED`、`GOFLAGS`、`GOEXPERIMENT`、`GOFIPS140`、`GODEBUG`、`GOTOOLCHAIN`、`GO111MODULE`の値と、project rootの相対pathへ正規化した`GOWORK`の値を含む。`CGO_ENABLED`が`1`の場合は、`go env CC`の値と、そのCCに`--version`を与えて得た出力も含む。",
+          "statement": "`go-execution-state-v1` のtoolchain identityは、`go env`が報告する実効値のうち、`GOVERSION`、`GOOS`、`GOARCH`、`GOARCH`に応じた命令セットの設定（amd64では`GOAMD64`）、`CGO_ENABLED`、`CC`、`CXX`、`AR`、`PKG_CONFIG`、`CGO_CFLAGS`、`CGO_CPPFLAGS`、`CGO_CXXFLAGS`、`CGO_FFLAGS`、`CGO_LDFLAGS`、`GOFLAGS`、`GOEXPERIMENT`、`GOFIPS140`、`GODEBUG`、`GOTOOLCHAIN`、`GO111MODULE`の値と、project rootの相対pathへ正規化した`GOWORK`の値を含む。`CGO_ENABLED`が`1`の場合は、`CC`に`--version`を与えて得た出力も含む。",
           "description": "`go env` の実効値は、環境変数に加えて `go env -w` の設定（GOENV）と `$GOROOT/go.env` を反映する。",
           "derives_from": [
             "DS-1390",
@@ -58067,8 +58068,25 @@
         },
         {
           "id": "DES-629",
-          "statement": "`CGO_ENABLED`が`1`でC toolchainのidentity（`go env CC`の値とその`--version`の出力）を取得できない場合に、選択Testのビルドに含まれるパッケージ（標準libraryと依存moduleのパッケージを含む）のうちcgoを使うものが1つでもあれば、`go` adapterはsnapshotを完全と報告しない。",
-          "description": "既知の制限: C の header・library の内容と、`CGO_CFLAGS` などの C の build 設定は identity に含めない。",
+          "statement": "選択Testのビルドに含まれるパッケージのうち、標準libraryでないもの（project内のパッケージと依存moduleのパッケージ）が1つでもcgoを使う場合、`go` adapterはsnapshotを完全と報告しない。",
+          "description": "導出: rust-cargo では std が libc にリンクすることを toolchain の一部とし、build script が除外領域を読みうる場合は完全と報告しない（DES-212）。go もこれと同型に扱い、利用者のコードと依存 module の cgo を build script と同じ位置に置く。",
+          "derives_from": [
+            "DS-1390",
+            "BD-357"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              27,
+              27
+            ]
+          }
+        },
+        {
+          "id": "DES-680",
+          "statement": "標準libraryのパッケージが使うcgoはtoolchainの一部として扱い、DES-624のtoolchain identityで束縛する。`CGO_ENABLED`が`1`で、`CC`に`--version`を与えた出力を取得できない場合、`go` adapterはsnapshotを完全と報告しない。",
+          "description": "導出: DES-629 と同じく rust-cargo との同型から。C の header・library の内容は、rust-cargo の libc と同じく identity に含めない。",
           "derives_from": [
             "DS-1390",
             "BD-357"
@@ -58084,8 +58102,8 @@
         },
         {
           "id": "DES-630",
-          "statement": "`GOFLAGS`が、fileまたはdirectoryを値に取るflag（`-modfile`、`-overlay`、`-pgo`を含む）でproject rootの外を指すものを含む場合、`go` adapterはsnapshotを完全と報告しない。",
-          "description": "既知の制限: `GOFLAGS` の `-exec`・`-toolexec` が指す実行体は identity に含めない。",
+          "statement": "`GOFLAGS`が、fileまたはdirectoryを値に取るflag（`-modfile`、`-overlay`、`-pgo`を含む）でproject rootの外を指すものを含む場合、または`-exec`か`-toolexec`を含む場合、`go` adapterはsnapshotを完全と報告しない。",
+          "description": "`-exec`・`-toolexec` が指す実行体はビルドと実行を変えうるが、漏れなく列挙できないため、DES-208 により完全と報告しない。",
           "derives_from": [
             "DS-1390",
             "BD-357"
