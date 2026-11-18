@@ -34,7 +34,11 @@ use std::{collections::BTreeMap, path::Path};
 
 use vtest_model::{document_file_subject_hash, ContentHash, DocumentFile};
 
-use crate::{canonical::document_file_from_json, records::read_text, StoreError, VerifyLayout};
+use crate::{
+    canonical::{document_file_from_json, document_file_path},
+    records::read_text,
+    StoreError, VerifyLayout,
+};
 
 /// A read-only, fully-derived view of one registered document — nothing
 /// here is persisted separately from `.verify/doc/<id>.json` itself.
@@ -54,10 +58,6 @@ pub struct DocView {
     /// directly in the node tree, not a separate document-level field).
     pub derives_from: Vec<String>,
     pub file: DocumentFile,
-}
-
-fn doc_path(layout: &VerifyLayout, id: &str) -> std::path::PathBuf {
-    layout.doc_dir().join(format!("{id}.json"))
 }
 
 /// Reads and parses an arbitrary node-tree JSON file (used for `--path`,
@@ -236,7 +236,7 @@ fn to_view(id: &str, path: std::path::PathBuf, file: DocumentFile) -> DocView {
 
 /// Reads `.verify/doc/<id>.json` and derives its view (DES-595/DS-1017).
 pub fn read_doc_view(layout: &VerifyLayout, id: &str) -> Result<DocView, StoreError> {
-    let path = doc_path(layout, id);
+    let path = document_file_path(layout, id)?;
     let text = read_text(&path)?;
     let file = document_file_from_json(&text)?;
     Ok(to_view(id, path, file))
@@ -247,12 +247,15 @@ pub fn read_doc_view(layout: &VerifyLayout, id: &str) -> Result<DocView, StoreEr
 /// only persisted state a registered document has.
 pub fn write_doc(layout: &VerifyLayout, id: &str, file: &DocumentFile) -> Result<(), StoreError> {
     let json = crate::canonical::document_file_to_json(file)?;
-    let path = doc_path(layout, id);
+    let path = document_file_path(layout, id)?;
     crate::records::write_atomic(&path, &json)
 }
 
+/// Whether `.verify/doc/<id>.json` exists. A name that cannot name a file in
+/// the document directory names no registered document, and no path outside
+/// that directory is probed for it.
 pub fn doc_exists(layout: &VerifyLayout, id: &str) -> bool {
-    doc_path(layout, id).exists()
+    document_file_path(layout, id).is_ok_and(|path| path.exists())
 }
 
 /// Every `.verify/doc/<id>.json` node-tree file, keyed by id (the file

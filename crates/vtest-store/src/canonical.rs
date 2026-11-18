@@ -457,12 +457,41 @@ pub fn document_file_to_json(file: &DocumentFile) -> Result<String, StoreError> 
     Ok(text)
 }
 
+/// Whether `name` can name a document file inside `.verify/doc/`: one path
+/// component that does not start with `.` and contains no separator (`/`,
+/// `\\`), no `:` (a drive or stream prefix on Windows) and no control
+/// character. This rules out `..`, an absolute or drive path and a nested
+/// path, so `{name}.json` can never resolve outside the document directory.
+/// The name is otherwise the author's own choice (BD-330), so it is not
+/// limited to ASCII the way a VO id is.
+pub fn is_valid_document_name(name: &str) -> bool {
+    !name.is_empty()
+        && !name.starts_with('.')
+        && !name
+            .chars()
+            .any(|character| matches!(character, '/' | '\\' | ':') || character.is_control())
+}
+
+/// The shared storage boundary for document names: a document file path is
+/// built only from a name [`is_valid_document_name`] accepts, on read and on
+/// write alike (BD-322: the file name identifies the document).
+pub(crate) fn document_file_path(
+    layout: &VerifyLayout,
+    name: &str,
+) -> Result<std::path::PathBuf, StoreError> {
+    if !is_valid_document_name(name) {
+        return Err(StoreError::InvalidDocumentName(name.to_owned()));
+    }
+    Ok(layout.doc_dir().join(format!("{name}.json")))
+}
+
 /// Reads the upstream document file `<name>.json` from `.verify/doc/`.
 /// `name` is the file's own name (BD-330/DES-585: user-chosen, not a
 /// machine-generated identifier, and not compared against any field inside
-/// the file — the file carries no such field).
+/// the file — the file carries no such field). A name that is not one path
+/// component is `StoreError::InvalidDocumentName`, and nothing is read.
 pub fn read_document_file(layout: &VerifyLayout, name: &str) -> Result<DocumentFile, StoreError> {
-    let path = layout.doc_dir().join(format!("{name}.json"));
+    let path = document_file_path(layout, name)?;
     let text = read_text(&path)?;
     document_file_from_json(&text)
 }
@@ -471,13 +500,14 @@ pub fn read_document_file(layout: &VerifyLayout, name: &str) -> Result<DocumentF
 /// `.verify/doc/`. Mutable in place: BD-062 lists only Relation / decision /
 /// approval / Evidence as append-only-only new-file-per-write; the document
 /// model (like VO) follows the general one-record-one-file edit model
-/// (BD-321).
+/// (BD-321). A name that is not one path component is
+/// `StoreError::InvalidDocumentName`, and nothing is written.
 pub fn write_document_file(
     layout: &VerifyLayout,
     name: &str,
     file: &DocumentFile,
 ) -> Result<(), StoreError> {
-    let path = layout.doc_dir().join(format!("{name}.json"));
+    let path = document_file_path(layout, name)?;
     let text = document_file_to_json(file)?;
     write_atomic(&path, &text)
 }
@@ -2251,6 +2281,88 @@ updated: 2026-08-08
         ok.id = VoId::new("VO-ONE");
         write_vo_record(&layout, &ok).unwrap();
         assert_eq!(read_vo_record(&layout, "VO-ONE").unwrap().0.id, ok.id);
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// @vtest.id TEST-STORE-DOCUMENT-NAME-PATH-BOUNDARY
+    /// @vtest.covers VO-STORE-VO-ID-IS-ITS-FILE-NAME
+    /// @vtest.target crates/vtest-store/src/canonical.rs::write_document_file
+    /// @vtest.target crates/vtest-store/src/canonical.rs::read_document_file
+    /// @vtest.intent write_document_file/read_document_fileとdoc_registryのwrite_doc/read_doc_view/doc_existsが、..・区切り文字・絶対パスを含むdocument名をInvalidDocumentNameで拒否して.verify/doc外を読み書きせず、ASCII以外を含む通常の名前は受理することを確認する
+    #[test]
+    fn document_file_paths_never_leave_the_document_directory() {
+        for valid in ["basic-spec", "DOC-A.v2", "owner ruling 14", "要求定義"] {
+            assert!(is_valid_document_name(valid), "{valid}");
+        }
+        for invalid in [
+            "",
+            "..",
+            ".",
+            ".hidden",
+            "../config",
+            "../../outside",
+            "sub/doc",
+            "sub\\doc",
+            "/abs",
+            "C:doc",
+            "doc\u{0}x",
+            "doc\nx",
+        ] {
+            assert!(!is_valid_document_name(invalid), "{invalid:?}");
+        }
+        let root = std::env::temp_dir().join(format!(
+            "vtest-store-document-name-boundary-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        let layout = crate::init_project(&root, "document-name").unwrap();
+        let file = minimal_document_file();
+        // A file a traversing name would reach: `<root>/outside.json`, and
+        // one named by an absolute path.
+        let outside = root.join("outside.json");
+        std::fs::write(&outside, "{\"keep\":\"me\"}").unwrap();
+        let absolute = outside.with_extension("").to_string_lossy().into_owned();
+
+        for name in ["../../outside", absolute.as_str(), "../config"] {
+            assert!(
+                matches!(
+                    write_document_file(&layout, name, &file),
+                    Err(StoreError::InvalidDocumentName(_))
+                ),
+                "{name}"
+            );
+            assert!(
+                matches!(
+                    read_document_file(&layout, name),
+                    Err(StoreError::InvalidDocumentName(_))
+                ),
+                "{name}"
+            );
+            assert!(
+                matches!(
+                    crate::doc_registry::write_doc(&layout, name, &file),
+                    Err(StoreError::InvalidDocumentName(_))
+                ),
+                "{name}"
+            );
+            assert!(
+                matches!(
+                    crate::doc_registry::read_doc_view(&layout, name),
+                    Err(StoreError::InvalidDocumentName(_))
+                ),
+                "{name}"
+            );
+            assert!(!crate::doc_registry::doc_exists(&layout, name), "{name}");
+        }
+        assert_eq!(
+            std::fs::read_to_string(&outside).unwrap(),
+            "{\"keep\":\"me\"}"
+        );
+        assert!(!root.join(".verify").join("config.json").exists());
+
+        write_document_file(&layout, "要求定義", &file).unwrap();
+        assert_eq!(read_document_file(&layout, "要求定義").unwrap(), file);
+        assert!(crate::doc_registry::doc_exists(&layout, "要求定義"));
         std::fs::remove_dir_all(&root).ok();
     }
 }

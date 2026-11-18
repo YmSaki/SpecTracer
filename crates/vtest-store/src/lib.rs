@@ -54,6 +54,15 @@ pub enum StoreError {
          '-', '_' and '.' that does not start with '.'"
     )]
     InvalidVoId(String),
+    /// A document name that cannot name a file inside `.verify/doc/` (`..`,
+    /// a path separator, an absolute or drive path, …; see
+    /// [`canonical::is_valid_document_name`]). Rejected before any path is
+    /// built, so nothing outside the document directory is read or written.
+    #[error(
+        "invalid document name {0:?}: a document name is one path component that does not \
+         start with '.' and contains no '/', '\\', ':' or control character"
+    )]
+    InvalidDocumentName(String),
 
     /// A record does not conform to the canonical schema it declares —
     /// DS-1645: "E-SCAN-010はerrorであり、レコードのid / ファイル名 /

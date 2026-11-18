@@ -1470,6 +1470,118 @@ fn doc_tools_match_their_cli_commands() {
     }
 }
 
+/// @vtest.id TEST-MCP-TRANSPORT-DOC-TOOLS-REJECT-NAME-OUTSIDE-DOC-DIR
+/// @vtest.covers VO-MCP-TOOL-CLI-EQUIVALENCE, VO-STORE-VO-ID-IS-ITS-FILE-NAME
+/// @vtest.target crates/vtest-ops/src/doc.rs::add
+/// @vtest.target crates/vtest-ops/src/doc.rs::show
+/// @vtest.intent doc_upsert（登録・更新）とdoc_getが、..・区切り文字・絶対パスを含むdocument名をCLIとMCPで同じE-OP-001（終了コード2）として拒否し、.verify/doc外の既存ファイルを書き換えず新しいファイルも作らないことを確認する
+#[test]
+fn doc_tools_reject_a_name_that_is_not_one_path_component() {
+    // `<root>/victim.json` is what `../../victim` resolves to from
+    // `.verify/doc/`; `project_files` compares it after the CLI and after
+    // MCP, and the setup's content must still be there.
+    let victim = |root: &Path| {
+        write_extra_document(root, false);
+        fs::write(root.join("victim.json"), "{\"keep\":\"me\"}").unwrap();
+    };
+    for (name, id) in [
+        ("doc-add-parent-traversal", "../../victim"),
+        ("doc-add-nested-name", "sub/extra"),
+        ("doc-add-hidden-name", ".extra"),
+    ] {
+        assert_same_after(
+            name,
+            &victim,
+            &["doc", "add", "--id", id, "--path", "extra.json"],
+            "doc_upsert",
+            json!({"id": id, "path": "extra.json"}),
+            rejected("E-OP-001"),
+        );
+        assert_same_after(
+            &format!("{name}-update"),
+            &victim,
+            &["doc", "add", "--id", id, "--path", "extra.json", "--update"],
+            "doc_upsert",
+            json!({"id": id, "path": "extra.json", "update": true}),
+            rejected("E-OP-001"),
+        );
+        assert_same_after(
+            &format!("{name}-show"),
+            &victim,
+            &["doc", "show", id],
+            "doc_get",
+            json!({"id": id}),
+            rejected("E-OP-001"),
+        );
+    }
+
+    // An absolute name depends on the fixture path, and the file it names is
+    // outside what `project_files` lists, so it is observed directly.
+    assert_same_with(
+        "doc-add-absolute-name",
+        &|root| {
+            write_extra_document(root, false);
+            let outside = inputs(root).join("victim.json");
+            fs::write(&outside, "{\"keep\":\"me\"}").unwrap();
+            json!(outside.with_extension("").to_string_lossy())
+        },
+        &|name| {
+            let name = name.as_str().unwrap();
+            strings(&[
+                "doc",
+                "add",
+                "--id",
+                name,
+                "--path",
+                "extra.json",
+                "--update",
+            ])
+        },
+        "doc_upsert",
+        &|name| json!({"id": name, "path": "extra.json", "update": true}),
+        rejected("E-OP-001"),
+    );
+
+    // The rejection changes nothing: the file a traversing name reaches keeps
+    // its content after the CLI call and after the MCP call.
+    let root = std::env::temp_dir().join(format!(
+        "vtest-tool-equivalence-{}-doc-name-untouched",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&root);
+    tool_fixture(&root);
+    victim(&root);
+    let outside = inputs(&root);
+    let _ = fs::remove_dir_all(&outside);
+    fs::create_dir_all(&outside).unwrap();
+    fs::write(outside.join("victim.json"), "{\"keep\":\"me\"}").unwrap();
+    let absolute = outside.join("victim").to_string_lossy().into_owned();
+    for id in ["../../victim", absolute.as_str()] {
+        let (exit, _) = cli_with_exit(
+            &root,
+            &["doc", "add", "--id", id, "--path", "extra.json", "--update"],
+        );
+        assert_eq!(exit, 2, "{id}");
+        let via_mcp = mcp(
+            &root,
+            "doc_upsert",
+            json!({"id": id, "path": "extra.json", "update": true}),
+        );
+        assert_eq!(via_mcp["ok"], json!(false), "{id}: {via_mcp}");
+    }
+    for kept in [root.join("victim.json"), outside.join("victim.json")] {
+        assert_eq!(
+            fs::read_to_string(&kept).unwrap(),
+            "{\"keep\":\"me\"}",
+            "{}",
+            kept.display()
+        );
+    }
+    assert!(!root.join(".verify/doc/sub").exists());
+    fs::remove_dir_all(&root).ok();
+    fs::remove_dir_all(&outside).ok();
+}
+
 fn unit_test_answers() -> Value {
     json!({
         "target": "src/lib.rs::target",
