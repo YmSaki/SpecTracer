@@ -90,6 +90,23 @@ impl Failure {
     }
 }
 
+/// Runs `operation`, turning a panic that escapes it into the
+/// E-INTERNAL-001 failure with exit 3 (DS-1689/DS-1690). Both entrypoints
+/// call this around a whole command or tool call, so a panic never leaves
+/// the process with the runtime's exit code 101 or kills the MCP server,
+/// and is never reported as one of the five verification states.
+///
+/// The message is fixed: a panic payload can carry absolute paths or
+/// environment values, so it is not copied into the user-facing output.
+/// The default panic hook has already written the payload and location to
+/// stderr by the time this returns, which is where an investigation reads
+/// it.
+pub fn catch_internal<T>(operation: impl FnOnce() -> T) -> Result<T, Failure> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(operation)).map_err(|_| {
+        Failure::internal("internal error: the operation panicked (details are on stderr)")
+    })
+}
+
 /// A config that cannot be loaded: a rejected config is E-CONFIG-001 with
 /// exit 2 (DS-929, DS-935); a config file that cannot be read at all is
 /// E-INTERNAL-001 with exit 3 (DS-930, DS-1689/DS-1690).
@@ -118,5 +135,24 @@ pub fn record_failure(error: &vtest_store::StoreError) -> Failure {
     match error.record_read_code() {
         Some(code) => Failure::usage(code, error.to_string()),
         None => Failure::internal(error.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// @vtest.id TEST-OPS-CATCH-INTERNAL-PANIC
+    /// @vtest.covers VO-INTERNAL-ERROR-CODE-CLI-MCP
+    /// @vtest.target crates/vtest-ops/src/envelope.rs::catch_internal
+    /// @vtest.intent a panic inside an operation becomes the E-INTERNAL-001 failure with exit 3 and a fixed message that does not carry the panic payload, while a normal return passes through
+    #[test]
+    fn a_panic_is_an_internal_failure_without_its_payload() {
+        let failure = catch_internal(|| -> u8 { panic!("secret-payload") })
+            .expect_err("a panic is a failure");
+        assert_eq!(failure.exit, ExitCode::Internal);
+        assert_eq!(failure.diagnostic.code, vtest_model::INTERNAL_ERROR_CODE);
+        assert!(!failure.diagnostic.message.contains("secret"));
+        assert_eq!(catch_internal(|| 7).expect("no panic"), 7);
     }
 }
