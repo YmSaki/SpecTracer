@@ -616,13 +616,26 @@
     {
       "id": "ROOT-053",
       "statement": "範囲を狭めてるやつの条件消していい。\nやらなくてもいいという条件なので、やっても問題ないんです(多言語対応のように)",
-      "description": "Owner 決定 2026-11-19（DA-002 / DA-003 のデータフロー解析など、静的解析の範囲に上限を置く条項について）。適用: 上限（「〜までとする」「〜はUNKNOWNとする」）を、最低限の義務と「追跡しなかった、または追跡できなかった範囲はUNKNOWN」に書き換え、それより深い解析を許す。追跡できなかったところを違反なしと推測しないこと（DS-615、DS-1680）は変えない。",
+      "description": "Owner 決定 2026-11-19（DA-002 / DA-003 のデータフロー解析など、静的解析の範囲に上限を置く条項について）。原文は Issue #300 本文に逐語で記録。適用: 上限（「〜までとする」「〜はUNKNOWNとする」）を、最低限の義務と「追跡しなかった、または追跡できなかった範囲はUNKNOWN」に書き換え、それより深い解析を許す。追跡できなかったところを違反なしと推測しないこと（DS-615、DS-1680）は変えない。",
       "source": {
-        "doc": "Owner の発言（2026-11-19 の作業セッション。記録先の Issue コメントは未作成）",
-        "heading": "Owner の決定(原文のまま)",
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/300",
+        "heading": "Owner decisions (2026-11-19, quoted verbatim)",
         "lines": [
-          1,
-          2
+          4,
+          5
+        ]
+      }
+    },
+    {
+      "id": "ROOT-054",
+      "statement": "2. On closing gaps in the static analysis spec. The Owner asked: \"Consult Mythos and propose a spec that looks good on implementation difficulty and UX.\" The Owner then approved the following proposals:\n   - (2) Treat a match or a condition that leads to `panic!` as reaching an assert-equivalent. When the value flows into the condition or scrutinee that decides whether an unconditionally failing construct runs, that counts as reaching it.\n   - (3) Make DS-617's \"standard macros\" a closed list: `assert*`, `panic!`, `unreachable!`, `todo!`, `unimplemented!`. When `debug_assert*` alone does the checking, the result is UNKNOWN.\n   - (4) An assignment to a projection that is visible inside the Test body (`x.f = e`, `x[i] = e`) keeps the binding derived.\n   - (5) A tautology produced by short-circuiting: DA-001's constant expressions include forms such as `X || true`, and DA-003 does not count an operand that a literal absorbs as a position the value flows through. No new check is added.\n   - #299: In DS-641, only constructors and an enumerated set of standard conversions count as value transformations. Every other function call is a delegation target (option a).",
+      "description": "Owner 承認 2026-11-19（静的解析の仕様の穴を塞ぐ設計相談の提案 5 件の承認）。Issue #300 本文の決定 2 の記載をそのまま写した。承認の対象は提案であり、承認の発言そのものの逐語ではない。",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/300",
+        "heading": "Owner decisions (2026-11-19, quoted verbatim)",
+        "lines": [
+          7,
+          12
         ]
       }
     }
@@ -27901,8 +27914,11 @@
             },
             {
               "id": "DS-651",
-              "statement": "委譲先が他ファイル・他クレート・マクロ展開内にあり呼出先を同定できない場合、DA-003 / DA-006は`UNKNOWN`とする。",
-              "derives_from": [],
+              "statement": "委譲先の呼出先を同定できない場合（委譲先が他ファイル・他クレート・マクロ展開内にあり、同定しなかった、または同定できなかった場合を含む）、DA-003 / DA-006は`UNKNOWN`とする。",
+              "description": "前身の文は「委譲先が他ファイル・他クレート・マクロ展開内にあり呼出先を同定できない場合」であり、他ファイル等にあれば同定できないと読める余地があった。ROOT-053 により、同定できない場合に限ることが読めるように言い回しだけを変えた。",
+              "derives_from": [
+                "ROOT-053"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
                 "heading": "7.2.1 照合の委譲先の終端（DA-003・DA-006） / 判定表",
@@ -27985,8 +28001,10 @@
         {
           "id": "DS-616",
           "statement": "`rust-cargo`のassert相当の構文はDA-001〜DA-006で共通に用いる。",
-          "description": "assert!/assert_eq!/assert_ne!/panic! を含む標準マクロおよびconfigのassertion_macros列挙マクロ、#[should_panic]属性、.unwrap()/.expect(..)/?演算子（Result/Optionの成立検証として扱う）および.expect_err(..)/.unwrap_err()（ResultがErrであることの検証として扱う）、Test関数がResultを返しErrを返しうる構造、の4分類の総称。",
-          "derives_from": [],
+          "description": "DS-617 で閉じて列挙した標準マクロ（assert!/assert_eq!/assert_ne!/panic!/unreachable!/todo!/unimplemented!）およびconfigのassertion_macros列挙マクロ、#[should_panic]属性、.unwrap()/.expect(..)/?演算子（Result/Optionの成立検証として扱う）および.expect_err(..)/.unwrap_err()（ResultがErrであることの検証として扱う）、Test関数がResultを返しErrを返しうる構造、の4分類の総称。標準マクロの列挙を閉じたのは Owner の承認（Issue #300、ROOT-054）による。",
+          "derives_from": [
+            "ROOT-054"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "7.2 `rust-cargo` ルール一覧",
@@ -27998,8 +28016,11 @@
         },
         {
           "id": "DS-617",
-          "statement": "`rust-cargo`のassert相当の構文は`assert!` / `assert_eq!` / `assert_ne!` / `panic!`を含む標準マクロ、および`rust-cargo` configの`assertion_macros`に列挙されたマクロを含む。",
-          "derives_from": [],
+          "statement": "`rust-cargo`のassert相当の構文のうちマクロは、標準マクロの`assert!` / `assert_eq!` / `assert_ne!` / `panic!` / `unreachable!` / `todo!` / `unimplemented!`と、`rust-cargo` configの`assertion_macros`に列挙されたマクロに限る。",
+          "description": "前身の文は「`assert!` / `assert_eq!` / `assert_ne!` / `panic!`を含む標準マクロ」と開いた列挙だった。Owner の承認（Issue #300、ROOT-054）により閉じた列挙にした。`debug_assert*` の扱いは DS-1954。",
+          "derives_from": [
+            "ROOT-054"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "7.2 `rust-cargo` ルール一覧",
@@ -28103,10 +28124,11 @@
         },
         {
           "id": "DS-1940",
-          "statement": "`rust-cargo`のDA-003のデータフロー解析は、少なくとも分岐式（`if`・`match`・`if let`）の値を、失敗として発散する腕（`panic!`などassert相当で失敗して終わる腕）を除くすべての腕の値が派生であるときに限り派生として追跡する。",
-          "description": "下限の列挙は PM の判断（2026-11-19、設計相談の結果）であり、Owner の裁定ではない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "statement": "`rust-cargo`のDA-003のデータフロー解析は、少なくとも分岐式（`if`・`match`・`if let`）の値を、失敗として発散する腕（DS-1951で失敗としての発散に数える腕）を除くすべての腕の値が派生であるときに限り派生として追跡する。",
+          "description": "下限の列挙は PM の判断（2026-11-19、設計相談の結果）であり、Owner の裁定ではない。失敗としての発散の範囲は Owner の承認（Issue #300、ROOT-054）による DS-1951 に合わせた。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
           "derives_from": [
-            "ROOT-053"
+            "ROOT-053",
+            "ROOT-054"
           ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -28135,10 +28157,11 @@
         },
         {
           "id": "DS-1942",
-          "statement": "`rust-cargo`で、クロージャ本体の値は本体の末尾式と、そのクロージャ自身から返る`return`式の値だけから流れ、失敗として発散する出口を除くすべての出口の値が派生であるときに限り派生とする。",
-          "description": "反例 B1（クロージャの中の `fn` の `return`）を塞ぐ。入れ子の項目と async ブロックの扱いは DS-1943。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "statement": "`rust-cargo`で、クロージャ本体の値は本体の末尾式と、そのクロージャ自身から返る`return`式の値だけから流れ、失敗として発散する出口（DS-1951）を除くすべての出口の値が派生であるときに限り派生とする。",
+          "description": "反例 B1（クロージャの中の `fn` の `return`）を塞ぐ。入れ子の項目と async ブロックの扱いは DS-1943。失敗としての発散の範囲は Owner の承認（Issue #300、ROOT-054）による DS-1951 に合わせた。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
           "derives_from": [
-            "ROOT-053"
+            "ROOT-053",
+            "ROOT-054"
           ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -28167,8 +28190,8 @@
         },
         {
           "id": "DS-1944",
-          "statement": "`rust-cargo`で、DS-1941の形でないクロージャ（再束縛したもの、`mut`で束縛したもの、その場で呼ぶもの、関数・メソッドへ渡すもの、一度も呼ばないもの）の本体の中の経路とtarget呼出は、DA-002ではUNKNOWNとし、DA-003ではDS-1945の場合を除きUNKNOWNとする。",
-          "description": "PM の判断（2026-11-19、設計相談の結果）。反例 B3（呼ばれないクロージャ）を塞ぐ。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "statement": "`rust-cargo`で、DS-1941の形でないクロージャ（再束縛したもの、`mut`で束縛したもの、その場で呼ぶもの、関数・メソッドへ渡すもの、一度も呼ばないもの）の本体の中の経路とtarget呼出は、そのクロージャが呼ばれることと値の流れをadapterが構文から確定できない限り、DA-002ではUNKNOWNとし、DA-003ではDS-1945の場合を除きUNKNOWNとする。",
+          "description": "PM の判断（2026-11-19、設計相談の結果）。本ノードは追跡を禁じるものではなく、構文から確定できない経路を UNKNOWN に倒す規定であり、DS-629 の一般則の rust-cargo での具体化である。反例 B3（呼ばれないクロージャ）を塞ぐ。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
           "derives_from": [
             "ROOT-053"
           ],
@@ -28184,7 +28207,7 @@
         {
           "id": "DS-1945",
           "statement": "`rust-cargo`のDA-003のデータフロー解析は、少なくとも、メソッド`map`・`and_then`・`filter_map`・`flat_map`の引数として渡したクロージャについて、そのクロージャ本体の値が派生であるときにそのメソッド呼出の値を派生として追跡する。",
-          "description": "PM の判断（2026-11-19、設計相談の結果）。Owner の裁定ではない。列挙の基準は「クロージャが呼ばれたとき、その戻り値が必ずメソッドの戻り値に入る」ことであり、列挙は閉じている。DA-002 ではこの形を UNKNOWN のままとする（runtime 証明で救える。DS-668）。メソッド名だけで判定するため、型を見ない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "description": "PM の判断（2026-11-19、設計相談の結果）。Owner の裁定ではない。列挙の基準は「クロージャが呼ばれたとき、その戻り値が必ずメソッドの戻り値に入る」ことであり、列挙は閉じている。DA-002 ではこの形を UNKNOWN のままとする（runtime 証明で救える。DS-668）。メソッド名だけで判定するため、型を見ない。この判定は DS-619 の `.unwrap()` と同じく名前への信頼に基づく（設計相談で、名前への信頼として受け入れると判断した）。そのため、利用者が定義した同名のメソッド（例: `impl S { fn map<F: Fn() -> i32>(&self, _: F) -> i32 { 7 } }` に対する `assert_eq!(S.map(|| double(2)), 7)`）と、クロージャを呼ばない受け手（例: `assert_eq!(None::<i32>.map(|x| double(x)), None)`、`Err` に対する `map`）では、DA-003 が違反なしになりうる。いずれも DA-002 は UNKNOWN のままであり、runtime 計測で target が実行されなければ `target_binding` は `PASS` にならない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
           "derives_from": [
             "ROOT-053"
           ],
@@ -28199,10 +28222,186 @@
         },
         {
           "id": "DS-1946",
-          "statement": "`rust-cargo`で、DS-1945によってだけ派生となった値（それを束縛した変数を含む）に対するメソッド呼出は、その値を派生として伝えない。",
-          "description": "反例 B3（`.map(..).len()`、`.count()`、`.last()`）を塞ぐ。遅延評価のメソッドの戻り値に続けて呼ぶメソッドは、クロージャを呼ばずに値を返しうる。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "statement": "`rust-cargo`で、DS-1945によってだけ派生となった値（それを束縛した変数を含む）に対するメソッド呼出は、クロージャが呼ばれることをadapterが構文から確定できない限り、派生として数えずUNKNOWNとする。",
+          "description": "反例 B3（`.map(..).len()`、`.count()`、`.last()`）を塞ぐ。遅延評価のメソッドの戻り値に続けて呼ぶメソッドは、クロージャを呼ばずに値を返しうる。本ノードは追跡を禁じるものではなく、構文から確定できない経路を UNKNOWN に倒す規定である（DS-629）。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
           "derives_from": [
             "ROOT-053"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
+            ]
+          }
+        },
+        {
+          "id": "DS-1951",
+          "statement": "`rust-cargo`で、失敗としての発散に数えるのは、`panic!` / `unreachable!` / `todo!` / `unimplemented!`と、`Result`を返すTest関数の本体から返る`return Err(..)`（DS-620）だけとし、それ以外の`return`と`break` / `continue` / `process::exit`で抜ける腕は数えない。",
+          "description": "Owner の承認（Issue #300 の提案 (2)、ROOT-054）。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
+            ]
+          }
+        },
+        {
+          "id": "DS-1952",
+          "statement": "`rust-cargo`で、失敗として発散する`match`の腕より前に反駁不能な腕（`_`、ガードのない単独の束縛）がある場合、その発散への到達を数えない。",
+          "description": "Owner の承認（Issue #300 の提案 (2)、ROOT-054）。反駁不能な腕より後の腕は実行されない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
+            ]
+          }
+        },
+        {
+          "id": "DS-1953",
+          "statement": "`rust-cargo`で、ガードがDA-001と同じ定数判定で偽となる腕の失敗としての発散は、到達に数えない。",
+          "description": "Owner の承認（Issue #300 の提案 (2)、ROOT-054）。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
+            ]
+          }
+        },
+        {
+          "id": "DS-1954",
+          "statement": "`rust-cargo`で、`debug_assert!` / `debug_assert_eq!` / `debug_assert_ne!`はassert相当に含めず、それだけが照合を担うTestでは、DA-003 / DA-006をFAILではなくUNKNOWNとする。",
+          "description": "Owner の承認（Issue #300 の提案 (3)、ROOT-054）。`debug_assert*` は release のビルドでは評価されないため assert 相当に含めないが、debug のビルドでは照合するため FAIL とも断定しない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
+            ]
+          }
+        },
+        {
+          "id": "DS-1955",
+          "statement": "`rust-cargo`のDA-003のデータフロー解析は、少なくとも`matches!`の第1引数を、値が流れる位置として追跡する。",
+          "description": "Owner の承認（Issue #300 の提案 (3)、ROOT-054）に伴う下限。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
+            ]
+          }
+        },
+        {
+          "id": "DS-1956",
+          "statement": "`rust-cargo`のDA-003のデータフロー解析は、少なくとも、Test constructの中で構文として見える射影代入（`x.f = e`、`x[i] = e`、`x.f.g += e`など）の後も`x`の派生を保つ。",
+          "description": "Owner の承認（Issue #300 の提案 (4)、ROOT-054）。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
+            ]
+          }
+        },
+        {
+          "id": "DS-1957",
+          "statement": "`rust-cargo`で、DS-1939により位置ごとに派生を持つ値への射影代入では、代入先の位置を構文から確定できるときはその位置の派生を代入した値の派生に置き換え、確定できないときは位置ごとの派生をUNKNOWNとする。",
+          "description": "DS-1956 と DS-1939 を両立させるための具体化。代入で上書きした位置を派生のまま残すと、`let mut t = (double(2), 1); t.0 = 5; assert_eq!(t.0, 5)` で DA-003 が違反なしになる。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
+            ]
+          }
+        },
+        {
+          "id": "DS-1958",
+          "statement": "`rust-cargo`で、`x = e`の代入の後は、`x`の派生を`e`の派生に置き換える。",
+          "description": "Owner の承認（Issue #300 の提案 (4)、ROOT-054）。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
+            ]
+          }
+        },
+        {
+          "id": "DS-1959",
+          "statement": "`rust-cargo`で、`*x = ..`の代入、`&mut x`を関数・メソッドへ渡す形、`x`を可変でキャプチャするクロージャ、`ref mut`パターンによる束縛のいずれかを経た後の`x`の派生はUNKNOWNとする。",
+          "description": "Owner の承認（Issue #300 の提案 (4)、ROOT-054）。派生した束縛の書き換えを UNKNOWN とする根拠は DS-615 と DS-1680（違反なしと推測しない）である。DS-623 の「結果が可変参照・グローバル状態経由で検証される可能性がある場合」は、target の結果が out 引数の形で返る場合に FAIL を UNKNOWN へ退避する例であり、派生した束縛の書き換えの根拠ではない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
+            ]
+          }
+        },
+        {
+          "id": "DS-1960",
+          "statement": "`rust-cargo`で、assert相当の引数とそこへ流れる束縛に現れる呼出のうち、構築子（列挙子・タプル構造体の構築）とDS-1961の標準変換だけを値の変換としてその引数を値が流れる位置とし、それ以外の関数呼出（宣言targetの呼出を除く）はDS-641の照合の委譲先とする。構築子であることを構文から確定できない呼出は関数呼出として扱う。",
+          "description": "Owner の承認（Issue #300 の #299 案 a、ROOT-054）。DS-641 の「関数呼出」の範囲を定める。DS-1936 と同じく、委譲先の判定は §7.2.1 による。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
+            ]
+          }
+        },
+        {
+          "id": "DS-1961",
+          "statement": "`rust-cargo`で、DS-1960の標準変換は`Box::new`と`String::from`に限り、`Some` / `Ok` / `Err`は名前で構築子とみなす。",
+          "description": "Owner の承認（Issue #300 の #299 案 a、ROOT-054）。列挙は最小限にした。`.into()` / `.to_owned()` / `.to_string()` / `.clone()` は受け手が派生であればメソッドチェーン（DS-1937）で派生となるため、列挙しない。`Some` / `Ok` / `Err` を名前で構築子とみなすのは、DS-619 の `.unwrap()` と同じく名前への信頼に基づく。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
           ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -28356,10 +28555,74 @@
         },
         {
           "id": "DS-1936",
-          "statement": "DA-003のデータフロー解析は、Test constructの外にある関数の本体を通る経路を派生として数えず、その関数の呼出は§7.2.1の照合の委譲先として扱う。",
-          "description": "PM の判断（2026-11-19、設計相談の結果）。Owner の裁定ではない。外の関数の本体を派生の経路として数えると、§7.2.1 の委譲先の終端（DS-643、DS-644）と同じ問いに 2 つの経路で答えることになる。DA-002 の呼出先 helper の探索（DS-622）は本ノードの対象ではない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "statement": "DA-003で、Test constructの外にある関数の呼出（DS-1960の値の変換を除く）を通る経路は、照合の委譲先として§7.2.1で判定し、終端を確認できない場合はUNKNOWNとする。",
+          "description": "PM の判断（2026-11-19、設計相談の結果）。本ノードは追跡を禁じるものではなく、外の関数を通る経路の判定を §7.2.1 に委ね、確認できなければ UNKNOWN に倒す規定である。外の関数の本体は Test construct の構文の外にあり、DS-629 の「構文から確定できる経路」に当たらない。外の関数の本体を派生の経路として数えると、§7.2.1 の委譲先の終端（DS-643、DS-644）と同じ問いに 2 つの経路で答えることになる。値の変換として数える呼出の範囲は Owner の承認（Issue #300、#299 の案 a、ROOT-054）による（DS-1960、DS-1961）。DA-002 の呼出先 helper の探索（DS-622）は本ノードの対象ではない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
           "derives_from": [
             "ROOT-053"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
+            ]
+          }
+        },
+        {
+          "id": "DS-1947",
+          "statement": "DA-003で、無条件に失敗として発散する構文への到達とは、その構文が実行されるかどうかを決める条件式またはscrutineeへ値が流れることをいう。",
+          "description": "Owner の承認（Issue #300 の提案 (2)、ROOT-054）。DS-1935 の到達の定義に、失敗として発散する構文の場合を加える。`rust-cargo` で失敗としての発散に数える構文は DS-1951〜DS-1953。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
+            ]
+          }
+        },
+        {
+          "id": "DS-1948",
+          "statement": "DA-003で、リテラルに吸収されるオペランドの位置（`X || true`、`true || X`、`X && false`、`false && X`の`X`）は、値が流れる位置に数えない。",
+          "description": "Owner の承認（Issue #300 の提案 (5)、ROOT-054）。新しい検査は作らない。範囲はリテラルによる吸収までとする。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
+            ]
+          }
+        },
+        {
+          "id": "DS-1949",
+          "statement": "DA-001の定数式は、オペランドの値にかかわらずリテラルによって値が確定する論理式（`X || true`、`true || X`、`X && false`、`false && X`と、それらの否定）を含む。",
+          "description": "Owner の承認（Issue #300 の提案 (5)、ROOT-054）。DS-621 の定数式の範囲を明文にする。新しい検査は作らない。範囲はリテラルによる吸収までとする。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
+            ]
+          }
+        },
+        {
+          "id": "DS-1950",
+          "statement": "DA-001で、失敗として発散する構文（`rust-cargo`ではDS-1951）の定数性は、そのメッセージ引数ではなく、その構文の実行を支配する条件の定数性で判定する。",
+          "description": "Owner の承認（Issue #300 の提案 (2)、ROOT-054）に伴い、DS-621 での `panic!(\"msg\")` の扱いを明文にする。実行を支配する条件が無い（無条件に実行される）構文は定数アサーションとして扱う。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
           ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -42181,8 +42444,10 @@
         },
         {
           "id": "DS-1350",
-          "statement": "委譲先が他ファイル・他クレート・マクロ展開内で同定できないTestは、DA-003 / DA-006が`UNKNOWN`となる。",
-          "derives_from": [],
+          "statement": "委譲先の呼出先を同定できないTest（委譲先が他ファイル・他クレート・マクロ展開内にあり、同定しなかった、または同定できなかったTestを含む）は、DA-003 / DA-006が`UNKNOWN`となる。",
+          "derives_from": [
+            "ROOT-053"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
             "heading": "18.3.3 決定論的静的解析（oracle_presence・target_binding 静的到達）",

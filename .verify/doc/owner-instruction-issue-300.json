@@ -1,0 +1,37 @@
+{
+  "schema_version": "0.1",
+  "root": [
+    {
+      "id": "ROOT-053",
+      "statement": "範囲を狭めてるやつの条件消していい。\nやらなくてもいいという条件なので、やっても問題ないんです(多言語対応のように)",
+      "description": "Owner 決定 2026-11-19（DA-002 / DA-003 のデータフロー解析など、静的解析の範囲に上限を置く条項について）。原文は Issue #300 本文に逐語で記録。適用: 上限（「〜までとする」「〜はUNKNOWNとする」）を、最低限の義務と「追跡しなかった、または追跡できなかった範囲はUNKNOWN」に書き換え、それより深い解析を許す。追跡できなかったところを違反なしと推測しないこと（DS-615、DS-1680）は変えない。",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/300",
+        "heading": "Owner decisions (2026-11-19, quoted verbatim)",
+        "lines": [
+          4,
+          5
+        ]
+      }
+    },
+    {
+      "id": "ROOT-054",
+      "statement": "2. On closing gaps in the static analysis spec. The Owner asked: \"Consult Mythos and propose a spec that looks good on implementation difficulty and UX.\" The Owner then approved the following proposals:\n   - (2) Treat a match or a condition that leads to `panic!` as reaching an assert-equivalent. When the value flows into the condition or scrutinee that decides whether an unconditionally failing construct runs, that counts as reaching it.\n   - (3) Make DS-617's \"standard macros\" a closed list: `assert*`, `panic!`, `unreachable!`, `todo!`, `unimplemented!`. When `debug_assert*` alone does the checking, the result is UNKNOWN.\n   - (4) An assignment to a projection that is visible inside the Test body (`x.f = e`, `x[i] = e`) keeps the binding derived.\n   - (5) A tautology produced by short-circuiting: DA-001's constant expressions include forms such as `X || true`, and DA-003 does not count an operand that a literal absorbs as a position the value flows through. No new check is added.\n   - #299: In DS-641, only constructors and an enumerated set of standard conversions count as value transformations. Every other function call is a delegation target (option a).",
+      "description": "Owner 承認 2026-11-19（静的解析の仕様の穴を塞ぐ設計相談の提案 5 件の承認）。Issue #300 本文の決定 2 の記載をそのまま写した。承認の対象は提案であり、承認の発言そのものの逐語ではない。",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/300",
+        "heading": "Owner decisions (2026-11-19, quoted verbatim)",
+        "lines": [
+          7,
+          12
+        ]
+      }
+    }
+  ],
+  "request": [],
+  "require": [],
+  "spec": [],
+  "detailed_spec": [],
+  "basic_design": [],
+  "design": []
+}

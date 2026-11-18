@@ -2580,8 +2580,10 @@
         },
         {
           "id": "DS-1350",
-          "statement": "委譲先が他ファイル・他クレート・マクロ展開内で同定できないTestは、DA-003 / DA-006が`UNKNOWN`となる。",
-          "derives_from": [],
+          "statement": "委譲先の呼出先を同定できないTest（委譲先が他ファイル・他クレート・マクロ展開内にあり、同定しなかった、または同定できなかったTestを含む）は、DA-003 / DA-006が`UNKNOWN`となる。",
+          "derives_from": [
+            "ROOT-053"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
             "heading": "18.3.3 決定論的静的解析（oracle_presence・target_binding 静的到達）",
