@@ -51,9 +51,11 @@
 //!   A call written inside a macro invocation's tokens is not a syntax-tree node
 //!   (#282; derivations from DS-615 / DS-651 / DS-1680): in the checked arguments of
 //!   `assert!` / `assert_eq!` / `assert_ne!` (read as expressions, with nested
-//!   `matches!`, `format!` and `vec!`) it verifies the target; the target's name in
-//!   any other macro, in an assert's message argument, or in tokens that do not
-//!   parse as expressions makes DA-003 `Unknown`.
+//!   `matches!`, `format!` and `vec!`) it verifies the target; a call-shaped use of
+//!   the target's name (`name(..)`, `name::<T>(..)`) in any other macro, in an
+//!   assert's message argument, or in tokens that do not parse as expressions
+//!   makes DA-003 `Unknown`. A bare reference or a path prefix (`name::item`) is
+//!   not a call there, as it is not a call site outside a macro.
 //! - §7.2.1's cross-Test delegation-chain search (DA-003/DA-006's "照合の
 //!   委譲先") is not implemented: this capability never confirms that a
 //!   delegation target terminates (DS-643). For DA-006 it only recognizes
@@ -550,11 +552,11 @@ fn da_003_result_unverified(
         // Derivation (see `macro_target_use`): a call hidden in a macro's tokens may
         // or may not exist and may or may not be verified.
         return DaVerdict::Unknown(
-            "a declared target's name appears in the tokens of a macro invocation that is \
-             not read as a call whose result an assert checks (a macro other than an assert, \
-             an assert's message argument, or tokens that do not parse as expressions), so \
-             whether the target is called there and whether its result is verified is neither \
-             proven nor refuted (DS-615, DS-651, DS-1680)"
+            "a declared target is called in the tokens of a macro invocation that is not read \
+             as a call whose result an assert checks (a macro other than an assert, an \
+             assert's message argument, or tokens that do not parse as expressions), so \
+             whether its result is verified is neither proven nor refuted (DS-615, DS-651, \
+             DS-1680)"
                 .to_owned(),
         );
     }
@@ -699,7 +701,7 @@ enum TargetCallVerification {
     /// The binding that holds a call's result is named in an assert, but the name
     /// cannot be shown to mean that binding (#281).
     BindingUncertain,
-    /// The target's name appears in macro tokens that are not read as a call whose
+    /// The target is called in macro tokens that are not read as a call whose
     /// result is checked (#282).
     MacroOpaque,
 }
@@ -879,16 +881,16 @@ fn macro_arguments(node: &syn::Macro) -> Option<MacroArguments> {
     Some(arguments)
 }
 
-/// How a target's name appears in the tokens of the macro invocations of a Test.
+/// How a target is called in the tokens of the macro invocations of a Test.
 #[derive(Default)]
 struct MacroUse {
     /// A call `name(..)` / `Type::name(..)` in a checked argument of an assert.
     verified_path: bool,
     /// A call `receiver.name(..)` in a checked argument of an assert.
     verified_method: bool,
-    /// The name appears where it is not read as a call whose result is checked:
-    /// in a macro other than an assert, in an assert's message argument or in
-    /// tokens that do not parse as expressions.
+    /// A call-shaped use of the name where it is not read as a call whose result
+    /// is checked: in a macro other than an assert, in an assert's message
+    /// argument or in tokens that do not parse as expressions.
     opaque: bool,
 }
 
@@ -899,7 +901,8 @@ struct MacroUse {
 /// outside a macro that reaches an assert does. A call hidden anywhere else (any
 /// other macro, a message argument, tokens that do not parse) may or may not exist
 /// and may or may not be verified, and DS-651 reads a call hidden in a macro
-/// expansion as UNKNOWN, so the name's presence there is `opaque`. A verified
+/// expansion as UNKNOWN, so a call-shaped use of the name there is `opaque`
+/// (`tokens_call_ident`; a bare reference or a path prefix is not). A verified
 /// call wins over an `opaque` name, as a verified call outside a macro wins over
 /// an unverified one in `target_call_result_is_verified`; the exception is a
 /// verified method call, matched by name only, which does not clear an `opaque`
@@ -923,7 +926,7 @@ struct MacroUseVisitor<'a> {
 
 impl<'ast> Visit<'ast> for MacroUseVisitor<'_> {
     fn visit_macro(&mut self, node: &'ast syn::Macro) {
-        if !tokens_mention_ident(node.tokens.clone(), self.symbol) {
+        if !tokens_call_ident(node.tokens.clone(), self.symbol) {
             return;
         }
         let is_assert = node.path.segments.last().is_some_and(|segment| {
@@ -948,7 +951,7 @@ impl<'ast> Visit<'ast> for MacroUseVisitor<'_> {
             || arguments
                 .unchecked
                 .iter()
-                .any(|tokens| tokens_mention_ident(tokens.clone(), self.symbol));
+                .any(|tokens| tokens_call_ident(tokens.clone(), self.symbol));
     }
 }
 
@@ -984,7 +987,7 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
     }
 
     fn visit_macro(&mut self, node: &'ast syn::Macro) {
-        if !tokens_mention_ident(node.tokens.clone(), self.symbol) {
+        if !tokens_call_ident(node.tokens.clone(), self.symbol) {
             return;
         }
         let Some(arguments) = macro_arguments(node) else {
@@ -997,8 +1000,32 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
         self.opaque |= arguments
             .unchecked
             .iter()
-            .any(|tokens| tokens_mention_ident(tokens.clone(), self.symbol));
+            .any(|tokens| tokens_call_ident(tokens.clone(), self.symbol));
     }
+}
+
+/// Whether `name` appears in the tokens in the form of a call: followed by an
+/// argument list (`name(..)`, `.name(..)`) or by `::<` (`name::<T>(..)`). A path
+/// prefix (`name::item`), a macro name (`name!`) and a bare reference are not
+/// calls, as they are not call sites outside a macro.
+fn tokens_call_ident(tokens: proc_macro2::TokenStream, name: &str) -> bool {
+    use proc_macro2::{Delimiter, TokenTree};
+    let trees: Vec<TokenTree> = tokens.into_iter().collect();
+    trees.iter().enumerate().any(|(index, tree)| match tree {
+        TokenTree::Group(group) => tokens_call_ident(group.stream(), name),
+        TokenTree::Ident(ident) if ident == name => match trees.get(index + 1) {
+            Some(TokenTree::Group(group)) => group.delimiter() == Delimiter::Parenthesis,
+            Some(TokenTree::Punct(first)) if first.as_char() == ':' => {
+                matches!(
+                    (trees.get(index + 2), trees.get(index + 3)),
+                    (Some(TokenTree::Punct(second)), Some(TokenTree::Punct(angle)))
+                        if second.as_char() == ':' && angle.as_char() == '<'
+                )
+            }
+            _ => false,
+        },
+        TokenTree::Ident(_) | TokenTree::Punct(_) | TokenTree::Literal(_) => false,
+    })
 }
 
 struct BindingUseVisitor<'a> {
@@ -2438,6 +2465,36 @@ mod tests {
                 analysis.da_003
             );
         }
+    }
+
+    /// A name inside macro tokens that is not call-shaped is not a call, as it is
+    /// not a call site outside a macro: a path prefix, a bare reference and a
+    /// macro of the same name do not make DA-003 UNKNOWN; the turbofish call does.
+    /// @vtest.id TEST-ORACLE-DA-003-NON-CALL-NAME-IN-MACRO-IS-NOT-A-CALL
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::tokens_call_ident
+    /// @vtest.intent マクロのトークンの中の target の名前が、パスの前置(double::VALUE)、呼出でない参照、同名のマクロであるときは呼出と読まず、turbofish 付きの呼出(double::<u8>(2))は呼出と読むことを確認する
+    #[test]
+    fn a_name_in_macro_tokens_that_is_not_call_shaped_is_not_a_call() {
+        for text in [
+            "#[test]\nfn t() {\n    println!(\"{}\", double::VALUE);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let f = vec![double];\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    double!(1);\n    assert_eq!(other(), 1);\n}\n",
+        ] {
+            let analysis = analyze(text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::NoViolation),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
+        let turbofish = "#[test]\nfn t() {\n    println!(\"{}\", double::<u8>(2));\n    assert_eq!(other(), 1);\n}\n";
+        let analysis = analyze(turbofish, &["double".to_owned()], &[]);
+        assert!(
+            matches!(analysis.da_003, DaVerdict::Unknown(_)),
+            "{:?}",
+            analysis.da_003
+        );
     }
 
     /// A SrcId target has no call symbol, so its call cannot be found: the
