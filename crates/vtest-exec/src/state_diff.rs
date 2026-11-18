@@ -296,9 +296,6 @@ mod tests {
             assert!(!summary.contains(leaked), "leaked {leaked}: {summary}");
         }
         assert!(summary.contains("<non-relative-path>:ok.txt"), "{summary}");
-        assert!(
-            summary.contains("root-a:<non-relative-path>"),
-            "{summary}"
-        );
+        assert!(summary.contains("root-a:<non-relative-path>"), "{summary}");
     }
 }
