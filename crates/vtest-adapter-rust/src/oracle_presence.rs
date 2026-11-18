@@ -21,7 +21,8 @@
 //!   inside an assert-equivalent argument list. `NAME` is matched as a whole
 //!   identifier read from the argument list's tokens, not as a substring; when
 //!   it cannot be told to mean the binding (the name is bound again in the
-//!   function, or appears in a nested macro's unparsed tokens) DA-003 reports
+//!   function, or appears in a nested macro other than `matches!`, `format!`,
+//!   `vec!` and the assert macros, whose arguments are read as expressions) DA-003 reports
 //!   `Unknown` (#281; a derivation from DS-1680, not stated in it). This is a real subset of
 //!   DS-628 ("let束縛、メソッドチェーン、フィールドアクセス"), not its full
 //!   extent — a target call several bindings removed, or reached only
@@ -684,7 +685,9 @@ enum BindingReach {
 /// told to mean the binding (`Uncertain`, which DS-1680 reads as UNKNOWN) when the
 /// name is bound again anywhere in the function (a second `let`, a closure
 /// parameter, a match arm, a parameter), when the argument list is not a list of
-/// expressions, or when the name appears in a nested macro's unparsed tokens.
+/// expressions, or when the name appears in a nested macro other than
+/// `matches!`, `format!`, `vec!` and the assert macros, or in one of those whose
+/// tokens do not parse as expressions.
 fn binding_reach(text: &str, binding: &str, assert_spans: &[(usize, usize)]) -> BindingReach {
     let reaches = |outcome: &BindingReach| matches!(outcome, BindingReach::Reaches);
     let outcomes: Vec<BindingReach> = assert_spans
@@ -766,8 +769,46 @@ impl<'ast> Visit<'ast> for BindingUseVisitor<'_> {
     }
 
     fn visit_macro(&mut self, node: &'ast syn::Macro) {
-        if tokens_mention_ident(node.tokens.clone(), self.name) {
+        if !tokens_mention_ident(node.tokens.clone(), self.name) {
+            return;
+        }
+        // Derivation (not stated in DS-615 / DS-1680): the macros below take
+        // expressions in a fixed grammar, so a name in an expression position is
+        // read as in an assert's own argument list. Any other macro, and any of
+        // these whose tokens do not parse that way, keeps the name uncertain.
+        let Some(segment) = node.path.segments.last() else {
             self.opaque = true;
+            return;
+        };
+        let name = segment.ident.to_string();
+        let expressions = match name.as_str() {
+            "matches" => syn::parse::Parser::parse2(
+                |input: syn::parse::ParseStream<'_>| {
+                    let first: syn::Expr = input.parse()?;
+                    // The rest is a pattern (and guard); a name there is bound by the
+                    // arm, not the outer binding.
+                    input.parse::<proc_macro2::TokenStream>()?;
+                    Ok(vec![first])
+                },
+                node.tokens.clone(),
+            )
+            .ok(),
+            "format" | "vec" | "assert" | "assert_eq" | "assert_ne" | "debug_assert"
+            | "debug_assert_eq" | "debug_assert_ne" => syn::parse::Parser::parse2(
+                syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated,
+                node.tokens.clone(),
+            )
+            .ok()
+            .map(|arguments| arguments.into_iter().collect::<Vec<_>>()),
+            _ => None,
+        };
+        match expressions {
+            Some(expressions) => {
+                for expression in &expressions {
+                    self.visit_expr(expression);
+                }
+            }
+            None => self.opaque = true,
         }
     }
 }
@@ -1878,14 +1919,58 @@ mod tests {
     /// @vtest.intent 束縛名が assert 内の入れ子のマクロのトークンの中にしか現れない Test は、識別子を確実に判定できないため PASS にならず UNKNOWN になることを確認する
     #[test]
     fn a_binding_only_inside_nested_macro_tokens_is_unknown() {
-        let text =
-            "#[test]\nfn t() {\n    let r = double(2);\n    assert!(matches!(r, Some(_)));\n}\n";
-        let analysis = analyze(text, &["double".to_owned()], &[]);
-        assert!(
-            matches!(analysis.da_003, DaVerdict::Unknown(_)),
-            "{:?}",
-            analysis.da_003
-        );
+        for body in [
+            "assert!(my_check!(r));",
+            "assert!(matches!(r, Some(_)), \"{}\", my_check!(r));",
+            "assert!(vec![r; 2].len() == 2);",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    let r = double(2);\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{body}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// The expression macros `matches!`, `format!`, `vec!` nested in an assert are
+    /// read as expressions, so the binding named there reaches the assert; a
+    /// binding that is not named in an expression position does not.
+    /// @vtest.id TEST-ORACLE-DA-003-BINDING-IN-EXPRESSION-MACRO-IS-READ
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent assert 内の matches!/format!/vec! の式位置に束縛名がある Test は違反なしのままであり、束縛名が現れない、または matches! のパターン側にしか現れない Test は PASS にならないことを確認する
+    #[test]
+    fn a_binding_in_an_expression_macro_inside_an_assert_is_read_as_an_expression() {
+        for body in [
+            "assert!(matches!(r, Some(_)));",
+            "assert!(matches!(r.get(), Some(1)));",
+            "assert!(matches!(r, Some(x) if x > 0));",
+            "assert!(format!(\"{}\", r) == \"4\");",
+            "assert_eq!(vec![r], vec![4]);",
+            "assert_eq!(vec![r, 1], other());",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    let r = double(2);\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::NoViolation),
+                "{body}: {:?}",
+                analysis.da_003
+            );
+        }
+        for body in [
+            "assert!(matches!(other(), Some(_)));",
+            "assert!(matches!(other(), Some(r)));",
+            "assert!(format!(\"{}\", other()) == \"4\");",
+            "assert_eq!(vec![other()], vec![4]);",
+            "assert!(matches!(other(), Some(_)), \"{}\", my_check!(r));",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    let r = double(2);\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            let (is_fail, is_unknown, basis) = compose(&analysis);
+            assert!(is_fail || is_unknown, "{body}: composed to PASS: {basis:?}");
+        }
     }
 
     /// A SrcId target has no call symbol, so its call cannot be found: the
