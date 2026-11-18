@@ -23587,7 +23587,7 @@
         },
         {
           "id": "DS-1881",
-          "statement": "`run.coverage` の値がそのadapterの値域にない場合は、無効なadapter設定（E-CONFIG-001）とする。",
+          "statement": "`rust-cargo`・`go`・`javascript` の `run.coverage` の値がそのadapterの値域にない場合は、無効なadapter設定（E-CONFIG-001）とする。",
           "derives_from": [],
           "cites": [
             "DS-352"
@@ -53404,22 +53404,6 @@
               579
             ]
           }
-        },
-        {
-          "id": "BD-356",
-          "statement": "`go` と `javascript` は Structured Test capability を宣言しない。",
-          "derives_from": [
-            "SPEC-486",
-            "SPEC-487"
-          ],
-          "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-            "lines": [
-              25,
-              25
-            ]
-          }
         }
       ]
     },
@@ -62798,6 +62782,22 @@
               }
             },
             {
+              "id": "DES-673",
+              "statement": "カバレッジプロファイルの出力先は`.verify/cache/cov/<ULID>`とする。",
+              "description": "project root 配下の出力は Execution State の manifest（DES-623）に入り、実行前後の比較で E-EXEC-004 になるため、`.verify/` の配下に置く（DES-455 の `cache/cov/<ULID>.json` と同じ置き場）。",
+              "derives_from": [
+                "BD-354"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  27,
+                  27
+                ]
+              }
+            },
+            {
               "id": "DES-665",
               "statement": "宣言targetの実行回数は、そのtargetのSource Target constructのsource範囲に開始位置が入るblockの実行回数の最大値とする。",
               "derives_from": [],
@@ -62874,6 +62874,22 @@
               "id": "DES-669",
               "statement": "計測時は、vitestの起動にV8カバレッジproviderを有効にする指定を加え、関数ごとの名前・source上の開始位置・実行回数を含む形式で結果を出力させる。",
               "derives_from": [],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  28,
+                  28
+                ]
+              }
+            },
+            {
+              "id": "DES-674",
+              "statement": "V8カバレッジproviderの出力先は`.verify/cache/cov/<ULID>`とする。",
+              "description": "vitest の既定の出力先（`coverage/`）は project root 配下にあり、Execution State の manifest（DES-633）に入って実行前後の比較で E-EXEC-004 になるため、`.verify/` の配下に置く。",
+              "derives_from": [
+                "BD-355"
+              ],
               "source": {
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
                 "heading": "B. Rust 以外の run → verify(仕様変更が先)",

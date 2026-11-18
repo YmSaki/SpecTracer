@@ -9871,22 +9871,6 @@
               579
             ]
           }
-        },
-        {
-          "id": "BD-356",
-          "statement": "`go` と `javascript` は Structured Test capability を宣言しない。",
-          "derives_from": [
-            "SPEC-486",
-            "SPEC-487"
-          ],
-          "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-            "lines": [
-              25,
-              25
-            ]
-          }
         }
       ]
     }
