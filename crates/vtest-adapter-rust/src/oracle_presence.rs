@@ -1287,6 +1287,10 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
                     self.opaque = true;
                 }
             }
+            // A probed `let` name may be the callee (`let f = |x| ..; f(2)`).
+            if self.probe.is_some() {
+                self.visit_expr(&node.func);
+            }
         } else {
             self.visit_expr(&node.func);
         }
@@ -3292,6 +3296,7 @@ mod tests {
             "let r = double(2);\n    assert_eq!(r, 4);",
             "let r = double(2);\n    assert!({ r == 4 });",
             "let r = double(2);\n    assert_eq!({ let t = r; t }, 4);",
+            "let f = |x: i32| double(x);\n    assert_eq!(f(2), 4);",
         ] {
             let text = format!("#[test]\nfn t() {{\n    {text}\n}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
