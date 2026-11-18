@@ -48,8 +48,14 @@
 //!   another type's same-named method. (These are derivations from DS-1680, not
 //!   stated in it.) A target declared by `SrcId` has no call symbol, so `RustCargoStaticAnalysisAdapter::
 //!   analyze` reports `Unknown` instead of a PASS composed without it.
-//!   Still unseen: a call written inside a macro invocation's tokens (assert macros
-//!   included; the tokens are not parsed, so such a call is read as not called).
+//!   A call written inside a macro invocation's tokens is not a syntax-tree node
+//!   (#282; derivations from DS-615 / DS-651 / DS-1680): in the checked arguments of
+//!   `assert!` / `assert_eq!` / `assert_ne!` (read as expressions, with nested
+//!   `matches!`, `format!` and `vec!`) it verifies the target; a call-shaped use of
+//!   the target's name (`name(..)`, `name::<T>(..)`) in any other macro, in an
+//!   assert's message argument, or in tokens that do not parse as expressions
+//!   makes DA-003 `Unknown`. A bare reference or a path prefix (`name::item`) is
+//!   not a call there, as it is not a call site outside a macro.
 //! - §7.2.1's cross-Test delegation-chain search (DA-003/DA-006's "照合の
 //!   委譲先") is not implemented: this capability never confirms that a
 //!   delegation target terminates (DS-643). For DA-006 it only recognizes
@@ -77,6 +83,7 @@
 //!   report `Fail` — never the reverse — so this narrowing cannot manufacture
 //!   a false `Fail`.
 
+use quote::ToTokens;
 use syn::{spanned::Spanned, visit::Visit};
 use vtest_adapter_api::{
     RuleOutcome, RuleVerdict, StaticAnalysisAdapter, StaticAnalysisInput, StaticAnalysisVerdict,
@@ -488,6 +495,7 @@ fn da_003_result_unverified(
     let mut any_unidentified = false;
     let mut any_unverified = false;
     let mut any_binding_uncertain = false;
+    let mut any_macro_opaque = false;
     for symbol in target_symbols {
         match target_call_result_is_verified(text, symbol, assert_spans) {
             TargetCallVerification::NotCalled => {}
@@ -509,6 +517,10 @@ fn da_003_result_unverified(
             TargetCallVerification::BindingUncertain => {
                 any_call_found = true;
                 any_binding_uncertain = true;
+            }
+            TargetCallVerification::MacroOpaque => {
+                any_call_found = true;
+                any_macro_opaque = true;
             }
         }
     }
@@ -533,6 +545,18 @@ fn da_003_result_unverified(
              construct mentions, but the name cannot be shown to mean that binding (it is \
              bound again, or appears in tokens this capability does not parse), so the \
              result reaching the assert is neither proven nor refuted (DS-1680)"
+                .to_owned(),
+        );
+    }
+    if any_macro_opaque {
+        // Derivation (see `macro_target_use`): a call hidden in a macro's tokens may
+        // or may not exist and may or may not be verified.
+        return DaVerdict::Unknown(
+            "a declared target is called in the tokens of a macro invocation that is not read \
+             as a call whose result an assert checks (a macro other than an assert, an \
+             assert's message argument, or tokens that do not parse as expressions), so \
+             whether its result is verified is neither proven nor refuted (DS-615, DS-651, \
+             DS-1680)"
                 .to_owned(),
         );
     }
@@ -677,6 +701,9 @@ enum TargetCallVerification {
     /// The binding that holds a call's result is named in an assert, but the name
     /// cannot be shown to mean that binding (#281).
     BindingUncertain,
+    /// The target is called in macro tokens that are not read as a call whose
+    /// result is checked (#282).
+    MacroOpaque,
 }
 
 /// Whether a `let` binding's name reaches an assert-equivalent argument list.
@@ -800,6 +827,209 @@ fn tokens_mention_ident(tokens: proc_macro2::TokenStream, name: &str) -> bool {
     })
 }
 
+/// The expressions of a macro whose argument grammar is known, split into the
+/// arguments that are checked or computed and those that are not.
+struct MacroArguments {
+    checked: Vec<syn::Expr>,
+    unchecked: Vec<proc_macro2::TokenStream>,
+}
+
+/// Derivation (not stated in DS-615 / DS-1680): `matches!`, `format!`, `vec!` and
+/// the assert macros take expressions in a fixed grammar, so a name in an
+/// expression position of a checked argument is read as in an assert's own
+/// argument list; message arguments (and `matches!`'s pattern, in which a name is
+/// bound by the arm) are returned as `unchecked`. `None` for any other macro, and
+/// for one of these whose tokens do not parse that way.
+fn macro_arguments(node: &syn::Macro) -> Option<MacroArguments> {
+    let name = node.path.segments.last()?.ident.to_string();
+    if name == "matches" {
+        return syn::parse::Parser::parse2(
+            |input: syn::parse::ParseStream<'_>| {
+                let first: syn::Expr = input.parse()?;
+                let rest: proc_macro2::TokenStream = input.parse()?;
+                Ok(MacroArguments {
+                    checked: vec![first],
+                    unchecked: vec![rest],
+                })
+            },
+            node.tokens.clone(),
+        )
+        .ok();
+    }
+    let checked_count = checked_argument_count(&name)?;
+    let parsed = syn::parse::Parser::parse2(
+        syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated,
+        node.tokens.clone(),
+    )
+    .ok()?;
+    let mut arguments = MacroArguments {
+        checked: Vec::new(),
+        unchecked: Vec::new(),
+    };
+    for (index, argument) in parsed.into_iter().enumerate() {
+        if index >= checked_count {
+            arguments.unchecked.push(argument.into_token_stream());
+            continue;
+        }
+        arguments.checked.push(match argument {
+            // `format!("{r}", r = value)`: a named argument. The left side names
+            // the placeholder, not a binding; only the value is read.
+            syn::Expr::Assign(named) if name == "format" => *named.right,
+            other => other,
+        });
+    }
+    Some(arguments)
+}
+
+/// How a target is called in the tokens of the macro invocations of a Test.
+#[derive(Default)]
+struct MacroUse {
+    /// A call `name(..)` / `Type::name(..)` in a checked argument of an assert.
+    verified_path: bool,
+    /// A call `receiver.name(..)` in a checked argument of an assert.
+    verified_method: bool,
+    /// A call-shaped use of the name where it is not read as a call whose result
+    /// is checked: in a macro other than an assert, in an assert's message
+    /// argument or in tokens that do not parse as expressions.
+    opaque: bool,
+}
+
+/// Derivation (not stated in DS-615 / DS-651 / DS-1680): a macro's tokens are not
+/// syntax-tree nodes, so a call written there is found only by reading the
+/// tokens. In `assert!` / `assert_eq!` / `assert_ne!` the checked arguments are
+/// read as expressions, and a call found there verifies the target as a call
+/// outside a macro that reaches an assert does. A call hidden anywhere else (any
+/// other macro, a message argument, tokens that do not parse) may or may not exist
+/// and may or may not be verified, and DS-651 reads a call hidden in a macro
+/// expansion as UNKNOWN, so a call-shaped use of the name there is `opaque`
+/// (`tokens_call_ident`; a bare reference or a path prefix is not). Reading macro
+/// tokens only moves a verdict toward UNKNOWN or turns "not called" into
+/// verified: `target_call_result_is_verified` takes a call read in an assert as
+/// verifying only when the Test has no call outside a macro, so it never clears
+/// a call outside a macro that stays unverified, and a verified method call
+/// (matched by name only) does not clear an `opaque` name that may be a
+/// function call.
+fn macro_target_use(text: &str, symbol: &str) -> MacroUse {
+    let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
+        return MacroUse::default();
+    };
+    let mut visitor = MacroUseVisitor {
+        symbol,
+        found: MacroUse::default(),
+    };
+    visitor.visit_item_fn(&function);
+    visitor.found
+}
+
+struct MacroUseVisitor<'a> {
+    symbol: &'a str,
+    found: MacroUse,
+}
+
+impl<'ast> Visit<'ast> for MacroUseVisitor<'_> {
+    fn visit_macro(&mut self, node: &'ast syn::Macro) {
+        if !tokens_call_ident(node.tokens.clone(), self.symbol) {
+            return;
+        }
+        let is_assert = node.path.segments.last().is_some_and(|segment| {
+            ["assert", "assert_eq", "assert_ne"].contains(&segment.ident.to_string().as_str())
+        });
+        let Some(arguments) = is_assert.then(|| macro_arguments(node)).flatten() else {
+            self.found.opaque = true;
+            return;
+        };
+        let mut calls = CheckedCallVisitor {
+            symbol: self.symbol,
+            path: false,
+            method: false,
+            opaque: false,
+        };
+        for expression in &arguments.checked {
+            calls.visit_expr(expression);
+        }
+        self.found.verified_path |= calls.path;
+        self.found.verified_method |= calls.method;
+        self.found.opaque |= calls.opaque
+            || arguments
+                .unchecked
+                .iter()
+                .any(|tokens| tokens_call_ident(tokens.clone(), self.symbol));
+    }
+}
+
+/// Finds calls of the target in the checked arguments of an assert, reading a
+/// nested macro as `macro_arguments` does.
+struct CheckedCallVisitor<'a> {
+    symbol: &'a str,
+    path: bool,
+    method: bool,
+    opaque: bool,
+}
+
+impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
+    fn visit_expr_call(&mut self, node: &'ast syn::ExprCall) {
+        if let syn::Expr::Path(path) = node.func.as_ref() {
+            if path
+                .path
+                .segments
+                .last()
+                .is_some_and(|segment| segment.ident == self.symbol)
+            {
+                self.path = true;
+            }
+        }
+        syn::visit::visit_expr_call(self, node);
+    }
+
+    fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
+        if node.method == self.symbol {
+            self.method = true;
+        }
+        syn::visit::visit_expr_method_call(self, node);
+    }
+
+    fn visit_macro(&mut self, node: &'ast syn::Macro) {
+        if !tokens_call_ident(node.tokens.clone(), self.symbol) {
+            return;
+        }
+        let Some(arguments) = macro_arguments(node) else {
+            self.opaque = true;
+            return;
+        };
+        for expression in &arguments.checked {
+            self.visit_expr(expression);
+        }
+        self.opaque |= arguments
+            .unchecked
+            .iter()
+            .any(|tokens| tokens_call_ident(tokens.clone(), self.symbol));
+    }
+}
+
+/// Whether `name` appears in the tokens in the form of a call: followed by an
+/// argument list (`name(..)`, `.name(..)`) or by `::<` (`name::<T>(..)`). A path
+/// prefix (`name::item`), a macro name (`name!`) and a bare reference are not
+/// calls, as they are not call sites outside a macro.
+fn tokens_call_ident(tokens: proc_macro2::TokenStream, name: &str) -> bool {
+    use proc_macro2::{Delimiter, TokenTree};
+    let trees: Vec<TokenTree> = tokens.into_iter().collect();
+    trees.iter().enumerate().any(|(index, tree)| match tree {
+        TokenTree::Group(group) => tokens_call_ident(group.stream(), name),
+        TokenTree::Ident(ident) if ident == name => match trees.get(index + 1) {
+            Some(TokenTree::Group(group)) => group.delimiter() == Delimiter::Parenthesis,
+            Some(TokenTree::Punct(first)) if first.as_char() == ':' => {
+                matches!(
+                    (trees.get(index + 2), trees.get(index + 3)),
+                    (Some(TokenTree::Punct(second)), Some(TokenTree::Punct(angle)))
+                        if second.as_char() == ':' && angle.as_char() == '<'
+                )
+            }
+            _ => false,
+        },
+        TokenTree::Ident(_) | TokenTree::Punct(_) | TokenTree::Literal(_) => false,
+    })
+}
+
 struct BindingUseVisitor<'a> {
     name: &'a str,
     path_use: bool,
@@ -824,49 +1054,14 @@ impl<'ast> Visit<'ast> for BindingUseVisitor<'_> {
         if !tokens_mention_ident(node.tokens.clone(), self.name) {
             return;
         }
-        // Derivation (not stated in DS-615 / DS-1680): the macros below take
-        // expressions in a fixed grammar, so a name in an expression position of
-        // a checked argument is read as in an assert's own argument list; message
-        // arguments are not read. Any other macro, and any of these whose tokens do
-        // not parse that way, keeps the name uncertain.
-        let Some(segment) = node.path.segments.last() else {
+        // Any macro `macro_arguments` does not read, or reads but cannot parse,
+        // keeps the name uncertain.
+        let Some(arguments) = macro_arguments(node) else {
             self.opaque = true;
             return;
         };
-        let name = segment.ident.to_string();
-        let expressions = if name == "matches" {
-            syn::parse::Parser::parse2(
-                |input: syn::parse::ParseStream<'_>| {
-                    let first: syn::Expr = input.parse()?;
-                    // The rest is a pattern (and guard); a name there is bound by the
-                    // arm, not the outer binding.
-                    input.parse::<proc_macro2::TokenStream>()?;
-                    Ok(vec![first])
-                },
-                node.tokens.clone(),
-            )
-            .ok()
-        } else {
-            checked_argument_count(&name).and_then(|checked| {
-                syn::parse::Parser::parse2(
-                    syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated,
-                    node.tokens.clone(),
-                )
-                .ok()
-                .map(|arguments| arguments.into_iter().take(checked).collect::<Vec<_>>())
-            })
-        };
-        let Some(expressions) = expressions else {
-            self.opaque = true;
-            return;
-        };
-        for expression in &expressions {
-            match expression {
-                // `format!("{r}", r = value)`: a named argument. The left side names
-                // the placeholder, not the binding; only the value is read.
-                syn::Expr::Assign(named) if name == "format" => self.visit_expr(&named.right),
-                _ => self.visit_expr(expression),
-            }
+        for expression in &arguments.checked {
+            self.visit_expr(expression);
         }
     }
 
@@ -962,8 +1157,20 @@ fn target_call_result_is_verified(
     assert_spans: &[(usize, usize)],
 ) -> TargetCallVerification {
     let call_sites = find_call_sites(text, symbol);
+    let macro_use = macro_target_use(text, symbol);
     if call_sites.is_empty() {
-        return TargetCallVerification::NotCalled;
+        // Derivation (#282): a call read inside an assert verifies the target only
+        // when no call outside a macro exists, so reading macro tokens never
+        // clears a call that stays unverified (DS-615: it only moves toward UNKNOWN).
+        return if macro_use.verified_path || (macro_use.verified_method && !macro_use.opaque) {
+            TargetCallVerification::Verified
+        } else if macro_use.opaque {
+            // A verified method call is matched by name only: it does not clear a
+            // call that a macro may make as a function.
+            TargetCallVerification::MacroOpaque
+        } else {
+            TargetCallVerification::NotCalled
+        };
     }
     // A call whose result is consumed by an assert-equivalent construct
     // (directly, through DS-626's method chain, or through the single `let`
@@ -1016,11 +1223,15 @@ fn target_call_result_is_verified(
         // is left unverified beside it. Otherwise the verifying device may
         // belong to another type's same-named method, and the function call's
         // result is neither shown verified nor shown unverified (DS-1680).
-        return if call_sites.iter().any(|site| !site.is_method) {
+        // A name in a macro that is not read may be a function call (#282).
+        return if macro_use.opaque || call_sites.iter().any(|site| !site.is_method) {
             TargetCallVerification::Unidentified
         } else {
             TargetCallVerification::Verified
         };
+    }
+    if macro_use.opaque {
+        return TargetCallVerification::MacroOpaque;
     }
     let loop_bodies = loop_body_spans(text);
     if call_sites.iter().any(|site| {
@@ -2150,6 +2361,172 @@ mod tests {
         let analysis = analyze(&body("assert_eq"), &["double".to_owned()], &config);
         assert!(
             matches!(analysis.da_003, DaVerdict::NoViolation),
+            "{:?}",
+            analysis.da_003
+        );
+    }
+
+    /// #282: a target named in the tokens of a macro that is not an assert is not
+    /// read, so the call is neither proven nor refuted: UNKNOWN, never PASS.
+    /// @vtest.id TEST-ORACLE-DA-003-TARGET-IN-NON-ASSERT-MACRO-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent target の名前が assert 以外のマクロ(println!、dbg!、vec!、独自マクロ)のトークンに現れ、target と無関係な assert_eq! が本体にある Test は、DA-003 が UNKNOWN になり合成結果が PASS にならないことを確認する
+    #[test]
+    fn a_target_named_in_a_non_assert_macro_is_unknown_not_pass() {
+        for text in [
+            "#[test]\nfn t() {\n    println!(\"{}\", c.double(2));\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    println!(\"{}\", double(2));\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    dbg!(double(2));\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    dbg!(double(2));\n}\n",
+            "#[test]\nfn t() {\n    let v = vec![double(2)];\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let v = vec![double(2)];\n    assert_eq!(v.len(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let s = format!(\"{}\", double(2));\n    assert_eq!(s, \"4\");\n}\n",
+            "#[test]\nfn t() {\n    my_macro! { double(2) }\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let _ = {\n        eprintln!(\"{}\", Calc::double(2));\n    };\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    println!(\"{}\", assert_eq!(double(2), 4));\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    assert_eq!(other(), 1);\n    println!(\"{}\", double(2));\n}\n",
+        ] {
+            let analysis = analyze(text, &["double".to_owned()], &[]);
+            let (is_fail, is_unknown, basis) = compose(&analysis);
+            assert!(is_fail || is_unknown, "{text}: composed to PASS: {basis:?}");
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// A call written inside a built-in assert's checked arguments is read from
+    /// the arguments' expressions: it verifies the target, as a call outside a
+    /// macro that reaches an assert does.
+    /// @vtest.id TEST-ORACLE-DA-003-TARGET-CALL-IN-ASSERT-STAYS-NO-VIOLATION
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent assert!、assert_eq!、assert_ne! の検証される引数の中で target を呼ぶ Test(入れ子の matches!、format!、vec! を含む)は、DA-003 が違反なしのままであることを確認する
+    #[test]
+    fn a_target_called_in_a_checked_assert_argument_is_no_violation() {
+        for text in [
+            "#[test]\nfn t() {\n    assert_eq!(double(2), 4);\n}\n",
+            "#[test]\nfn t() {\n    assert_ne!(Calc::double(2), 5);\n}\n",
+            "#[test]\nfn t() {\n    assert!(double(2) == 4);\n}\n",
+            "#[test]\nfn t() {\n    assert_eq!(4, c.double(2));\n}\n",
+            "#[test]\nfn t() {\n    assert!(matches!(double(2), 4));\n}\n",
+            "#[test]\nfn t() {\n    assert_eq!(vec![double(2)], vec![4]);\n}\n",
+            "#[test]\nfn t() {\n    assert_eq!(format!(\"{}\", double(2)), \"4\");\n}\n",
+            "#[test]\nfn t() {\n    assert_eq!(double(2), 4, \"message {}\", 1);\n}\n",
+            "#[test]\nfn t() {\n    let r = double(2);\n    assert_eq!(r, 4);\n    assert_eq!(double(3), 6);\n}\n",
+        ] {
+            let analysis = analyze(text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::NoViolation),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// A target named in an assert's message arguments, in an assert the argument
+    /// grammar of which is not known, or in tokens that do not parse as
+    /// expressions is not shown verified.
+    /// @vtest.id TEST-ORACLE-DA-003-TARGET-IN-UNCHECKED-ASSERT-TOKENS-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent target の名前が assert のメッセージ引数、config の assertion_macros のマクロ、式として読めない assert の引数にだけ現れる Test は、DA-003 が UNKNOWN になることを確認する
+    #[test]
+    fn a_target_named_only_in_unchecked_assert_tokens_is_unknown() {
+        let config = ["assert_matches!".to_owned()];
+        for text in [
+            "#[test]\nfn t() {\n    assert_eq!(other(), 1, \"{}\", double(2));\n}\n",
+            "#[test]\nfn t() {\n    assert!(other(), \"{x}\", x = double(2));\n}\n",
+            "#[test]\nfn t() {\n    assert_matches!(double(2), Some(_));\n}\n",
+            "#[test]\nfn t() {\n    assert_eq!(double(2) => 4);\n}\n",
+            "#[test]\nfn t() {\n    assert_eq!(my_macro!(double(2)), 4);\n}\n",
+            "#[test]\nfn t() {\n    assert_eq!(other(), 1);\n    assert_eq!(foo(), 2, \"{}\", double(2));\n}\n",
+        ] {
+            let analysis = analyze(text, &["double".to_owned()], &config);
+            let (is_fail, is_unknown, basis) = compose(&analysis);
+            assert!(is_fail || is_unknown, "{text}: composed to PASS: {basis:?}");
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// Reading a call inside an assert never clears a call outside a macro that
+    /// stays unverified: the verdict is the one without the assert's call, so no
+    /// shape moves from UNKNOWN or FAIL to PASS.
+    /// @vtest.id TEST-ORACLE-DA-003-ASSERT-CALL-DOES-NOT-CLEAR-UNVERIFIED-CALL
+    /// @vtest.covers VO-ORACLE-DA-003-UNIDENTIFIED-CALL-UNKNOWN
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent マクロの外に検証されない target 呼出が残る Test は、別の target 呼出が assert の検証される引数にあっても DA-003 が違反なしにならない(UNKNOWN)ことを確認する
+    #[test]
+    fn an_assert_call_does_not_clear_an_unverified_call_outside_a_macro() {
+        for text in [
+            "#[test]\nfn t() {\n    double(3);\n    assert_eq!(double(2), 4);\n}\n",
+            "#[test]\nfn t() {\n    let _ = double(3);\n    assert_eq!(double(2), 4);\n}\n",
+            "#[test]\nfn t() {\n    c.double(3);\n    assert_eq!(c.double(2), 4);\n}\n",
+            "#[test]\nfn t() {\n    let Some(x) = double(3) else { return };\n    assert_eq!(double(2), 4);\n}\n",
+        ] {
+            let analysis = analyze(text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// A method call verified inside an assert is matched by name only: it does
+    /// not clear a function call of the target that stays unverified, nor a name
+    /// that a non-assert macro may call.
+    /// @vtest.id TEST-ORACLE-DA-003-METHOD-IN-ASSERT-CANNOT-CLEAR-UNREAD-CALL
+    /// @vtest.covers VO-ORACLE-DA-003-UNIDENTIFIED-CALL-UNKNOWN
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent assert の中のメソッド呼出だけが検証済みの根拠で、検証されない関数呼出や非 assert マクロ内の target の名前が別に残る Test は、DA-003 が UNKNOWN になることを確認する
+    #[test]
+    fn a_method_call_verified_in_an_assert_does_not_clear_other_uses() {
+        for text in [
+            "#[test]\nfn t() {\n    double(2);\n    assert_eq!(o.double(3), 6);\n}\n",
+            "#[test]\nfn t() {\n    println!(\"{}\", double(2));\n    assert_eq!(o.double(3), 6);\n}\n",
+        ] {
+            let analysis = analyze(text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// A name inside macro tokens that is not call-shaped is not a call, as it is
+    /// not a call site outside a macro: a path prefix, a bare reference and a
+    /// macro of the same name do not make DA-003 UNKNOWN; the turbofish call does.
+    /// @vtest.id TEST-ORACLE-DA-003-NON-CALL-NAME-IN-MACRO-IS-NOT-A-CALL
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::tokens_call_ident
+    /// @vtest.intent マクロのトークンの中の target の名前が、パスの前置(double::VALUE)、呼出でない参照、同名のマクロであるときは呼出と読まず、turbofish 付きの呼出(double::<u8>(2))は呼出と読むことを確認する
+    #[test]
+    fn a_name_in_macro_tokens_that_is_not_call_shaped_is_not_a_call() {
+        for text in [
+            "#[test]\nfn t() {\n    println!(\"{}\", double::VALUE);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let f = vec![double];\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    double!(1);\n    assert_eq!(other(), 1);\n}\n",
+        ] {
+            let analysis = analyze(text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::NoViolation),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
+        let turbofish = "#[test]\nfn t() {\n    println!(\"{}\", double::<u8>(2));\n    assert_eq!(other(), 1);\n}\n";
+        let analysis = analyze(turbofish, &["double".to_owned()], &[]);
+        assert!(
+            matches!(analysis.da_003, DaVerdict::Unknown(_)),
             "{:?}",
             analysis.da_003
         );
