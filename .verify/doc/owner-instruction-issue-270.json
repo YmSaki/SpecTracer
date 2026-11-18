@@ -4,13 +4,26 @@
     {
       "id": "ROOT-051",
       "statement": "実際に使える状態にまで仕上げる。要求されている機能が実装されている状態になることが望ましい。少なくともdogfooding可能であり、rust以外の言語でも同様にツールを使用できる状態、できればalpha版やbeta版を突破してrc版になることが望ましい。",
-      "description": "Owner の作業指示 2026-11-19（PM が会話で受けた原文）。到達点の記録は Issue #270 の「目的」節。",
+      "description": "Owner の作業指示 2026-11-19（作業の目標）。原文は Issue #270 のコメントに逐語で記録。",
       "source": {
-        "doc": "github:YmSaki/SpecTracer/issues/270",
-        "heading": "目的",
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/270#issuecomment-6987046722",
+        "heading": "Owner の発言(原文のまま、2026-11-19 の作業セッションから転記)",
         "lines": [
-          1,
+          6,
           7
+        ]
+      }
+    },
+    {
+      "id": "ROOT-052",
+      "statement": "このプロジェクトが原因でいくつかのアプリ開発が止まっている現状です(goアプリ、rustアプリ、tsアプリ含む。)",
+      "description": "Owner の発言 2026-11-19（作業の発端の一部）。原文は Issue #270 のコメントに逐語で記録。",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/270#issuecomment-6987046722",
+        "heading": "Owner の発言(原文のまま、2026-11-19 の作業セッションから転記)",
+        "lines": [
+          3,
+          4
         ]
       }
     }

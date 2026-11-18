@@ -2059,6 +2059,7 @@
         {
           "id": "REQ-347",
           "statement": "javascript adapter における判定権威は vitest である。",
+          "description": "vitest の選定は PM の調査（Issue #270：利用側のプロジェクトでは TypeScript の Test runner は vitest が多数）による。root に根拠はない。",
           "derives_from": [
             "R-3",
             "R-6"

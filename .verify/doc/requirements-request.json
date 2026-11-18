@@ -399,7 +399,9 @@
     {
       "id": "R-6",
       "statement": "v0.1 は、Rust に加えて Go と JavaScript・TypeScript の Test についても、実行による Evidence の記録と検証を提供する。",
+      "description": "対象の言語（Go、JavaScript・TypeScript）は ROOT-052 の goアプリ・tsアプリから、Rust と同じ水準で使えることは ROOT-051 の「同様に」から導出した。",
       "derives_from": [
+        "ROOT-052",
         "ROOT-051",
         "ROOT-050"
       ],

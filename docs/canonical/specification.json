@@ -616,13 +616,26 @@
     {
       "id": "ROOT-051",
       "statement": "実際に使える状態にまで仕上げる。要求されている機能が実装されている状態になることが望ましい。少なくともdogfooding可能であり、rust以外の言語でも同様にツールを使用できる状態、できればalpha版やbeta版を突破してrc版になることが望ましい。",
-      "description": "Owner の作業指示 2026-11-19（PM が会話で受けた原文）。到達点の記録は Issue #270 の「目的」節。",
+      "description": "Owner の作業指示 2026-11-19（作業の目標）。原文は Issue #270 のコメントに逐語で記録。",
       "source": {
-        "doc": "github:YmSaki/SpecTracer/issues/270",
-        "heading": "目的",
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/270#issuecomment-6987046722",
+        "heading": "Owner の発言(原文のまま、2026-11-19 の作業セッションから転記)",
         "lines": [
-          1,
+          6,
           7
+        ]
+      }
+    },
+    {
+      "id": "ROOT-052",
+      "statement": "このプロジェクトが原因でいくつかのアプリ開発が止まっている現状です(goアプリ、rustアプリ、tsアプリ含む。)",
+      "description": "Owner の発言 2026-11-19（作業の発端の一部）。原文は Issue #270 のコメントに逐語で記録。",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/270#issuecomment-6987046722",
+        "heading": "Owner の発言(原文のまま、2026-11-19 の作業セッションから転記)",
+        "lines": [
+          3,
+          4
         ]
       }
     }
@@ -712,7 +725,9 @@
     {
       "id": "R-6",
       "statement": "v0.1 は、Rust に加えて Go と JavaScript・TypeScript の Test についても、実行による Evidence の記録と検証を提供する。",
+      "description": "対象の言語（Go、JavaScript・TypeScript）は ROOT-052 の goアプリ・tsアプリから、Rust と同じ水準で使えることは ROOT-051 の「同様に」から導出した。",
       "derives_from": [
+        "ROOT-052",
         "ROOT-051",
         "ROOT-050"
       ],
@@ -2786,6 +2801,7 @@
         {
           "id": "REQ-347",
           "statement": "javascript adapter における判定権威は vitest である。",
+          "description": "vitest の選定は PM の調査（Issue #270：利用側のプロジェクトでは TypeScript の Test runner は vitest が多数）による。root に根拠はない。",
           "derives_from": [
             "R-3",
             "R-6"
@@ -14393,6 +14409,7 @@
         {
           "id": "SPEC-489",
           "statement": "vitest以外のJavaScript / TypeScriptのtest runner（jest等）への対応は提供範囲外とする。",
+          "description": "vitest の選定は PM の調査（Issue #270：利用側のプロジェクトでは TypeScript の Test runner は vitest が多数）による。root に根拠はない。",
           "derives_from": [
             "REQ-345",
             "REQ-347"
@@ -23625,11 +23642,28 @@
           }
         },
         {
+          "id": "DS-1934",
+          "statement": "`javascript` の `run.coverage` の値は `off` だけである。",
+          "description": "計測方式が定まるまで、javascript では target_binding の動的計測をしない。",
+          "derives_from": [
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "既知の食い違い",
+            "lines": [
+              44,
+              44
+            ]
+          }
+        },
+        {
           "id": "DS-1881",
-          "statement": "`rust-cargo`・`go` の `run.coverage` の値がそのadapterの値域にない場合は、無効なadapter設定（E-CONFIG-001）とする。",
+          "statement": "`rust-cargo`・`go`・`javascript` の `run.coverage` の値がそのadapterの値域にない場合は、無効なadapter設定（E-CONFIG-001）とする。",
           "derives_from": [
             "SPEC-217",
-            "SPEC-486"
+            "SPEC-486",
+            "SPEC-487"
           ],
           "cites": [
             "DS-352"
@@ -28443,6 +28477,22 @@
           }
         },
         {
+          "id": "DS-1933",
+          "statement": "`go`で、Test関数の本体の中の`t.Run`（`*testing.T`型の引数・変数に対する`Run`の呼出し）の第2引数に渡した関数リテラルの本体は、DA-002・DA-003ではTest関数の本体の続きとして読み、DS-629のクロージャとして扱わない。",
+          "description": "導出: R-6・ROOT-051 の「同様に」から、javascript の DS-1900 と同型の規則とした。",
+          "derives_from": [
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
           "id": "DS-1890",
           "statement": "`javascript`のassert相当の構文はDA-001〜DA-006で共通に用いる。",
           "description": "`expect(...)`に続くmatcherの呼出し、`assert(...)` / `assert.<name>(...)`、`throw`文、configの`assertion_macros`に列挙した呼出し、の4分類の総称。",
@@ -28668,7 +28718,7 @@
         },
         {
           "id": "DS-624",
-          "statement": "DA-004（自己比較）はoracle_presenceへ供給する検査であり、2つの値を照合するassert相当（`rust-cargo`では`assert_eq!(a, b)`）で、照合する2つの値がトークン列として同一であることを内容とし、該当assertが存在することをFAIL条件とし、UNKNOWNへ退避する例は無い（構文的に確定）。",
+          "statement": "DA-004（自己比較）はoracle_presenceへ供給する検査であり、2つの値を照合するassert相当（`rust-cargo`では`assert_eq!(a, b)`に限る）で、照合する2つの値がトークン列として同一であることを内容とし、該当assertが存在することをFAIL条件とし、UNKNOWNへ退避する例は無い（構文的に確定）。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -30580,7 +30630,7 @@
             },
             {
               "id": "DS-749",
-              "statement": "要求した各フィルタについて結果行が得られなかった場合、そのTestの実行は失敗（E-EXEC-002）とし、Evidenceを記録しない。",
+              "statement": "`rust-cargo`では、要求した各フィルタについて結果行が得られなかった場合、そのTestの実行は失敗（E-EXEC-002）とし、Evidenceを記録しない。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -30761,7 +30811,7 @@
           "items": [
             {
               "id": "DS-1904",
-              "statement": "`go`のrunnerが実行できるTest constructは、ファイル名が`_test.go`で終わるファイルの最上位に宣言され、名前が`Test`であるか`Test`に小文字以外の文字が続き、型引数を持たず、引数が`*testing.T`型の1つだけで、戻り値を持たない関数である。",
+              "statement": "`go`のrunnerが実行できるTest constructは、ファイル名が`_test.go`で終わるファイルの最上位に宣言され、名前が`Test`であるか`Test`に小文字以外の文字が続き、型引数を持たず、引数が`*testing.T`型の1つだけで、戻り値を持たない関数である。レシーバを持つメソッドは、名前がこの条件に合ってもTest constructではない。",
               "derives_from": [],
               "source": {
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
@@ -30774,7 +30824,7 @@
             },
             {
               "id": "DS-1905",
-              "statement": "`go`のrunnerは、Test 1件ごとに、Test関数が属するパッケージを対象とし、関数名の完全一致で1件だけを選んで`go test`を実行する。",
+              "statement": "`go`のrunnerは、Test 1件ごとに、Test関数が属するパッケージを対象とし、関数名の完全一致でそのTest関数だけを選んで`go test`を実行する。",
               "derives_from": [],
               "source": {
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
@@ -30830,7 +30880,7 @@
             },
             {
               "id": "DS-1909",
-              "statement": "そのTest関数の結果を`go test`が報告しなかった場合（関数名が0件に一致し`go test`が成功で終了した場合を含む）、そのTestの実行は失敗（E-EXEC-002）とし、Evidenceを記録しない。",
+              "statement": "ビルド失敗（DS-1910）の場合を除き、そのTest関数の結果を`go test`が報告しなかった場合（関数名が0件に一致し`go test`が成功で終了した場合を含む）、そのTestの実行は失敗（E-EXEC-002）とし、Evidenceを記録しない。",
               "derives_from": [],
               "cites": [
                 "DS-749"
@@ -30846,8 +30896,8 @@
             },
             {
               "id": "DS-1930",
-              "statement": "そのTest関数の名前と一致する結果を`go test`が2件以上報告した場合（同じdirectoryの`package x`と`package x_test`に同名のTest関数がある場合を含む）は、E-EXEC-005とし、Evidenceを記録しない。",
-              "description": "Test 名の一致だけでは、どちらの結果が当該 Test のものかを決められない。",
+              "statement": "同じGo moduleの同じpackage directoryに、関数名が完全一致するTest constructが2件以上ある場合（build constraintで同時にはビルドされない場合と、`package x`と`package x_test`に分かれる場合を含む）、または関数名の完全一致で選んだ結果を`go test`が2件以上報告した場合は、それらのTestのどれについてもE-EXEC-005とし、Evidenceを記録しない。",
+              "description": "関数名の一致だけでは、報告された結果がどの Test construct のものかを決められない。build constraint で除外された側の Test に、ビルドされた側の結果が付くのを防ぐ。",
               "derives_from": [],
               "source": {
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
@@ -30860,7 +30910,7 @@
             },
             {
               "id": "DS-1910",
-              "statement": "`go test`がパッケージのビルド失敗を報告した場合は、テストビルド失敗（E-EXEC-001）とし、そのパッケージのTestのEvidenceを記録しない。",
+              "statement": "`go test`がパッケージのビルド失敗を報告した場合は、そのTest関数の結果の有無に関わらずテストビルド失敗（E-EXEC-001）とし、そのパッケージのTestのEvidenceを記録しない。",
               "derives_from": [],
               "cites": [
                 "DS-758"
@@ -30876,7 +30926,8 @@
             },
             {
               "id": "DS-1911",
-              "statement": "`go test`の終了コードと、報告された全結果の集計が矛盾する場合は、E-EXEC-003とし、Evidenceを記録しない。",
+              "statement": "`go test`の終了コードが、そのTest関数について報告された結果と矛盾する場合（結果が成功で終了コードが0以外の場合、または結果が失敗で終了コードが0の場合）は、E-EXEC-003とし、Evidenceを記録しない。",
+              "description": "TestMain が `m.Run()` の後に `os.Exit(1)` する場合（goleak など）は、結果が成功で終了コードが 1 になる（go 1.26.4 で確認）。",
               "derives_from": [],
               "cites": [
                 "DS-750"
@@ -33341,10 +33392,8 @@
         },
         {
           "id": "DS-1931",
-          "statement": "`E-EXEC-005`はerrorであり、要求したテストに一致する結果が2件以上報告されることである。",
-          "derives_from": [
-            "SPEC-486"
-          ],
+          "statement": "`E-EXEC-005`はerrorであり、要求したTestを一意に選べないこと（選択条件に一致するTest constructまたは結果が2件以上あること）である。",
+          "derives_from": [],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
             "heading": "B. Rust 以外の run → verify(仕様変更が先)",
@@ -57936,7 +57985,7 @@
         },
         {
           "id": "DES-624",
-          "statement": "`go-execution-state-v1` のtoolchain identityは、`go env`が報告する実効値のうち、`GOVERSION`、`GOOS`、`GOARCH`、`GOARCH`に応じた命令セットの設定（amd64では`GOAMD64`）、`CGO_ENABLED`、`GOFLAGS`、`GOEXPERIMENT`、`GOFIPS140`、`GODEBUG`、`GOTOOLCHAIN`、`GO111MODULE`の値と、project rootの相対pathへ正規化した`GOWORK`の値を含む。",
+          "statement": "`go-execution-state-v1` のtoolchain identityは、`go env`が報告する実効値のうち、`GOVERSION`、`GOOS`、`GOARCH`、`GOARCH`に応じた命令セットの設定（amd64では`GOAMD64`）、`CGO_ENABLED`、`GOFLAGS`、`GOEXPERIMENT`、`GOFIPS140`、`GODEBUG`、`GOTOOLCHAIN`、`GO111MODULE`の値と、project rootの相対pathへ正規化した`GOWORK`の値を含む。`CGO_ENABLED`が`1`の場合は、`go env CC`の値と、そのCCに`--version`を与えて得た出力も含む。",
           "description": "`go env` の実効値は、環境変数に加えて `go env -w` の設定（GOENV）と `$GOROOT/go.env` を反映する。",
           "derives_from": [
             "DS-1390",
@@ -57954,6 +58003,7 @@
         {
           "id": "DES-625",
           "statement": "`go-execution-state-v1` では、project rootの外にあって実行結果を変えうるもののうち、`go.sum`で内容が束縛される依存moduleだけをmanifestの外に置いてよい。",
+          "description": "既知の制限: module cache の内容が `go.sum` と食い違っても検出しない（`go mod verify` を実行しない）。",
           "derives_from": [
             "DS-1390",
             "BD-357"
@@ -58017,8 +58067,8 @@
         },
         {
           "id": "DES-629",
-          "statement": "選択Testのビルドに含まれるパッケージ（標準libraryと依存moduleのパッケージを含む）のうちcgoを使うものが1つでもある場合、`go` adapterはsnapshotを完全と報告しない。",
-          "description": "制限: cgo を有効にした環境で `net`・`os/user` など cgo を使う標準 library を import する Test は、`go` adapter では snapshot が完全と報告されない。",
+          "statement": "`CGO_ENABLED`が`1`でC toolchainのidentity（`go env CC`の値とその`--version`の出力）を取得できない場合に、選択Testのビルドに含まれるパッケージ（標準libraryと依存moduleのパッケージを含む）のうちcgoを使うものが1つでもあれば、`go` adapterはsnapshotを完全と報告しない。",
+          "description": "既知の制限: C の header・library の内容と、`CGO_CFLAGS` などの C の build 設定は identity に含めない。",
           "derives_from": [
             "DS-1390",
             "BD-357"
@@ -58035,6 +58085,7 @@
         {
           "id": "DES-630",
           "statement": "`GOFLAGS`が、fileまたはdirectoryを値に取るflag（`-modfile`、`-overlay`、`-pgo`を含む）でproject rootの外を指すものを含む場合、`go` adapterはsnapshotを完全と報告しない。",
+          "description": "既知の制限: `GOFLAGS` の `-exec`・`-toolexec` が指す実行体は identity に含めない。",
           "derives_from": [
             "DS-1390",
             "BD-357"
@@ -62134,8 +62185,35 @@
               }
             },
             {
+              "id": "DES-677",
+              "statement": "`Action`が`build-fail`のevent、または`Test`を持たず`FailedBuild`を持つ`fail`のeventは、パッケージのビルド失敗（DS-1910）を意味し、selectorと一致するeventの有無より優先する。",
+              "description": "go 1.26.4 の `go test -json` で、ビルド失敗時に両方の event が出ることを確認した。",
+              "derives_from": [],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  27,
+                  27
+                ]
+              }
+            },
+            {
               "id": "DES-651",
               "statement": "`Test`がselectorと完全一致し`Action`が`pass` / `fail` / `skip`のいずれかであるeventが1件もない場合は結果が得られなかったことを、2件以上ある場合は一致する結果が2件以上報告されたことを意味する。",
+              "derives_from": [],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  27,
+                  27
+                ]
+              }
+            },
+            {
+              "id": "DES-678",
+              "statement": "selectorと一致するeventの`Action`が`pass`で`go test`の終了コードが0以外の場合、または`fail`で終了コードが0の場合は、終了コードと結果の矛盾（DS-1911）を意味する。",
               "derives_from": [],
               "source": {
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
@@ -62196,7 +62274,7 @@
           "items": [
             {
               "id": "DES-452",
-              "statement": "起動時に`cargo llvm-cov --version`で利用可否を確認し、利用不能なら計測しない。",
+              "statement": "`rust-cargo`では、起動時に`cargo llvm-cov --version`で利用可否を確認し、利用不能なら計測しない。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -62209,7 +62287,7 @@
             },
             {
               "id": "DES-453",
-              "statement": "カバレッジをTest単位で対象関数へ帰属させるため、計測時はTestを1件ずつ実行する。",
+              "statement": "`rust-cargo`では、カバレッジをTest単位で対象関数へ帰属させるため、計測時はTestを1件ずつ実行する。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -62222,7 +62300,7 @@
             },
             {
               "id": "DES-454",
-              "statement": "subprocess内の実行を計測するには起動される実行体もinstrument対象とし、子プロセスのprofileをmergeする必要がある。",
+              "statement": "`rust-cargo`では、subprocess内の実行を計測するには起動される実行体もinstrument対象とし、子プロセスのprofileをmergeする必要がある。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -62235,7 +62313,7 @@
             },
             {
               "id": "DES-455",
-              "statement": "計測コマンドは`cargo llvm-cov test -p <project> --lib --json --output-path cache/cov/<ULID>.json -- --exact <selector>`である。",
+              "statement": "`rust-cargo`では、計測コマンドは`cargo llvm-cov test -p <project> --lib --json --output-path cache/cov/<ULID>.json -- --exact <selector>`である。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -62263,7 +62341,7 @@
           "items": [
             {
               "id": "DES-456",
-              "statement": "出力JSON（llvm-cov export形式）の`data[].functions[]`から、Testが宣言する各対象関数を検索する。",
+              "statement": "`rust-cargo`では、出力JSON（llvm-cov export形式）の`data[].functions[]`から、Testが宣言する各対象関数を検索する。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -62276,7 +62354,7 @@
             },
             {
               "id": "DES-457",
-              "statement": "一致条件は、demangle済み関数名の末尾がlocatorのitem-pathと一致し、かつfilenamesのいずれかの末尾がlocatorのpathと一致することである。",
+              "statement": "`rust-cargo`では、一致条件は、demangle済み関数名の末尾がlocatorのitem-pathと一致し、かつfilenamesのいずれかの末尾がlocatorのpathと一致することである。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -62289,7 +62367,7 @@
             },
             {
               "id": "DES-458",
-              "statement": "ジェネリック関数は複数インスタンスが現れるため、同じtargetに対応するcountを合算する。",
+              "statement": "`rust-cargo`では、ジェネリック関数は複数インスタンスが現れるため、同じtargetに対応するcountを合算する。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -62372,7 +62450,7 @@
             },
             {
               "id": "DES-673",
-              "statement": "カバレッジプロファイルの出力先は`.verify/cache/cov/<ULID>`とする。",
+              "statement": "選択Testの実行とTestを選ばない実行のカバレッジプロファイルは、それぞれ別の`.verify/cache/cov/<ULID>`へ出力する。",
               "description": "project root 配下の出力は Execution State の manifest（DES-623）に入り、実行前後の比較で E-EXEC-004 になるため、`.verify/` の配下に置く（DES-455 の `cache/cov/<ULID>.json` と同じ置き場）。",
               "derives_from": [
                 "BD-354"
@@ -62418,6 +62496,22 @@
               "id": "DES-676",
               "statement": "Testを選ばない実行で、宣言targetのsource範囲に開始位置が入るblockの実行回数が1以上の場合、そのtargetは`UNKNOWN`とする。",
               "description": "init 関数、パッケージ変数の初期化、TestMain での実行は、Test による到達と区別できない。",
+              "derives_from": [
+                "BD-354",
+                "DS-1406"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  27,
+                  27
+                ]
+              }
+            },
+            {
+              "id": "DES-679",
+              "statement": "Testを選ばない実行がカバレッジプロファイルを残さなかった場合、またはその`go test`が0以外の終了コードで終わった場合は、その実行の実行回数を0と読まず、選択Testの宣言targetをすべて`UNKNOWN`とする。",
               "derives_from": [
                 "BD-354",
                 "DS-1406"
