@@ -56,6 +56,10 @@
 //!   assert's message argument, or in tokens that do not parse as expressions
 //!   makes DA-003 `Unknown`. A bare reference or a path prefix (`name::item`) is
 //!   not a call there, as it is not a call site outside a macro.
+//!   Outside macros, the target's name as an expression path that is not a direct
+//!   call's callee (`(name)(..)`, `let f = name;`, `apply(name)`) may be an indirect
+//!   call that is not followed, so it makes DA-003 `Unknown` too (#288; derivation
+//!   from DS-615 / DS-1680).
 //! - §7.2.1's cross-Test delegation-chain search (DA-003/DA-006's "照合の
 //!   委譲先") is not implemented: this capability never confirms that a
 //!   delegation target terminates (DS-643). For DA-006 it only recognizes
@@ -554,9 +558,9 @@ fn da_003_result_unverified(
         return DaVerdict::Unknown(
             "a declared target is called in the tokens of a macro invocation that is not read \
              as a call whose result an assert checks (a macro other than an assert, an \
-             assert's message argument, or tokens that do not parse as expressions), so \
-             whether its result is verified is neither proven nor refuted (DS-615, DS-651, \
-             DS-1680)"
+             assert's message argument, or tokens that do not parse as expressions), or its \
+             name is used as a value (an indirect call), so whether it is called and whether \
+             its result is verified is neither proven nor refuted (DS-615, DS-651, DS-1680)"
                 .to_owned(),
         );
     }
@@ -890,7 +894,8 @@ struct MacroUse {
     verified_method: bool,
     /// A call-shaped use of the name where it is not read as a call whose result
     /// is checked: in a macro other than an assert, in an assert's message
-    /// argument or in tokens that do not parse as expressions.
+    /// argument or in tokens that do not parse as expressions; or the name used as
+    /// a value outside a macro (`ValueUseVisitor`).
     opaque: bool,
 }
 
@@ -918,7 +923,50 @@ fn macro_target_use(text: &str, symbol: &str) -> MacroUse {
         found: MacroUse::default(),
     };
     visitor.visit_item_fn(&function);
+    let mut values = ValueUseVisitor {
+        symbol,
+        found: false,
+    };
+    values.visit_item_fn(&function);
+    visitor.found.opaque |= values.found;
     visitor.found
+}
+
+/// Derivation (not stated in DS-615 / DS-623 / DS-1680): the target's name as an
+/// expression path that is not the callee of a direct call (`(name)(..)`,
+/// `let f = name;`, `apply(name)`, `Type::name` passed as a value) may be called
+/// later through another name, which this capability does not follow. It is
+/// `opaque`, like a call hidden in macro tokens: UNKNOWN, not "not called". A
+/// `use`, a type, a path prefix, a field, a method name and a string are not
+/// expression paths of the target. Inside macro tokens only a call-shaped name is
+/// read (`tokens_call_ident`), so a bare reference there is not a value use.
+struct ValueUseVisitor<'a> {
+    symbol: &'a str,
+    found: bool,
+}
+
+impl<'ast> Visit<'ast> for ValueUseVisitor<'_> {
+    fn visit_expr_call(&mut self, node: &'ast syn::ExprCall) {
+        // A path callee is a direct call, read by `find_call_sites`; any other
+        // callee expression (`(name)`) is visited as a value.
+        if !matches!(node.func.as_ref(), syn::Expr::Path(_)) {
+            self.visit_expr(&node.func);
+        }
+        for argument in &node.args {
+            self.visit_expr(argument);
+        }
+    }
+
+    fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
+        if node
+            .path
+            .segments
+            .last()
+            .is_some_and(|segment| segment.ident == self.symbol)
+        {
+            self.found = true;
+        }
+    }
 }
 
 struct MacroUseVisitor<'a> {
@@ -2530,6 +2578,65 @@ mod tests {
             "{:?}",
             analysis.da_003
         );
+    }
+
+    /// #288: the target's name as a value (not the callee of a direct call) may be
+    /// an indirect call, which is not read: UNKNOWN, never PASS.
+    /// @vtest.id TEST-ORACLE-DA-003-TARGET-USED-AS-VALUE-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent target の名前が直接呼出の callee 以外の値の位置(括弧つきの callee、let への代入、引数、配列、型付きの束縛、パス)に現れ、target と無関係な assert_eq! が本体にある Test は、DA-003 が UNKNOWN になり合成結果が PASS にならないことを確認する
+    #[test]
+    fn a_target_used_as_a_value_is_unknown_not_pass() {
+        for text in [
+            "#[test]\nfn t() {\n    (double)(2);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let f = double;\n    f(2);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    apply(double);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let f: fn(i32) -> i32 = double;\n    let _ = f(2);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let v = [double];\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let r: Vec<_> = xs.iter().map(Calc::double).collect();\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let f = double as fn(i32) -> i32;\n    assert_eq!(f(2), 4);\n}\n",
+            "#[test]\nfn t() {\n    let f = double;\n    assert_eq!(f(2), 4);\n}\n",
+            "#[test]\nfn t() {\n    let f = double;\n}\n",
+        ] {
+            let analysis = analyze(text, &["double".to_owned()], &[]);
+            let (is_fail, is_unknown, basis) = compose(&analysis);
+            assert!(is_fail || is_unknown, "{text}: composed to PASS: {basis:?}");
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// A name that is not a value use of the target is not an indirect call: a
+    /// `use`, a type, a path prefix, a field, a method name, a string, and a
+    /// direct call that is verified stay no violation.
+    /// @vtest.id TEST-ORACLE-DA-003-NON-VALUE-NAME-IS-NOT-AN-INDIRECT-CALL
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent use 文、型、パスの前置、フィールド名、メソッド名、文字列に現れる target の名前と、検証された直接呼出に併存する値の使用は、間接呼出と読まず DA-003 が違反なしのままであることを確認する
+    #[test]
+    fn a_name_that_is_not_a_value_use_is_not_an_indirect_call() {
+        for text in [
+            "#[test]\nfn t() {\n    use helpers::double;\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let x: double::Kind = other();\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let x: Vec<double> = other();\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let x = double::VALUE;\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let x = s.double;\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let x = s.double_it();\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let x = \"double\";\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    assert_eq!(double(2), 4);\n}\n",
+            "#[test]\nfn t() {\n    let r = double(2);\n    assert_eq!(r, 4);\n    let f = double;\n}\n",
+        ] {
+            let analysis = analyze(text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::NoViolation),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
     }
 
     /// A SrcId target has no call symbol, so its call cannot be found: the
