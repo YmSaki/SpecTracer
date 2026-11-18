@@ -1,0 +1,11 @@
+id: VO-DOC-DERIVES-FROM-APPLIES-ALL-TOP-LEVEL-NODES
+parent: null
+derives_from:
+  - doc: DS-1686
+claim: '`--derives-from` を指定した場合、登録する document が持つ `request`/`require`/`spec`/`detailed_spec`/`basic_design`/`design` いずれかの層のトップレベルノードすべてへ、同一の id 並びを一律に適用する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

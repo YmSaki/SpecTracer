@@ -1,0 +1,11 @@
+id: VO-MCP-VO-APPROVE-ALIAS
+parent: null
+derives_from:
+  - doc: SPEC-410
+claim: "`vo_approve` は `approval_create` に `subject: { type: vo, id }` を与えた場合の別名であり、独自の意味論を持たない。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T12:00:00+09:00
+updated: 2026-11-03T12:00:00+09:00

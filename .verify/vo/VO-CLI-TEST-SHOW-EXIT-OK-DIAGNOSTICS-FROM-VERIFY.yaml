@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-SHOW-EXIT-OK-DIAGNOSTICS-FROM-VERIFY
+parent: null
+derives_from:
+  - doc: DS-1828
+claim: '`vtest test show <Test ID>` は、Test を1件に特定できた場合、終了コード・`ok`・`diagnostics` を、同じ条件の `vtest verify --test <Test ID>` と同じ値にする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

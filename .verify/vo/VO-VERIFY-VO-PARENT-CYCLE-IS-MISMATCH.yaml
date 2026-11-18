@@ -1,0 +1,11 @@
+id: VO-VERIFY-VO-PARENT-CYCLE-IS-MISMATCH
+parent: null
+derives_from:
+  - doc: DS-302
+claim: VOのparentが循環している場合はMISMATCHとする
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-10T00:00:00+09:00
+updated: 2026-09-10T00:00:00+09:00

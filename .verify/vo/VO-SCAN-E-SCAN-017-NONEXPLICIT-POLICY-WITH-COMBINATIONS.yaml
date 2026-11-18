@@ -1,0 +1,11 @@
+id: VO-SCAN-E-SCAN-017-NONEXPLICIT-POLICY-WITH-COMBINATIONS
+parent: null
+derives_from:
+  - doc: DS-419
+claim: combinationsが空listでないのにcoverage_policyがexplicit以外（independent-axes/full-product/null）である場合、当該VOレコードはcombinations不正とし、E-SCAN-017を報告して当該VOのchain_integrityをMISMATCHとする。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

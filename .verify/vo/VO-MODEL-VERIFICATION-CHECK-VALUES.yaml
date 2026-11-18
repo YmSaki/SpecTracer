@@ -1,0 +1,11 @@
+id: VO-MODEL-VERIFICATION-CHECK-VALUES
+parent: null
+derives_from:
+  - doc: REQ-034
+claim: 検証はchain_integrity / orphan_detection / target_binding / oracle_presenceの4検査のみで行う。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

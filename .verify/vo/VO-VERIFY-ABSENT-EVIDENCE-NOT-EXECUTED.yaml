@@ -1,0 +1,11 @@
+id: VO-VERIFY-ABSENT-EVIDENCE-NOT-EXECUTED
+parent: null
+derives_from:
+  - doc: DS-278
+claim: 'Evidenceが存在しない場合は実行関連を `NO_EVIDENCE`（診断NOT_EXECUTED）とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-10T12:00:00+09:00

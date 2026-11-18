@@ -1,7 +1,9 @@
 # Security Policy
 
-SpecTracer is an OSS verification tool. Please do not disclose a vulnerability
-or include sensitive project data in a public issue.
+SpecTracer is an OSS verification tool. Send vulnerability details and sensitive
+project data through private reporting, because a public issue is visible to
+everyone, including attackers, before a fix exists. When private reporting is
+unavailable, follow the fallback below.
 
 ## Supported versions
 
@@ -19,8 +21,8 @@ the smallest reproducible example, impact, and any suggested mitigation. Please
 remove credentials, proprietary source, and personal data from the report.
 
 If private reporting is unavailable, open a public issue containing only the
-word “security” and a request for a private contact channel; do not include
-exploit details there.
+word “security” and a request for a private contact channel; share exploit details
+through the private channel once it is agreed.
 
 Maintainers will acknowledge a report when practical, investigate it against the
 canonical source and release artifacts, and document a fix or mitigation in the

@@ -1,0 +1,11 @@
+{
+  "schema_version": "0.1",
+  "root": [],
+  "request": [],
+  "require": [],
+  "spec": [],
+  "detailed_spec": [],
+  "basic_design": [],
+  "design": [],
+  "surplus_top_level_field": "should be rejected"
+}

@@ -18,6 +18,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Pull requests into develop: only spec/* branches may change the specification,
+  # and a spec/* branch may not change code or tests. See DEVELOPMENT.md.
+  spec-guard:
+    if: github.event_name == 'pull_request' && github.base_ref == 'develop'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Enforce specification-change path rules
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash .github/scripts/spec-guard.sh
+
   check:
     runs-on: ubuntu-latest
     steps:

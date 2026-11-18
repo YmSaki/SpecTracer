@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-LIST-QUERY-TEXT-OUTPUT
+parent: null
+derives_from:
+  - doc: DS-1829
+claim: '`vtest test list` と `vtest test query` の `--format text` は、JSON 出力の `data.tests` の要素ごとに、同じ順で、当該 Test の Test ID を含む1行を標準出力へ出力し、`--unregistered` を指定した場合は `data.unmanaged` の要素ごとに、同じ順で、当該要素の path と locator を含む1行を標準出力へ出力し、終了コードは `--format json` と同じである。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

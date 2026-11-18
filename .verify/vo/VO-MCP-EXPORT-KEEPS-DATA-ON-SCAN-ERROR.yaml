@@ -1,0 +1,11 @@
+id: VO-MCP-EXPORT-KEEPS-DATA-ON-SCAN-ERROR
+parent: null
+derives_from:
+  - doc: DS-1776
+claim: '`export` は、scan が完了した場合、severity が error の診断があって `ok` が `false` でも、`data` にテスト仕様書を含める。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

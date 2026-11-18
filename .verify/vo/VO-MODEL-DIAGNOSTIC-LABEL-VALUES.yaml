@@ -1,0 +1,11 @@
+id: VO-MODEL-DIAGNOSTIC-LABEL-VALUES
+parent: null
+derives_from:
+  - doc: DS-847
+claim: 診断ラベル（MISSING / NOT_EXECUTED / NOT_CHECKED / STALE）は順位に用いず併記する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-ADAPTER-WIRE-CODEC-COMPAT-FIELDS-RUST-ONLY
+parent: null
+derives_from:
+  - doc: DS-1574
+claim: 'Test JSON writerは`execution`を常に出力し、`rust-cargo` Testについてだけwire codecが互換field `filter` / `package` / `test_target`を追加する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T00:00:00+09:00
+updated: 2026-11-03T00:00:00+09:00

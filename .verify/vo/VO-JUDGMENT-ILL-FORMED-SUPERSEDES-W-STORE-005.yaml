@@ -1,0 +1,11 @@
+id: VO-JUDGMENT-ILL-FORMED-SUPERSEDES-W-STORE-005
+parent: null
+derives_from:
+  - doc: DS-556
+claim: "W-STORE-005はwarningであり、判断記録または承認レコードの `supersedes` の参照先を解決できない、対象が一致しない、またはsupersede関係が循環し、当該recordが実効集合へ寄与しないことを意味する（§8.5・§3.5）。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-08T12:00:00+09:00
+updated: 2026-11-08T12:00:00+09:00

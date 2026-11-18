@@ -1,0 +1,11 @@
+id: VO-SCAN-RUST-DISCOVERY-RESPECTS-GITIGNORE
+parent: null
+derives_from:
+  - doc: BD-127
+claim: Rust sourceの走査にはignoreクレートを使用し、.gitignore準拠の走査を行う。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

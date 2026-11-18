@@ -1,0 +1,347 @@
+//! `vtest approval create|withdraw|show`: the sole canonical entry point for
+//! Approval records (BD-304/305/306), per 本冊 §3.5 and DS-1050〜DS-1062 /
+//! DS-1461〜DS-1490 (§18.3.7).
+//!
+//! `--subject-type judgment` (DS-1052) is explicitly rejected rather than
+//! silently mishandled: it requires reading a `.verify/decisions/` judgment
+//! record, and no judgment-record domain exists anywhere in this codebase
+//! (see `vtest-store::approval`'s module doc comment for the full
+//! disclosure). This is a real, disclosed scope boundary, not upstream
+//! silence — DS-1052 says exactly what a judgment-typed record must contain,
+//! this codebase just does not yet have the domain that statement depends on.
+
+use crate::envelope::{record_failure, Failure};
+/// The record `create` and `withdraw` return.
+pub use vtest_store::records::ApprovalRecord;
+use vtest_store::{
+    approval::{
+        build_document_node_index, document_dependencies, effective_approval, read_all_approvals,
+        read_all_vos, vo_dependencies, EffectiveApprovalState,
+    },
+    new_record_id,
+    records::{Approver, DependencyRecord},
+    write_new_record, StoreError, VerifyLayout,
+};
+
+#[derive(Debug, thiserror::Error)]
+pub enum ApprovalOpError {
+    /// DS-1052 requires a judgment-record domain this codebase does not
+    /// have (see module doc comment).
+    #[error(
+        "--subject-type judgment is not implemented: it requires reading a .verify/decisions/ \
+         judgment record, and no judgment-record domain exists in this codebase yet"
+    )]
+    JudgmentSubjectTypeUnsupported,
+    /// DS-1058: the subject (or, for `withdraw`, the superseded record)
+    /// cannot be resolved completely/currently.
+    #[error("E-APPROVAL-001: {0}")]
+    UnresolvedSubject(String),
+    /// DS-1059: an out-of-domain value, a subject_type/subject_id mismatch,
+    /// or an invalid `supersedes` reference.
+    #[error("E-APPROVAL-002: {0}")]
+    InvalidRequest(String),
+    #[error("store error: {0}")]
+    Store(#[from] StoreError),
+}
+
+impl ApprovalOpError {
+    /// The exit code and diagnostic both entrypoints report.
+    ///
+    /// DS-1058: a `judgment` subject can never resolve, because no
+    /// judgment-record domain exists in this codebase (see the enum's doc
+    /// comment); that is the unresolved-subject case (E-APPROVAL-001), not
+    /// an input-validation failure (E-OP-001).
+    pub fn failure(&self) -> Failure {
+        match self {
+            Self::JudgmentSubjectTypeUnsupported | Self::UnresolvedSubject(_) => {
+                Failure::usage("E-APPROVAL-001", self.to_string())
+            }
+            Self::InvalidRequest(_) => Failure::usage("E-APPROVAL-002", self.to_string()),
+            Self::Store(error) => record_failure(error),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct CreateArgs {
+    pub subject_type: String,
+    pub subject_id: String,
+    pub approved_state: String,
+    pub approver_kind: String,
+    pub approver_id: String,
+    pub approver_model: Option<String>,
+    pub basis: Vec<String>,
+    pub supersedes: Vec<String>,
+}
+
+/// Resolves `subject_type`/`subject_id` to their current `(subject_hash,
+/// dependencies)` (DS-1050/1051, DS-1480/1487). Returns
+/// `UnresolvedSubject` (E-APPROVAL-001) when the subject does not currently
+/// exist, and `JudgmentSubjectTypeUnsupported` for `subject_type ==
+/// "judgment"`.
+pub(crate) fn resolve_subject(
+    layout: &VerifyLayout,
+    subject_type: &str,
+    subject_id: &str,
+) -> Result<(vtest_model::ContentHash, Vec<DependencyRecord>), ApprovalOpError> {
+    match subject_type {
+        "vo" => {
+            let vos = read_all_vos(layout)?;
+            let Some(record) = vos.get(subject_id) else {
+                return Err(ApprovalOpError::UnresolvedSubject(format!(
+                    "no VO with id '{subject_id}' exists"
+                )));
+            };
+            let hash = vtest_model::vo_subject_hash(record);
+            let doc_index = build_document_node_index(layout)?;
+            // DS-1058: a dangling parent / derives_from or a cycle in the
+            // dependency closure means the subject cannot be resolved
+            // completely, so no approval can bind to it.
+            let dependencies =
+                vo_dependencies(&vos, &doc_index, &vtest_model::VoId::new(subject_id))
+                    .map_err(|error| ApprovalOpError::UnresolvedSubject(error.to_string()))?;
+            Ok((hash, dependencies))
+        }
+        "document" => {
+            let doc_index = build_document_node_index(layout)?;
+            let Some((hash, _)) = doc_index.get(subject_id) else {
+                return Err(ApprovalOpError::UnresolvedSubject(format!(
+                    "no document node with id '{subject_id}' exists"
+                )));
+            };
+            let dependencies = document_dependencies(&doc_index, subject_id)
+                .map_err(|error| ApprovalOpError::UnresolvedSubject(error.to_string()))?;
+            Ok((hash.clone(), dependencies))
+        }
+        "judgment" => Err(ApprovalOpError::JudgmentSubjectTypeUnsupported),
+        other => Err(ApprovalOpError::InvalidRequest(format!(
+            // "judgment" is a valid domain value (DS-1051/1480) but is
+            // rejected above via `JudgmentSubjectTypeUnsupported`
+            // (E-APPROVAL-001), not this E-APPROVAL-002 branch — do not
+            // list it here as if this codebase currently accepted it.
+            "subject_type must be vo or document; got {other} (judgment is a valid domain \
+             value but is not implemented — see JudgmentSubjectTypeUnsupported)"
+        ))),
+    }
+}
+
+/// DS-1059/1474: each `--supersedes <id>` must name an existing approval
+/// record for the *same* subject, and must not self-reference (impossible
+/// here since `id` is generated after this check, but kept symmetric with
+/// `withdraw`'s equivalent check).
+fn validate_supersedes(
+    layout: &VerifyLayout,
+    subject_type: &str,
+    subject_id: &str,
+    supersedes: &[String],
+) -> Result<(), ApprovalOpError> {
+    if supersedes.is_empty() {
+        return Ok(());
+    }
+    let existing = read_all_approvals(layout)?;
+    for target_id in supersedes {
+        let Some(target) = existing.iter().find(|record| &record.id == target_id) else {
+            return Err(ApprovalOpError::InvalidRequest(format!(
+                "supersedes target '{target_id}' does not exist"
+            )));
+        };
+        if target.subject_type != subject_type || target.subject != subject_id {
+            return Err(ApprovalOpError::InvalidRequest(format!(
+                "supersedes target '{target_id}' does not target the same subject"
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// Shared construction path for `create` and `withdraw` — BD-307:
+/// "`withdraw`…は`state: withdrawn`かつ`supersedes: [approval-id]`の
+/// `create`と同一のレコードを生成する" means withdraw is not a distinct
+/// operation with its own resolution rules; it *is* `create`, called with
+/// the target record's own `subject_type`/`subject_id` and a fixed
+/// `approved_state`/`supersedes`. In particular `subject_hash`/
+/// `dependencies` are always freshly resolved here (DS-1058 applies
+/// identically to both callers), never copied from a prior record.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "takes the fields of the Approval record one to one"
+)]
+fn build_and_write(
+    layout: &VerifyLayout,
+    subject_type: String,
+    subject_id: String,
+    approved_state: String,
+    judgment_ref: Option<String>,
+    approver_kind: String,
+    approver_id: String,
+    approver_model: Option<String>,
+    basis: Vec<String>,
+    supersedes: Vec<String>,
+) -> Result<ApprovalRecord, ApprovalOpError> {
+    // DS-1676: the existing approval set must be readable in full before a
+    // new record is added on top of it; an unreadable record is an error,
+    // never silently skipped.
+    read_all_approvals(layout)?;
+    let (subject_hash, dependencies) = resolve_subject(layout, &subject_type, &subject_id)?;
+    validate_supersedes(layout, &subject_type, &subject_id, &supersedes)?;
+    let record = ApprovalRecord {
+        id: new_record_id(),
+        subject_type,
+        subject: subject_id,
+        subject_hash,
+        dependencies,
+        judgment_ref,
+        approver: Approver {
+            kind: approver_kind,
+            id: approver_id,
+            model: approver_model,
+        },
+        approved_state,
+        // DS-1055/1196: `basis[]` is a bare list of free-form reference
+        // strings ("根拠参照") -- no {kind, ref} pair, no `kind` value
+        // domain (team-lead ruling 2026-09-10; the earlier {kind, ref}
+        // shape and its hardcoded "ref" constant were both an unfounded
+        // downstream invention, see `reports/closure-trace.md`'s
+        // stopped_on history).
+        basis,
+        supersedes,
+        approved_at: vtest_store::records::now_rfc3339(),
+    };
+    let yaml = record
+        .to_yaml()
+        .map_err(|error| ApprovalOpError::InvalidRequest(error.to_string()))?;
+    let path = layout.approvals_dir().join(format!("{}.yaml", record.id));
+    write_new_record(&path, &yaml)?;
+    Ok(record)
+}
+
+pub fn create(layout: &VerifyLayout, args: CreateArgs) -> Result<ApprovalRecord, ApprovalOpError> {
+    build_and_write(
+        layout,
+        args.subject_type,
+        args.subject_id,
+        args.approved_state,
+        None,
+        args.approver_kind,
+        args.approver_id,
+        args.approver_model,
+        args.basis,
+        args.supersedes,
+    )
+}
+
+#[derive(Debug)]
+pub struct WithdrawArgs {
+    pub approval_id: String,
+    pub approver_kind: String,
+    pub approver_id: String,
+    pub approver_model: Option<String>,
+    pub basis: Vec<String>,
+}
+
+/// BD-307: "`withdraw`…は`state: withdrawn`かつ`supersedes: [approval-id]`
+/// の`create`と同一のレコードを生成する" — withdraw goes through the exact
+/// same `build_and_write` path `create` does, on the target record's own
+/// `subject_type`/`subject_id`: `subject_hash`/`dependencies` are resolved
+/// fresh against the *current* subject state (DS-1058 applies to withdraw
+/// identically to create — "対象…を完全・current に解決できない場合は
+/// E-APPROVAL-001"), not copied from the target record. This mirrors
+/// `create`'s own re-resolution and closes a previous divergence where
+/// `withdraw` alone bypassed E-APPROVAL-001 by copying the target's stale
+/// binding verbatim.
+pub fn withdraw(
+    layout: &VerifyLayout,
+    args: WithdrawArgs,
+) -> Result<ApprovalRecord, ApprovalOpError> {
+    let existing = read_all_approvals(layout)?;
+    let Some(target) = existing.iter().find(|record| record.id == args.approval_id) else {
+        return Err(ApprovalOpError::InvalidRequest(format!(
+            "supersedes target '{}' does not exist",
+            args.approval_id
+        )));
+    };
+    let subject_type = target.subject_type.clone();
+    let subject_id = target.subject.clone();
+    build_and_write(
+        layout,
+        subject_type,
+        subject_id,
+        "withdrawn".to_owned(),
+        None,
+        args.approver_kind,
+        args.approver_id,
+        args.approver_model,
+        args.basis,
+        vec![args.approval_id],
+    )
+}
+
+#[derive(Debug)]
+pub struct ShowResult {
+    pub records: Vec<ApprovalRecord>,
+    pub effective_state: EffectiveApprovalState,
+    /// DS-556: W-STORE-005 for records excluded from the effective set
+    /// because their `supersedes` graph is invalid.
+    pub diagnostics: Vec<vtest_model::Diagnostic>,
+}
+
+/// DS-1057: returns the subject's full approval-record history plus its
+/// current effective state (`draft` / `approved`). If the subject cannot
+/// currently be resolved (DS-1058's condition, at read time rather than
+/// write time), no record can validly bind to it (DS-1467's subject_hash
+/// match can never hold), so the effective state is `draft` — this follows
+/// from DS-1467 rather than inventing new show-specific behavior.
+pub fn show(
+    layout: &VerifyLayout,
+    subject_type: &str,
+    subject_id: &str,
+) -> Result<ShowResult, ApprovalOpError> {
+    let all = read_all_approvals(layout)?;
+    let matching: Vec<ApprovalRecord> = all
+        .into_iter()
+        .filter(|record| record.subject_type == subject_type && record.subject == subject_id)
+        .collect();
+
+    let (effective_state, diagnostics) = match resolve_subject(layout, subject_type, subject_id) {
+        Ok((hash, dependencies)) => {
+            effective_approval(&matching, subject_type, subject_id, &hash, &dependencies)
+        }
+        Err(ApprovalOpError::UnresolvedSubject(_)) => (EffectiveApprovalState::Draft, Vec::new()),
+        Err(other) => return Err(other),
+    };
+
+    Ok(ShowResult {
+        records: matching,
+        effective_state,
+        diagnostics,
+    })
+}
+
+/// The `data` of a created or withdrawn approval, and one entry of `show`'s
+/// `records`.
+pub fn record_json(record: &ApprovalRecord) -> serde_json::Value {
+    serde_json::json!({
+        "id": record.id,
+        "subject_type": record.subject_type,
+        "subject": record.subject,
+        "approved_state": record.approved_state,
+        "supersedes": record.supersedes,
+        "approved_at": record.approved_at,
+    })
+}
+
+/// The name `show` reports for the effective state.
+pub fn effective_state_name(state: &EffectiveApprovalState) -> &'static str {
+    match state {
+        EffectiveApprovalState::Draft => "draft",
+        EffectiveApprovalState::Approved => "approved",
+    }
+}
+
+/// The `data` of `approval show` / `approval_get`.
+pub fn show_json(result: &ShowResult) -> serde_json::Value {
+    serde_json::json!({
+        "records": result.records.iter().map(record_json).collect::<Vec<_>>(),
+        "effective_state": effective_state_name(&result.effective_state),
+    })
+}

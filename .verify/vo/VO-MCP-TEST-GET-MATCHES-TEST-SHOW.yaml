@@ -1,0 +1,11 @@
+id: VO-MCP-TEST-GET-MATCHES-TEST-SHOW
+parent: null
+derives_from:
+  - doc: DS-1831
+claim: '`test_get` の結果は、同じプロジェクトルート・同じ実行環境・同じ repository 内容に対する `vtest test show <id> --format json` の標準出力の JSON と、`ok`・`data`・`diagnostics` が同じ値である。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

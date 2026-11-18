@@ -1,0 +1,11 @@
+id: VO-EXEC-EVIDENCE-MODEL-RUNNER-NEUTRAL
+parent: null
+derives_from:
+  - doc: DS-331
+claim: '検証契約・ID・ハッシュ・Evidence・状態・集約の概念モデルは、言語およびtest runnerに依存しない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T00:00:00+09:00
+updated: 2026-11-03T00:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-SHIPPED-EQUALS-IN-PROCESS
+parent: null
+derives_from:
+  - doc: DS-1811
+claim: managed Test、管理宣言を持たない Test construct、解決できない参照をそれぞれ1件以上持つ `rust-cargo` adapter だけのプロジェクトで、配布物の `vtest export --format json` の標準出力の `data` は、同じプロジェクトルート・同じ実行環境・配布物と同じ registry で in-process に呼んだ export の操作が返す `data` と JSON の値として完全に一致し、配布物の `vtest export --format md` の標準出力は、その export の操作が返した `data` へ CLI の Markdown 文書を生成する部品を適用した文書と byte 単位で同一である。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

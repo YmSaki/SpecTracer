@@ -1,0 +1,11 @@
+id: VO-DOC-UPDATE-RECOMPUTES-HASH
+parent: null
+derives_from:
+  - doc: DS-1684
+claim: --updateは既存documentのノード木を現ファイルで再読み込みし、document subject hashを再計算して更新する
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

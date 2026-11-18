@@ -1,0 +1,11 @@
+id: VO-CLI-VO-COMBINATIONS-REJECTED
+parent: null
+derives_from:
+  - doc: DS-1318
+claim: "`vo add` / `vo edit` / MCP `vo_upsert` は上記の各入力を受理時に E-SCAN-017・終了コード 2 で拒否し、レコードを作成・更新しない（拒否後に scan したエンティティ集合は操作前と同一）。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T12:00:00+09:00
+updated: 2026-11-03T12:00:00+09:00

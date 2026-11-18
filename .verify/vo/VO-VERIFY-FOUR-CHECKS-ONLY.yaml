@@ -1,0 +1,11 @@
+id: VO-VERIFY-FOUR-CHECKS-ONLY
+parent: null
+derives_from:
+  - doc: SPEC-053
+claim: '検証は `chain_integrity` / `orphan_detection` / `target_binding` / `oracle_presence` の4検査のみで行う。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-10T12:00:00+09:00

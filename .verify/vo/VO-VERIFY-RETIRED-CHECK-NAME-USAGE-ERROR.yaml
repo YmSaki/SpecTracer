@@ -1,0 +1,11 @@
+id: VO-VERIFY-RETIRED-CHECK-NAME-USAGE-ERROR
+parent: null
+derives_from:
+  - doc: SPEC-400
+claim: 旧12項目モデルの検査名（spec_coverage等）は検査として存在せず、--itemsに指定するとPASSでも黙って除外されるのでもなく使用エラーになる
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

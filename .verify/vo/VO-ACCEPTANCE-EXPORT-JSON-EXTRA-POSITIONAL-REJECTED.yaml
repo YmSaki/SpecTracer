@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-JSON-EXTRA-POSITIONAL-REJECTED
+parent: null
+derives_from:
+  - doc: DS-1802
+claim: 余分な位置引数を与えた `vtest export --format json` は、終了コード2を返し、標準出力へ何も出力せず、引数不正の内容を標準エラーへ出力する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

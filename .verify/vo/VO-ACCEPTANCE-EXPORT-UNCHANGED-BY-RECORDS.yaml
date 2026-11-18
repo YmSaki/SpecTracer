@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-UNCHANGED-BY-RECORDS
+parent: null
+derives_from:
+  - doc: DS-1794
+claim: 有効な Evidence レコード、承認レコード、判断記録を追加または削除しても、`--format json` の `data` と `--format md` の標準出力は byte 単位で変わらない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

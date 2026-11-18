@@ -1,0 +1,11 @@
+id: VO-DOC-ADD-UPDATE-PARTITION
+parent: null
+derives_from:
+  - doc: SPEC-380
+claim: 正典編集はadd --updateで行うため、既存idへの--update無しadd（新規登録の重複）と未登録idへの--update（存在しない対象の更新）はいずれも拒否される
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

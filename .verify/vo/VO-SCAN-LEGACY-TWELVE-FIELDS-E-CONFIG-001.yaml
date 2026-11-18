@@ -1,0 +1,11 @@
+id: VO-SCAN-LEGACY-TWELVE-FIELDS-E-CONFIG-001
+parent: null
+derives_from:
+  - doc: DS-1108
+claim: '旧12項目の列挙は version を問わず E-CONFIG-001 とし、version 1 の field 欠落だけを固定4検査へ具体化する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

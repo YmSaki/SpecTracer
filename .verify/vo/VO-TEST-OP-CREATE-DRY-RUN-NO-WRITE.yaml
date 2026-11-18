@@ -1,0 +1,11 @@
+id: VO-TEST-OP-CREATE-DRY-RUN-NO-WRITE
+parent: null
+derives_from:
+  - doc: DS-1561
+claim: '`create --dry-run` は挿入内容と挿入位置を提示し、ファイルを変更しない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00

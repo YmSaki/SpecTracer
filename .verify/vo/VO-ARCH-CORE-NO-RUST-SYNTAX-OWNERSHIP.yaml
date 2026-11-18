@@ -1,0 +1,11 @@
+id: VO-ARCH-CORE-NO-RUST-SYNTAX-OWNERSHIP
+parent: null
+derives_from:
+  - doc: BD-114
+claim: '`vtest-scan`、`vtest-audit`、`vtest-exec` は、それぞれが `syn`、`quote`、`rustc-demangle`、Cargo commandを直接所有しない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00

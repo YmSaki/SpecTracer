@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-SPEC-MARKDOWN-HEADINGS
+parent: null
+derives_from:
+  - doc: DS-1748
+claim: 'Markdown 出力は、`# Test Specification`・`## Unmanaged tests`・`## Unresolved references`・`## Tests by VO`・`## Tests by path`・`## Tests` の見出し行を、この順に、要素が0件の節も含めて常に出力する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

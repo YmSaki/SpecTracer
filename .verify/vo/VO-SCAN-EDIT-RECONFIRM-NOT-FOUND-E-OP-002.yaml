@@ -1,0 +1,11 @@
+id: VO-SCAN-EDIT-RECONFIRM-NOT-FOUND-E-OP-002
+parent: null
+derives_from:
+  - doc: DS-1253
+claim: 位置の再確認で対象constructが見つからない場合はE-OP-002とする（DS-1253、別紙A §15.1・別紙A:593）。`rescan_current_test` はこの場合`None`を返し、`edit_test`はファイル書き込み前にE-OP-002で拒否する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

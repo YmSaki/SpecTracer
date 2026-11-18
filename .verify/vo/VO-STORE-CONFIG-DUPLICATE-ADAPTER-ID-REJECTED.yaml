@@ -1,0 +1,13 @@
+id: VO-STORE-CONFIG-DUPLICATE-ADAPTER-ID-REJECTED
+parent: null
+derives_from:
+  - doc: DS-1662
+claim: >-
+  `E-CONFIG-001`はerrorであり、`adapters`（設定内のadapter ID重複、同一adapter内のroot重複、
+  未知adapter）が現在のconfig invariantに違反することを含む。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

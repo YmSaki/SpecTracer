@@ -1,0 +1,11 @@
+id: VO-REPORT-SRC-NODE-IS-CANONICAL-LOCATOR
+parent: null
+derives_from:
+  - doc: DS-589
+claim: "Source Target identityは「宣言されたTargetRef（Locator / SrcId）→ resolve（§6.1）→ canonical Locator」の一方向でだけ確定する。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-06T12:00:00+09:00
+updated: 2026-11-06T12:00:00+09:00

@@ -1,0 +1,24 @@
+{
+  "schema_version": "0.1",
+  "root": [
+    {
+      "id": "ROOT-048",
+      "statement": "1文書を1jsonに変換する。つまり、要求、要件、基本仕様、詳細仕様、基本設計、詳細設計なら6ファイル。詳細設計が複数あるなら増える。",
+      "description": "Owner 裁定 2026-09-07（Issue #14 コメント）。ファイルの単位は文書であって層でもノードでもない。同じ層に複数の文書があればファイルも複数になる。",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/14#issuecomment-5562815893",
+        "heading": "issuecomment-5562815893",
+        "lines": [
+          1,
+          1
+        ]
+      }
+    }
+  ],
+  "request": [],
+  "require": [],
+  "spec": [],
+  "detailed_spec": [],
+  "basic_design": [],
+  "design": []
+}

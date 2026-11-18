@@ -1,0 +1,11 @@
+id: VO-VERIFY-NO-EVIDENCE-NOT-EXECUTED
+parent: null
+derives_from:
+  - doc: DS-825
+claim: Evidenceが存在しない場合target_bindingはNO_EVIDENCE（診断NOT_EXECUTED）となる
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
+parent: null
+derives_from:
+  - doc: DES-599
+claim: 'hash inputの長さ前置は固定幅64bit符号なし整数のbig-endianでencodeする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

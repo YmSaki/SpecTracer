@@ -1,0 +1,11 @@
+id: VO-VERIFY-UNDEFINED-GATE-CANDIDATES
+parent: null
+derives_from:
+  - doc: DS-1154
+claim: 診断 message には指定名と定義済みゲート名の一覧を含め、MCP では §13.1 の `candidates` に定義済みゲート名を入れる。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T12:00:00+09:00
+updated: 2026-11-03T12:00:00+09:00

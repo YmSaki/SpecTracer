@@ -1,0 +1,13 @@
+id: VO-VERIFY-TARGET-BINDING-BOTH-CAPABILITIES-MISSING
+parent: null
+derives_from:
+  - doc: DS-847
+  - doc: DS-1581
+  - doc: DS-1582
+claim: 診断ラベル（MISSING / NOT_EXECUTED / NOT_CHECKED / STALE）は順位に用いず併記する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-12T00:00:00+09:00
+updated: 2026-11-03T12:00:00+09:00

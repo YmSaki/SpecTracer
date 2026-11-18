@@ -1,0 +1,11 @@
+id: VO-VERIFY-EMPTY-AGGREGATION-NOT-PASS
+parent: null
+derives_from:
+  - doc: DS-252
+claim: 子も評価済み検査も持たない集約地点は PASS に畳まれず、検証事実の欠落に対応する非 PASS 値として表示される
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-08T23:40:00+09:00

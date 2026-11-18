@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-005-EMPTY-TEST
+parent: null
+derives_from:
+  - doc: DS-625
+claim: DA-005は、関数本体に文が存在しないことをFAIL条件とする
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

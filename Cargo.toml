@@ -3,10 +3,14 @@ resolver = "2"
 members = [
     "crates/vtest-model",
     "crates/vtest-store",
+    "crates/vtest-adapter-api",
+    "crates/vtest-adapter-rust",
+    "crates/vtest-adapter-lexical",
+    "crates/vtest-adapter-synthetic",
     "crates/vtest-scan",
-    "crates/vtest-audit",
     "crates/vtest-exec",
     "crates/vtest-verify",
+    "crates/vtest-ops",
     "crates/vtest-cli",
     "crates/vtest-mcp",
 ]
@@ -29,3 +33,23 @@ sha2 = "0.10.9"
 syn = { version = "2.0.117", features = ["full", "extra-traits", "visit"] }
 thiserror = "2.0.17"
 toml = "0.8.23"
+yaml_serde = "0.10.7"
+
+# Rust の規則（AGENTS.md 8.1 / 8.2）のうち、機械的に検査できるもの。CI は
+# `cargo clippy ... -- -D warnings` でこれらを失敗として扱う。
+[workspace.lints.rust]
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+unwrap_used = "warn"
+allow_attributes_without_reason = "warn"
+redundant_clone = "warn"
+dbg_macro = "warn"
+undocumented_unsafe_blocks = "warn"
+match_wildcard_for_single_variants = "warn"
+# `as` は桁あふれと符号の変化を黙って通す。値を変えうる変換は `TryFrom` で書く。
+cast_possible_truncation = "warn"
+cast_possible_wrap = "warn"
+cast_sign_loss = "warn"
+cast_lossless = "warn"
+cast_precision_loss = "warn"

@@ -1,0 +1,11 @@
+id: VO-ADAPTER-REGISTRY-REJECTS-UNREGISTERED
+parent: null
+derives_from:
+  - doc: DS-1569
+claim: registryは未登録のadapter IDに対する解決要求を拒否する（解決結果を返さない）
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

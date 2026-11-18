@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-QUERY-TEST-JSON
+parent: null
+derives_from:
+  - doc: DS-1813
+claim: '`vtest test list`・`vtest test query`・`vtest test show` の JSON 出力は、Test を Test JSON（`execution` と `targets` の list を常に持つ。DS-966、DS-969）で表し、テスト仕様書の Test 項目（DS-1707）で表さない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

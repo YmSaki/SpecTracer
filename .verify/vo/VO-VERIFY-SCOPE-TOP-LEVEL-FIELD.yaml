@@ -1,0 +1,11 @@
+id: VO-VERIFY-SCOPE-TOP-LEVEL-FIELD
+parent: null
+derives_from:
+  - doc: DS-943
+claim: 検証結果を返す `verify` / `report`（CLI の `--format json` と同名 MCP ツール）は、これに加えて最上位に `scope` を持つ（下記要求 scope の最上位表現）。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T00:00:00+09:00
+updated: 2026-11-03T00:00:00+09:00

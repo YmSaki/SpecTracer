@@ -1,50 +1,37 @@
 #!/usr/bin/env python3
+"""Run the deterministic SpecTracer change gate and report every result."""
+
 import argparse
 import json
+import shutil
 import subprocess
 from pathlib import Path
 
 
-def execute(root: Path, command: list[str]) -> dict:
-    result = subprocess.run(
-        command,
-        cwd=root,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        check=False,
-    )
-    return {
-        "command": command,
-        "exit_code": result.returncode,
-        "status": "PASS" if result.returncode == 0 else "FAIL",
-        "output_tail": result.stdout.splitlines()[-30:],
-    }
-
-
-def main() -> int:
+def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--root", type=Path, default=Path.cwd())
+    parser.add_argument("--root", type=Path, required=True)
     args = parser.parse_args()
     root = args.root.resolve()
-
-    if not (root / "Cargo.toml").exists():
-        report = {"ok": False, "status": "NOT_EXECUTED", "reason": "Cargo.toml is not implemented yet", "checks": []}
-        print(json.dumps(report, ensure_ascii=False, indent=2))
-        return 1
-
+    checks = []
     commands = [
         ["cargo", "fmt", "--all", "--", "--check"],
         ["cargo", "test", "--workspace"],
         ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"],
     ]
-    if (root / "crates" / "vtest-cli" / "Cargo.toml").exists():
+    if (root / "crates/vtest-cli").is_dir():
         commands.append(["cargo", "run", "--quiet", "-p", "vtest-cli", "--", "doctor"])
-
-    checks = [execute(root, command) for command in commands]
-    ok = all(check["status"] == "PASS" for check in checks)
-    print(json.dumps({"ok": ok, "status": "PASS" if ok else "FAIL", "checks": checks}, ensure_ascii=False, indent=2))
-    return 0 if ok else 1
+    for command in commands:
+        if shutil.which(command[0]) is None:
+            checks.append({"command": command, "status": "NOT_EXECUTED", "reason": "cargo unavailable"})
+            continue
+        completed = subprocess.run(command, cwd=root, text=True, stdout=subprocess.PIPE,
+                                   stderr=subprocess.STDOUT, check=False)
+        checks.append({"command": command, "status": "PASS" if completed.returncode == 0 else "FAIL",
+                       "exit_code": completed.returncode, "output_tail": completed.stdout[-4000:]})
+    overall = "PASS" if all(item["status"] == "PASS" for item in checks) else "NOT_READY"
+    print(json.dumps({"root": str(root), "overall": overall, "checks": checks}, ensure_ascii=False, indent=2))
+    return 0 if overall == "PASS" else 1
 
 
 if __name__ == "__main__":

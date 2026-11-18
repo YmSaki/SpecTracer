@@ -1,0 +1,11 @@
+id: VO-STORE-APPROVAL-RECORD-SHAPE
+parent: null
+derives_from:
+  - doc: DS-052
+claim: 'ツールは承認レコードのID形式を強制せず一意性のみを強制する'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

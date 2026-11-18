@@ -1,0 +1,11 @@
+id: VO-VERIFY-UNRESOLVABLE-TARGET-MISMATCH
+parent: null
+derives_from:
+  - doc: DS-1678
+claim: 解決不能な target は NO_EVIDENCE に畳まず MISMATCH とし、E-SCAN-004 は診断 MISSING を、E-SCAN-011 はラベル無しとする
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-08T23:40:00+09:00

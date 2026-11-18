@@ -1,0 +1,11 @@
+id: VO-SCAN-EDIT-OTHER-TEST-HASH-INVARIANCE
+parent: null
+derives_from:
+  - doc: DES-530
+claim: '置換範囲が単一Test関数の拡張rangeに限られることを、適用前の範囲計算と適用後の他Testのhash不変確認で検査する'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

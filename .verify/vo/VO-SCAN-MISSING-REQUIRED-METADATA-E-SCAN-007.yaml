@@ -1,0 +1,11 @@
+id: VO-SCAN-MISSING-REQUIRED-METADATA-E-SCAN-007
+parent: null
+derives_from:
+  - doc: DS-1666
+claim: 'core中立の必須metadataであるid・1件以上のcovers・intentの欠落はE-SCAN-007 errorである'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

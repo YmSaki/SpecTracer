@@ -1,0 +1,11 @@
+id: VO-SCAN-DUPLICATE-TARGETREF-WITHIN-MULTIPLE
+parent: null
+derives_from:
+  - doc: DS-497
+claim: 複数targetを許容された宣言内でも、同じTargetRefの重複はE-SCAN-005とする。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

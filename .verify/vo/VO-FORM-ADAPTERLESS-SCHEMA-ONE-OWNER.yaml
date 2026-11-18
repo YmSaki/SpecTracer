@@ -1,0 +1,11 @@
+id: VO-FORM-ADAPTERLESS-SCHEMA-ONE-OWNER
+parent: null
+derives_from:
+  - doc: DS-1548
+claim: '`adapter`を欠く読取り互換Formは、登録済みStructured Test adapterのbuilt-in kind宣言またはschema compatibility matcherのうちちょうど1件だけがschemaを受理する場合に限って解決し、曖昧またはowner不在なら拒否する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00

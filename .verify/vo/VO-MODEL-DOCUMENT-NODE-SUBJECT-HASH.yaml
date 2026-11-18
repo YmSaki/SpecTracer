@@ -1,0 +1,13 @@
+id: VO-MODEL-DOCUMENT-NODE-SUBJECT-HASH
+parent: null
+derives_from:
+  - doc: DES-572
+  - doc: DES-575
+  - doc: DES-587
+claim: ノードのsubject hashはdomain vtest:document-subject:v1を用い、層を区別せず同一規則で計算する。文ノードではid/statementを、節ノードではitems/sectionsの2つの名前付き順序列として子ノードのsubject hashを宣言順でencodeし、空列も明示する。descriptionは束縛しない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

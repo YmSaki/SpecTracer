@@ -1,0 +1,11 @@
+id: VO-ARCH-DISCOVERY-ADAPTER-ID-ORDER
+parent: null
+derives_from:
+  - doc: DES-231
+claim: '処理フロー第2段は、discovery委譲であり、登録順ではなくadapter ID順にSourceDiscoveryAdapterを呼び出し、各adapterはDiscoveryBatchを返す。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00

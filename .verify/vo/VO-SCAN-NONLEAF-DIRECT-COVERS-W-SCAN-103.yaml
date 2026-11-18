@@ -1,0 +1,11 @@
+id: VO-SCAN-NONLEAF-DIRECT-COVERS-W-SCAN-103
+parent: null
+derives_from:
+  - doc: DS-550
+claim: 'W-SCAN-103はwarningであり、`covers` を持つが対応VOがleafでない（中間VO直接参照。許容するが警告）ことを意味する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

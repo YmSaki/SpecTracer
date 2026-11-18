@@ -1,0 +1,11 @@
+id: VO-SCAN-RECORD-LOGICAL-ID-DUPLICATE-E-SCAN-010
+parent: null
+derives_from:
+  - doc: DS-1676
+claim: '互換正規化後のlogical record ID重複または上流文書ノードidの重複はE-SCAN-010 errorである'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

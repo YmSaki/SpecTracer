@@ -1,0 +1,11 @@
+id: VO-APPROVAL-WITHDRAW-UNKNOWN-ID-REJECTED
+parent: null
+derives_from:
+  - doc: DS-1059
+claim: supersedesの参照先approval-idが存在しないapproval操作はE-APPROVAL-002・終了コード2で拒否され、recordを追加しない
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-EXEC-LLVM-COV-DEMANGLE-MATCH
+parent: null
+derives_from:
+  - doc: DES-457
+claim: Rust v0 mangled形式のllvm-cov関数名をdemangleし、その末尾がlocatorのitem-pathと一致するときだけ真を返す
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T08:15:17+09:00
+updated: 2026-09-09T08:15:17+09:00

@@ -1,0 +1,11 @@
+id: VO-MODEL-VO-COMBINATIONS-COMPLETE-DIMENSION-MAP
+parent: null
+derives_from:
+  - doc: DS-414
+claim: '`combinations` の各entryはdimension名→partition値のmapとし、`dimensions` に宣言された全軸をちょうど1回ずつ持つ。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

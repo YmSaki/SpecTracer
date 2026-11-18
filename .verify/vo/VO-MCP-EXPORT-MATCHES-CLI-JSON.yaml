@@ -1,0 +1,11 @@
+id: VO-MCP-EXPORT-MATCHES-CLI-JSON
+parent: null
+derives_from:
+  - doc: DS-1774
+claim: '`export` の結果は、同じプロジェクトルートと同じ実行環境で、同じ repository 内容に対して `--quiet` を指定しない `vtest export --format json` が標準出力へ出力する JSON と、`ok`・`data`・`diagnostics` が同じ値である。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

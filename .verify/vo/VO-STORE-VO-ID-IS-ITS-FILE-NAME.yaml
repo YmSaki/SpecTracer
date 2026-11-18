@@ -1,0 +1,11 @@
+id: VO-STORE-VO-ID-IS-ITS-FILE-NAME
+parent: null
+derives_from:
+  - doc: BD-322
+claim: "上流文書のファイル名は当該文書を識別するものとし、VOのファイル名をVO IDとする。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00

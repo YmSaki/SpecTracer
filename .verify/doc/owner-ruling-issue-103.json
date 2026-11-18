@@ -1,0 +1,24 @@
+{
+  "schema_version": "0.1",
+  "root": [
+    {
+      "id": "ROOT-050",
+      "statement": "原初: テストコードに@で情報を埋め込んで、Doxygen如くテスト仕様書を出力するツールであった。もちろん多言語対応の。\n発展: AI時代、テストコードだけでなく、実装のソースへの参照や、上流工程からの仕様に対する実装をトレースすると言う需要がある。そこでトレースできるようにした。",
+      "description": "Owner 裁定 2026-10-26（Issue #103 本文に原文を記録）。このツールの原初の目的と、その発展。",
+      "source": {
+        "doc": "github:YmSaki/SpecTracer/issues/103",
+        "heading": "Owner の裁定",
+        "lines": [
+          1,
+          2
+        ]
+      }
+    }
+  ],
+  "request": [],
+  "require": [],
+  "spec": [],
+  "detailed_spec": [],
+  "basic_design": [],
+  "design": []
+}

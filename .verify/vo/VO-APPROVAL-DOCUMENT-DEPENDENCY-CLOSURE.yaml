@@ -1,0 +1,11 @@
+id: VO-APPROVAL-DOCUMENT-DEPENDENCY-CLOSURE
+parent: null
+derives_from:
+  - doc: DS-1480
+claim: 'ノードを対象とする承認の上流依存closureは、対象ノードの実効的な上流（自分の辺 ∪ 先祖の辺）を再帰的に閉じたものからなり、`--subject-type document` で記録する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

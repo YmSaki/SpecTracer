@@ -1,0 +1,11 @@
+id: VO-STORE-APPROVAL-JUDGMENT-SUBJECT-REQUIRES-REF
+parent: null
+derives_from:
+  - doc: DES-150
+claim: '承認対象種別judgmentはjudgment_refに判断記録ULIDを置き、subjectに当該判断記録のsubjectを置く'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

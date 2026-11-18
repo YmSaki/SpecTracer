@@ -1,0 +1,30 @@
+name: 不具合
+description: 期待と違う動作の報告。
+labels: ["bug"]
+body:
+  - type: textarea
+    id: actual
+    attributes:
+      label: 何が起きたか
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待する動作
+      description: 根拠になる条項 ID があれば書く。無ければ、期待の理由を書く。
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 再現手順
+      description: 最小の入力とコマンド。バージョンまたは commit を添える。
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: 影響
+      description: 誰のどの行動が誤るか。誤った PASS を信じさせる場合は、その旨を書く（優先度の判断に使う）。

@@ -1,0 +1,11 @@
+id: VO-SCAN-VO-STATUS-COMPAT-W-STORE-001
+parent: null
+derives_from:
+  - doc: DS-552
+claim: 'W-STORE-001はwarningであり、VO recordに非正典の読取り互換field `status` が存在することを意味する（値は無視し承認から導出）。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

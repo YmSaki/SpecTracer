@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-QUERY-MIXED-SYNTHETIC-SOURCE
+parent: null
+derives_from:
+  - doc: DS-1864
+claim: 同じ受入専用の registry と混在プロジェクトで、`synthetic` adapter の Source Target を `source` に指定した query の操作は、その Source Target を target に宣言した `synthetic` adapter の Test を `data.tests` に含み、`rust-cargo` adapter の Test を含まない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

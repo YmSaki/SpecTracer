@@ -1,0 +1,11 @@
+id: VO-PENDING-UNREADABLE-JUDGMENTS-INTERNAL-ERROR
+parent: null
+derives_from:
+  - doc: DS-1689
+claim: "`E-INTERNAL-001`はerrorであり、入力不正や操作拒否（終了コード2）に該当しないツール自体の異常（ストアのI/O失敗、直列化の失敗、実装の不変条件違反など）を表す。終了コードは3とし、内部エラー自体を5つの検証状態のいずれにも割り当てない。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-08T12:00:00+09:00
+updated: 2026-11-08T12:00:00+09:00

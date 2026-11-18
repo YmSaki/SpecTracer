@@ -1,0 +1,11 @@
+id: VO-ADAPTER-RUST-RUNNER-COVERAGE-COMMAND
+parent: null
+derives_from:
+  - doc: DES-455
+claim: '計測コマンドは`cargo llvm-cov test -p <project> --lib --json --output-path cache/cov/<ULID>.json -- --exact <selector>`である。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-11T00:00:00+09:00
+updated: 2026-09-11T00:00:00+09:00

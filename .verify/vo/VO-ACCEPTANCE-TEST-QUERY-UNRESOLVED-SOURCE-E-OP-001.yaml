@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-QUERY-UNRESOLVED-SOURCE-E-OP-001
+parent: null
+derives_from:
+  - doc: DS-1842
+claim: '`vtest test query --source` は、該当する Source Target がない参照、未登録の adapter ID、`SRC-` で始まらず `::` を含まない値のそれぞれを、E-OP-001 と終了コード2で拒否し、`--format json` では `ok: false`・`data: null` を出力する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

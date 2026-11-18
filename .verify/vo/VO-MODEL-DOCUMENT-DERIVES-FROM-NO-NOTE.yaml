@@ -1,0 +1,11 @@
+id: VO-MODEL-DOCUMENT-DERIVES-FROM-NO-NOTE
+parent: null
+derives_from:
+  - doc: DS-1595
+claim: 'ノードの `derives_from` は、導出理由を記す `note` field を entry ごとに持たない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

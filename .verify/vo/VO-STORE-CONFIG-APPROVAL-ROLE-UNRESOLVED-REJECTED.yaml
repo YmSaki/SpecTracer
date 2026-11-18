@@ -1,0 +1,17 @@
+id: VO-STORE-CONFIG-APPROVAL-ROLE-UNRESOLVED-REJECTED
+parent: null
+derives_from:
+  - doc: DS-1160
+  - doc: DS-1662
+claim: >-
+  導出。DS-1160「承認レコードは role field を持たないため、`config.yaml` に承認ロール →
+  approver id 集合の対応を project 定義可能とする」と、DS-1662が `E-CONFIG-001` の条件として
+  挙げる「`gates`（…`require.approvals`の不正・未解決ロール）」を合わせると、`gates[].require.approvals`
+  が参照するロール名が `approval_roles` に定義されていない config は `E-CONFIG-001` として拒否
+  されなければならない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

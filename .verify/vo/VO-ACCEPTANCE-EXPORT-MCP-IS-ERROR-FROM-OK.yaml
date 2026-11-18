@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-MCP-IS-ERROR-FROM-OK
+parent: null
+derives_from:
+  - doc: DS-1807
+claim: MCP の `tools/call` で `export` を呼び出した結果の `isError` は、結果の `ok` が `true` の場合は `false`、`ok` が `false` の場合は、`data` が `null` の場合も `null` でない場合も `true` である。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

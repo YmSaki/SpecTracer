@@ -1,0 +1,11 @@
+id: VO-EXEC-STATE-INCOMPLETE-NOT-VALID-PASS-EVIDENCE
+parent: null
+derives_from:
+  - doc: DES-209
+claim: '`complete: false`、`hash: null` として現在の有効な `PASS` 証拠へ使用しない'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-10T00:00:00+09:00
+updated: 2026-09-10T00:00:00+09:00

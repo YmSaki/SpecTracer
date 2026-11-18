@@ -1,0 +1,11 @@
+id: VO-EXEC-STATE-HEAD-REVISION-BOUND-TO-HASH
+parent: null
+derives_from:
+  - doc: DES-097
+claim: Execution State subject hashはdomain `vtest:execution-state:v1` を用い、adapter ID、snapshot schema ID / version、HEAD revision、runner kindとcanonical invocation projection、toolchain identity、実行結果へ影響するadapter configのcanonical projection、および実行可能状態を変えうるrepository / local dependency入力の完全なmanifestを束縛する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

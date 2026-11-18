@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-LIST-QUERY-TEXT-LINES
+parent: null
+derives_from:
+  - doc: DS-1868
+claim: 2件以上の managed Test があるプロジェクトで、`vtest test list --format text` と `vtest test query --format text` の標準出力は、同じ引数の `--format json` の `data.tests` の各 Test ID を、同じ順で、Test ごとに別の行に含み、`vtest test list --unregistered --format text` の標準出力は、`data.unmanaged` の各要素の path と locator を、同じ順で、要素ごとに別の行に含み、終了コードはそれぞれ `--format json` と同じである。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-APPROVAL-CREATE-VO-SUBJECT-WRITES-RECORD
+parent: null
+derives_from:
+  - doc: DS-1050
+claim: --subject-type voはsubjectにVO IDを書き込み、解決可能なVOに対するcreateはレコードを一件書き込む
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

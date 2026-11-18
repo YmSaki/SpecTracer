@@ -1,0 +1,11 @@
+id: VO-ADAPTER-RUST-LOCATOR-FIRST-SEPARATOR
+parent: null
+derives_from:
+  - doc: DES-221
+claim: rust-cargo locatorのpathは `.rs` で終わる最初の `::` でitem-pathと分離する
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-10T00:00:00+09:00
+updated: 2026-09-10T00:00:00+09:00

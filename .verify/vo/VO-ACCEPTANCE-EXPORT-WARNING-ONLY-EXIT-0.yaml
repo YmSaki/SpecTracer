@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-WARNING-ONLY-EXIT-0
+parent: null
+derives_from:
+  - doc: DS-1783
+claim: scan の診断が W-SCAN-101 だけで、severity が error の診断がないプロジェクトでは、`vtest export` の終了コードは0で、`--format json` の `ok` は `true` である。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

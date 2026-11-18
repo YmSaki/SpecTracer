@@ -1,0 +1,17 @@
+{
+  "schema_version": "0.1",
+  "root": [],
+  "request": [
+    {
+      "id": "R-1",
+      "statement": "Request statement.",
+      "derives_from": [{ "doc": "ROOT-001", "anchor": "F1" }],
+      "source": { "doc": "doc.md", "heading": "R-1", "lines": [1, 1] }
+    }
+  ],
+  "require": [],
+  "spec": [],
+  "detailed_spec": [],
+  "basic_design": [],
+  "design": []
+}

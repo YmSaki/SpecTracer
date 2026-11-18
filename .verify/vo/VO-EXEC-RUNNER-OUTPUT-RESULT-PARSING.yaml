@@ -1,0 +1,13 @@
+id: VO-EXEC-RUNNER-OUTPUT-RESULT-PARSING
+parent: null
+derives_from:
+  - doc: DES-443
+  - doc: DES-444
+  - doc: DES-445
+claim: rust-cargoランナーのstdout行「test <selector> ... ok/FAILED/ignored」を、対象selectorに一致する行だけPASS/FAIL/Ignoredへ正しく解釈する
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T08:15:17+09:00
+updated: 2026-09-09T08:15:17+09:00

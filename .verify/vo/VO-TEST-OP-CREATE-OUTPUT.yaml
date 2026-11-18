@@ -1,0 +1,11 @@
+id: VO-TEST-OP-CREATE-OUTPUT
+parent: null
+derives_from:
+  - doc: DS-1206
+claim: '`test_create` は `form`、`answers`（オブジェクト）、`dry_run` を入力とし、生成された Test ID、挿入位置、diff を出力する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00

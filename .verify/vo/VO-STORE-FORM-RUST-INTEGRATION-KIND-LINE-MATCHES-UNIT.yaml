@@ -1,0 +1,13 @@
+id: VO-STORE-FORM-RUST-INTEGRATION-KIND-LINE-MATCHES-UNIT
+parent: null
+derives_from:
+  - doc: DS-1241
+  - doc: DS-1242
+  - doc: DS-1245
+claim: "`rust-integration` の `rust-unit-function`（§14.1）との差分は `target`→`targets` 必須化と `file` の `required:true` 化の2点のみであり（DS-1245）、他は同一であるため template の `@vtest.kind` 行は `unit-{test_kind}` のまま `rust-unit-function` と一致し、`integration-{test_kind}` を生成しない。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

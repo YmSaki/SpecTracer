@@ -1,0 +1,11 @@
+id: VO-SCAN-TEST-SPEC-COMPARISON-JSON-STRING
+parent: null
+derives_from:
+  - doc: DS-1765
+claim: '比較用 JSON 表現の文字列は、`"` を `\"`、`\` を `\\`、U+0008 を `\b`、U+0009 を `\t`、U+000A を `\n`、U+000C を `\f`、U+000D を `\r`、それ以外の U+0000〜U+001F を `\u` と小文字16進4桁（例: U+001F は `\u001f`）で書く。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-VERIFY-REPRESENTATIVE-STATE-ORDER
+parent: null
+derives_from:
+  - doc: DS-871
+claim: '全値が`PASS`なら代表値は`PASS`（総合OKと同値）、非`PASS`が混在する場合は基本仕様 §22.2の優先順位`FAIL > MISMATCH > NO_EVIDENCE > UNKNOWN`で選ぶ。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-10T12:00:00+09:00

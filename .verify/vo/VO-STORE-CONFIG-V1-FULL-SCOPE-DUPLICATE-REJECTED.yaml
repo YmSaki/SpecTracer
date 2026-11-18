@@ -1,0 +1,14 @@
+id: VO-STORE-CONFIG-V1-FULL-SCOPE-DUPLICATE-REJECTED
+parent: null
+derives_from:
+  - doc: DS-357
+  - doc: DS-1109
+claim: >-
+  version 1では、`verify.full_scope` のfield欠落を固定4検査として具体化し、重複または未知項目は
+  E-CONFIG-001で拒否する。`verify.full_scope` の in-memory の項目補完（重複除去を含む）は行わない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

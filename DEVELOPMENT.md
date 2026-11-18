@@ -18,14 +18,128 @@ cargo build --workspace --locked
 
 ## Git Flow
 
-Use the Git Flow branch model in `AGENTS.md`: `develop` is the integration
-branch, `feature/*` branches merge into it, and `release/*` or `hotfix/*`
-branches merge into both `main` and `develop`. `main` contains released
-production code only. The `develop` branch must be created before normal feature
-work begins.
+This repository uses **Git Flow**: releases go through `main` and integration goes
+through `develop`, because a single trunk would mix unreleased and released work.
+This section is the canonical source for branch roles, branch naming, and tag naming.
 
-Keep commits focused. Documentation-only changes should not modify generated
-`.verify/cache/` data or unrelated source files.
+### Long-lived branches
+
+- `main`: released production code only. Develop on `develop` or a working branch, and reach `main` through a release or hotfix, because release tags are cut from `main`. When you hold unreleased work, branch from `develop`.
+- `develop`: integration branch for the next release. Normal work starts from
+  `develop` and returns to `develop`.
+
+### Working branches
+
+- `feature/<topic>`: implementation, tooling, documentation, or other normal
+  development work. Branch from `develop`; merge into `develop`.
+- `spec/<topic>`: normative specification or design work. Branch from
+  `develop`; merge into `develop`.
+- `release/<semver>`: release stabilization. Branch from `develop`; when
+  complete, merge into both `main` and `develop`.
+- `hotfix/<topic>`: urgent correction to released production code. Branch from
+  `main`; when complete, merge into both `main` and `develop`.
+- `experiment/<topic>`: optional disposable investigation branch. Take release and
+  baseline references from tags, because an experiment branch can be deleted at
+  any time. When a result is worth keeping, promote it through an appropriate
+  `feature/*` or `spec/*` change.
+
+Use `feature/*`, because one spelling keeps branch roles searchable. When you have
+created a `feat/*` branch, rename it to `feature/*`.
+
+Name working branches by topic, because names such as `v2`, `v13`, or similar
+can be confused with releases or baselines. When a branch name carries a
+version-like token, rename the branch to its topic.
+
+Delete working branches after their merged or otherwise preserved work no
+longer requires a movable branch reference.
+
+### Tags
+
+Use tags for immutable historical points and branches for active development lines.
+
+- `vMAJOR.MINOR.PATCH` and prerelease forms such as
+  `vMAJOR.MINOR.PATCH-alpha.1`: released versions. Release tags must refer to
+  commits reachable from `main`.
+- `baseline/<name>-v<version>`: owner-approved normative baselines, for example
+  `baseline/requirements-v0.1` and `baseline/design-v0.1`.
+- `archive/<topic>-YYYY-MM-DD`: preserved historical or abandoned work whose
+  branch can then be deleted.
+
+Release, baseline, and archive identities belong in tags rather than permanent
+version-number working branches.
+
+Keep each existing release, baseline, or archive tag at its commit, because a moved
+tag changes the meaning of every reference to it. When a historical point was
+tagged incorrectly, stop and resolve it explicitly with the decision recorded.
+
+### Shared-history rules
+
+Update `main`, `develop`, and shared working branches by fast-forward or merge
+only, and keep published tags at their commits, because a force-push rewrites
+history that others have built on. When a push is rejected as non-fast-forward,
+merge the remote branch into yours and push again.
+Keep commits focused. Keep documentation-only changes to documentation files,
+because generated `.verify/cache/` data and unrelated sources make a diff hard to
+review; when a tool run changes `.verify/cache/`, leave that out of the commit.
+
+### Pull request scope
+
+Keep one purpose per pull request, because a reviewer must be able to tell a
+move from a change in behavior.
+
+- **Separate moves from logic.** A move PR (file moves, renames, extracting a
+  module or a crate) changes no behavior and is reviewed as `git diff -M`
+  renames; a change in behavior goes in its own PR. When a move exposes a
+  bug, open an issue citing the clause IDs instead of fixing it in the move PR.
+- **Open one PR at a time against the shared files**
+  `crates/vtest-cli/src/lib.rs`, `crates/vtest-mcp/src/lib.rs`,
+  `crates/vtest-ops/src/registry.rs`, `crates/vtest-verify/src/lib.rs`, and
+  the workspace `Cargo.toml` / `Cargo.lock`, because parallel moves of the
+  same file re-import each other's diff on every merge. A second PR on one of
+  these files branches after the first is merged.
+- **Show that behavior is unchanged.** The evidence is the gate in
+  [`TESTING.md`](TESTING.md), run by CI with `cargo-llvm-cov` installed, and
+  the existing acceptance and equivalence tests: a move PR adds no test and
+  reports the same test count and results as its base. A PR that touches text
+  rendering, exit codes or record formats also runs the base and head binaries
+  on the same input and writes any difference, with its clause ID, into the PR.
+
+The design rules these steps serve are in [`AGENTS.md`](AGENTS.md) §14.
+
+### Specification changes
+
+Change the canonical specification on `spec/<topic>` branches.
+
+- **Spec paths:** `docs/canonical/**` (except `docs/canonical/export/`, which is
+  derived and carries no authority) and `.verify/doc/**` (the document records
+  the verifier reads). VO records, tests, and code are not spec paths.
+- **Change spec paths only on `spec/*` branches,** because spec changes need one
+  reviewed path. When another branch needs a spec change, open a `spec/*` PR and
+  merge `develop` afterwards.
+- **Keep `crates/` and `tests/` unchanged on a `spec/*` branch,**
+  because the spec PR is reviewed separately from implementation. Include related
+  documentation, projections, and other supporting records when needed. Implementation and tests that
+  depend on a spec change start after that spec PR is merged.
+- **Target `develop`.** `main` receives specification changes only through a
+  release. A hotfix leaves the specification as it is; when a hotfix needs a
+  specification change, make it through `spec/*` and ship it in the next release.
+- **Short-lived: one topic per branch, one spec PR open at a time.** IDs are
+  allocated at the end of each layer, so two open spec PRs allocate the same
+  numbers. If a second one is unavoidable, merge `develop` into it after the
+  first is merged and rerun the gate (`vtest doctor` reports duplicate ids as
+  `E-SCAN-010`).
+- **Other branches pick the change up by merging `develop`** (merge, not
+  rebase). They leave spec paths untouched, so the merge cannot conflict there.
+- **If implementation exposes a defect, gap, or contradiction in the
+  specification,** stop. Open an issue citing the clause IDs, fix it through a
+  `spec/*` PR, then merge `develop` into the working branch and continue. Leave the
+  code unchanged for it, because a workaround in code keeps the defect in the
+  specification for the next implementer.
+- **Keep derived data in step:** a spec PR updates the `.verify/doc/`
+  projection together with `docs/canonical/specification.json`. Regenerating
+  `docs/canonical/export/` may happen in any PR.
+- **CI enforces the path rules** for pull requests into `develop`
+  (`.github/scripts/spec-guard.sh`, job `spec-guard`).
 
 ## Common development loop
 
@@ -35,6 +149,17 @@ cargo test --workspace --locked
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo run --quiet -p vtest-cli --locked -- doctor
 ```
+
+CI also runs a **self-verify** workflow (`.github/workflows/self-verify.yml`):
+`vtest run --all` and `vtest verify` on this repository. Because a full run
+measures every Test under `cargo llvm-cov` one at a time and takes hours, it runs
+nightly on `develop` and on demand (Actions → Self-verify → Run workflow), not on
+every push or pull request. The job's result is
+`vtest verify`'s exit code, so it is red while verification reports non-PASS
+results. It is informational and not a required check. The job summary shows
+the verification state, and the run and verify JSON (written under
+`.verify/cache/self-verify/`, which is not an execution input), Evidence and logs are kept
+as the `self-verify` artifact. Evidence is never committed.
 
 If coverage tooling is not already installed, run:
 
@@ -47,8 +172,10 @@ For the full project verification gate, use the commands in
 [TESTING.md](TESTING.md) and the project skill scripts under `.agents/skills/`.
 
 Run the CLI against an isolated project directory when testing commands that
-write `.verify/` records. Do not edit another test's source or hand-edit derived
-indexes.
+write `.verify/` records, because records written into this repository's own
+`.verify/` mix test output with canonical data. Edit only your own test's source,
+and regenerate derived indexes with the tool, because a hand edit makes them
+disagree with their records.
 
 ## Building the distributable binary
 
@@ -67,7 +194,10 @@ x86_64, and Windows x86_64 archives with checksums.
 
 ## Documentation and specification changes
 
+Specification changes follow the branch and path rules in
+[Git Flow → Specification changes](#specification-changes).
+
 Read the relevant requirements, basic specification, and detailed design before
-changing behavior. If they disagree, report the exact sections instead of
-silently selecting a new interpretation. Update the corresponding acceptance
+changing behavior. If they disagree, report the exact sections, because selecting an
+interpretation silently changes the contract without review. Update the corresponding acceptance
 evidence in [`tests/ACCEPTANCE.md`](tests/ACCEPTANCE.md) for milestone work.

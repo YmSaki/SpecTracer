@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-SPEC-NO-ENVIRONMENT-DEPENDENT-VALUES
+parent: null
+derives_from:
+  - doc: DS-1738
+claim: 'JSON 出力の `data` と Markdown 文書は、生成時刻、絶対 path、実行環境に依存する値を含めない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

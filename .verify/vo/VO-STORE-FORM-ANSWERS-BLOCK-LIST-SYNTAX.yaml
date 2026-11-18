@@ -1,0 +1,11 @@
+id: VO-STORE-FORM-ANSWERS-BLOCK-LIST-SYNTAX
+parent: null
+derives_from:
+  - doc: SPEC-385
+claim: 'vtest test createはForm Schemaに基づく回答ファイルを検証し、対応adapterがTest constructとmetadata宣言を生成して挿入する'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

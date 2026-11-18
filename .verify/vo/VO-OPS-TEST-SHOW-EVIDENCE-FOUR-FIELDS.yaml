@@ -1,0 +1,11 @@
+id: VO-OPS-TEST-SHOW-EVIDENCE-FOUR-FIELDS
+parent: null
+derives_from:
+  - doc: DES-618
+claim: show の操作の結果の `evidence` は、最新の Evidence レコード1件の ID・result・実行時刻・有効か否かだけを持ち、鮮度の判定結果を持たない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

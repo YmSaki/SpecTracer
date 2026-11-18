@@ -1,0 +1,11 @@
+id: VO-OPS-EXPORT-DIAGNOSTIC-ORDER
+parent: null
+derives_from:
+  - doc: DS-1703
+claim: '`vtest export` の診断は、`code`、`location` の `adapter`・`path`・`locator`、`message`、診断の比較用 JSON 表現の昇順に並べ、`location` を持たない診断の `adapter`・`path`・`locator` は空文字列として比較する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-PENDING-SECTION-IN-JSON
+parent: null
+derives_from:
+  - doc: DS-1147
+claim: "`--format json` の出力へ、未確定・要判断事項を横断的に集約した `pending` section を含める（§12.4）。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00

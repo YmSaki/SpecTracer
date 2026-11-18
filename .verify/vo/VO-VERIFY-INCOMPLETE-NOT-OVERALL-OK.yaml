@@ -1,0 +1,11 @@
+id: VO-VERIFY-INCOMPLETE-NOT-OVERALL-OK
+parent: null
+derives_from:
+  - doc: DS-253
+claim: '`vtest verify` は部分的な登録・判断・実行状態を総合 `OK` として扱わない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-10T12:00:00+09:00

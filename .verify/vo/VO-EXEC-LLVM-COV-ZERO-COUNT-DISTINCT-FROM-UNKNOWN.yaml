@@ -1,0 +1,12 @@
+id: VO-EXEC-LLVM-COV-ZERO-COUNT-DISTINCT-FROM-UNKNOWN
+parent: null
+derives_from:
+  - doc: DS-767
+  - doc: DS-768
+claim: llvm-cov出力の対象関数が発見できcountが0だった場合はSome(0)を返し、対象関数自体が見つからない場合のNoneと区別する
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T08:15:17+09:00
+updated: 2026-09-09T08:15:17+09:00

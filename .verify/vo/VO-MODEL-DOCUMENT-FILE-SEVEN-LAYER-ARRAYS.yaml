@@ -1,0 +1,11 @@
+id: VO-MODEL-DOCUMENT-FILE-SEVEN-LAYER-ARRAYS
+parent: null
+derives_from:
+  - doc: DES-586
+claim: '上流文書のファイルは束（`specification.json`）と同じ schema に適合する JSON object とし、`schema_version` と 7 層すべてのトップレベル配列を持ち、当該文書が属さない層の配列は空とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

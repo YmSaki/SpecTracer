@@ -1,0 +1,11 @@
+id: VO-CLI-MCP-SUBCOMMAND-STDIO
+parent: null
+derives_from:
+  - doc: SPEC-403
+claim: '`vtest mcp` は stdio で MCP サーバを起動する（§13）。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T00:00:00+09:00
+updated: 2026-11-03T00:00:00+09:00

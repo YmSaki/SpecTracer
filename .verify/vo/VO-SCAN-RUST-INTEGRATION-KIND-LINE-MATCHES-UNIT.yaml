@@ -1,0 +1,11 @@
+id: VO-SCAN-RUST-INTEGRATION-KIND-LINE-MATCHES-UNIT
+parent: null
+derives_from:
+  - doc: DS-1245
+claim: rust-integration Formは明記された2差分以外をrust-unit-functionと同一に保ち、kind行もunit prefixのままとする
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-10T00:00:00+09:00
+updated: 2026-09-10T00:00:00+09:00

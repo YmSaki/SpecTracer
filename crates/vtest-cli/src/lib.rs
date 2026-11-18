@@ -1,471 +1,556 @@
-//! CLI application layer shared by the future MCP adapter.
+//! The `vtest` command line: clap definitions, the `run_*` wrapper of each
+//! subcommand, text rendering and the process exit code.
+//!
+//! A wrapper resolves the project root, calls the operation in `vtest-ops`
+//! and prints the result as text or, with `--format json`, as the common
+//! envelope. It holds no verification rule of its own: `vtest-mcp` calls the
+//! same operations, which is what keeps the two outputs equal (DS-1563).
+//! `vtest mcp` itself is served by the binary (`src/main.rs`).
 
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    fs,
-    path::{Component, Path, PathBuf},
-    process::Command as ProcessCommand,
-};
+pub mod test_spec_markdown;
 
-use clap::{Parser, Subcommand, ValueEnum};
-use serde::Serialize;
-use vtest_audit::{audit_static, persist_static_audits, AuditOptions, AuditVerdict};
-use vtest_exec::{run_tests, RunnableTest};
-use vtest_model::{
-    ContentHash, Diagnostic, ExitCode, JsonEnvelope, Locator, ReqId, Revision, ScanSummary,
-    SourceFunction, SpecId, TargetRef, TestEntity, VoId,
-};
-use vtest_scan::{
-    create_test, edit_test, list_tests, parse_test_set_values, query_tests, scan_project,
-    show_test, ScanResult,
-};
-use vtest_store::{
-    find_project_root, init_project, is_valid_ulid, load_config, new_record_id, now_rfc3339,
-    read_approval, read_form_answers, read_req, read_spec, read_text, read_vo, write_atomic,
-    write_new_record, yaml_scalar_value, ApprovalBasis, ApprovalRecord, Approver, Dimension,
-    ReqRecord, SpecRecord, SpecRef, StoreError, VerifyLayout, VoRecord,
-};
-use vtest_verify::{verify_project_scoped, EntityScope};
+use std::path::{Path, PathBuf};
 
-#[derive(Clone, Debug, Parser)]
-#[command(name = "vtest", version, about = "Fail-closed test verification")]
+use clap::{Parser, Subcommand};
+use vtest_model::{Diagnostic, ExitCode, JsonEnvelope};
+use vtest_ops as ops;
+use vtest_store::VerifyLayout;
+use vtest_verify::{check_name, CheckOutcome, TreeNode};
+
+#[derive(Parser, Debug)]
+#[command(name = "vtest", version, about = "Specification traceability verifier")]
 pub struct Cli {
     /// Project root, or a path below a project containing `.verify/`.
     #[arg(long, global = true, default_value = ".")]
     pub project: PathBuf,
-    /// Output format.
-    #[arg(long, global = true, value_enum, default_value_t = OutputFormat::Text)]
-    pub format: OutputFormat,
-    /// Suppress human-readable output.
+
+    /// Output format. `text` (the default) or `json`; `vtest export` takes
+    /// `md` (its default) or `json` instead (DS-1692 to DS-1694).
+    #[arg(long, global = true, value_enum)]
+    pub format: Option<FormatArg>,
+
+    /// Suppress all output; communicate through the exit code only.
     #[arg(long, global = true)]
     pub quiet: bool,
+
     #[command(subcommand)]
     pub command: Command,
 }
 
-#[derive(Clone, Debug, Subcommand)]
+/// The values `--format` parses. Which of them a command accepts is
+/// decided after parsing, because the option is global.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum FormatArg {
+    Text,
+    Json,
+    Md,
+}
+
+/// The output format of every command except `vtest export`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OutputFormat {
+    Text,
+    Json,
+}
+
+/// The output format of `vtest export` (DS-1692).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ExportFormat {
+    Md,
+    Json,
+}
+
+#[derive(Subcommand, Debug)]
 pub enum Command {
     /// Create the `.verify/` canonical directory layout.
     Init {
         #[arg(long)]
         name: Option<String>,
     },
-    /// Scan Rust sources and report diagnostics.
+    /// Scan the repository and report consistency diagnostics.
     Scan,
-    /// Alias for `scan`, intended for CI checks.
+    /// Validate configuration and adapter preconditions.
     Doctor,
-    /// Manage canonical SPEC records.
-    Spec {
-        #[command(subcommand)]
-        command: SpecCommand,
-    },
-    /// Manage canonical REQ records.
-    Req {
-        #[command(subcommand)]
-        command: ReqCommand,
-    },
-    /// Manage canonical VO records and approvals.
-    Vo {
-        #[command(subcommand)]
-        command: VoCommand,
-    },
-    /// Inspect registered and unregistered tests.
-    Test {
-        #[command(subcommand)]
-        command: TestCommand,
-    },
-    /// Run deterministic static audit rules.
-    Audit {
-        #[command(subcommand)]
-        command: AuditCommand,
-    },
-    /// Execute selected tests and record Evidence.
+    /// Print the test specification of the whole project to stdout, as
+    /// Markdown (`--format md`, the default) or JSON (SPEC-466, DS-1691).
+    Export,
+    /// Start the MCP server over stdio (SPEC-403, §13).
+    ///
+    /// Served by the `vtest` binary itself; see `src/main.rs`.
+    Mcp,
+    /// Execute one or more Tests and record Evidence (DS-1101-1103).
     Run {
-        #[arg(long)]
-        test: Option<String>,
-        #[arg(long)]
+        /// DS-744 target axis 1/3: explicit Test ids.
+        #[arg(long = "test", value_name = "TEST_ID")]
+        test: Vec<String>,
+        /// DS-744 target axis 2/3: a VO subtree (parent-chain descendants),
+        /// selecting every Test whose `covers` intersects it.
+        #[arg(long = "vo", value_name = "VO_ID", conflicts_with = "test")]
         vo: Option<String>,
-        #[arg(long)]
-        req: Option<String>,
-        #[arg(long)]
+        /// DS-744 target axis 3/3: every Test the scan materialized.
+        /// Also the default when neither `--test` nor `--vo` is given (kept
+        /// for the CLI's pre-DS-744 default-target behavior).
+        #[arg(long, conflicts_with_all = ["test", "vo"])]
         all: bool,
+        /// DS-1102/DS-1103: cargo test only; `target_coverage` is recorded
+        /// `checked: false` and `target_binding` takes no dynamic evidence.
         #[arg(long)]
         fast: bool,
     },
-    /// Evaluate the requested fail-closed verification scope.
+    /// Aggregate the four canonical checks and return OK / NG.
+    ///
+    /// SPEC-398「`vtest verify` は集約を実行し、`OK` / `NG` を返す」。
     Verify {
+        /// Check axis: a subset of the fixed four checks (DS-1104).
+        /// 省略時は固定4検査（DS-1106）。
+        #[arg(long, value_delimiter = ',')]
+        items: Vec<String>,
+
+        /// Entity axis: a DOC / VO / Test subtree (DS-1104). At most one.
         #[arg(long)]
-        items: Option<String>,
-        #[arg(long)]
-        req: Option<String>,
+        doc: Option<String>,
         #[arg(long)]
         vo: Option<String>,
         #[arg(long)]
         test: Option<String>,
+
+        /// Phase-gate evaluation (DS-1115).
+        #[arg(long)]
+        gate: Option<String>,
+
+        /// DS-1117「`--summary` は総合 `OK` / `NG` と非 `PASS` 件数のみを
+        /// 出力する」。
         #[arg(long)]
         summary: bool,
     },
-    /// Produce the same aggregate with detailed basis references.
+    /// Detailed report: the same aggregation as `verify` with its basis,
+    /// Evidence references, a projection and the `pending` section
+    /// (SPEC-401, DS-1215).
     Report {
+        #[arg(long, value_delimiter = ',')]
+        items: Vec<String>,
         #[arg(long)]
-        items: Option<String>,
-        #[arg(long)]
-        req: Option<String>,
+        doc: Option<String>,
         #[arg(long)]
         vo: Option<String>,
         #[arg(long)]
         test: Option<String>,
+        #[arg(long)]
+        gate: Option<String>,
+        /// Start node of a local trace: a DOC / VO / TEST / SRC id
+        /// (DS-1133).
+        #[arg(long)]
+        from: Option<String>,
+        /// Role preset: pm / tester / coder (DS-1136).
+        #[arg(long)]
+        view: Option<String>,
+        /// Number of steps to follow (DS-1135).
+        #[arg(long)]
+        depth: Option<usize>,
+        /// up / down / both (DS-1134). Default both.
+        #[arg(long)]
+        direction: Option<String>,
     },
-    /// Start the MCP stdio server.
-    Mcp,
+    /// Approval domain: the sole canonical entry point for承認レコード
+    /// (BD-304/305/306, 本冊 §3.5, DS-1050-1062/DS-1461-1490).
+    #[command(subcommand)]
+    Approval(ApprovalCommand),
+    /// Document registration (本冊 §3.1, DES-585/586/595, DS-1015-1017/
+    /// 1681-1684) — operates directly on `.verify/doc/<id>.json` node-tree
+    /// files. See `vtest_store::doc_registry`'s module doc comment for why
+    /// there is no separate persisted registry record.
+    #[command(subcommand)]
+    Doc(DocCommand),
+    /// Structured Test Operation (SPEC-385 / SPEC-386, BD-077): create or
+    /// edit one Test through its adapter's Structured Test capability.
+    #[command(subcommand)]
+    Test(TestCommand),
+    /// Static audit (SPEC-297/SPEC-387): recomputed on request, written to
+    /// stdout and `.verify/cache/`, never a canonical record.
+    #[command(subcommand)]
+    Audit(AuditCommand),
+    /// Verification Obligation records (別紙A §12.2, DS-1021〜DS-1048).
+    #[command(subcommand)]
+    Vo(VoCommand),
 }
 
-#[derive(Clone, Debug, Subcommand)]
-pub enum AuditCommand {
-    Static {
+/// `vtest vo …` (DS-1021). `add` / `edit` take their field arguments as a
+/// raw list because DS-1027〜DS-1029 bind each `--anchor` / `--note` to the
+/// `--derives-from` right before it; put global options (`--format`,
+/// `--project`, `--quiet`) before `vo`.
+#[derive(Subcommand, Debug)]
+pub enum VoCommand {
+    /// `vo add --id VO-X --claim <c> --derives-from DOC-X [--anchor <t>]
+    /// [--note <t>] ... [--parent VO-Y] [--dimension <name>=<p1>,<p2>]...
+    /// [--policy <independent-axes|full-product|explicit|null>]
+    /// [--combination <dim>=<part>[,<dim>=<part>]...]...`
+    Add {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true, num_args = 0..)]
+        args: Vec<String>,
+    },
+    /// `vo edit VO-X [--claim ...] [--derives-from DOC-X [--anchor <t>]
+    /// [--note <t>]]... [--parent ...] [--dimension ...]... [--policy ...]
+    /// [--combination ...]... [--clear-combinations]`. Given
+    /// `--derives-from` / `--dimension` / `--combination` sets replace the
+    /// stored ones (desired state, DS-1035).
+    Edit {
+        id: String,
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true, num_args = 0..)]
+        args: Vec<String>,
+    },
+    /// DS-1026/DS-1047: list VOs, optionally downstream of one document node
+    /// or with one effective approval state.
+    List {
         #[arg(long)]
+        tree: bool,
+        #[arg(long)]
+        doc: Option<String>,
+        #[arg(long)]
+        status: Option<String>,
+    },
+    /// DS-1030/DS-1047: the record, its effective approval state, and the
+    /// Tests that cover it.
+    Show { id: String },
+    /// DS-1041〜DS-1044: materialize child VOs from `dimensions`.
+    Expand {
+        id: String,
+        #[arg(long = "dry-run")]
+        dry_run: bool,
+    },
+    /// DS-1045: alias of `approval create --subject-type vo --subject-id
+    /// VO-X`.
+    Approve {
+        id: String,
+        #[arg(long = "state", value_enum)]
+        state: ApprovedStateArg,
+        #[arg(long = "approver-kind", value_enum)]
+        approver_kind: ApproverKindArg,
+        #[arg(long = "approver-id")]
+        approver_id: String,
+        #[arg(long)]
+        model: Option<String>,
+        #[arg(long = "basis")]
+        basis: Vec<String>,
+        #[arg(long = "supersedes")]
+        supersedes: Vec<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum TestCommand {
+    /// SPEC-385: generate and insert a Test from a Form answers file.
+    Create {
+        /// The Form `kind` (DS-1545).
+        #[arg(long)]
+        form: String,
+        /// The answers file (`form:` + `answers:`, §14).
+        #[arg(long)]
+        answers: PathBuf,
+        /// Use this Test ID instead of deriving one from the answers.
+        #[arg(long)]
+        id: Option<String>,
+        /// DS-1065 / DS-1561: show the insertion and its position only.
+        #[arg(long = "dry-run")]
+        dry_run: bool,
+    },
+    /// SPEC-386: apply a desired state to one existing Test.
+    Edit {
+        id: String,
+        /// DS-1067: the complete desired state.
+        #[arg(long, conflicts_with = "set")]
+        answers: Option<PathBuf>,
+        /// DS-1068: `field=value` for the named fields only.
+        #[arg(long = "set", value_name = "FIELD=VALUE")]
+        set: Vec<String>,
+        /// DS-1069: the full new Test implementation, handed to the adapter.
+        #[arg(long = "body-file")]
+        body_file: Option<PathBuf>,
+        #[arg(long = "dry-run")]
+        dry_run: bool,
+    },
+    /// DS-1816: the managed Tests, the ones that cover one VO, or the Test
+    /// constructs without a management declaration.
+    List {
+        /// DS-1818: only the Tests that declare this VO ID in `covers`.
+        #[arg(long, value_name = "VO_ID", conflicts_with = "unregistered")]
+        vo: Option<String>,
+        /// DS-1820: the Test constructs without a management declaration.
+        #[arg(long)]
+        unregistered: bool,
+    },
+    /// DS-1821: the managed Tests that declare one Source Target.
+    Query {
+        /// DS-1822: `SRC-…` or `<adapter ID>::<locator>`.
+        #[arg(long, value_name = "SOURCE_REF")]
+        source: String,
+    },
+    /// DS-1825: one Test with its verification, judgments and Evidence.
+    Show { id: String },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AuditCommand {
+    /// Rule-by-rule verdicts (FAIL / UNKNOWN / NO_VIOLATION) with evidence
+    /// spans; DA-002 / DA-003 are reported per target.
+    Static {
+        #[arg(long = "test", value_name = "TEST_ID", conflicts_with = "all")]
         test: Option<String>,
-        /// Audit every registered test. This is also the legacy default when no selector is given.
         #[arg(long)]
         all: bool,
     },
+    /// Judgment bundle (SPEC-391, DS-692): hands a subject the machine
+    /// cannot decide to an external judge, written to
+    /// `.verify/cache/bundles/<id>.json`.
     Bundle {
-        #[arg(long)]
-        kind: String,
-        #[arg(long)]
+        #[arg(long = "test", value_name = "TEST_ID", conflicts_with = "vo")]
         test: Option<String>,
-        #[arg(long)]
+        #[arg(long = "vo", value_name = "VO_ID")]
         vo: Option<String>,
-        #[arg(long)]
-        req: Option<String>,
-        #[arg(long)]
-        include_failed: bool,
+        /// test-semantic / impl-consistency / case-coverage.
+        #[arg(long = "kind")]
+        kind: Option<String>,
     },
+    /// Judgment submission (SPEC-391, DS-715〜DS-723): checks the result
+    /// against its bundle and appends `.verify/decisions/<id>.yaml`.
     Submit {
-        #[arg(long)]
-        file: PathBuf,
+        #[arg(long = "file", value_name = "PATH")]
+        file: String,
     },
 }
 
-#[derive(Clone, Debug, Subcommand)]
-pub enum SpecCommand {
+#[derive(Subcommand, Debug)]
+pub enum DocCommand {
+    /// DES-595. `--path` names an already-built node-tree JSON file (1
+    /// document = 1 JSON file) to register as `.verify/doc/<id>.json`.
     Add {
         #[arg(long)]
         id: String,
         #[arg(long)]
-        path: PathBuf,
-        #[arg(long, default_value = "document")]
-        kind: String,
-        #[arg(long)]
-        title: Option<String>,
-        #[arg(long)]
-        note: Option<String>,
+        path: String,
+        /// DS-1003/1681: bare upstream node ids — writes onto every
+        /// top-level node's own `derives_from` (0 given = leave the
+        /// file's own content untouched; DS-1003's "0件可＝根候補").
+        #[arg(long = "derives-from")]
+        derives_from: Vec<String>,
+        /// DS-1195/1683: a plain bool (matching MCP `doc_upsert`'s own
+        /// `root: bool`). Asserts the source file's own top-level content
+        /// is entirely `root[]`-layer (rejected otherwise — DS-1658 ties a
+        /// node's id prefix to its layer, so this cannot move a node into
+        /// `root[]`; see `vtest_store::doc_registry::apply_root`).
+        #[arg(long, conflicts_with = "no_root")]
+        root: bool,
+        /// BD-331 names this flag alongside `--root`; behaviourally
+        /// identical to omitting both flags (DS-1195 defines `root` as a
+        /// bool, not a three-valued domain, so there is no distinct
+        /// "explicitly not root" assertion left to make — see
+        /// `apply_root`'s doc comment).
+        #[arg(long = "no-root", conflicts_with = "root")]
+        no_root: bool,
         #[arg(long)]
         update: bool,
     },
-    List,
-    Show {
-        id: String,
-    },
-}
-
-#[derive(Clone, Debug, Subcommand)]
-pub enum ReqCommand {
-    Add {
-        #[arg(long)]
-        id: String,
-        #[arg(long)]
-        summary: String,
-        #[arg(long)]
-        parent: Option<String>,
-        #[arg(long = "spec")]
-        specs: Vec<String>,
-        #[arg(long)]
-        sections: Vec<String>,
-    },
-    Edit {
-        id: String,
-        #[arg(long)]
-        summary: Option<String>,
-        #[arg(long)]
-        parent: Option<String>,
-        #[arg(long)]
-        status: Option<String>,
-    },
-    List {
-        #[arg(long)]
-        tree: bool,
-    },
-    Show {
-        id: String,
-    },
-}
-
-#[derive(Clone, Debug, Subcommand)]
-pub enum VoCommand {
-    Add {
-        #[arg(long)]
-        id: String,
-        #[arg(long)]
-        claim: String,
-        #[arg(long = "req")]
-        requirements: Vec<String>,
-        #[arg(long)]
-        parent: Option<String>,
-        #[arg(long = "spec")]
-        specs: Vec<String>,
-        #[arg(long)]
-        sections: Vec<String>,
-        #[arg(long = "dimension")]
-        dimensions: Vec<String>,
-        #[arg(long)]
-        policy: Option<String>,
-        #[arg(long = "combination")]
-        combinations: Vec<String>,
-    },
-    Edit {
-        id: String,
-        #[arg(long)]
-        claim: Option<String>,
-        #[arg(long)]
-        parent: Option<String>,
-        #[arg(long)]
-        status: Option<String>,
-    },
+    /// DS-1015/1016: `--tree` renders the `derives_from` chain as a tree;
+    /// `--roots` lists the current root set.
     List {
         #[arg(long)]
         tree: bool,
         #[arg(long)]
-        req: Option<String>,
-        #[arg(long)]
-        status: Option<String>,
+        roots: bool,
     },
-    Show {
-        id: String,
+    /// DS-1017/1682.
+    Show { id: String },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum SubjectTypeArg {
+    Vo,
+    Document,
+    Judgment,
+}
+
+impl SubjectTypeArg {
+    fn as_str(self) -> &'static str {
+        match self {
+            SubjectTypeArg::Vo => "vo",
+            SubjectTypeArg::Document => "document",
+            SubjectTypeArg::Judgment => "judgment",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum ApprovedStateArg {
+    Approved,
+    Rejected,
+    Withdrawn,
+}
+
+impl ApprovedStateArg {
+    fn as_str(self) -> &'static str {
+        match self {
+            ApprovedStateArg::Approved => "approved",
+            ApprovedStateArg::Rejected => "rejected",
+            ApprovedStateArg::Withdrawn => "withdrawn",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum ApproverKindArg {
+    Human,
+    Agent,
+}
+
+impl ApproverKindArg {
+    fn as_str(self) -> &'static str {
+        match self {
+            ApproverKindArg::Human => "human",
+            ApproverKindArg::Agent => "agent",
+        }
+    }
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ApprovalCommand {
+    /// DS-1050/1051/1052: the sole way承認レコード are created.
+    /// `vtest vo approve` is an alias of this command (BD-074, DS-1045)
+    /// that calls the same operation; it is not a second implementation.
+    Create {
+        #[arg(long = "subject-type", value_enum)]
+        subject_type: SubjectTypeArg,
+        #[arg(long = "subject-id")]
+        subject_id: String,
+        #[arg(long = "state", value_enum)]
+        state: ApprovedStateArg,
+        #[arg(long = "approver-kind", value_enum)]
+        approver_kind: ApproverKindArg,
+        #[arg(long = "approver-id")]
+        approver_id: String,
+        #[arg(long)]
+        model: Option<String>,
+        #[arg(long = "basis")]
+        basis: Vec<String>,
+        #[arg(long = "supersedes")]
+        supersedes: Vec<String>,
     },
-    Expand {
-        id: String,
-        #[arg(long)]
-        dry_run: bool,
-    },
-    Approve {
-        id: String,
-        #[arg(long)]
-        approver_kind: String,
-        #[arg(long)]
+    /// BD-307/DS-1056: writes `state: withdrawn` + `supersedes:
+    /// [approval-id]`, copying the target record's subject fields.
+    Withdraw {
+        approval_id: String,
+        #[arg(long = "approver-kind", value_enum)]
+        approver_kind: ApproverKindArg,
+        #[arg(long = "approver-id")]
         approver_id: String,
         #[arg(long)]
         model: Option<String>,
         #[arg(long = "basis")]
         basis: Vec<String>,
     },
-}
-
-#[derive(Clone, Debug, Subcommand)]
-pub enum TestCommand {
-    Create {
-        #[arg(long)]
-        form: String,
-        #[arg(long)]
-        answers: PathBuf,
-        #[arg(long)]
-        id: Option<String>,
-        #[arg(long)]
-        dry_run: bool,
-    },
-    Edit {
-        id: String,
-        #[arg(long)]
-        answers: Option<PathBuf>,
-        #[arg(long = "set")]
-        set: Vec<String>,
-        #[arg(long)]
-        body_file: Option<PathBuf>,
-        #[arg(long)]
-        dry_run: bool,
-    },
+    /// DS-1057/BD-308: the subject's full承認レコード history plus its
+    /// current effective承認 state (`draft` / `approved`).
     Show {
-        id: String,
+        #[arg(long = "subject-type", value_enum)]
+        subject_type: SubjectTypeArg,
+        #[arg(long = "subject-id")]
+        subject_id: String,
     },
-    List {
-        #[arg(long)]
-        vo: Option<String>,
-        #[arg(long)]
-        unregistered: bool,
-    },
-    Query {
-        #[arg(long)]
-        source: String,
-    },
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
-pub enum OutputFormat {
-    Text,
-    Json,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct ScanData {
-    pub summary: ScanSummary,
-    pub tests: Vec<vtest_model::TestEntity>,
-    pub sources: Vec<vtest_model::SourceFunction>,
-}
-
-impl From<ScanResult> for ScanData {
-    fn from(value: ScanResult) -> Self {
-        Self {
-            summary: value.summary,
-            tests: value.tests,
-            sources: value.sources,
-        }
-    }
 }
 
 pub fn run(cli: Cli) -> ExitCode {
-    let project = cli.project;
-    let format = cli.format;
-    let quiet = cli.quiet;
+    if matches!(cli.command, Command::Export) {
+        return match export_format(cli.format) {
+            Ok(format) => run_export(&cli.project, format, cli.quiet),
+            Err(message) => argument_error(cli.quiet, &message),
+        };
+    }
+    let format = match general_format(&cli) {
+        Ok(format) => format,
+        Err(code) => return code,
+    };
     match cli.command {
-        Command::Init { name } => run_init(&project, name.as_deref(), format, quiet),
-        Command::Scan | Command::Doctor => run_scan(&project, format, quiet),
-        Command::Spec { command } => run_spec(&project, command, format, quiet),
-        Command::Req { command } => run_req(&project, command, format, quiet),
-        Command::Vo { command } => run_vo(&project, command, format, quiet),
-        Command::Test { command } => run_test(&project, command, format, quiet),
-        Command::Audit { command } => run_audit(&project, command, format, quiet),
+        Command::Init { name } => run_init(&cli.project, name.as_deref(), format, cli.quiet),
+        Command::Scan => run_scan(&cli.project, format, cli.quiet),
+        Command::Doctor => run_doctor(&cli.project, format, cli.quiet),
+        // Handled above: `export` has its own `--format` values.
+        Command::Export => ExitCode::Internal,
+        // The MCP server is linked into the `vtest` binary, not into this
+        // library (vtest-mcp depends on vtest-cli). A library caller that
+        // reaches this arm gets a usage error instead of a silent no-op.
+        Command::Mcp => usage_failure(
+            format,
+            cli.quiet,
+            "E-OP-001",
+            "`vtest mcp` is served by the vtest binary, not by vtest_cli::run",
+        ),
         Command::Run {
             test,
             vo,
-            req,
             all,
             fast,
-        } => run_run(&project, test, vo, req, all, fast, format, quiet),
-        Command::Verify {
-            items,
-            req,
-            vo,
-            test,
-            summary,
-        } => run_verify(&project, items, req, vo, test, summary, format, quiet),
+        } => run_run(&cli.project, test, vo, all, fast, format, cli.quiet),
+        Command::Approval(command) => run_approval(&cli.project, command, format, cli.quiet),
+        Command::Doc(command) => run_doc(&cli.project, command, format, cli.quiet),
         Command::Report {
             items,
-            req,
+            doc,
             vo,
             test,
-        } => run_verify(&project, items, req, vo, test, false, format, quiet),
-        Command::Mcp => run_mcp(&project, format, quiet),
+            gate,
+            from,
+            view,
+            depth,
+            direction,
+        } => run_report(
+            &cli.project,
+            &items,
+            doc,
+            vo,
+            test,
+            gate.as_deref(),
+            &ops::report::ProjectionArgs {
+                from,
+                view,
+                depth,
+                direction,
+            },
+            format,
+            cli.quiet,
+        ),
+        Command::Test(command) => run_test(&cli.project, command, format, cli.quiet),
+        Command::Audit(AuditCommand::Static { test, all }) => {
+            run_audit_static(&cli.project, test.as_deref(), all, format, cli.quiet)
+        }
+        Command::Audit(AuditCommand::Bundle { test, vo, kind }) => {
+            run_audit_bundle(&cli.project, test, vo, kind.as_deref(), format, cli.quiet)
+        }
+        Command::Audit(AuditCommand::Submit { file }) => {
+            run_audit_submit(&cli.project, &file, format, cli.quiet)
+        }
+        Command::Vo(command) => run_vo(&cli.project, command, format, cli.quiet),
+        Command::Verify {
+            items,
+            doc,
+            vo,
+            test,
+            gate,
+            summary,
+        } => run_verify(
+            &cli.project,
+            &items,
+            doc,
+            vo,
+            test,
+            gate.as_deref(),
+            summary,
+            format,
+            cli.quiet,
+        ),
     }
 }
 
-fn run_mcp(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
-    match vtest_mcp::serve(project) {
-        Ok(()) => ExitCode::Ok,
-        Err(error) => {
-            emit(
-                format,
-                quiet,
-                JsonEnvelope::new(
-                    false,
-                    serde_json::Value::Null,
-                    vec![Diagnostic::error("E-CORE-001", error.to_string())],
-                ),
-            );
-            ExitCode::Internal
-        }
-    }
-}
-
-fn run_test(project: &Path, command: TestCommand, format: OutputFormat, quiet: bool) -> ExitCode {
-    let root = match resolve_root(project, format, quiet) {
-        Ok(root) => root,
-        Err(code) => return code,
-    };
-    let scan = match scan_project(&root) {
-        Ok(scan) => scan,
-        Err(error) => {
-            return finish_record_command(
-                Err(failure("E-CORE-001", error.to_string(), ExitCode::Internal)),
-                format,
-                quiet,
-            )
-        }
-    };
-    let result = match command {
-        TestCommand::Create {
-            form,
-            answers,
-            id,
-            dry_run,
-        } => (|| {
-            let answers_path = safe_project_path(&root, &answers)?;
-            let supplied = read_form_answers(&answers_path)
-                .map_err(|error| failure("E-OP-001", error.to_string(), ExitCode::Usage))?;
-            create_test(&root, &form, &supplied, id.as_deref(), dry_run)
-                .map_err(operation_failure)
-                .and_then(|result| {
-                    serde_json::to_value(result).map_err(|error| {
-                        failure("E-CORE-001", error.to_string(), ExitCode::Internal)
-                    })
-                })
-        })(),
-        TestCommand::Edit {
-            id,
-            answers,
-            set,
-            body_file,
-            dry_run,
-        } => (|| {
-            let supplied = answers
-                .as_ref()
-                .map(|answers| {
-                    let path = safe_project_path(&root, answers)?;
-                    read_form_answers(&path)
-                        .map_err(|error| failure("E-OP-001", error.to_string(), ExitCode::Usage))
-                })
-                .transpose()?;
-            let set = parse_test_set_values(&set).map_err(operation_failure)?;
-            let body = body_file
-                .as_ref()
-                .map(|body_file| {
-                    let path = safe_project_path(&root, body_file)?;
-                    fs::read_to_string(&path)
-                        .map_err(|error| failure("E-OP-001", error.to_string(), ExitCode::Usage))
-                })
-                .transpose()?;
-            edit_test(
-                &root,
-                &id,
-                supplied.as_ref(),
-                &set,
-                body.as_deref(),
-                dry_run,
-            )
-            .map_err(operation_failure)
-            .and_then(|result| {
-                serde_json::to_value(result)
-                    .map_err(|error| failure("E-CORE-001", error.to_string(), ExitCode::Internal))
-            })
-        })(),
-        TestCommand::Show { id } => show_test(&root, &scan, &id)
-            .and_then(|test| {
-                serde_json::to_value(test)
-                    .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))
-            })
-            .map_err(operation_failure),
-        TestCommand::List { vo, unregistered } => {
-            serde_json::to_value(list_tests(&scan, vo.as_deref(), unregistered))
-                .map_err(|error| failure("E-CORE-001", error.to_string(), ExitCode::Internal))
-        }
-        TestCommand::Query { source } => query_tests(&scan, &source)
-            .and_then(|tests| {
-                serde_json::to_value(tests)
-                    .map_err(|error| Diagnostic::error("E-CORE-001", error.to_string()))
-            })
-            .map_err(operation_failure),
-    };
-    finish_record_command(result, format, quiet)
-}
+// ---------------------------------------------------------------------------
+// init / scan / doctor
+// ---------------------------------------------------------------------------
 
 fn run_init(project: &Path, name: Option<&str>, format: OutputFormat, quiet: bool) -> ExitCode {
     let root = absolute_path(project);
@@ -477,22 +562,11 @@ fn run_init(project: &Path, name: Option<&str>, format: OutputFormat, quiet: boo
                 .map(str::to_owned)
         })
         .unwrap_or_else(|| "project".to_owned());
-    match init_project(&root, &project_name) {
-        Ok(_) => {
-            let data = serde_json::json!({ "project": root, "initialized": true });
-            emit(format, quiet, JsonEnvelope::new(true, data, Vec::new()));
-            ExitCode::Ok
-        }
-        Err(error) => {
-            let (diagnostic, code) = store_error_with_code(error, ExitCode::Usage);
-            emit(
-                format,
-                quiet,
-                JsonEnvelope::new(false, serde_json::Value::Null, vec![diagnostic]),
-            );
-            code
-        }
-    }
+    let (exit, envelope) = ops::init::execute(&root, &project_name);
+    emit_value(format, quiet, &envelope, |_| {
+        format!("initialised {}\n", root.display())
+    });
+    exit
 }
 
 fn run_scan(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
@@ -500,1565 +574,449 @@ fn run_scan(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
         Ok(root) => root,
         Err(code) => return code,
     };
-    match scan_project(&root) {
-        Ok(result) => {
-            let has_errors = result.has_errors();
-            let diagnostics = result.diagnostics.clone();
-            emit(
-                format,
-                quiet,
-                JsonEnvelope::new(!has_errors, ScanData::from(result), diagnostics),
-            );
-            if has_errors {
-                ExitCode::VerificationFailed
-            } else {
-                ExitCode::Ok
-            }
-        }
-        Err(error) => {
-            let diagnostic = Diagnostic::error("E-CORE-001", error.to_string());
-            emit(
-                format,
-                quiet,
-                JsonEnvelope::new(false, serde_json::Value::Null, vec![diagnostic]),
-            );
-            ExitCode::Internal
-        }
-    }
-}
-
-fn run_spec(project: &Path, command: SpecCommand, format: OutputFormat, quiet: bool) -> ExitCode {
-    let root = match resolve_root(project, format, quiet) {
-        Ok(root) => root,
+    let registry = match resolve_registry(format, quiet) {
+        Ok(registry) => registry,
         Err(code) => return code,
     };
-    let layout = VerifyLayout::new(&root);
-    let result = match command {
-        SpecCommand::Add {
-            id,
-            path,
-            kind,
-            title,
-            note,
-            update,
-        } => add_spec(&root, &layout, &id, &path, &kind, title, note, update),
-        SpecCommand::List => list_specs(&layout),
-        SpecCommand::Show { id } => show_spec(&layout, &id),
-    };
-    finish_record_command(result, format, quiet)
-}
-
-fn run_req(project: &Path, command: ReqCommand, format: OutputFormat, quiet: bool) -> ExitCode {
-    let root = match resolve_root(project, format, quiet) {
-        Ok(root) => root,
-        Err(code) => return code,
-    };
-    let layout = VerifyLayout::new(&root);
-    let result = match command {
-        ReqCommand::Add {
-            id,
-            summary,
-            parent,
-            specs,
-            sections,
-        } => add_req(&layout, &id, &summary, parent, &specs, &sections),
-        ReqCommand::Edit {
-            id,
-            summary,
-            parent,
-            status,
-        } => edit_req(&layout, &id, summary, parent, status),
-        ReqCommand::List { tree } => list_reqs(&layout, tree),
-        ReqCommand::Show { id } => show_req(&layout, &id),
-    };
-    finish_record_command(result, format, quiet)
-}
-
-fn run_vo(project: &Path, command: VoCommand, format: OutputFormat, quiet: bool) -> ExitCode {
-    let root = match resolve_root(project, format, quiet) {
-        Ok(root) => root,
-        Err(code) => return code,
-    };
-    let layout = VerifyLayout::new(&root);
-    let result = match command {
-        VoCommand::Add {
-            id,
-            claim,
-            requirements,
-            parent,
-            specs,
-            sections,
-            dimensions,
-            policy,
-            combinations,
-        } => add_vo(
-            &layout,
-            &id,
-            &claim,
-            &requirements,
-            parent,
-            &specs,
-            &sections,
-            &dimensions,
-            policy,
-            &combinations,
-        ),
-        VoCommand::Edit {
-            id,
-            claim,
-            parent,
-            status,
-        } => edit_vo(&layout, &id, claim, parent, status),
-        VoCommand::List { tree, req, status } => {
-            list_vos(&layout, tree, req.as_deref(), status.as_deref())
-        }
-        VoCommand::Show { id } => show_vo(&layout, &id),
-        VoCommand::Expand { id, dry_run } => expand_vo(&layout, &id, dry_run),
-        VoCommand::Approve {
-            id,
-            approver_kind,
-            approver_id,
-            model,
-            basis,
-        } => approve_vo(&layout, &id, &approver_kind, &approver_id, model, &basis),
-    };
-    finish_record_command(result, format, quiet)
-}
-
-fn run_audit(project: &Path, command: AuditCommand, format: OutputFormat, quiet: bool) -> ExitCode {
-    match command {
-        AuditCommand::Static { test, all } => run_audit_static(project, test, all, format, quiet),
-        AuditCommand::Bundle {
-            kind,
-            test,
-            vo,
-            req,
-            include_failed,
-        } => run_audit_bundle(
-            project,
-            &kind,
-            test.as_deref(),
-            vo.as_deref(),
-            req.as_deref(),
-            include_failed,
-            format,
-            quiet,
-        ),
-        AuditCommand::Submit { file } => run_audit_submit(project, &file, format, quiet),
-    }
-}
-
-fn run_audit_static(
-    project: &Path,
-    test: Option<String>,
-    all: bool,
-    format: OutputFormat,
-    quiet: bool,
-) -> ExitCode {
-    let root = match resolve_root(project, format, quiet) {
-        Ok(root) => root,
-        Err(code) => return code,
-    };
-    let layout = VerifyLayout::new(&root);
-    if test.is_some() && all {
-        emit(
-            format,
-            quiet,
-            JsonEnvelope::new(
-                false,
-                serde_json::Value::Null,
-                vec![Diagnostic::error(
-                    "E-OP-001",
-                    "audit static accepts either --test or --all, not both",
-                )],
-            ),
-        );
-        return ExitCode::Usage;
-    }
-    let scan = match scan_project(&root) {
-        Ok(scan) => scan,
-        Err(error) => {
-            emit(
-                format,
-                quiet,
-                JsonEnvelope::new(
-                    false,
-                    serde_json::Value::Null,
-                    vec![Diagnostic::error("E-CORE-001", error.to_string())],
-                ),
-            );
-            return ExitCode::Internal;
-        }
-    };
-    let scan_has_errors = scan.has_errors();
-    let summary = match audit_static(&root, &scan, &AuditOptions { test_id: test }) {
-        Ok(summary) => summary,
-        Err(error) => {
-            emit(
-                format,
-                quiet,
-                JsonEnvelope::new(
-                    false,
-                    serde_json::Value::Null,
-                    vec![Diagnostic::error("E-OP-001", error.to_string())],
-                ),
-            );
-            return ExitCode::Usage;
-        }
-    };
-    if let Err(error) = persist_static_audits(&layout, &summary) {
-        emit(
-            format,
-            quiet,
-            JsonEnvelope::new(
-                false,
-                serde_json::Value::Null,
-                vec![Diagnostic::error("E-CORE-001", error.to_string())],
-            ),
-        );
-        return ExitCode::Internal;
-    }
-    let has_non_pass = scan_has_errors
-        || summary
-            .audits
-            .iter()
-            .any(|audit| audit.verdict != AuditVerdict::Pass);
-    let diagnostics = merge_diagnostics(
-        scan.diagnostics,
-        summary
-            .audits
-            .iter()
-            .flat_map(|audit| audit.diagnostics.iter().cloned()),
-    );
-    emit(
-        format,
-        quiet,
-        JsonEnvelope::new(
-            !has_non_pass,
-            serde_json::to_value(&summary).expect("audit summary"),
-            diagnostics,
-        ),
-    );
-    if has_non_pass {
-        ExitCode::VerificationFailed
-    } else {
-        ExitCode::Ok
-    }
-}
-
-fn merge_diagnostics(
-    scan_diagnostics: Vec<Diagnostic>,
-    audit_diagnostics: impl IntoIterator<Item = Diagnostic>,
-) -> Vec<Diagnostic> {
-    let mut diagnostics = scan_diagnostics;
-    diagnostics.extend(audit_diagnostics);
-    diagnostics.sort_by(|left, right| {
-        let left_location = left.location.as_deref();
-        let right_location = right.location.as_deref();
-        let left_severity = match left.severity {
-            vtest_model::DiagnosticSeverity::Error => 0,
-            vtest_model::DiagnosticSeverity::Warning => 1,
-        };
-        let right_severity = match right.severity {
-            vtest_model::DiagnosticSeverity::Error => 0,
-            vtest_model::DiagnosticSeverity::Warning => 1,
-        };
-        (
-            left_severity,
-            &left.code,
-            &left.message,
-            &left.candidates,
-            left_location.map(|location| location.file.as_str()),
-            left_location.map(|location| location.function.as_str()),
-            left_location.map_or(0, |location| location.start_line),
-            left_location.map_or(0, |location| location.end_line),
-            left_location.map_or(0, |location| location.start_byte),
-            left_location.map_or(0, |location| location.end_byte),
-        )
-            .cmp(&(
-                right_severity,
-                &right.code,
-                &right.message,
-                &right.candidates,
-                right_location.map(|location| location.file.as_str()),
-                right_location.map(|location| location.function.as_str()),
-                right_location.map_or(0, |location| location.start_line),
-                right_location.map_or(0, |location| location.end_line),
-                right_location.map_or(0, |location| location.start_byte),
-                right_location.map_or(0, |location| location.end_byte),
-            ))
+    let (exit, envelope) = ops::scan::execute(&root, &registry);
+    emit_value(format, quiet, &envelope, |envelope| {
+        let tests = envelope
+            .get("data")
+            .and_then(|data| data.get("tests"))
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or_default();
+        let sources = envelope
+            .get("data")
+            .and_then(|data| data.get("sources"))
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or_default();
+        let diagnostics = envelope
+            .get("diagnostics")
+            .and_then(serde_json::Value::as_array)
+            .map_or(0, Vec::len);
+        format!("scan: {tests} test(s), {sources} source(s), {diagnostics} diagnostic(s)\n")
     });
-    diagnostics
+    exit
 }
 
-#[allow(clippy::too_many_arguments)]
-fn run_audit_bundle(
-    project: &Path,
-    kind: &str,
-    test_id: Option<&str>,
-    vo_id: Option<&str>,
-    req_id: Option<&str>,
-    include_failed: bool,
-    format: OutputFormat,
-    quiet: bool,
-) -> ExitCode {
+fn run_doctor(project: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
     let root = match resolve_root(project, format, quiet) {
         Ok(root) => root,
         Err(code) => return code,
     };
-    let layout = VerifyLayout::new(&root);
-    let scan = match scan_project(&root) {
-        Ok(scan) => scan,
-        Err(error) => {
-            emit(
-                format,
-                quiet,
-                JsonEnvelope::new(
-                    false,
-                    serde_json::Value::Null,
-                    vec![Diagnostic::error("E-CORE-001", error.to_string())],
-                ),
-            );
-            return ExitCode::Internal;
-        }
-    };
-    let selector_count = usize::from(test_id.is_some())
-        + usize::from(vo_id.is_some())
-        + usize::from(req_id.is_some());
-    let selector_error = |message: String| {
-        emit(
-            format,
-            quiet,
-            JsonEnvelope::new(
-                false,
-                serde_json::Value::Null,
-                vec![Diagnostic::error("E-OP-001", message)],
-            ),
-        );
-        ExitCode::Usage
-    };
-    let supported = matches!(kind, "test-semantic" | "vo-coverage" | "impl-consistency");
-    if !supported {
-        return selector_error(format!("unsupported audit bundle kind {kind}"));
-    }
-    let selector_valid = match kind {
-        "test-semantic" => selector_count == 1 && test_id.is_some(),
-        "vo-coverage" => selector_count == 1 && (vo_id.is_some() || req_id.is_some()),
-        "impl-consistency" => selector_count == 1 && (test_id.is_some() || vo_id.is_some()),
-        _ => false,
-    };
-    if !selector_valid {
-        return selector_error(format!(
-            "audit bundle {kind} requires exactly one compatible --test, --vo, or --req selector"
-        ));
-    }
-
-    let bundle = match build_bundle(
-        &root,
-        &layout,
-        &scan,
-        kind,
-        test_id,
-        vo_id,
-        req_id,
-        include_failed,
-    ) {
-        Ok(bundle) => bundle,
-        Err(error) => {
-            emit(
-                format,
-                quiet,
-                JsonEnvelope::new(false, serde_json::Value::Null, vec![*error.diagnostic]),
-            );
-            return error.code;
-        }
-    };
-    if bundle
-        .get("skipped")
-        .and_then(serde_json::Value::as_bool)
-        .unwrap_or(false)
-    {
-        emit(
-            format,
-            quiet,
-            JsonEnvelope::new(true, bundle, scan.diagnostics),
-        );
-        return ExitCode::Ok;
-    }
-    let bundle_id = bundle
-        .get("bundle_id")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or_default();
-    let path = layout
-        .cache_dir()
-        .join("bundles")
-        .join(format!("{bundle_id}.json"));
-    if let Err(error) = fs::create_dir_all(layout.cache_dir().join("bundles")).and_then(|_| {
-        serde_json::to_string_pretty(&bundle)
-            .map_err(std::io::Error::other)
-            .and_then(|text| fs::write(&path, format!("{text}\n")))
-    }) {
-        emit(
-            format,
-            quiet,
-            JsonEnvelope::new(
-                false,
-                serde_json::Value::Null,
-                vec![Diagnostic::error(
-                    "E-CORE-001",
-                    format!("failed to write bundle {}: {error}", path.display()),
-                )],
-            ),
-        );
-        return ExitCode::Internal;
-    }
-    let data = serde_json::json!({
-        "bundle_id": bundle_id,
-        "kind": kind,
-        "path": relative_path(&root, &path),
-    });
-    emit(
-        format,
-        quiet,
-        JsonEnvelope::new(true, data, scan.diagnostics),
-    );
-    ExitCode::Ok
-}
-
-fn run_audit_submit(project: &Path, file: &Path, format: OutputFormat, quiet: bool) -> ExitCode {
-    let root = match resolve_root(project, format, quiet) {
-        Ok(root) => root,
+    let registry = match resolve_registry(format, quiet) {
+        Ok(registry) => registry,
         Err(code) => return code,
     };
-    let layout = VerifyLayout::new(&root);
-    let input = absolute_path(file);
-    let text = match fs::read_to_string(&input) {
-        Ok(text) => text,
-        Err(error) => {
-            emit(
-                format,
-                quiet,
-                JsonEnvelope::new(
-                    false,
-                    serde_json::Value::Null,
-                    vec![Diagnostic::error(
-                        "E-OP-001",
-                        format!("failed to read submission {}: {error}", input.display()),
-                    )],
-                ),
-            );
-            return ExitCode::Usage;
-        }
-    };
-    let result = match serde_json::from_str::<serde_json::Value>(&text) {
-        Ok(value) => value,
-        Err(error) => {
-            emit(
-                format,
-                quiet,
-                JsonEnvelope::new(
-                    false,
-                    serde_json::Value::Null,
-                    vec![Diagnostic::error(
-                        "E-AUDIT-003",
-                        format!("submission is not valid JSON: {error}"),
-                    )],
-                ),
-            );
-            return ExitCode::Usage;
-        }
-    };
-    let bundle_id = match nonempty_string(&result, "bundle_id") {
-        Ok(value) => value,
-        Err(error) => return emit_command_failure(error, format, quiet),
-    };
-    if !is_safe_record_id(bundle_id) {
-        return emit_command_failure(
-            failure(
-                "E-AUDIT-003",
-                "bundle_id is not a safe record id",
-                ExitCode::Usage,
-            ),
-            format,
-            quiet,
-        );
-    }
-    let kind = match nonempty_string(&result, "kind") {
-        Ok(value) => value,
-        Err(error) => return emit_command_failure(error, format, quiet),
-    };
-    let bundle_path = layout
-        .cache_dir()
-        .join("bundles")
-        .join(format!("{bundle_id}.json"));
-    let bundle_text = match fs::read_to_string(&bundle_path) {
-        Ok(text) => text,
-        Err(_) => {
-            return emit_command_failure(
-                failure(
-                    "E-AUDIT-001",
-                    format!("bundle {bundle_id} does not exist"),
-                    ExitCode::Usage,
-                ),
-                format,
-                quiet,
-            )
-        }
-    };
-    let bundle = match serde_json::from_str::<serde_json::Value>(&bundle_text) {
-        Ok(value) => value,
-        Err(error) => {
-            return emit_command_failure(
-                failure(
-                    "E-AUDIT-003",
-                    format!("cached bundle is invalid JSON: {error}"),
-                    ExitCode::Usage,
-                ),
-                format,
-                quiet,
-            )
-        }
-    };
-    if bundle.get("kind").and_then(serde_json::Value::as_str) != Some(kind) {
-        return emit_command_failure(
-            failure(
-                "E-AUDIT-003",
-                "submission kind does not match the cached bundle",
-                ExitCode::Usage,
-            ),
-            format,
-            quiet,
-        );
-    }
-    let scan = match scan_project(&root) {
-        Ok(scan) => scan,
-        Err(error) => {
-            return emit_command_failure(
-                failure("E-CORE-001", error.to_string(), ExitCode::Internal),
-                format,
-                quiet,
-            )
-        }
-    };
-    if let Err(error) = validate_bundle_subjects(&root, &layout, &scan, &bundle) {
-        return emit_command_failure(error, format, quiet);
-    }
-    let verdict = match submitted_verdict(kind, &result) {
-        Ok(value) => value,
-        Err(error) => return emit_command_failure(error, format, quiet),
-    };
-    if let Err(error) = validate_reasons(kind, &result) {
-        return emit_command_failure(error, format, quiet);
-    }
-    let audit_id = new_record_id();
-    let audit_path = layout.audits_dir().join(format!("{audit_id}.yaml"));
-    let audit_yaml = audit_record_yaml(&audit_id, bundle_id, kind, &bundle, &result, &verdict);
-    if let Err(error) = fs::create_dir_all(layout.audits_dir()).and_then(|_| {
-        write_new_record(&audit_path, &audit_yaml)
-            .map_err(|error| std::io::Error::other(error.to_string()))
-    }) {
-        return emit_command_failure(
-            failure(
-                "E-CORE-001",
-                format!("failed to write audit record: {error}"),
-                ExitCode::Internal,
-            ),
-            format,
-            quiet,
-        );
-    }
-    let data = serde_json::json!({
-        "accepted": true,
-        "audit_id": audit_id,
-        "bundle_id": bundle_id,
-        "kind": kind,
-        "verdict": verdict,
-    });
-    emit(
-        format,
-        quiet,
-        JsonEnvelope::new(true, data, scan.diagnostics),
-    );
-    ExitCode::Ok
-}
-
-fn emit_command_failure(error: CommandFailure, format: OutputFormat, quiet: bool) -> ExitCode {
-    let code = error.code;
-    emit(
-        format,
-        quiet,
-        JsonEnvelope::new(false, serde_json::Value::Null, vec![*error.diagnostic]),
-    );
-    code
-}
-
-#[allow(clippy::too_many_arguments)]
-fn build_bundle(
-    root: &Path,
-    layout: &VerifyLayout,
-    scan: &ScanResult,
-    kind: &str,
-    test_id: Option<&str>,
-    vo_id: Option<&str>,
-    req_id: Option<&str>,
-    include_failed: bool,
-) -> CommandResult<serde_json::Value> {
-    match kind {
-        "test-semantic" => {
-            let test = find_test(scan, Some(test_id.expect("validated selector")))?;
-            let static_summary = audit_static(
-                root,
-                scan,
-                &AuditOptions {
-                    test_id: Some(test.id.to_string()),
-                },
-            )
-            .map_err(|error| failure("E-OP-001", error.to_string(), ExitCode::Usage))?;
-            let static_audit = static_summary.audits.first();
-            if static_audit
-                .is_some_and(|audit| audit.verdict == AuditVerdict::Fail && !include_failed)
-            {
-                return Ok(serde_json::json!({
-                    "skipped": true,
-                    "reason": "static audit verdict is FAIL; pass --include-failed to force a bundle",
-                    "test_id": test.id,
-                }));
-            }
-            let target = find_target_source(scan, &test.target).ok_or_else(|| {
-                failure(
-                    "E-SCAN-004",
-                    format!("test {} target cannot be resolved", test.id),
-                    ExitCode::Usage,
-                )
-            })?;
-            let vos = test
-                .covers
-                .iter()
-                .map(|id| vo_value(layout, id.as_str()))
-                .collect::<Result<Vec<_>, _>>()?;
-            let mut subjects = vec![subject_value(
-                "test",
-                Some(test.id.as_str()),
-                None,
-                &test.content_hash,
-            )];
-            subjects.push(subject_value(
-                "target",
-                None,
-                Some(&target.locator.as_string()),
-                &target.content_hash,
-            ));
-            for (vo, subject) in test.covers.iter().zip(vos.iter()) {
-                subjects.push(subject_value(
-                    "vo",
-                    Some(vo.as_str()),
-                    None,
-                    &subject["content_hash"]
-                        .as_str()
-                        .and_then(|hash| hash.parse().ok())
-                        .unwrap_or_else(|| ContentHash::from_text("")),
-                ));
-            }
-            let related_ids = test
-                .related
-                .iter()
-                .map(ToString::to_string)
-                .collect::<BTreeSet<_>>();
-            let related_tests = related_ids
-                .iter()
-                .filter_map(|id| scan.tests.iter().find(|candidate| candidate.id.as_str() == id))
-                .map(|candidate| serde_json::json!({ "id": candidate.id, "intent": candidate.intent }))
-                .collect::<Vec<_>>();
-            let sibling_tests = scan
-                .tests
-                .iter()
-                .filter(|candidate| {
-                    candidate.id != test.id
-                        && candidate
-                            .covers
-                            .iter()
-                            .any(|covered| test.covers.contains(covered))
-                })
-                .map(|candidate| serde_json::json!({ "id": candidate.id, "intent": candidate.intent }))
-                .collect::<Vec<_>>();
-            let test_value = test_value(root, test)?;
-            let target_value = target_value(root, target)?;
-            let static_value = static_audit.map(|audit| {
-                serde_json::json!({
-                    "verdict": audit.verdict,
-                    "rules": audit.rules,
-                })
-            });
-            Ok(serde_json::json!({
-                "bundle_id": new_record_id(),
-                "kind": kind,
-                "generated_at": now_rfc3339(),
-                "revision": git_revision_json(root),
-                "test": test_value,
-                "vos": vos,
-                "target": target_value,
-                "related_tests": related_tests,
-                "sibling_tests": sibling_tests,
-                "static_audit": static_value,
-                "prior_audits": prior_audits(layout, test.id.as_str(), &test.content_hash),
-                "subjects": subjects,
-            }))
-        }
-        "vo-coverage" => {
-            let selected = collect_scope_vos(layout, vo_id, req_id)?;
-            let mut subjects = Vec::new();
-            let mut requirements = BTreeMap::new();
-            let mut specs = BTreeMap::new();
-            for vo in &selected {
-                let value = vo_value(layout, vo.id.as_str())?;
-                let hash = value["content_hash"]
-                    .as_str()
-                    .and_then(|hash| hash.parse().ok())
-                    .unwrap_or_else(|| ContentHash::from_text(""));
-                subjects.push(subject_value("vo", Some(vo.id.as_str()), None, &hash));
-                for requirement in &vo.requirements {
-                    if let Ok(record) = read_req(layout, requirement.as_str()) {
-                        let key = record.id.to_string();
-                        let path = layout.req_dir().join(format!("{key}.yaml"));
-                        let record_hash = fs::read_to_string(path)
-                            .map(|text| ContentHash::from_text(&text))
-                            .unwrap_or_else(|_| ContentHash::from_text(""));
-                        subjects.push(subject_value(
-                            "req",
-                            Some(record.id.as_str()),
-                            None,
-                            &record_hash,
-                        ));
-                        requirements.insert(key, serde_json::to_value(record).expect("REQ record"));
-                    }
-                }
-                for spec_ref in &vo.spec_refs {
-                    if let Ok(record) = read_spec(layout, spec_ref.spec.as_str()) {
-                        let key = record.id.to_string();
-                        subjects.push(subject_value(
-                            "spec",
-                            Some(record.id.as_str()),
-                            None,
-                            &record.sha256,
-                        ));
-                        specs.insert(
-                            key,
-                            serde_json::json!({
-                                "id": record.id,
-                                "path": record.path,
-                                "sha256": record.sha256,
-                                "section": spec_ref.section,
-                            }),
-                        );
-                    }
-                }
-            }
-            for requirement in requirements.values() {
-                let Some(spec_refs) = requirement
-                    .get("spec_refs")
-                    .and_then(serde_json::Value::as_array)
-                else {
-                    continue;
-                };
-                for spec_ref in spec_refs {
-                    let Some(spec_id) = spec_ref.get("spec").and_then(serde_json::Value::as_str)
-                    else {
-                        continue;
-                    };
-                    if let Ok(record) = read_spec(layout, spec_id) {
-                        let key = record.id.to_string();
-                        subjects.push(subject_value(
-                            "spec",
-                            Some(record.id.as_str()),
-                            None,
-                            &record.sha256,
-                        ));
-                        specs.entry(key).or_insert_with(|| {
-                            serde_json::json!({
-                                "id": record.id,
-                                "path": record.path,
-                                "sha256": record.sha256,
-                                "section": spec_ref.get("section"),
-                            })
-                        });
-                    }
-                }
-            }
-            let leaf_coverage = selected
-                .iter()
-                .filter(|vo| {
-                    !selected
-                        .iter()
-                        .any(|candidate| candidate.parent.as_ref() == Some(&vo.id))
-                })
-                .map(|vo| {
-                    let tests = scan
-                        .tests
-                        .iter()
-                        .filter(|test| test.covers.contains(&vo.id))
-                        .map(|test| test.id.to_string())
-                        .collect::<Vec<_>>();
-                    serde_json::json!({ "vo": vo.id, "tests": tests })
-                })
-                .collect::<Vec<_>>();
-            Ok(serde_json::json!({
-                "bundle_id": new_record_id(),
-                "kind": kind,
-                "generated_at": now_rfc3339(),
-                "revision": git_revision_json(root),
-                "vos": selected.iter().map(|vo| vo_value(layout, vo.id.as_str())).collect::<Result<Vec<_>, _>>()?,
-                "requirements": requirements.into_values().collect::<Vec<_>>(),
-                "specs": specs.into_values().collect::<Vec<_>>(),
-                "leaf_coverage": leaf_coverage,
-                "subjects": subjects,
-            }))
-        }
-        "impl-consistency" => {
-            if let Some(test_id) = test_id {
-                let test = find_test(scan, Some(test_id))?;
-                let target = find_target_source(scan, &test.target).ok_or_else(|| {
-                    failure(
-                        "E-SCAN-004",
-                        format!("test {} target cannot be resolved", test.id),
-                        ExitCode::Usage,
-                    )
-                })?;
-                let vos = test
-                    .covers
-                    .iter()
-                    .map(|id| vo_value(layout, id.as_str()))
-                    .collect::<Result<Vec<_>, _>>()?;
-                let mut subjects = vec![subject_value(
-                    "test",
-                    Some(test.id.as_str()),
-                    None,
-                    &test.content_hash,
-                )];
-                subjects.push(subject_value(
-                    "target",
-                    None,
-                    Some(&target.locator.as_string()),
-                    &target.content_hash,
-                ));
-                for (vo, subject) in test.covers.iter().zip(vos.iter()) {
-                    let hash = subject["content_hash"]
-                        .as_str()
-                        .and_then(|hash| hash.parse().ok())
-                        .unwrap_or_else(|| ContentHash::from_text(""));
-                    subjects.push(subject_value("vo", Some(vo.as_str()), None, &hash));
-                }
-                Ok(serde_json::json!({
-                    "bundle_id": new_record_id(),
-                    "kind": kind,
-                    "generated_at": now_rfc3339(),
-                    "revision": git_revision_json(root),
-                    "test": test_value(root, test)?,
-                    "vos": vos,
-                    "target": target_value(root, target)?,
-                    "related_tests": test.related.iter().filter_map(|id| {
-                        scan.tests.iter().find(|candidate| candidate.id == *id)
-                    }).map(|candidate| serde_json::json!({ "id": candidate.id, "intent": candidate.intent })).collect::<Vec<_>>(),
-                    "subjects": subjects,
-                }))
-            } else {
-                let vo =
-                    read_vo(layout, vo_id.expect("validated selector")).map_err(store_failure)?;
-                let mut subjects = Vec::new();
-                let vo_value = vo_value(layout, vo.id.as_str())?;
-                let hash = vo_value["content_hash"]
-                    .as_str()
-                    .and_then(|hash| hash.parse().ok())
-                    .unwrap_or_else(|| ContentHash::from_text(""));
-                subjects.push(subject_value("vo", Some(vo.id.as_str()), None, &hash));
-                let tests = scan
-                    .tests
-                    .iter()
-                    .filter(|test| test.covers.contains(&vo.id))
-                    .collect::<Vec<_>>();
-                let mut targets = Vec::new();
-                for test in &tests {
-                    if let Some(target) = find_target_source(scan, &test.target) {
-                        subjects.push(subject_value(
-                            "test",
-                            Some(test.id.as_str()),
-                            None,
-                            &test.content_hash,
-                        ));
-                        subjects.push(subject_value(
-                            "target",
-                            None,
-                            Some(&target.locator.as_string()),
-                            &target.content_hash,
-                        ));
-                        targets.push(target_value(root, target)?);
-                    }
-                }
-                if targets.is_empty() {
-                    return Err(failure(
-                        "E-SCAN-004",
-                        format!("VO {} has no resolvable target function", vo.id),
-                        ExitCode::Usage,
-                    ));
-                }
-                Ok(serde_json::json!({
-                    "bundle_id": new_record_id(),
-                    "kind": kind,
-                    "generated_at": now_rfc3339(),
-                    "revision": git_revision_json(root),
-                    "vo": vo_value,
-                    "tests": tests.iter().map(|test| test_value(root, test)).collect::<Result<Vec<_>, _>>()?,
-                    "targets": targets,
-                    "subjects": subjects,
-                }))
-            }
-        }
-        _ => Err(failure(
-            "E-OP-001",
-            "unsupported bundle kind",
-            ExitCode::Usage,
-        )),
-    }
-}
-
-fn find_test<'a>(scan: &'a ScanResult, id: Option<&str>) -> CommandResult<&'a TestEntity> {
-    let id = id.unwrap_or_default();
-    scan.tests
-        .iter()
-        .find(|test| test.id.as_str() == id)
-        .ok_or_else(|| {
-            failure(
-                "E-OP-001",
-                format!("test {id} was not found"),
-                ExitCode::Usage,
-            )
-        })
-}
-
-fn find_target_source<'a>(scan: &'a ScanResult, target: &TargetRef) -> Option<&'a SourceFunction> {
-    match target {
-        TargetRef::Locator(locator) => scan
-            .sources
-            .iter()
-            .find(|source| source.locator == *locator),
-        TargetRef::SrcId(src_id) => scan.sources.iter().find(|source| {
-            source
-                .src_id
-                .as_ref()
-                .is_some_and(|candidate| candidate == src_id)
-        }),
-    }
-}
-
-fn source_slice(root: &Path, location: &vtest_model::SourceLocation) -> CommandResult<String> {
-    let path = root.join(&location.file);
-    let source = fs::read_to_string(&path).map_err(|error| {
-        failure(
-            "E-CORE-001",
-            format!("failed to read {}: {error}", path.display()),
-            ExitCode::Internal,
-        )
-    })?;
-    let value = source
-        .get(location.start_byte..location.end_byte)
-        .ok_or_else(|| {
-            failure(
-                "E-SCAN-004",
-                format!(
-                    "invalid source span {}:{}-{}",
-                    location.file, location.start_byte, location.end_byte
-                ),
-                ExitCode::Usage,
-            )
-        })?;
-    Ok(value.to_owned())
-}
-
-fn test_value(root: &Path, test: &TestEntity) -> CommandResult<serde_json::Value> {
-    let source = source_slice(root, &test.location)?;
-    Ok(serde_json::json!({
-        "id": test.id,
-        "intent": test.intent,
-        "annotations": {
-            "input": test.input,
-            "expect": test.expect,
-            "kind": test.kind,
-            "cases": test.cases,
-        },
-        "location": {
-            "file": test.location.file,
-            "function": test.location.function,
-            "start_line": test.location.start_line,
-            "end_line": test.location.end_line,
-        },
-        "source": source,
-        "content_hash": test.content_hash,
-    }))
-}
-
-fn target_value(root: &Path, target: &SourceFunction) -> CommandResult<serde_json::Value> {
-    Ok(serde_json::json!({
-        "locator": target.locator.as_string(),
-        "source": source_slice(root, &target.location)?,
-        "content_hash": target.content_hash,
-    }))
-}
-
-fn vo_value(layout: &VerifyLayout, id: &str) -> CommandResult<serde_json::Value> {
-    let record = read_vo(layout, id).map_err(store_failure)?;
-    let path = layout.vo_dir().join(format!("{id}.yaml"));
-    let text = read_text(&path).map_err(store_failure)?;
-    Ok(serde_json::json!({
-        "id": record.id,
-        "claim": record.claim,
-        "dimensions": record.dimensions,
-        "spec_refs": record.spec_refs,
-        "requirements": record.requirements,
-        "status": record.status,
-        "content_hash": ContentHash::from_text(&text),
-    }))
-}
-
-fn collect_scope_vos(
-    layout: &VerifyLayout,
-    vo_id: Option<&str>,
-    req_id: Option<&str>,
-) -> CommandResult<Vec<VoRecord>> {
-    let ids = read_record_ids_for(&layout.vo_dir())?;
-    let mut records = Vec::new();
-    for id in ids {
-        records.push(read_vo(layout, &id).map_err(store_failure)?);
-    }
-    let selected = if let Some(vo_id) = vo_id {
-        if !records.iter().any(|vo| vo.id.as_str() == vo_id) {
-            return Err(failure(
-                "E-OP-001",
-                format!("VO {vo_id} was not found"),
-                ExitCode::Usage,
-            ));
-        }
-        records
-            .iter()
-            .filter(|vo| vo.id.as_str() == vo_id || has_vo_ancestor(&records, vo, vo_id))
-            .cloned()
-            .collect::<Vec<_>>()
-    } else {
-        let req_id = req_id.unwrap_or_default();
-        if read_req(layout, req_id).is_err() {
-            return Err(failure(
-                "E-OP-001",
-                format!("REQ {req_id} was not found"),
-                ExitCode::Usage,
-            ));
-        }
-        records
-            .iter()
-            .filter(|vo| {
-                vo.requirements.iter().any(|req| req.as_str() == req_id)
-                    || has_vo_requirement_ancestor(&records, vo, req_id)
-            })
-            .cloned()
-            .collect::<Vec<_>>()
-    };
-    if selected.is_empty() {
-        return Err(failure(
-            "E-OP-001",
-            "the selected scope contains no VO records",
-            ExitCode::Usage,
-        ));
-    }
-    Ok(selected)
-}
-
-fn has_vo_ancestor(records: &[VoRecord], child: &VoRecord, ancestor: &str) -> bool {
-    let mut current = child.parent.as_ref().map(ToString::to_string);
-    while let Some(id) = current {
-        if id == ancestor {
-            return true;
-        }
-        current = records
-            .iter()
-            .find(|candidate| candidate.id.as_str() == id)
-            .and_then(|candidate| candidate.parent.as_ref().map(ToString::to_string));
-    }
-    false
-}
-
-fn has_vo_requirement_ancestor(records: &[VoRecord], child: &VoRecord, req_id: &str) -> bool {
-    let mut current = child.parent.as_ref().map(ToString::to_string);
-    while let Some(id) = current {
-        let Some(parent) = records.iter().find(|candidate| candidate.id.as_str() == id) else {
-            break;
-        };
-        if parent.requirements.iter().any(|req| req.as_str() == req_id) {
-            return true;
-        }
-        current = parent.parent.as_ref().map(ToString::to_string);
-    }
-    false
-}
-
-fn subject_value(
-    kind: &str,
-    id: Option<&str>,
-    locator: Option<&str>,
-    hash: &ContentHash,
-) -> serde_json::Value {
-    let mut value = serde_json::Map::new();
-    value.insert(
-        "kind".to_owned(),
-        serde_json::Value::String(kind.to_owned()),
-    );
-    if let Some(id) = id {
-        value.insert("id".to_owned(), serde_json::Value::String(id.to_owned()));
-    }
-    if let Some(locator) = locator {
-        value.insert(
-            "locator".to_owned(),
-            serde_json::Value::String(locator.to_owned()),
-        );
-    }
-    value.insert(
-        "hash".to_owned(),
-        serde_json::Value::String(hash.to_string()),
-    );
-    serde_json::Value::Object(value)
-}
-
-fn git_revision_json(root: &Path) -> serde_json::Value {
-    let commit = ProcessCommand::new("git")
-        .current_dir(root)
-        .args(["rev-parse", "HEAD"])
-        .output()
-        .ok()
-        .filter(|output| output.status.success())
-        .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_owned())
-        .filter(|value| !value.is_empty());
-    let dirty = ProcessCommand::new("git")
-        .current_dir(root)
-        .args(["status", "--porcelain"])
-        .output()
-        .ok()
-        .is_some_and(|output| output.status.success() && !output.stdout.is_empty());
-    serde_json::to_value(Revision { commit, dirty }).expect("revision is serializable")
-}
-
-fn prior_audits(
-    layout: &VerifyLayout,
-    test_id: &str,
-    current_hash: &ContentHash,
-) -> Vec<serde_json::Value> {
-    let Ok(entries) = fs::read_dir(layout.audits_dir()) else {
-        return Vec::new();
-    };
-    let mut records = Vec::new();
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|value| value.to_str()) != Some("yaml") {
-            continue;
-        }
-        let Ok(text) = fs::read_to_string(&path) else {
-            continue;
-        };
-        let is_subject = vtest_store::yaml_scalar_value(&text, "test_id")
-            .is_some_and(|value| value == test_id)
-            || text.contains(&format!("id: {test_id}"));
-        if !is_subject {
-            continue;
-        }
-        let id = vtest_store::yaml_scalar_value(&text, "id").or_else(|| {
-            path.file_stem()
-                .and_then(|value| value.to_str())
-                .map(str::to_owned)
-        });
-        let valid = yaml_scalar_value(&text, "test_hash")
-            .and_then(|hash| hash.parse::<ContentHash>().ok())
-            .is_some_and(|hash| &hash == current_hash)
-            || text.lines().any(|line| {
-                line.trim_start().starts_with("hash:")
-                    && yaml_scalar_value(line, "hash")
-                        .is_some_and(|hash| hash == current_hash.to_string())
-            });
-        records.push(serde_json::json!({
-            "id": id,
-            "verdict": vtest_store::yaml_scalar_value(&text, "verdict"),
-            "audited_at": vtest_store::yaml_scalar_value(&text, "audited_at"),
-            "valid": valid,
-        }));
-    }
-    records.sort_by(|left, right| {
-        left["id"]
-            .as_str()
-            .unwrap_or_default()
-            .cmp(right["id"].as_str().unwrap_or_default())
-    });
-    records
-}
-
-fn nonempty_string<'a>(
-    value: &'a serde_json::Value,
-    field: &str,
-) -> Result<&'a str, CommandFailure> {
-    value
-        .get(field)
-        .and_then(serde_json::Value::as_str)
-        .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| {
-            failure(
-                "E-AUDIT-003",
-                format!("submission requires a non-empty {field}"),
-                ExitCode::Usage,
-            )
-        })
-}
-
-fn is_safe_record_id(value: &str) -> bool {
-    value.len() == 26
-        && value
-            .bytes()
-            .all(|byte| b"0123456789ABCDEFGHJKMNPQRSTVWXYZ".contains(&byte))
-}
-
-fn validate_bundle_subjects(
-    root: &Path,
-    layout: &VerifyLayout,
-    scan: &ScanResult,
-    bundle: &serde_json::Value,
-) -> Result<(), CommandFailure> {
-    let subjects = bundle
-        .get("subjects")
-        .and_then(serde_json::Value::as_array)
-        .ok_or_else(|| {
-            failure(
-                "E-AUDIT-003",
-                "cached bundle has no subjects",
-                ExitCode::Usage,
-            )
-        })?;
-    for subject in subjects {
-        let kind = subject
-            .get("kind")
+    let (exit, envelope) = ops::doctor::execute(&root, &registry);
+    emit_value(format, quiet, &envelope, |envelope| {
+        let project = envelope
+            .get("data")
+            .and_then(|data| data.get("project"))
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default();
-        let expected = subject
-            .get("hash")
-            .and_then(serde_json::Value::as_str)
-            .and_then(|hash| hash.parse::<ContentHash>().ok())
-            .ok_or_else(|| {
-                failure(
-                    "E-AUDIT-003",
-                    "cached bundle contains an invalid subject hash",
-                    ExitCode::Usage,
-                )
-            })?;
-        let actual = match kind {
-            "test" => {
-                let id = subject
-                    .get("id")
-                    .and_then(serde_json::Value::as_str)
-                    .unwrap_or_default();
-                scan.tests
-                    .iter()
-                    .find(|test| test.id.as_str() == id)
-                    .map(|test| test.content_hash.clone())
-            }
-            "target" => {
-                let locator = subject
-                    .get("locator")
-                    .and_then(serde_json::Value::as_str)
-                    .and_then(Locator::parse);
-                locator.and_then(|locator| {
-                    scan.sources
-                        .iter()
-                        .find(|source| source.locator == locator)
-                        .map(|source| source.content_hash.clone())
-                })
-            }
-            "vo" => current_record_hash(&layout.vo_dir(), subject),
-            "req" => current_record_hash(&layout.req_dir(), subject),
-            "spec" => {
-                let id = subject
-                    .get("id")
-                    .and_then(serde_json::Value::as_str)
-                    .unwrap_or_default();
-                read_spec(layout, id).ok().and_then(|record| {
-                    let path = root.join(&record.path);
-                    fs::read_to_string(path)
-                        .ok()
-                        .map(|text| ContentHash::from_text(&text))
-                })
-            }
-            _ => None,
-        };
-        if actual.as_ref() != Some(&expected) {
-            return Err(failure(
-                "E-AUDIT-002",
-                format!("subject {kind} hash no longer matches the cached bundle"),
-                ExitCode::VerificationFailed,
-            ));
-        }
-    }
-    Ok(())
+        let adapters = envelope
+            .get("data")
+            .and_then(|data| data.get("adapters"))
+            .and_then(serde_json::Value::as_array)
+            .map_or(0, Vec::len);
+        let diagnostics = envelope
+            .get("diagnostics")
+            .and_then(serde_json::Value::as_array)
+            .map_or(0, Vec::len);
+        format!("doctor: project {project}, {adapters} adapter(s), {diagnostics} diagnostic(s)\n")
+    });
+    exit
 }
 
-fn current_record_hash(directory: &Path, subject: &serde_json::Value) -> Option<ContentHash> {
-    let id = subject
-        .get("id")
-        .and_then(serde_json::Value::as_str)
-        .filter(|value| is_safe_entity_id(value))?;
-    let path = directory.join(format!("{id}.yaml"));
-    fs::read_to_string(path)
-        .ok()
-        .map(|text| ContentHash::from_text(&text))
-}
+// ---------------------------------------------------------------------------
+// export
+// ---------------------------------------------------------------------------
 
-fn is_safe_entity_id(value: &str) -> bool {
-    !value.is_empty()
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
-}
-
-fn submitted_verdict(kind: &str, result: &serde_json::Value) -> Result<String, CommandFailure> {
-    let verdict = result
-        .get("verdict")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or_default();
-    let valid = match kind {
-        "vo-coverage" => matches!(verdict, "COMPLETE" | "INCOMPLETE" | "UNKNOWN"),
-        "test-semantic" | "impl-consistency" => matches!(verdict, "PASS" | "FAIL" | "UNKNOWN"),
-        _ => false,
+/// BD-338: this wrapper chooses the format, renders Markdown and decides
+/// what goes to stdout and stderr; everything else is `ops::export`.
+fn run_export(project: &Path, format: ExportFormat, quiet: bool) -> ExitCode {
+    let outcome = match find_root(project) {
+        Ok(root) => match ops::registry::resolve_registry() {
+            Ok(registry) => ops::export::execute(&root, &registry),
+            Err(failure) => ops::export::ExportOutcome::rejected(&failure),
+        },
+        Err(message) => ops::export::ExportOutcome::rejected(&ops::envelope::Failure::usage(
+            "E-OP-001", message,
+        )),
     };
-    if !valid {
-        return Err(failure(
-            "E-AUDIT-004",
-            format!("verdict {verdict} is not valid for {kind}"),
-            ExitCode::Usage,
-        ));
+    // DS-1706: `--quiet` wins over every other output rule.
+    if quiet {
+        return outcome.exit;
     }
-    Ok(match verdict {
-        "COMPLETE" => "PASS".to_owned(),
-        "INCOMPLETE" => "FAIL".to_owned(),
-        other => other.to_owned(),
-    })
-}
-
-fn validate_reasons(kind: &str, result: &serde_json::Value) -> Result<(), CommandFailure> {
-    let reasons = result
-        .get("reasons")
-        .and_then(serde_json::Value::as_array)
-        .ok_or_else(|| {
-            failure(
-                "E-AUDIT-005",
-                "reasons must be a non-empty array",
-                ExitCode::Usage,
-            )
-        })?;
-    if reasons.is_empty() {
-        return Err(failure(
-            "E-AUDIT-005",
-            "reasons must be a non-empty array",
-            ExitCode::Usage,
-        ));
-    }
-    for reason in reasons {
-        let claim = reason
-            .get("claim")
-            .and_then(serde_json::Value::as_str)
-            .filter(|claim| !claim.trim().is_empty());
-        let basis = reason.get("basis").and_then(serde_json::Value::as_array);
-        if claim.is_none() || basis.is_none_or(|basis| basis.is_empty()) {
-            return Err(failure(
-                "E-AUDIT-005",
-                "each reason requires a non-empty claim and at least one basis",
-                ExitCode::Usage,
-            ));
-        }
-        for item in basis.expect("checked above") {
-            let basis_kind = item.get("kind").and_then(serde_json::Value::as_str);
-            let basis_ref = item.get("ref").and_then(serde_json::Value::as_str);
-            if basis_kind.is_none_or(|kind| kind.trim().is_empty())
-                || basis_ref.is_none_or(|reference| reference.trim().is_empty())
-            {
-                return Err(failure(
-                    "E-AUDIT-005",
-                    "each basis requires kind and ref",
-                    ExitCode::Usage,
-                ));
+    match format {
+        // DES-609: `data` is serialized from its type, in the type's field
+        // order.
+        ExportFormat::Json => println!(
+            "{}",
+            serde_json::to_string_pretty(&JsonEnvelope::new(
+                outcome.ok(),
+                &outcome.data,
+                outcome.diagnostics.clone(),
+            ))
+            .unwrap_or_else(|error| format!(
+                "{{\"ok\":false,\"data\":null,\"diagnostics\":[\"{error}\"]}}"
+            ))
+        ),
+        ExportFormat::Md => {
+            // DS-1704 / DS-1705: the document alone on stdout, the
+            // diagnostics on stderr in the envelope's order (DES-612).
+            if let Some(data) = &outcome.data {
+                print!("{}", test_spec_markdown::render_test_specification(data));
+            }
+            for diagnostic in &outcome.diagnostics {
+                eprintln!("[{}] {}", diagnostic.code, diagnostic.message);
             }
         }
     }
-    if kind == "vo-coverage" {
-        let has_viewpoint = reasons.iter().any(|reason| {
-            reason.get("kind").and_then(serde_json::Value::as_str)
-                == Some("decomposition-viewpoint")
-        });
-        let has_spec = reasons
-            .iter()
-            .flat_map(|reason| {
-                reason
-                    .get("basis")
-                    .and_then(serde_json::Value::as_array)
-                    .into_iter()
-                    .flatten()
-            })
-            .any(|basis| basis.get("kind").and_then(serde_json::Value::as_str) == Some("spec"));
-        if !has_viewpoint || !has_spec {
-            return Err(failure(
-                "E-AUDIT-006",
-                "vo-coverage requires a decomposition-viewpoint reason and a spec basis",
-                ExitCode::Usage,
-            ));
-        }
-    }
-    Ok(())
+    outcome.exit
 }
 
-fn audit_record_yaml(
-    audit_id: &str,
-    bundle_id: &str,
-    kind: &str,
-    bundle: &serde_json::Value,
-    result: &serde_json::Value,
-    verdict: &str,
-) -> String {
-    let mut out = format!(
-        "id: {}\nkind: {}\nbundle_id: {}\nsubjects:\n",
-        yaml_quote(audit_id),
-        yaml_quote(kind),
-        yaml_quote(bundle_id),
-    );
-    if let Some(subjects) = bundle.get("subjects").and_then(serde_json::Value::as_array) {
-        for subject in subjects {
-            let hash = subject
-                .get("hash")
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or("");
-            let subject_id = subject
-                .get("id")
-                .and_then(serde_json::Value::as_str)
-                .map(|id| format!("id: {}", yaml_quote(id)));
-            let subject_locator = subject
-                .get("locator")
-                .and_then(serde_json::Value::as_str)
-                .map(|locator| format!("locator: {}", yaml_quote(locator)));
-            let identity = subject_id
-                .or(subject_locator)
-                .unwrap_or_else(|| "id: ''".to_owned());
-            out.push_str(&format!("  - {identity}\n    hash: {}\n", yaml_quote(hash),));
+// ---------------------------------------------------------------------------
+// test create / edit
+// ---------------------------------------------------------------------------
+
+fn run_test(project: &Path, command: TestCommand, format: OutputFormat, quiet: bool) -> ExitCode {
+    let root = match resolve_root(project, format, quiet) {
+        Ok(root) => root,
+        Err(code) => return code,
+    };
+    let registry = match resolve_registry(format, quiet) {
+        Ok(registry) => registry,
+        Err(code) => return code,
+    };
+    type Render = fn(&serde_json::Value) -> String;
+    let (exit, envelope, render): (ExitCode, serde_json::Value, Render) = match command {
+        TestCommand::List { vo, unregistered } => {
+            let filter = match (vo, unregistered) {
+                (Some(vo), _) => ops::test_query::ListFilter::Vo(vo),
+                (None, true) => ops::test_query::ListFilter::Unregistered,
+                (None, false) => ops::test_query::ListFilter::All,
+            };
+            let (exit, envelope) = ops::test_query::list(&root, &registry, &filter);
+            (exit, envelope, render_test_list)
         }
-    }
-    out.push_str(&format!("verdict: {}\nreasons:\n", yaml_quote(verdict)));
-    if let Some(reasons) = result.get("reasons").and_then(serde_json::Value::as_array) {
-        for reason in reasons {
-            let claim = reason
-                .get("claim")
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or("");
-            out.push_str(&format!("  - claim: {}\n", yaml_quote(claim)));
-            if let Some(kind) = reason.get("kind").and_then(serde_json::Value::as_str) {
-                out.push_str(&format!("    kind: {}\n", yaml_quote(kind)));
-            }
-            out.push_str("    basis:\n");
-            if let Some(basis) = reason.get("basis").and_then(serde_json::Value::as_array) {
-                for item in basis {
-                    out.push_str(&format!(
-                        "      - kind: {}\n        ref: {}\n",
-                        yaml_quote(
-                            item.get("kind")
-                                .and_then(serde_json::Value::as_str)
-                                .unwrap_or("")
-                        ),
-                        yaml_quote(
-                            item.get("ref")
-                                .and_then(serde_json::Value::as_str)
-                                .unwrap_or("")
-                        ),
-                    ));
+        TestCommand::Query { source } => {
+            let (exit, envelope) = ops::test_query::query(&root, &registry, &source);
+            (exit, envelope, render_test_list)
+        }
+        TestCommand::Show { id } => {
+            let (exit, envelope) = ops::test_query::show(&root, &registry, &id);
+            (exit, envelope, render_test_show)
+        }
+        TestCommand::Create {
+            form,
+            answers,
+            id,
+            dry_run,
+        } => {
+            let (exit, envelope) = match vtest_store::read_form_answers(&absolute_path(&answers)) {
+                Ok(answers) => {
+                    ops::test_op::create(&root, &registry, &form, &answers, id.as_deref(), dry_run)
                 }
-            }
+                Err(error) => ops::test_op::input_failure(Diagnostic::error(
+                    "E-OP-001",
+                    format!("cannot read answers file: {error}"),
+                )),
+            };
+            (exit, envelope, render_test_change)
         }
-    }
-    if let Some(exclusions) = result
-        .get("exclusions")
-        .and_then(serde_json::Value::as_array)
-    {
-        if exclusions.is_empty() {
-            out.push_str("exclusions: []\n");
-        } else {
-            out.push_str("exclusions:\n");
-            for exclusion in exclusions {
-                out.push_str(&format!(
-                    "  - item: {}\n    basis: {}\n",
-                    yaml_quote(
-                        exclusion
-                            .get("item")
-                            .and_then(serde_json::Value::as_str)
-                            .unwrap_or("")
-                    ),
-                    yaml_quote(
-                        exclusion
-                            .get("basis")
-                            .and_then(serde_json::Value::as_str)
-                            .unwrap_or("")
-                    ),
-                ));
-            }
+        TestCommand::Edit {
+            id,
+            answers,
+            set,
+            body_file,
+            dry_run,
+        } => {
+            let (exit, envelope) =
+                edit_from_args(&root, &registry, &id, answers, &set, body_file, dry_run);
+            (exit, envelope, render_test_change)
         }
-    } else {
-        out.push_str("exclusions: []\n");
+    };
+    emit_value(format, quiet, &envelope, render);
+    exit
+}
+
+/// `test create` / `test edit`: the Test, its file and the diff.
+fn render_test_change(envelope: &serde_json::Value) -> String {
+    let data = envelope.get("data");
+    let field = |key: &str| {
+        data.and_then(|data| data.get(key))
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_owned()
+    };
+    if data.is_none_or(serde_json::Value::is_null) {
+        return String::new();
     }
-    let auditor = result.get("auditor");
-    let auditor_kind = auditor
-        .and_then(|value| value.get("kind"))
-        .and_then(serde_json::Value::as_str)
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or("agent");
-    let auditor_id = auditor
-        .and_then(|value| value.get("id"))
-        .and_then(serde_json::Value::as_str)
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or("vtest");
-    out.push_str(&format!(
-        "auditor:\n  kind: {}\n  id: {}\n",
-        yaml_quote(auditor_kind),
-        yaml_quote(auditor_id),
-    ));
-    if let Some(model) = auditor
-        .and_then(|value| value.get("model"))
-        .and_then(serde_json::Value::as_str)
-    {
-        out.push_str(&format!("  model: {}\n", yaml_quote(model)));
-    }
-    if let Some(confidence) = result.get("confidence").and_then(serde_json::Value::as_str) {
-        out.push_str(&format!("confidence: {}\n", yaml_quote(confidence)));
-    }
-    let revision = bundle.get("revision");
-    let commit = revision
-        .and_then(|value| value.get("commit"))
-        .and_then(serde_json::Value::as_str)
-        .map(yaml_quote)
-        .unwrap_or_else(|| "null".to_owned());
-    let dirty = revision
-        .and_then(|value| value.get("dirty"))
+    let dry_run = data
+        .and_then(|data| data.get("dry_run"))
         .and_then(serde_json::Value::as_bool)
-        .unwrap_or(false);
-    out.push_str(&format!(
-        "audited_at: {}\nrevision: {{ commit: {commit}, dirty: {dirty} }}\n",
-        yaml_quote(&now_rfc3339())
-    ));
+        .unwrap_or_default();
+    format!(
+        "test {}: {}{}\n{}",
+        field("test_id"),
+        field("file"),
+        if dry_run { " (dry run)" } else { "" },
+        field("diff")
+    )
+}
+
+/// DS-1829: one line per Test with its Test ID, or one line per unmanaged
+/// construct with its path and locator, in the order of the JSON output.
+fn render_test_list(envelope: &serde_json::Value) -> String {
+    let text = |value: &serde_json::Value, key: &str| {
+        value
+            .get(key)
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_owned()
+    };
+    let list = |key: &str| {
+        envelope
+            .get("data")
+            .and_then(|data| data.get(key))
+            .and_then(serde_json::Value::as_array)
+    };
+    let mut out = String::new();
+    for test in list("tests").into_iter().flatten() {
+        let location = test.get("location").unwrap_or(&serde_json::Value::Null);
+        out.push_str(&format!(
+            "{}  {}  {}\n",
+            text(test, "id"),
+            text(location, "path"),
+            text(location, "locator")
+        ));
+    }
+    for entry in list("unmanaged").into_iter().flatten() {
+        let location = entry.get("location").unwrap_or(&serde_json::Value::Null);
+        out.push_str(&format!(
+            "{}  {}\n",
+            text(location, "path"),
+            text(location, "locator")
+        ));
+    }
     out
 }
 
-fn yaml_quote(value: &str) -> String {
-    format!("'{}'", value.replace('\'', "''"))
+/// The spelling of one target reference of a Test JSON: the SRC ID, or
+/// `<adapter ID>::<locator>`, the form `test query --source` reads.
+fn target_reference_text(target: &serde_json::Value) -> String {
+    match target.get("value") {
+        Some(serde_json::Value::String(src_id)) => src_id.clone(),
+        Some(locator) => format!(
+            "{}::{}",
+            locator
+                .get("adapter")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default(),
+            locator
+                .get("value")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default()
+        ),
+        None => String::new(),
+    }
 }
 
-#[allow(clippy::too_many_arguments)]
+/// Every `check: state` of the verification, structural checks first and
+/// then the checks of each node of the tree, without repeating a line.
+fn verification_check_lines(verification: &serde_json::Value) -> Vec<String> {
+    fn check_line(check: &serde_json::Value, node: Option<&str>) -> String {
+        let field = |key: &str| {
+            check
+                .get(key)
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default()
+        };
+        match node {
+            Some(node) => format!("check {}: {} ({node})", field("check"), field("state")),
+            None => format!("check {}: {}", field("check"), field("state")),
+        }
+    }
+    fn walk(node: &serde_json::Value, lines: &mut Vec<String>) {
+        let id = node.get("id").and_then(serde_json::Value::as_str);
+        for check in node
+            .get("checks")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            let line = check_line(check, id);
+            if !lines.contains(&line) {
+                lines.push(line);
+            }
+        }
+        for child in node
+            .get("children")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            walk(child, lines);
+        }
+    }
+    let mut lines = Vec::new();
+    for check in verification
+        .get("structural")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        lines.push(check_line(check, None));
+    }
+    for node in verification
+        .get("tree")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        walk(node, &mut lines);
+    }
+    lines
+}
+
+/// DS-1856: the Test, each check of its verification, its judgments and its
+/// latest Evidence; `evidence: none` when it has no Evidence record.
+fn render_test_show(envelope: &serde_json::Value) -> String {
+    let Some(data) = envelope.get("data").filter(|data| !data.is_null()) else {
+        return String::new();
+    };
+    let null = serde_json::Value::Null;
+    let text = |value: &serde_json::Value, key: &str| {
+        value
+            .get(key)
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_owned()
+    };
+    let strings = |value: &serde_json::Value, key: &str| -> Vec<String> {
+        value
+            .get(key)
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|item| item.as_str().map(str::to_owned))
+            .collect()
+    };
+    let test = data.get("test").unwrap_or(&null);
+    let location = test.get("location").unwrap_or(&null);
+    let verification = data.get("verification").unwrap_or(&null);
+    let mut out = format!("test {}\n", text(test, "id"));
+    out.push_str(&format!("intent: {}\n", text(test, "intent")));
+    out.push_str(&format!("covers: {}\n", strings(test, "covers").join(", ")));
+    for target in test
+        .get("targets")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        out.push_str(&format!("target: {}\n", target_reference_text(target)));
+    }
+    out.push_str(&format!("path: {}\n", text(location, "path")));
+    out.push_str(&format!("locator: {}\n", text(location, "locator")));
+    out.push_str(&format!(
+        "verification: {} ({})\n",
+        text(verification, "result"),
+        text(verification, "state")
+    ));
+    for line in verification_check_lines(verification) {
+        out.push_str(&line);
+        out.push('\n');
+    }
+    for judgment in data
+        .get("judgments")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let decision = judgment
+            .get("decision")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("UNKNOWN");
+        out.push_str(&format!(
+            "judgment {}: {decision} (effective: {})\n",
+            text(judgment, "judgment_kind"),
+            strings(judgment, "effective").join(", ")
+        ));
+    }
+    match data.get("evidence").filter(|evidence| !evidence.is_null()) {
+        None => out.push_str("evidence: none\n"),
+        Some(evidence) => {
+            let id = evidence
+                .get("id")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("(unreadable)");
+            match evidence.get("result").and_then(serde_json::Value::as_str) {
+                Some(result) => out.push_str(&format!("evidence: {id} {result}\n")),
+                None => out.push_str(&format!("evidence: {id} (invalid)\n")),
+            }
+        }
+    }
+    out
+}
+
+fn edit_from_args(
+    root: &Path,
+    registry: &vtest_adapter_api::AdapterRegistry,
+    id: &str,
+    answers: Option<PathBuf>,
+    set: &[String],
+    body_file: Option<PathBuf>,
+    dry_run: bool,
+) -> (ExitCode, serde_json::Value) {
+    let answers = match answers
+        .map(|path| vtest_store::read_form_answers(&absolute_path(&path)))
+        .transpose()
+    {
+        Ok(answers) => answers,
+        Err(error) => {
+            return ops::test_op::input_failure(Diagnostic::error(
+                "E-OP-001",
+                format!("cannot read answers file: {error}"),
+            ))
+        }
+    };
+    let set = match vtest_scan::operations::parse_test_set_values(set) {
+        Ok(set) => set,
+        Err(diagnostic) => return ops::test_op::input_failure(diagnostic),
+    };
+    let body = match body_file
+        .map(|path| std::fs::read_to_string(absolute_path(&path)))
+        .transpose()
+    {
+        Ok(body) => body,
+        Err(error) => {
+            return ops::test_op::input_failure(Diagnostic::error(
+                "E-OP-001",
+                format!("cannot read --body-file: {error}"),
+            ))
+        }
+    };
+    ops::test_op::edit(
+        root,
+        registry,
+        id,
+        answers.as_ref(),
+        &set,
+        body.as_deref(),
+        dry_run,
+    )
+}
+
+// ---------------------------------------------------------------------------
+// run
+// ---------------------------------------------------------------------------
+
 fn run_run(
     project: &Path,
-    test: Option<String>,
+    test_ids: Vec<String>,
     vo: Option<String>,
-    req: Option<String>,
     all: bool,
     fast: bool,
     format: OutputFormat,
@@ -2068,220 +1026,812 @@ fn run_run(
         Ok(root) => root,
         Err(code) => return code,
     };
-    let config = match load_config(&root) {
-        Ok(config) => config,
-        Err(error) => {
-            emit(
-                format,
-                quiet,
-                JsonEnvelope::new(
-                    false,
-                    serde_json::Value::Null,
-                    vec![Diagnostic::error("E-CORE-001", error.to_string())],
-                ),
-            );
-            return ExitCode::Internal;
-        }
-    };
-    let fast = fast || config.run.coverage == "off";
-    let selected_count = usize::from(test.is_some())
-        + usize::from(vo.is_some())
-        + usize::from(req.is_some())
-        + usize::from(all);
-    if selected_count != 1 {
-        emit(
-            format,
-            quiet,
-            JsonEnvelope::new(
-                false,
-                serde_json::Value::Null,
-                vec![Diagnostic::error(
-                    "E-OP-001",
-                    "run requires exactly one of --test, --vo, --req, or --all",
-                )],
-            ),
-        );
-        return ExitCode::Usage;
-    }
-    let scan = match scan_project(&root) {
-        Ok(scan) => scan,
-        Err(error) => {
-            emit(
-                format,
-                quiet,
-                JsonEnvelope::new(
-                    false,
-                    serde_json::Value::Null,
-                    vec![Diagnostic::error("E-CORE-001", error.to_string())],
-                ),
-            );
-            return ExitCode::Internal;
-        }
+    let (scan, registry) = match ops::project::load_scanned(&root) {
+        Ok(scanned) => scanned,
+        Err(failure) => return failure_exit(&failure, format, quiet),
     };
     let layout = VerifyLayout::new(&root);
-    let requested = match select_tests(
-        &layout,
-        &scan.tests,
-        test.as_deref(),
-        vo.as_deref(),
-        req.as_deref(),
-        all,
-    ) {
-        Ok(requested) => requested,
-        Err(error) => {
-            emit(
-                format,
-                quiet,
-                JsonEnvelope::new(false, serde_json::Value::Null, vec![*error.diagnostic]),
-            );
-            return error.code;
-        }
+    let target = match ops::run::RunTarget::from_axes(test_ids, vo, all) {
+        Ok(target) => target,
+        Err(error) => return failure_exit(&error.failure(), format, quiet),
     };
-    let runnable = requested
-        .into_iter()
-        .map(|entity| {
-            let targets = std::iter::once(&entity.target)
-                .chain(&entity.additional_targets)
-                .map(|target_ref| {
-                    scan.sources.iter().find(|source| match target_ref {
-                        vtest_model::TargetRef::Locator(locator) => source.locator == *locator,
-                        vtest_model::TargetRef::SrcId(src_id) => {
-                            source.src_id.as_ref() == Some(src_id)
-                        }
-                    })
-                })
-                .collect::<Vec<_>>();
-            let target_hashes = targets
-                .iter()
-                .map(|source| {
-                    source
-                        .map(|source| source.content_hash.clone())
-                        .unwrap_or_else(|| ContentHash::from_text(""))
-                })
-                .collect::<Vec<_>>();
-            RunnableTest {
-                entity,
-                target_hashes,
-                target_locator: targets
-                    .first()
-                    .and_then(|source| source.map(|source| source.locator.clone())),
-            }
-        })
-        .collect::<Vec<_>>();
-    let result = match run_tests(&root, &layout, &runnable, fast) {
-        Ok(result) => result,
-        Err(error) => {
-            emit(
-                format,
-                quiet,
-                JsonEnvelope::new(
-                    false,
-                    serde_json::Value::Null,
-                    vec![Diagnostic::error("E-CORE-001", error.to_string())],
-                ),
-            );
-            return ExitCode::Internal;
-        }
-    };
-    let has_errors = scan.has_errors() || result.has_errors();
-    let diagnostics = scan
-        .diagnostics
-        .into_iter()
-        .chain(result.diagnostics.clone())
-        .collect::<Vec<_>>();
-    emit(
-        format,
-        quiet,
-        JsonEnvelope::new(
-            !has_errors,
-            serde_json::to_value(&result).expect("execution result"),
-            diagnostics,
-        ),
-    );
-    if has_errors {
-        ExitCode::VerificationFailed
-    } else {
-        ExitCode::Ok
-    }
-}
-
-fn select_tests(
-    layout: &VerifyLayout,
-    tests: &[vtest_model::TestEntity],
-    test: Option<&str>,
-    vo: Option<&str>,
-    req: Option<&str>,
-    all: bool,
-) -> Result<Vec<vtest_model::TestEntity>, CommandFailure> {
-    if let Some(test_id) = test {
-        return tests
-            .iter()
-            .find(|entity| entity.id.as_str() == test_id)
-            .cloned()
-            .map(|entity| vec![entity])
-            .ok_or_else(|| {
-                failure(
-                    "E-OP-001",
-                    format!("Test `{test_id}` was not found"),
-                    ExitCode::Usage,
+    match ops::run::run(&root, &layout, &scan, &target, fast, &registry) {
+        Ok(result) => {
+            let has_errors = result.has_errors();
+            let data = ops::run::data_json(&result, fast);
+            let envelope = JsonEnvelope::new(!has_errors, data, result.diagnostics.clone());
+            emit(format, quiet, &envelope, |envelope| {
+                format!(
+                    "run: {} evidence record(s) written, {} diagnostic(s)\n",
+                    result.evidence.len(),
+                    envelope.diagnostics.len()
                 )
             });
-    }
-    if let Some(vo_id) = vo {
-        validate_id(vo_id, "VO-")?;
-        if read_vo(layout, vo_id).is_err() {
-            return Err(failure(
-                "E-OP-001",
-                format!("VO `{vo_id}` was not found"),
-                ExitCode::Usage,
-            ));
+            if has_errors {
+                ExitCode::VerificationFailed
+            } else {
+                ExitCode::Ok
+            }
         }
-        return Ok(tests
-            .iter()
-            .filter(|entity| {
-                entity
-                    .covers
-                    .iter()
-                    .any(|covered| covered.as_str() == vo_id)
-            })
-            .cloned()
-            .collect());
+        Err(error) => failure_exit(&error.failure(), format, quiet),
     }
-    if let Some(req_id) = req {
-        validate_id(req_id, "REQ-")?;
-        let vo_ids = read_record_ids_for(&layout.vo_dir())?
-            .into_iter()
-            .filter_map(|id| {
-                read_vo(layout, &id)
-                    .ok()
-                    .filter(|vo| vo.requirements.iter().any(|req| req.as_str() == req_id))
-                    .map(|_| id)
-            })
-            .collect::<Vec<_>>();
-        return Ok(tests
-            .iter()
-            .filter(|entity| {
-                entity
-                    .covers
-                    .iter()
-                    .any(|covered| vo_ids.iter().any(|id| id == covered.as_str()))
-            })
-            .cloned()
-            .collect());
-    }
-    if all {
-        return Ok(tests.to_vec());
-    }
-    Ok(Vec::new())
 }
 
-#[allow(clippy::too_many_arguments)]
+// ---------------------------------------------------------------------------
+// approval
+// ---------------------------------------------------------------------------
+
+fn run_approval(
+    project: &Path,
+    command: ApprovalCommand,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    let root = match resolve_root(project, format, quiet) {
+        Ok(root) => root,
+        Err(code) => return code,
+    };
+    let layout = vtest_store::VerifyLayout::new(&root);
+
+    match command {
+        ApprovalCommand::Create {
+            subject_type,
+            subject_id,
+            state,
+            approver_kind,
+            approver_id,
+            model,
+            basis,
+            supersedes,
+        } => {
+            let result = ops::approval::create(
+                &layout,
+                ops::approval::CreateArgs {
+                    subject_type: subject_type.as_str().to_owned(),
+                    subject_id,
+                    approved_state: state.as_str().to_owned(),
+                    approver_kind: approver_kind.as_str().to_owned(),
+                    approver_id,
+                    approver_model: model,
+                    basis,
+                    supersedes,
+                },
+            );
+            approval_result(result, format, quiet)
+        }
+        ApprovalCommand::Withdraw {
+            approval_id,
+            approver_kind,
+            approver_id,
+            model,
+            basis,
+        } => {
+            let result = ops::approval::withdraw(
+                &layout,
+                ops::approval::WithdrawArgs {
+                    approval_id,
+                    approver_kind: approver_kind.as_str().to_owned(),
+                    approver_id,
+                    approver_model: model,
+                    basis,
+                },
+            );
+            approval_result(result, format, quiet)
+        }
+        ApprovalCommand::Show {
+            subject_type,
+            subject_id,
+        } => match ops::approval::show(&layout, subject_type.as_str(), &subject_id) {
+            Ok(result) => {
+                let effective = ops::approval::effective_state_name(&result.effective_state);
+                let data = ops::approval::show_json(&result);
+                let envelope = JsonEnvelope::new(true, data, result.diagnostics.clone());
+                emit(format, quiet, &envelope, |envelope| {
+                    format!(
+                        "approval show: {} record(s), effective state {}\n",
+                        envelope.data["records"].as_array().map_or(0, Vec::len),
+                        effective
+                    )
+                });
+                ExitCode::Ok
+            }
+            Err(error) => failure_exit(&error.failure(), format, quiet),
+        },
+    }
+}
+
+fn approval_result(
+    result: Result<vtest_store::records::ApprovalRecord, ops::approval::ApprovalOpError>,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    match result {
+        Ok(record) => {
+            let data = ops::approval::record_json(&record);
+            let envelope = JsonEnvelope::new(true, data, Vec::new());
+            emit(format, quiet, &envelope, |envelope| {
+                format!(
+                    "approval {}: {}\n",
+                    envelope.data["approved_state"].as_str().unwrap_or(""),
+                    envelope.data["id"].as_str().unwrap_or(""),
+                )
+            });
+            ExitCode::Ok
+        }
+        Err(error) => failure_exit(&error.failure(), format, quiet),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// vo
+// ---------------------------------------------------------------------------
+
+fn run_vo(project: &Path, command: VoCommand, format: OutputFormat, quiet: bool) -> ExitCode {
+    let root = match resolve_root(project, format, quiet) {
+        Ok(root) => root,
+        Err(code) => return code,
+    };
+    let layout = VerifyLayout::new(&root);
+    match command {
+        VoCommand::Add { args } => {
+            let result = ops::vo::parse_vo_args(&args).and_then(|args| ops::vo::add(&layout, args));
+            vo_write_result(result, format, quiet)
+        }
+        VoCommand::Edit { id, args } => {
+            let result = ops::vo::parse_vo_args(&args).and_then(|mut args| {
+                if args.id.is_some() {
+                    return Err(ops::vo::VoOpError::Usage(
+                        "vo edit takes the VO id once, as its first argument".to_owned(),
+                    ));
+                }
+                args.id = Some(id);
+                ops::vo::edit(&layout, args)
+            });
+            vo_write_result(result, format, quiet)
+        }
+        VoCommand::List { tree, doc, status } => {
+            match ops::vo::list(&layout, doc.as_deref(), status.as_deref()) {
+                Ok(entries) => {
+                    let envelope =
+                        JsonEnvelope::new(true, serde_json::json!({ "vos": entries }), Vec::new());
+                    emit(format, quiet, &envelope, |_| render_vo_list(&entries, tree));
+                    ExitCode::Ok
+                }
+                Err(error) => failure_exit(&error.failure(), format, quiet),
+            }
+        }
+        VoCommand::Show { id } => {
+            let (scan, _registry) = match ops::project::scanned(&root) {
+                Ok(scanned) => scanned,
+                Err(failure) => return failure_exit(&failure, format, quiet),
+            };
+            match ops::vo::show(&layout, &scan, &id) {
+                Ok(view) => {
+                    let envelope = JsonEnvelope::new(true, &view, Vec::new());
+                    emit(format, quiet, &envelope, |_| render_vo_show(&view));
+                    ExitCode::Ok
+                }
+                Err(error) => failure_exit(&error.failure(), format, quiet),
+            }
+        }
+        VoCommand::Expand { id, dry_run } => match ops::vo::expand(&layout, &id, dry_run) {
+            Ok(result) => {
+                let envelope = JsonEnvelope::new(true, &result, Vec::new());
+                emit(format, quiet, &envelope, |_| {
+                    let verb = if result.dry_run {
+                        "would create"
+                    } else {
+                        "created"
+                    };
+                    let mut out = format!(
+                        "vo expand {id}: {verb} {} child VO(s)\n",
+                        result.children.len()
+                    );
+                    for child in &result.children {
+                        out.push_str(&format!("  {}\n", child.id.as_str()));
+                    }
+                    out
+                });
+                ExitCode::Ok
+            }
+            Err(error) => failure_exit(&error.failure(), format, quiet),
+        },
+        VoCommand::Approve {
+            id,
+            state,
+            approver_kind,
+            approver_id,
+            model,
+            basis,
+            supersedes,
+        } => {
+            // DS-1045: identical to `approval create --subject-type vo`, so
+            // the result and every rejection go through the same reporter.
+            let result = ops::approval::create(
+                &layout,
+                ops::approval::CreateArgs {
+                    subject_type: "vo".to_owned(),
+                    subject_id: id,
+                    approved_state: state.as_str().to_owned(),
+                    approver_kind: approver_kind.as_str().to_owned(),
+                    approver_id,
+                    approver_model: model,
+                    basis,
+                    supersedes,
+                },
+            );
+            approval_result(result, format, quiet)
+        }
+    }
+}
+
+fn vo_write_result(
+    result: Result<ops::vo::VoWriteResult, ops::vo::VoOpError>,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    match result {
+        Ok(result) => {
+            let envelope = JsonEnvelope::new(true, &result, Vec::new());
+            emit(format, quiet, &envelope, |_| {
+                let verb = if result.created { "created" } else { "updated" };
+                let mut out = format!("vo {verb}: {}\n", result.record.id.as_str());
+                for warning in &result.warnings {
+                    out.push_str(&format!("warning: {warning}\n"));
+                }
+                out
+            });
+            ExitCode::Ok
+        }
+        Err(error) => failure_exit(&error.failure(), format, quiet),
+    }
+}
+
+fn render_vo_list(entries: &[ops::vo::VoSummary], tree: bool) -> String {
+    if !tree {
+        return entries
+            .iter()
+            .map(|entry| format!("{}\t{}\t{}\n", entry.id, entry.status, entry.claim))
+            .collect();
+    }
+    let ids: std::collections::BTreeSet<&str> = entries.iter().map(|e| e.id.as_str()).collect();
+    let mut out = String::new();
+    fn walk(
+        entries: &[ops::vo::VoSummary],
+        id: &str,
+        depth: usize,
+        seen: &mut std::collections::BTreeSet<String>,
+        out: &mut String,
+    ) {
+        let Some(entry) = entries.iter().find(|entry| entry.id == id) else {
+            return;
+        };
+        out.push_str(&format!(
+            "{}{} [{}]\n",
+            "  ".repeat(depth),
+            entry.id,
+            entry.status
+        ));
+        if !seen.insert(entry.id.clone()) {
+            return;
+        }
+        for child in entries
+            .iter()
+            .filter(|child| child.parent.as_deref() == Some(id))
+        {
+            walk(entries, &child.id, depth + 1, seen, out);
+        }
+    }
+    let mut seen = std::collections::BTreeSet::new();
+    for entry in entries.iter().filter(|entry| {
+        entry
+            .parent
+            .as_deref()
+            .is_none_or(|parent| !ids.contains(parent))
+    }) {
+        walk(entries, &entry.id, 0, &mut seen, &mut out);
+    }
+    out
+}
+
+fn render_vo_show(view: &ops::vo::VoView) -> String {
+    let mut out = format!(
+        "{} [{}]\nclaim: {}\n",
+        view.record.id.as_str(),
+        view.status,
+        view.record.claim
+    );
+    for entry in &view.record.derives_from {
+        out.push_str(&format!("derives_from: {}", entry.doc.as_str()));
+        if let Some(anchor) = &entry.anchor {
+            out.push_str(&format!(" anchor={anchor}"));
+        }
+        if let Some(note) = &entry.note {
+            out.push_str(&format!(" note={note}"));
+        }
+        out.push('\n');
+    }
+    if view.covered_by.is_empty() {
+        out.push_str("covered by: (no Test)\n");
+    } else {
+        out.push_str(&format!("covered by: {}\n", view.covered_by.join(", ")));
+    }
+    out
+}
+
+// ---------------------------------------------------------------------------
+// audit static
+// ---------------------------------------------------------------------------
+
+fn run_audit_static(
+    project: &Path,
+    test: Option<&str>,
+    all: bool,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    let root = match resolve_root(project, format, quiet) {
+        Ok(root) => root,
+        Err(code) => return code,
+    };
+    let (scan, registry) = match ops::project::load_scanned(&root) {
+        Ok(scanned) => scanned,
+        Err(failure) => return failure_exit(&failure, format, quiet),
+    };
+    match ops::audit::audit_static(&root, &scan, &registry, test, all) {
+        Ok((data, diagnostics)) => {
+            let envelope = JsonEnvelope::new(true, &data, diagnostics);
+            emit(format, quiet, &envelope, |_| render_audit_static(&data));
+            ExitCode::Ok
+        }
+        Err(error) => failure_exit(&error.failure(), format, quiet),
+    }
+}
+
+fn scanned_project(
+    project: &Path,
+    format: OutputFormat,
+    quiet: bool,
+) -> Result<
+    (
+        PathBuf,
+        vtest_scan::ScanResult,
+        vtest_adapter_api::AdapterRegistry,
+    ),
+    ExitCode,
+> {
+    let root = resolve_root(project, format, quiet)?;
+    let (scan, registry) = ops::project::load_scanned(&root)
+        .map_err(|failure| failure_exit(&failure, format, quiet))?;
+    Ok((root, scan, registry))
+}
+
+fn run_audit_bundle(
+    project: &Path,
+    test: Option<String>,
+    vo: Option<String>,
+    kind: Option<&str>,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    let (root, scan, registry) = match scanned_project(project, format, quiet) {
+        Ok(found) => found,
+        Err(code) => return code,
+    };
+    let subject = match (test, vo) {
+        (Some(test), None) => ops::judgment::Subject::Test(test),
+        (None, Some(vo)) => ops::judgment::Subject::Vo(vo),
+        _ => {
+            return usage_failure(
+                format,
+                quiet,
+                "E-OP-001",
+                "audit bundle takes exactly one of --test <ID> or --vo <ID>",
+            )
+        }
+    };
+    match ops::judgment::bundle(&root, &scan, &registry, &subject, kind) {
+        Ok(body) => {
+            let envelope = JsonEnvelope::new(true, &body, Vec::new());
+            emit(format, quiet, &envelope, |_| {
+                format!(
+                    "bundle {} written to .verify/cache/bundles/{}.json\n",
+                    body["bundle_id"].as_str().unwrap_or_default(),
+                    body["bundle_id"].as_str().unwrap_or_default()
+                )
+            });
+            ExitCode::Ok
+        }
+        Err(error) => failure_exit(&error.failure(), format, quiet),
+    }
+}
+
+fn run_audit_submit(project: &Path, file: &str, format: OutputFormat, quiet: bool) -> ExitCode {
+    let (root, scan, _registry) = match scanned_project(project, format, quiet) {
+        Ok(found) => found,
+        Err(code) => return code,
+    };
+    let path = absolute_path(Path::new(file));
+    let submission: serde_json::Value = match std::fs::read_to_string(&path)
+        .map_err(|error| error.to_string())
+        .and_then(|text| serde_json::from_str(&text).map_err(|error| error.to_string()))
+    {
+        Ok(value) => value,
+        Err(error) => {
+            return usage_failure(
+                format,
+                quiet,
+                "E-AUDIT-003",
+                &format!("cannot read the submission {}: {error}", path.display()),
+            )
+        }
+    };
+    match ops::judgment::submit(&root, &scan, &submission) {
+        Ok(result) => {
+            let envelope = JsonEnvelope::new(true, &result, Vec::new());
+            emit(format, quiet, &envelope, |_| {
+                format!(
+                    "accepted: judgment record {} ({} {} {})\n",
+                    result.decision_id, result.subject, result.judgment_kind, result.decision
+                )
+            });
+            ExitCode::Ok
+        }
+        Err(error) => failure_exit(&error.failure(), format, quiet),
+    }
+}
+
+fn render_audit_static(data: &ops::audit::StaticAuditData) -> String {
+    let mut out = String::new();
+    for test in &data.tests {
+        out.push_str(&format!("{} ({})\n", test.test, test.adapter));
+        if let Some(reason) = &test.not_analyzed {
+            out.push_str(&format!("  not analyzed: {reason}\n"));
+        }
+        for rule in &test.rules {
+            let target = rule
+                .target
+                .as_deref()
+                .map(|target| format!(" [{target}]"))
+                .unwrap_or_default();
+            out.push_str(&format!("  {}{target}: {}", rule.rule, rule.verdict));
+            if !rule.reason.is_empty() {
+                out.push_str(&format!(" - {}", rule.reason));
+            }
+            out.push('\n');
+        }
+    }
+    out.push_str(&format!("written to {}\n", data.cache));
+    out
+}
+
+// ---------------------------------------------------------------------------
+// doc
+// ---------------------------------------------------------------------------
+
+fn run_doc(project: &Path, command: DocCommand, format: OutputFormat, quiet: bool) -> ExitCode {
+    let root = match resolve_root(project, format, quiet) {
+        Ok(root) => root,
+        Err(code) => return code,
+    };
+    let layout = vtest_store::VerifyLayout::new(&root);
+
+    match command {
+        DocCommand::Add {
+            id,
+            path,
+            derives_from,
+            root: root_flag,
+            no_root,
+            update,
+        } => {
+            // DS-1195: `root` is a plain bool -- `--root` asserts, and
+            // `--no-root`/omitting both flags are now behaviourally
+            // identical (no assertion), see `apply_root`'s doc comment.
+            // `--no-root` is kept as a CLI flag (BD-331 names both flags)
+            // but no longer carries distinct semantics from the default.
+            //
+            // DS-1683/BD-331 (`233caec`/PR #50): root designation is fixed
+            // at initial registration only; `--root`/`--no-root` given
+            // alongside `--update` is rejected (`ops::doc::add` enforces
+            // this given `root_specified`, since the retired DS-1014 was
+            // the only ground for allowing it).
+            let root_specified = root_flag || no_root;
+            //
+            // DS-1685: a repeatable-value clap flag cannot distinguish
+            // "given, zero times" from "never given" the way MCP's JSON
+            // `"derives_from": []` vs an absent key can -- this is a
+            // disclosed limitation of the CLI flag's own shape (see
+            // `apply_derives_from`'s doc comment), not something this
+            // mapping invents a workaround for.
+            let derives_from = if derives_from.is_empty() {
+                None
+            } else {
+                Some(derives_from)
+            };
+            match ops::doc::add(
+                &root,
+                &layout,
+                ops::doc::AddArgs {
+                    id,
+                    path,
+                    derives_from,
+                    root: root_flag,
+                    root_specified,
+                    update,
+                },
+            ) {
+                Ok(view) => {
+                    let data = ops::doc::view_json(&view);
+                    let envelope = JsonEnvelope::new(true, data, Vec::new());
+                    emit(format, quiet, &envelope, |envelope| {
+                        format!("doc add: {}\n", envelope.data["id"].as_str().unwrap_or(""))
+                    });
+                    ExitCode::Ok
+                }
+                Err(error) => failure_exit(&error.failure(), format, quiet),
+            }
+        }
+        DocCommand::List { tree, roots } => match ops::doc::list(&layout) {
+            Ok(result) => {
+                let data = ops::doc::list_json(&result);
+                let envelope = JsonEnvelope::new(true, data, Vec::new());
+                emit(format, quiet, &envelope, |envelope| {
+                    render_doc_list_text(envelope, tree, roots)
+                });
+                ExitCode::Ok
+            }
+            Err(error) => failure_exit(&error.failure(), format, quiet),
+        },
+        DocCommand::Show { id } => match ops::doc::show(&layout, &id) {
+            Ok(result) => {
+                let mut data = ops::doc::view_json(&result.view);
+                // DS-1017: `freshness` is not part of `view_json`'s shape;
+                // `ops::doc::show` computed it across the registered set.
+                data["freshness"] = serde_json::json!(result.freshness);
+                data["approval_states"] = serde_json::json!(result.approval_states);
+                let envelope = JsonEnvelope::new(true, data, Vec::new());
+                emit(format, quiet, &envelope, render_doc_show_text);
+                ExitCode::Ok
+            }
+            Err(error) => failure_exit(&error.failure(), format, quiet),
+        },
+    }
+}
+
+fn render_doc_list_text(
+    envelope: &JsonEnvelope<serde_json::Value>,
+    tree: bool,
+    roots_only: bool,
+) -> String {
+    let data = &envelope.data;
+    let mut out = String::new();
+    if roots_only {
+        out.push_str("Roots:\n");
+        for root in data["roots"].as_array().into_iter().flatten() {
+            out.push_str(&format!("  {}\n", root.as_str().unwrap_or("")));
+        }
+        return out;
+    }
+    let records = data["records"].as_array().cloned().unwrap_or_default();
+    if tree {
+        out.push_str("Document tree (derives_from):\n");
+        let chain: std::collections::BTreeMap<String, Vec<String>> = data["document_chain"]
+            .as_object()
+            .into_iter()
+            .flatten()
+            .map(|(id, parents)| {
+                let parents = parents
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|entry| entry.as_str().map(str::to_owned))
+                    .collect();
+                (id.clone(), parents)
+            })
+            .collect();
+        out.push_str(&render_doc_tree(&chain));
+    } else {
+        for record in &records {
+            out.push_str(&format!("{}\n", record["id"].as_str().unwrap_or("")));
+        }
+    }
+    let unresolved = data["unresolved_derives_from"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    if !unresolved.is_empty() {
+        out.push_str("\nUnresolved derives_from (DS-1018):\n");
+        for entry in &unresolved {
+            if let Some(pair) = entry.as_array() {
+                out.push_str(&format!(
+                    "  {} -> {}\n",
+                    pair.first().and_then(|v| v.as_str()).unwrap_or(""),
+                    pair.get(1).and_then(|v| v.as_str()).unwrap_or("")
+                ));
+            }
+        }
+    }
+    out
+}
+
+/// DS-1015: `doc list --tree` renders the *document-level* `derives_from`
+/// chain as an actual nested tree (indented by depth), not a flat
+/// `id -> [parents]` listing. `chain` maps each registered document id to
+/// its already-resolved parent *document* ids (see
+/// `vtest_store::doc_registry::document_derives_from` for why this is not
+/// simply each document's raw `derives_from`, which holds node ids). A
+/// document with no parents is a root of this display graph (distinct from
+/// `root[]` layer membership) and starts at depth 0; each child is printed
+/// once under every parent it names (a document may have more than one
+/// parent, so this is not always a strict tree) — re-visiting a node while
+/// already on the current path is a cycle and is marked rather than
+/// recursed into, since the registered set is untrusted input.
+pub fn render_doc_tree(chain: &std::collections::BTreeMap<String, Vec<String>>) -> String {
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let mut children: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for (id, parents) in chain {
+        for parent in parents {
+            children.entry(parent.clone()).or_default().push(id.clone());
+        }
+    }
+
+    let mut out = String::new();
+    let mut visited: BTreeSet<String> = BTreeSet::new();
+    let display_roots: Vec<&String> = chain
+        .keys()
+        .filter(|id| chain.get(*id).is_none_or(Vec::is_empty))
+        .collect();
+    for root in display_roots {
+        render_doc_tree_node(root, &children, 0, &mut vec![root.clone()], &mut out);
+        visited.insert(root.clone());
+        collect_descendants(root, &children, &mut visited);
+    }
+    // A document reachable only through a cycle (every document on its own
+    // connected component has *some* `derives_from` edge, so none of them
+    // is empty-parents and none was picked up as a display root above)
+    // must not silently vanish from the tree -- render one entry per
+    // remaining unvisited id, in id order, as its own top-level (marked)
+    // node rather than recursing into it again.
+    for id in chain.keys() {
+        if !visited.contains(id) {
+            render_doc_tree_node(id, &children, 0, &mut vec![id.clone()], &mut out);
+            visited.insert(id.clone());
+            collect_descendants(id, &children, &mut visited);
+        }
+    }
+    out
+}
+
+fn collect_descendants(
+    id: &str,
+    children: &std::collections::BTreeMap<String, Vec<String>>,
+    visited: &mut std::collections::BTreeSet<String>,
+) {
+    for child in children.get(id).into_iter().flatten() {
+        if visited.insert(child.clone()) {
+            collect_descendants(child, children, visited);
+        }
+    }
+}
+
+fn render_doc_tree_node(
+    id: &str,
+    children: &std::collections::BTreeMap<String, Vec<String>>,
+    depth: usize,
+    path: &mut Vec<String>,
+    out: &mut String,
+) {
+    out.push_str(&"  ".repeat(depth));
+    out.push_str(id);
+    out.push('\n');
+    for child in children.get(id).into_iter().flatten() {
+        if path.contains(child) {
+            out.push_str(&"  ".repeat(depth + 1));
+            out.push_str(&format!("{child} (cycle, not expanded)\n"));
+            continue;
+        }
+        path.push(child.clone());
+        render_doc_tree_node(child, children, depth + 1, path, out);
+        path.pop();
+    }
+}
+
+fn render_doc_show_text(envelope: &JsonEnvelope<serde_json::Value>) -> String {
+    let data = &envelope.data;
+    let mut out = format!(
+        "id: {}\npath: {}\ncontent_hash: {}\nroot: {}\n",
+        data["id"].as_str().unwrap_or(""),
+        data["path"].as_str().unwrap_or(""),
+        data["content_hash"].as_str().unwrap_or(""),
+        data["root"].as_bool().unwrap_or(false),
+    );
+    out.push_str("derives_from:\n");
+    for entry in data["derives_from"].as_array().into_iter().flatten() {
+        out.push_str(&format!("  {}\n", entry.as_str().unwrap_or("")));
+    }
+    // DS-1017 new: per-node, three-valued (fresh/stale/no comparison
+    // target) -- rendered as `<node>: true|false|none`, never rounded to
+    // a single bool.
+    if let Some(states) = data["freshness"].as_object() {
+        out.push_str("freshness:\n");
+        for (node_id, value) in states {
+            let rendered = match value.as_bool() {
+                Some(true) => "true".to_owned(),
+                Some(false) => "false".to_owned(),
+                None => "none (no comparison target)".to_owned(),
+            };
+            out.push_str(&format!("  {node_id}: {rendered}\n"));
+        }
+    }
+    if let Some(states) = data["approval_states"].as_object() {
+        out.push_str("approval_states:\n");
+        for (node_id, state) in states {
+            out.push_str(&format!("  {node_id}: {}\n", state.as_str().unwrap_or("")));
+        }
+    }
+    out
+}
+
+/// Prints a `serde_json::Value` envelope the way [`emit`] prints a typed
+/// [`JsonEnvelope`] — used by wrappers whose operation body now lives in
+/// `ops::*` and returns pre-built JSON rather than a typed struct.
+fn emit_value(
+    format: OutputFormat,
+    quiet: bool,
+    envelope: &serde_json::Value,
+    render_text: impl FnOnce(&serde_json::Value) -> String,
+) {
+    if quiet {
+        return;
+    }
+    match format {
+        OutputFormat::Json => println!(
+            "{}",
+            serde_json::to_string_pretty(envelope).unwrap_or_else(|error| format!(
+                "{{\"ok\":false,\"data\":null,\"diagnostics\":[\"{error}\"]}}"
+            ))
+        ),
+        OutputFormat::Text => {
+            print!("{}", render_text(envelope));
+            if let Some(diagnostics) = envelope
+                .get("diagnostics")
+                .and_then(serde_json::Value::as_array)
+            {
+                for diagnostic in diagnostics {
+                    let code = diagnostic
+                        .get("code")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("");
+                    let message = diagnostic
+                        .get("message")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("");
+                    println!("[{code}] {message}");
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// verify
+// ---------------------------------------------------------------------------
+
+use ops::verify::{state_name, VerifyData};
+
+#[expect(
+    clippy::too_many_arguments,
+    reason = "takes the clap arguments of the subcommand one to one"
+)]
 fn run_verify(
     project: &Path,
-    items: Option<String>,
-    req: Option<String>,
+    items: &[String],
+    doc: Option<String>,
     vo: Option<String>,
     test: Option<String>,
+    gate: Option<&str>,
     summary: bool,
     format: OutputFormat,
     quiet: bool,
@@ -2290,1336 +1840,419 @@ fn run_verify(
         Ok(root) => root,
         Err(code) => return code,
     };
-    let config = match load_config(&root) {
-        Ok(config) => config,
-        Err(error) => {
-            emit(
-                format,
-                quiet,
-                JsonEnvelope::new(
-                    false,
-                    serde_json::Value::Null,
-                    vec![Diagnostic::error("E-CORE-001", error.to_string())],
-                ),
-            );
-            return ExitCode::Internal;
-        }
+    let registry = match resolve_registry(format, quiet) {
+        Ok(registry) => registry,
+        Err(code) => return code,
     };
-    let scan = match scan_project(&root) {
-        Ok(scan) => scan,
-        Err(error) => {
-            emit(
-                format,
-                quiet,
-                JsonEnvelope::new(
-                    false,
-                    serde_json::Value::Null,
-                    vec![Diagnostic::error("E-CORE-001", error.to_string())],
-                ),
-            );
-            return ExitCode::Internal;
+
+    match ops::verify::execute(&root, items, doc, vo, test, gate, summary, &registry) {
+        Ok((exit, data, diagnostics)) => {
+            // `ok` はこの実行が返す 0/1 と同義にする — ゲート指定時はゲート
+            // 充足、非指定時は総合 OK。検証状態そのものは `state` field に
+            // 常に別途出す。
+            let envelope = JsonEnvelope::new(exit == ExitCode::Ok, data, diagnostics);
+            if format == OutputFormat::Json {
+                if !quiet {
+                    let value = ops::verify::scoped_envelope(
+                        envelope.ok,
+                        &envelope.data,
+                        &envelope.diagnostics,
+                    );
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&value).unwrap_or_else(|error| format!(
+                            "{{\"ok\":false,\"data\":null,\"diagnostics\":[\"{error}\"]}}"
+                        ))
+                    );
+                }
+            } else {
+                emit(format, quiet, &envelope, render_verify_text);
+            }
+            exit
         }
-    };
-    let layout = VerifyLayout::new(&root);
-    let entity_scope = match resolve_entity_scope(
-        &layout,
-        &scan,
-        req.as_deref(),
-        vo.as_deref(),
-        test.as_deref(),
-    ) {
-        Ok(scope) => scope,
-        Err(error) => {
-            emit(
-                format,
-                quiet,
-                JsonEnvelope::new(false, serde_json::Value::Null, vec![*error.diagnostic]),
-            );
-            return error.code;
+        // DS-1154/DS-1563: the defined gate names are in `message` and, for
+        // `--format json`, in `diagnostics[].candidates` exactly as the MCP
+        // tool returns them (the same envelope function builds both).
+        Err(ops::verify::VerifyOpError::Usage {
+            code,
+            message,
+            candidates,
+        }) => {
+            if format == OutputFormat::Json {
+                if !quiet {
+                    let value = ops::envelope::failure_envelope_with_candidates(
+                        code,
+                        message.as_str(),
+                        candidates.as_deref(),
+                    );
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&value).unwrap_or_else(|error| format!(
+                            "{{\"ok\":false,\"data\":null,\"diagnostics\":[\"{error}\"]}}"
+                        ))
+                    );
+                }
+                ExitCode::Usage
+            } else {
+                usage_failure(format, quiet, code, &message)
+            }
         }
-    };
-    let requested = items.map(|items| {
-        items
-            .split(',')
-            .map(str::trim)
-            .filter(|item| !item.is_empty())
-            .map(str::to_owned)
-            .collect::<Vec<_>>()
-    });
-    if requested.as_ref().is_some_and(Vec::is_empty) {
-        emit(
-            format,
-            quiet,
-            JsonEnvelope::new(
-                false,
-                serde_json::Value::Null,
-                vec![Diagnostic::error(
-                    "E-OP-001",
-                    "--items must name at least one verification item",
-                )],
-            ),
-        );
-        return ExitCode::Usage;
-    }
-    if let Some(scope) = &requested {
-        if let Some(unknown) = scope
-            .iter()
-            .find(|item| !ALL_VERIFY_ITEMS.contains(&item.as_str()))
-        {
-            emit(
-                format,
-                quiet,
-                JsonEnvelope::new(
-                    false,
-                    serde_json::Value::Null,
-                    vec![Diagnostic::error(
-                        "E-OP-001",
-                        format!("unknown check item `{unknown}`"),
-                    )],
-                ),
-            );
-            return ExitCode::Usage;
+        Err(ops::verify::VerifyOpError::Scan(error)) => {
+            failure_exit(&ops::envelope::scan_failure(&error), format, quiet)
         }
-        let unique = scope.iter().collect::<std::collections::BTreeSet<_>>();
-        if unique.len() != scope.len() {
-            emit(
-                format,
-                quiet,
-                JsonEnvelope::new(
-                    false,
-                    serde_json::Value::Null,
-                    vec![Diagnostic::error(
-                        "E-OP-001",
-                        "--items must not contain duplicate verification items",
-                    )],
-                ),
-            );
-            return ExitCode::Usage;
+        Err(ops::verify::VerifyOpError::Internal { message }) => {
+            emit_failure(format, quiet, vtest_model::INTERNAL_ERROR_CODE, &message);
+            ExitCode::Internal
         }
     }
-    let result = verify_project_scoped(&root, &scan, &config, requested, entity_scope);
-    let ok = result.is_ok();
-    let diagnostics = result.diagnostics.clone();
-    if summary {
-        let requested = &result.report.requested_scope;
-        let non_pass_items = result
-            .report
+}
+
+#[expect(
+    clippy::too_many_arguments,
+    reason = "takes the clap arguments of the subcommand one to one"
+)]
+fn run_report(
+    project: &Path,
+    items: &[String],
+    doc: Option<String>,
+    vo: Option<String>,
+    test: Option<String>,
+    gate: Option<&str>,
+    projection: &ops::report::ProjectionArgs,
+    format: OutputFormat,
+    quiet: bool,
+) -> ExitCode {
+    let root = match resolve_root(project, format, quiet) {
+        Ok(root) => root,
+        Err(code) => return code,
+    };
+    let registry = match resolve_registry(format, quiet) {
+        Ok(registry) => registry,
+        Err(code) => return code,
+    };
+    match ops::report::execute(&root, items, doc, vo, test, gate, projection, &registry) {
+        Ok((exit, data, diagnostics)) => {
+            let envelope = JsonEnvelope::new(exit == ExitCode::Ok, data, diagnostics);
+            emit(format, quiet, &envelope, render_report_text);
+            exit
+        }
+        // Same as `run_verify`: an undefined `--gate` lists the defined
+        // gate names, in `diagnostics[].candidates` for JSON (DS-1154).
+        Err(ops::verify::VerifyOpError::Usage {
+            code,
+            message,
+            candidates,
+        }) => {
+            if format == OutputFormat::Json {
+                if !quiet {
+                    let value = ops::envelope::failure_envelope_with_candidates(
+                        code,
+                        message.as_str(),
+                        candidates.as_deref(),
+                    );
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&value).unwrap_or_else(|error| format!(
+                            "{{\"ok\":false,\"data\":null,\"diagnostics\":[\"{error}\"]}}"
+                        ))
+                    );
+                }
+                ExitCode::Usage
+            } else {
+                usage_failure(format, quiet, code, &message)
+            }
+        }
+        Err(ops::verify::VerifyOpError::Scan(error)) => {
+            failure_exit(&ops::envelope::scan_failure(&error), format, quiet)
+        }
+        Err(ops::verify::VerifyOpError::Internal { message }) => {
+            emit_failure(format, quiet, "E-INTERNAL-001", &message);
+            ExitCode::Internal
+        }
+    }
+}
+
+fn render_report_text(envelope: &JsonEnvelope<ops::report::ReportData>) -> String {
+    let data = &envelope.data;
+    let verify = JsonEnvelope::new(envelope.ok, data.verify.clone(), Vec::new());
+    let mut out = render_verify_text(&verify);
+    if !data.evidence.is_empty() {
+        out.push_str("\nEvidence:\n");
+        for evidence in &data.evidence {
+            let line = match &evidence.invalid {
+                Some(reason) => format!(
+                    "  {} -> {} (invalid, not used: {reason})\n",
+                    evidence.test,
+                    evidence.evidence.as_deref().unwrap_or("<unknown>")
+                ),
+                None => format!(
+                    "  {} -> {} ({}, {})\n",
+                    evidence.test,
+                    evidence.evidence.as_deref().unwrap_or("<unknown>"),
+                    evidence.result.as_deref().unwrap_or("-"),
+                    evidence.executed_at.as_deref().unwrap_or("-")
+                ),
+            };
+            out.push_str(&line);
+        }
+    }
+    let projection = &data.projection;
+    out.push_str(&format!(
+        "\nProjection{}{} ({:?}{}):\n",
+        projection
+            .from
+            .as_deref()
+            .map(|from| format!(" from {from}"))
+            .unwrap_or_default(),
+        projection
+            .view
+            .as_deref()
+            .map(|view| format!(" view {view}"))
+            .unwrap_or_default(),
+        projection.direction,
+        projection
+            .depth
+            .map(|depth| format!(", depth {depth}"))
+            .unwrap_or_default(),
+    ));
+    for node in &projection.nodes {
+        out.push_str(&format!(
+            "  {:?} {} [{}]\n",
+            node.kind,
+            node.id,
+            node.state.unwrap_or("-")
+        ));
+    }
+    for edge in &projection.edges {
+        out.push_str(&format!(
+            "  {} --{}--> {}",
+            edge.from, edge.relation, edge.to
+        ));
+        if let Some(anchor) = &edge.anchor {
+            out.push_str(&format!(" (anchor {anchor})"));
+        }
+        out.push('\n');
+    }
+    out
+}
+
+fn render_pending(pending: &[ops::pending::PendingItem], out: &mut String) {
+    if pending.is_empty() {
+        return;
+    }
+    out.push_str("\nPending:\n");
+    for item in pending {
+        let check = item
+            .check
+            .as_ref()
+            .map(|check| format!(" {} {}", check.name, check.state))
+            .unwrap_or_default();
+        let kind = item
+            .judgment_kind
+            .map(|kind| format!(" ({kind})"))
+            .unwrap_or_default();
+        out.push_str(&format!("  {} {}{check}{kind}\n", item.kind, item.subject));
+    }
+}
+
+fn label_name(label: vtest_model::DiagnosticLabel) -> &'static str {
+    match label {
+        vtest_model::DiagnosticLabel::Missing => "MISSING",
+        vtest_model::DiagnosticLabel::NotChecked => "NOT_CHECKED",
+        vtest_model::DiagnosticLabel::NotExecuted => "NOT_EXECUTED",
+        vtest_model::DiagnosticLabel::Stale => "STALE",
+    }
+}
+
+/// DS-1118「`vtest verify` は状態列…と診断ラベル列…を分離して表示する」。
+fn render_verify_text(envelope: &JsonEnvelope<VerifyData>) -> String {
+    let data = &envelope.data;
+    let mut out = String::new();
+
+    // DS-1113「scope を限定した場合、出力冒頭に要求 scope と「scope 外は
+    // 未検証」の旨を必ず表示する」。
+    out.push_str(&format!(
+        "Requested scope: {}\n",
+        data.scope
+            .requested
             .items
             .iter()
-            .filter(|item| {
-                requested.iter().any(|requested| requested == &item.item)
-                    && item.value != vtest_model::CheckValue::Pass
-            })
-            .count();
-        let summary_data = serde_json::json!({
-            "result": result.report.result,
-            "requested_scope": result.report.requested_scope,
-            "entity_scope": result.report.entity_scope,
-            "scope_outside_not_checked": result.report.scope_outside_not_checked,
-            "non_pass_items": non_pass_items,
-        });
-        emit(
-            format,
-            quiet,
-            JsonEnvelope::new(ok, summary_data, diagnostics),
-        );
-    } else {
-        emit(
-            format,
-            quiet,
-            JsonEnvelope::new(
-                ok,
-                serde_json::to_value(&result).expect("verification result"),
-                diagnostics,
-            ),
-        );
+            .map(|check| check_name(*check))
+            .collect::<Vec<_>>()
+            .join(", ")
+    ));
+    if let Some(entity) = &data.scope.entity {
+        out.push_str(&format!("Entity scope: {}\n", entity.id()));
     }
-    if ok {
-        ExitCode::Ok
-    } else {
-        ExitCode::VerificationFailed
+    if data.scope.unverified_outside_scope {
+        out.push_str("Anything outside the requested scope is UNVERIFIED, not PASS.\n");
     }
-}
 
-fn resolve_entity_scope(
-    layout: &VerifyLayout,
-    scan: &ScanResult,
-    req: Option<&str>,
-    vo: Option<&str>,
-    test: Option<&str>,
-) -> Result<Option<EntityScope>, CommandFailure> {
-    let selected =
-        usize::from(req.is_some()) + usize::from(vo.is_some()) + usize::from(test.is_some());
-    if selected > 1 {
-        return Err(failure(
-            "E-OP-001",
-            "verify/report accepts at most one of --req, --vo, or --test",
-            ExitCode::Usage,
+    if !data.structural.is_empty() {
+        out.push_str("\nStructural checks:\n");
+        for check in &data.structural {
+            out.push_str(&render_check(check, 2));
+        }
+    }
+
+    if !data.unevaluated.is_empty() {
+        out.push_str("\nChecks with no evaluation point (NOT verified, not PASS):\n");
+        for check in &data.unevaluated {
+            out.push_str(&render_check(check, 2));
+        }
+    }
+
+    if !data.tree.is_empty() {
+        out.push('\n');
+        for node in &data.tree {
+            render_node(node, 0, &mut out);
+        }
+    }
+
+    if let Some(gate) = &data.gate {
+        let approvals_satisfied = gate.approvals.iter().all(|approval| approval.satisfied);
+        out.push_str(&format!(
+            "\nGate {}: {} (verification {}, approvals {})\n",
+            gate.name,
+            if gate.satisfied {
+                "SATISFIED"
+            } else {
+                "NOT SATISFIED"
+            },
+            if gate.verification.satisfied {
+                "ok"
+            } else {
+                "no"
+            },
+            if approvals_satisfied { "ok" } else { "no" },
         ));
-    }
-    if let Some(id) = req {
-        validate_id(id, "REQ-")?;
-        if read_req(layout, id).is_err() {
-            return Err(failure(
-                "E-OP-001",
-                format!("REQ `{id}` was not found"),
-                ExitCode::Usage,
-            ));
-        }
-        return Ok(Some(EntityScope::Req(id.to_owned())));
-    }
-    if let Some(id) = vo {
-        validate_id(id, "VO-")?;
-        if read_vo(layout, id).is_err() {
-            return Err(failure(
-                "E-OP-001",
-                format!("VO `{id}` was not found"),
-                ExitCode::Usage,
-            ));
-        }
-        return Ok(Some(EntityScope::Vo(id.to_owned())));
-    }
-    if let Some(id) = test {
-        validate_id(id, "TEST-")?;
-        if !scan.tests.iter().any(|entity| entity.id.as_str() == id) {
-            return Err(failure(
-                "E-OP-001",
-                format!("Test `{id}` was not found"),
-                ExitCode::Usage,
-            ));
-        }
-        return Ok(Some(EntityScope::Test(id.to_owned())));
-    }
-    Ok(None)
-}
-
-const ALL_VERIFY_ITEMS: [&str; 11] = [
-    "spec_coverage",
-    "vo_decomposition",
-    "vo_coverage",
-    "test_existence",
-    "static_audit",
-    "semantic_audit",
-    "impl_consistency",
-    "test_execution",
-    "runtime_result",
-    "target_execution",
-    "evidence_validity",
-];
-
-type CommandResult<T = serde_json::Value> = Result<T, CommandFailure>;
-
-#[derive(Debug)]
-struct CommandFailure {
-    diagnostic: Box<Diagnostic>,
-    code: ExitCode,
-}
-
-fn finish_record_command(result: CommandResult, format: OutputFormat, quiet: bool) -> ExitCode {
-    match result {
-        Ok(data) => {
-            emit(format, quiet, JsonEnvelope::new(true, data, Vec::new()));
-            ExitCode::Ok
-        }
-        Err(error) => {
-            emit(
-                format,
-                quiet,
-                JsonEnvelope::new(false, serde_json::Value::Null, vec![*error.diagnostic]),
-            );
-            error.code
-        }
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn add_spec(
-    root: &Path,
-    layout: &VerifyLayout,
-    id: &str,
-    path: &Path,
-    kind: &str,
-    title: Option<String>,
-    note: Option<String>,
-    update: bool,
-) -> CommandResult {
-    validate_id(id, "SPEC-")?;
-    if !matches!(
-        kind,
-        "document" | "api-schema" | "type-spec" | "db-schema" | "other"
-    ) {
-        return Err(failure(
-            "E-OP-001",
-            "SPEC kind must be document, api-schema, type-spec, db-schema, or other",
-            ExitCode::Usage,
+        out.push_str(&format!(
+            "  - verification: required {}, actual {}\n",
+            gate.verification.required, gate.verification.actual
         ));
-    }
-    let source_path = safe_project_path(root, path)?;
-    let source = fs::read_to_string(&source_path)
-        .map_err(|error| failure("E-OP-001", error.to_string(), ExitCode::Usage))?;
-    let record_path = layout.spec_dir().join(format!("{id}.yaml"));
-    let old = if record_path.exists() {
-        if !update {
-            return Err(failure(
-                "E-OP-001",
-                format!("SPEC `{id}` already exists; pass --update to replace it"),
-                ExitCode::Usage,
-            ));
-        }
-        Some(read_spec(layout, id).map_err(store_failure)?)
-    } else {
-        None
-    };
-    let previous_hash = old.as_ref().map(|value| value.sha256.clone());
-    let record = SpecRecord {
-        id: SpecId::new(id),
-        kind: kind.to_owned(),
-        path: relative_path(root, &source_path),
-        sha256: ContentHash::from_text(&source),
-        title: title.or_else(|| old.as_ref().and_then(|value| value.title.clone())),
-        note: note.or_else(|| old.as_ref().and_then(|value| value.note.clone())),
-        registered_at: old
-            .as_ref()
-            .map(|value| value.registered_at.clone())
-            .filter(|value| !value.is_empty())
-            .unwrap_or_else(now_rfc3339),
-    };
-    write_atomic(&record_path, &record.to_yaml()).map_err(store_failure)?;
-    let content_changed = previous_hash.is_some_and(|hash| hash != record.sha256);
-    let mut value = serde_json::to_value(record).expect("record is serializable");
-    if let Some(object) = value.as_object_mut() {
-        object.insert(
-            "content_changed".to_owned(),
-            serde_json::json!(content_changed),
-        );
-        object.insert(
-            "dependent_facts_may_be_stale".to_owned(),
-            serde_json::json!(content_changed),
-        );
-    }
-    Ok(value)
-}
-
-fn list_specs(layout: &VerifyLayout) -> CommandResult {
-    let ids = read_record_ids_for(&layout.spec_dir())?;
-    let mut records = Vec::new();
-    for id in ids {
-        records.push(
-            serde_json::to_value(read_spec(layout, &id).map_err(store_failure)?).expect("record"),
-        );
-    }
-    Ok(serde_json::json!({ "items": records }))
-}
-
-fn show_spec(layout: &VerifyLayout, id: &str) -> CommandResult {
-    validate_id(id, "SPEC-")?;
-    Ok(serde_json::to_value(read_spec(layout, id).map_err(store_failure)?).expect("record"))
-}
-
-fn add_req(
-    layout: &VerifyLayout,
-    id: &str,
-    summary: &str,
-    parent: Option<String>,
-    specs: &[String],
-    sections: &[String],
-) -> CommandResult {
-    validate_id(id, "REQ-")?;
-    if summary.trim().is_empty() {
-        return Err(failure(
-            "E-OP-001",
-            "REQ summary must not be empty",
-            ExitCode::Usage,
-        ));
-    }
-    let path = layout.req_dir().join(format!("{id}.yaml"));
-    if path.exists() {
-        return Err(failure(
-            "E-OP-001",
-            format!("REQ `{id}` already exists"),
-            ExitCode::Usage,
-        ));
-    }
-    let spec_refs = spec_refs_from_args(layout, specs, sections)?;
-    if let Some(parent) = &parent {
-        validate_id(parent, "REQ-")?;
-        read_req(layout, parent).map_err(store_failure)?;
-    }
-    let now = now_rfc3339();
-    let record = ReqRecord {
-        id: ReqId::new(id),
-        parent: parent.map(ReqId::new),
-        spec_refs,
-        summary: summary.to_owned(),
-        status: "active".to_owned(),
-        created: now.clone(),
-        updated: now,
-    };
-    write_atomic(&path, &record.to_yaml()).map_err(store_failure)?;
-    Ok(serde_json::to_value(record).expect("record"))
-}
-
-fn edit_req(
-    layout: &VerifyLayout,
-    id: &str,
-    summary: Option<String>,
-    parent: Option<String>,
-    status: Option<String>,
-) -> CommandResult {
-    validate_id(id, "REQ-")?;
-    let path = layout.req_dir().join(format!("{id}.yaml"));
-    let mut record = read_req(layout, id).map_err(store_failure)?;
-    if summary.is_none() && parent.is_none() && status.is_none() {
-        return Err(failure(
-            "E-OP-001",
-            "REQ edit needs at least one field",
-            ExitCode::Usage,
-        ));
-    }
-    if let Some(summary) = summary {
-        if summary.trim().is_empty() {
-            return Err(failure(
-                "E-OP-001",
-                "REQ summary must not be empty",
-                ExitCode::Usage,
-            ));
-        }
-        record.summary = summary;
-    }
-    if let Some(parent) = parent {
-        validate_id(&parent, "REQ-")?;
-        read_req(layout, &parent).map_err(store_failure)?;
-        record.parent = Some(ReqId::new(parent));
-    }
-    if let Some(status) = status {
-        if !matches!(status.as_str(), "active" | "withdrawn") {
-            return Err(failure(
-                "E-OP-001",
-                "REQ status must be active or withdrawn",
-                ExitCode::Usage,
-            ));
-        }
-        record.status = status;
-    }
-    record.updated = now_rfc3339();
-    write_atomic(&path, &record.to_yaml()).map_err(store_failure)?;
-    Ok(serde_json::to_value(record).expect("record"))
-}
-
-fn list_reqs(layout: &VerifyLayout, tree: bool) -> CommandResult {
-    let ids = read_record_ids_for(&layout.req_dir())?;
-    let mut entries = BTreeMap::new();
-    for id in ids {
-        let record = read_req(layout, &id).map_err(store_failure)?;
-        let parent = record
-            .parent
-            .as_ref()
-            .map(|value| value.as_str().to_owned());
-        entries.insert(
-            id,
-            (
-                parent,
-                serde_json::to_value(record).expect("record is serializable"),
-            ),
-        );
-    }
-    if tree {
-        Ok(serde_json::json!({ "tree": true, "items": record_tree(entries) }))
-    } else {
-        Ok(serde_json::json!({
-            "tree": false,
-            "items": entries.into_values().map(|(_, value)| value).collect::<Vec<_>>()
-        }))
-    }
-}
-
-fn show_req(layout: &VerifyLayout, id: &str) -> CommandResult {
-    validate_id(id, "REQ-")?;
-    Ok(serde_json::to_value(read_req(layout, id).map_err(store_failure)?).expect("record"))
-}
-
-#[allow(clippy::too_many_arguments)]
-fn add_vo(
-    layout: &VerifyLayout,
-    id: &str,
-    claim: &str,
-    requirements: &[String],
-    parent: Option<String>,
-    specs: &[String],
-    sections: &[String],
-    dimensions: &[String],
-    policy: Option<String>,
-    combinations: &[String],
-) -> CommandResult {
-    validate_id(id, "VO-")?;
-    if claim.trim().is_empty() {
-        return Err(failure(
-            "E-OP-001",
-            "VO claim must not be empty",
-            ExitCode::Usage,
-        ));
-    }
-    let path = layout.vo_dir().join(format!("{id}.yaml"));
-    if path.exists() {
-        return Err(failure(
-            "E-OP-001",
-            format!("VO `{id}` already exists"),
-            ExitCode::Usage,
-        ));
-    }
-    for req in requirements {
-        validate_id(req, "REQ-")?;
-        read_req(layout, req).map_err(store_failure)?;
-    }
-    if let Some(parent) = &parent {
-        validate_id(parent, "VO-")?;
-        read_vo(layout, parent).map_err(store_failure)?;
-    }
-    let spec_refs = spec_refs_from_args(layout, specs, sections)?;
-    let dimensions = parse_dimensions(dimensions)?;
-    if let Some(policy) = &policy {
-        if !matches!(
-            policy.as_str(),
-            "independent-axes" | "full-product" | "explicit"
-        ) {
-            return Err(failure(
-                "E-OP-001",
-                "unsupported VO coverage policy",
-                ExitCode::Usage,
-            ));
-        }
-        if dimensions.is_empty() {
-            return Err(failure(
-                "E-OP-001",
-                "VO coverage policy requires at least one dimension",
-                ExitCode::Usage,
-            ));
-        }
-    }
-    let combinations = parse_explicit_combinations(&dimensions, policy.as_deref(), combinations)?;
-    let now = now_rfc3339();
-    let record = VoRecord {
-        id: VoId::new(id),
-        parent: parent.map(VoId::new),
-        requirements: requirements.iter().cloned().map(ReqId::new).collect(),
-        spec_refs,
-        claim: claim.to_owned(),
-        dimensions,
-        coverage_policy: policy,
-        combinations,
-        representative_cases: Vec::new(),
-        status: "draft".to_owned(),
-        created: now.clone(),
-        updated: now,
-    };
-    write_atomic(&path, &record.to_yaml()).map_err(store_failure)?;
-    Ok(serde_json::to_value(record).expect("record"))
-}
-
-fn edit_vo(
-    layout: &VerifyLayout,
-    id: &str,
-    claim: Option<String>,
-    parent: Option<String>,
-    status: Option<String>,
-) -> CommandResult {
-    validate_id(id, "VO-")?;
-    if claim.is_none() && parent.is_none() && status.is_none() {
-        return Err(failure(
-            "E-OP-001",
-            "VO edit needs at least one field",
-            ExitCode::Usage,
-        ));
-    }
-    let path = layout.vo_dir().join(format!("{id}.yaml"));
-    let mut record = read_vo(layout, id).map_err(store_failure)?;
-    let approval_invalidated = effective_vo_status(layout, &record) == "approved";
-    if let Some(claim) = claim {
-        if claim.trim().is_empty() {
-            return Err(failure(
-                "E-OP-001",
-                "VO claim must not be empty",
-                ExitCode::Usage,
-            ));
-        }
-        record.claim = claim;
-    }
-    if let Some(parent) = parent {
-        validate_id(&parent, "VO-")?;
-        read_vo(layout, &parent).map_err(store_failure)?;
-        record.parent = Some(VoId::new(parent));
-    }
-    if let Some(status) = status {
-        if status != "draft" {
-            return Err(failure(
-                "E-OP-001",
-                "VO status can only be set to draft; approved is derived from approval records",
-                ExitCode::Usage,
-            ));
-        }
-    }
-    record.status = "draft".to_owned();
-    record.updated = now_rfc3339();
-    write_atomic(&path, &record.to_yaml()).map_err(store_failure)?;
-    let mut value = serde_json::to_value(record).expect("record");
-    if let Some(object) = value.as_object_mut() {
-        object.insert(
-            "approval_invalidated".to_owned(),
-            serde_json::json!(approval_invalidated),
-        );
-    }
-    Ok(value)
-}
-
-fn list_vos(
-    layout: &VerifyLayout,
-    tree: bool,
-    req: Option<&str>,
-    status: Option<&str>,
-) -> CommandResult {
-    if let Some(req) = req {
-        validate_id(req, "REQ-")?;
-        read_req(layout, req).map_err(store_failure)?;
-    }
-    if status.is_some_and(|value| !matches!(value, "draft" | "approved")) {
-        return Err(failure(
-            "E-OP-001",
-            "VO status filter must be draft or approved",
-            ExitCode::Usage,
-        ));
-    }
-    let ids = read_record_ids_for(&layout.vo_dir())?;
-    let mut entries = BTreeMap::new();
-    for id in ids {
-        let record = read_vo(layout, &id).map_err(store_failure)?;
-        if let Some(req) = req {
-            if !record
-                .requirements
-                .iter()
-                .any(|value| value.as_str() == req)
-            {
-                continue;
-            }
-        }
-        let effective = effective_vo_status(layout, &record);
-        if status.is_some_and(|wanted| wanted != effective) {
-            continue;
-        }
-        let parent = record
-            .parent
-            .as_ref()
-            .map(|value| value.as_str().to_owned());
-        entries.insert(
-            id,
-            (
-                parent.clone(),
-                serde_json::json!({
-                    "id": record.id,
-                    "claim": record.claim,
-                    "status": effective,
-                    "stored_status": record.status,
-                    "parent": parent,
-                    "requirements": record.requirements,
-                }),
-            ),
-        );
-    }
-    if tree {
-        Ok(serde_json::json!({ "tree": true, "items": record_tree(entries) }))
-    } else {
-        Ok(serde_json::json!({
-            "tree": false,
-            "items": entries.into_values().map(|(_, value)| value).collect::<Vec<_>>()
-        }))
-    }
-}
-
-fn record_tree(
-    entries: BTreeMap<String, (Option<String>, serde_json::Value)>,
-) -> Vec<serde_json::Value> {
-    let mut children = BTreeMap::<String, Vec<String>>::new();
-    let mut roots = Vec::new();
-    for (id, (parent, _)) in &entries {
-        if let Some(parent) = parent
-            .as_ref()
-            .filter(|parent| entries.contains_key(parent.as_str()))
-        {
-            children.entry(parent.clone()).or_default().push(id.clone());
-        } else {
-            roots.push(id.clone());
-        }
-    }
-    for ids in children.values_mut() {
-        ids.sort();
-    }
-    roots.sort();
-
-    let mut expanded = BTreeSet::new();
-    let mut output = Vec::new();
-    for id in roots {
-        if let Some(value) = record_tree_node(&id, &entries, &children, &mut expanded) {
-            output.push(value);
-        }
-    }
-    // Malformed cyclic graphs have no natural root. Keep list output total and
-    // deterministic; scanner diagnostics remain the authority for the cycle.
-    for id in entries.keys() {
-        if let Some(value) = record_tree_node(id, &entries, &children, &mut expanded) {
-            output.push(value);
-        }
-    }
-    output
-}
-
-fn record_tree_node(
-    id: &str,
-    entries: &BTreeMap<String, (Option<String>, serde_json::Value)>,
-    children: &BTreeMap<String, Vec<String>>,
-    expanded: &mut BTreeSet<String>,
-) -> Option<serde_json::Value> {
-    if !expanded.insert(id.to_owned()) {
-        return None;
-    }
-    let mut value = entries.get(id)?.1.clone();
-    let nested = children
-        .get(id)
-        .into_iter()
-        .flatten()
-        .filter_map(|child| record_tree_node(child, entries, children, expanded))
-        .collect::<Vec<_>>();
-    if let Some(object) = value.as_object_mut() {
-        object.insert("children".to_owned(), serde_json::Value::Array(nested));
-    }
-    Some(value)
-}
-
-fn show_vo(layout: &VerifyLayout, id: &str) -> CommandResult {
-    validate_id(id, "VO-")?;
-    let record = read_vo(layout, id).map_err(store_failure)?;
-    let effective = effective_vo_status(layout, &record);
-    let scan = scan_project(&layout.root).map_err(|error| {
-        failure(
-            "E-CORE-001",
-            format!("could not scan covering tests for VO {id}: {error}"),
-            ExitCode::Internal,
-        )
-    })?;
-    let covering_tests = scan
-        .tests
-        .iter()
-        .filter(|test| test.covers.iter().any(|vo| vo.as_str() == id))
-        .map(|test| {
-            serde_json::json!({
-                "id": test.id,
-                "file": test.location.file,
-                "function": test.location.function,
-            })
-        })
-        .collect::<Vec<_>>();
-    let vo_path = layout.vo_dir().join(format!("{id}.yaml"));
-    let current_hash = ContentHash::from_text(&read_text(&vo_path).map_err(store_failure)?);
-    let approvals = approval_history(layout, id, &current_hash);
-    let audits = vo_audit_history(layout, id, &current_hash);
-    let mut value = serde_json::to_value(record).expect("record");
-    if let Some(object) = value.as_object_mut() {
-        object.insert("effective_status".to_owned(), serde_json::json!(effective));
-        object.insert(
-            "covering_tests".to_owned(),
-            serde_json::Value::Array(covering_tests),
-        );
-        object.insert("approvals".to_owned(), serde_json::Value::Array(approvals));
-        object.insert("audits".to_owned(), serde_json::Value::Array(audits));
-        // Full audit validity depends on every recorded subject and is an M5
-        // concern. A show command must not promote a partial hash comparison.
-        object.insert("audit_state".to_owned(), serde_json::json!("NOT_CHECKED"));
-    }
-    Ok(value)
-}
-
-fn approval_history(
-    layout: &VerifyLayout,
-    vo_id: &str,
-    current_hash: &ContentHash,
-) -> Vec<serde_json::Value> {
-    let Ok(entries) = fs::read_dir(layout.approvals_dir()) else {
-        return Vec::new();
-    };
-    let mut paths = entries
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("yaml"))
-        .collect::<Vec<_>>();
-    paths.sort();
-    paths
-        .into_iter()
-        .filter_map(|path| read_approval(&path).ok())
-        .filter(|approval| approval.subject.as_str() == vo_id)
-        .map(|approval| {
-            serde_json::json!({
-                "id": approval.id,
-                "approved_at": approval.approved_at,
-                "approver": approval.approver,
-                "basis": approval.basis,
-                "valid": &approval.subject_hash == current_hash,
-            })
-        })
-        .collect()
-}
-
-fn vo_audit_history(
-    layout: &VerifyLayout,
-    vo_id: &str,
-    current_hash: &ContentHash,
-) -> Vec<serde_json::Value> {
-    let Ok(entries) = fs::read_dir(layout.audits_dir()) else {
-        return Vec::new();
-    };
-    let mut paths = entries
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("yaml"))
-        .collect::<Vec<_>>();
-    paths.sort();
-    paths
-        .into_iter()
-        .filter_map(|path| {
-            let text = read_text(&path).ok()?;
-            let subject_hash = audit_subject_hash(&text, vo_id)?;
-            Some(serde_json::json!({
-                "id": yaml_scalar_value(&text, "id").or_else(|| path.file_stem().and_then(|value| value.to_str()).map(str::to_owned)),
-                "kind": yaml_scalar_value(&text, "kind"),
-                "verdict": yaml_scalar_value(&text, "verdict"),
-                "audited_at": yaml_scalar_value(&text, "audited_at"),
-                "subject_hash_matches": &subject_hash == current_hash,
-            }))
-        })
-        .collect()
-}
-
-fn audit_subject_hash(text: &str, subject_id: &str) -> Option<ContentHash> {
-    let lines = text.lines().collect::<Vec<_>>();
-    let start = lines.iter().position(|line| {
-        line.trim_start().starts_with("id:")
-            && yaml_scalar_value(line, "id").as_deref() == Some(subject_id)
-    })?;
-    lines
-        .iter()
-        .skip(start + 1)
-        .take_while(|line| {
-            let trimmed = line.trim_start();
-            line.starts_with(' ') && !trimmed.starts_with("- kind:")
-        })
-        .find_map(|line| yaml_scalar_value(line, "hash"))?
-        .parse()
-        .ok()
-}
-
-fn expand_vo(layout: &VerifyLayout, id: &str, dry_run: bool) -> CommandResult {
-    validate_id(id, "VO-")?;
-    let parent = read_vo(layout, id).map_err(store_failure)?;
-    let policy = parent.coverage_policy.as_deref().ok_or_else(|| {
-        failure(
-            "E-OP-001",
-            "VO has no coverage_policy for expansion",
-            ExitCode::Usage,
-        )
-    })?;
-    let combinations = dimension_combinations(&parent.dimensions, policy, &parent.combinations)?;
-    let mut planned = Vec::new();
-    let mut child_ids = BTreeSet::new();
-    for combination in combinations {
-        let suffix_parts = combination
-            .iter()
-            .map(|value| slug(value))
-            .collect::<Vec<_>>();
-        if suffix_parts.iter().any(String::is_empty) {
-            return Err(failure(
-                "E-OP-001",
-                "VO partitions must contain an alphanumeric character",
-                ExitCode::Usage,
-            ));
-        }
-        let suffix = suffix_parts.join("-");
-        let child_id = format!("{}-{}", parent.id, suffix);
-        if !child_ids.insert(child_id.clone()) {
-            return Err(failure(
-                "E-OP-001",
-                format!("VO expansion generates duplicate child ID `{child_id}`"),
-                ExitCode::Usage,
-            ));
-        }
-        let child_path = layout.vo_dir().join(format!("{child_id}.yaml"));
-        let claim = format!("{} [{}]", parent.claim, combination.join(", "));
-        if child_path.exists() {
-            let existing = read_vo(layout, &child_id).map_err(store_failure)?;
-            if existing.parent.as_ref() != Some(&parent.id)
-                || existing.requirements != parent.requirements
-                || existing.spec_refs != parent.spec_refs
-                || existing.claim != claim
-            {
-                return Err(failure(
-                    "E-OP-001",
-                    format!("VO expansion child ID `{child_id}` already has different content"),
-                    ExitCode::Usage,
-                ));
-            }
-        }
-        planned.push((combination, child_id, child_path, claim));
-    }
-
-    let mut children = Vec::new();
-    for (combination, child_id, child_path, claim) in planned {
-        let mut created = false;
-        if !dry_run && !child_path.exists() {
-            let now = now_rfc3339();
-            let child = VoRecord {
-                id: VoId::new(&child_id),
-                parent: Some(parent.id.clone()),
-                requirements: parent.requirements.clone(),
-                spec_refs: parent.spec_refs.clone(),
-                claim,
-                dimensions: Vec::new(),
-                coverage_policy: None,
-                combinations: Vec::new(),
-                representative_cases: Vec::new(),
-                status: "draft".to_owned(),
-                created: now.clone(),
-                updated: now,
-            };
-            write_new_record(&child_path, &child.to_yaml()).map_err(store_failure)?;
-            created = true;
-        }
-        children.push(serde_json::json!({
-            "id": child_id,
-            "combination": combination,
-            "created": created,
-        }));
-    }
-    Ok(serde_json::json!({ "parent": parent.id, "dry_run": dry_run, "children": children }))
-}
-
-fn approve_vo(
-    layout: &VerifyLayout,
-    id: &str,
-    approver_kind: &str,
-    approver_id: &str,
-    model: Option<String>,
-    basis: &[String],
-) -> CommandResult {
-    validate_id(id, "VO-")?;
-    if !matches!(approver_kind, "human" | "agent") || approver_id.trim().is_empty() {
-        return Err(failure("E-OP-001", "invalid approver", ExitCode::Usage));
-    }
-    for reference in basis {
-        if !is_valid_ulid(reference)
-            || !layout
-                .audits_dir()
-                .join(format!("{reference}.yaml"))
-                .is_file()
-        {
-            return Err(failure(
-                "E-OP-001",
-                format!("approval basis audit `{reference}` does not exist"),
-                ExitCode::Usage,
-            ));
-        }
-    }
-    let vo_path = layout.vo_dir().join(format!("{id}.yaml"));
-    let mut vo = read_vo(layout, id).map_err(store_failure)?;
-    if vo.status != "approved" {
-        vo.status = "approved".to_owned();
-        vo.updated = now_rfc3339();
-        write_atomic(&vo_path, &vo.to_yaml()).map_err(store_failure)?;
-    }
-    let subject_hash = ContentHash::from_text(&read_text(&vo_path).map_err(store_failure)?);
-    let approval = ApprovalRecord {
-        id: new_record_id(),
-        subject: vo.id,
-        subject_hash,
-        approver: Approver {
-            kind: approver_kind.to_owned(),
-            id: approver_id.to_owned(),
-            model,
-        },
-        basis: basis
-            .iter()
-            .map(|reference| ApprovalBasis {
-                kind: "audit".to_owned(),
-                reference: reference.clone(),
-            })
-            .collect(),
-        approved_at: now_rfc3339(),
-    };
-    let path = layout.approvals_dir().join(format!("{}.yaml", approval.id));
-    write_new_record(&path, &approval.to_yaml()).map_err(store_failure)?;
-    Ok(serde_json::to_value(approval).expect("record"))
-}
-
-fn dimension_combinations(
-    dimensions: &[Dimension],
-    policy: &str,
-    explicit_combinations: &[Vec<String>],
-) -> Result<Vec<Vec<String>>, CommandFailure> {
-    let mut names = BTreeSet::new();
-    if dimensions.is_empty()
-        || dimensions.iter().any(|dimension| {
-            dimension.name.trim().is_empty()
-                || !names.insert(dimension.name.as_str())
-                || dimension.partitions.is_empty()
-                || dimension
-                    .partitions
-                    .iter()
-                    .any(|partition| partition.trim().is_empty())
-                || dimension.partitions.iter().collect::<BTreeSet<_>>().len()
-                    != dimension.partitions.len()
-        })
-    {
-        return Err(failure(
-            "E-OP-001",
-            "VO has invalid dimensions; run vtest scan for record diagnostics",
-            ExitCode::Usage,
-        ));
-    }
-    match policy {
-        "independent-axes" | "full-product" if !explicit_combinations.is_empty() => Err(failure(
-            "E-OP-001",
-            "non-explicit coverage policy cannot store combinations",
-            ExitCode::Usage,
-        )),
-        "independent-axes" => Ok(dimensions
-            .iter()
-            .flat_map(|dimension| {
-                dimension
-                    .partitions
-                    .iter()
-                    .map(|partition| vec![partition.clone()])
-            })
-            .collect()),
-        "full-product" => {
-            let mut combinations = vec![Vec::new()];
-            for dimension in dimensions {
-                let mut next = Vec::new();
-                for prefix in &combinations {
-                    for partition in &dimension.partitions {
-                        let mut combination = prefix.clone();
-                        combination.push(partition.clone());
-                        next.push(combination);
-                    }
+        for approval in &gate.approvals {
+            out.push_str(&format!(
+                "  - approval role '{}': {}\n",
+                approval.role,
+                if approval.satisfied {
+                    "satisfied"
+                } else {
+                    "not satisfied"
                 }
-                combinations = next;
-            }
-            Ok(combinations)
-        }
-        "explicit" if !explicit_combinations.is_empty() => {
-            let mut unique = BTreeSet::new();
-            if explicit_combinations.iter().any(|combination| {
-                combination.len() != dimensions.len()
-                    || !combination
-                        .iter()
-                        .zip(dimensions)
-                        .all(|(partition, dimension)| dimension.partitions.contains(partition))
-                    || !unique.insert(combination)
-            }) {
-                return Err(failure(
-                    "E-OP-001",
-                    "VO has invalid explicit combinations; run vtest scan for record diagnostics",
-                    ExitCode::Usage,
-                ));
-            }
-            Ok(explicit_combinations.to_vec())
-        }
-        "explicit" => Err(failure(
-            "E-OP-001",
-            "explicit expansion requires at least one combination",
-            ExitCode::Usage,
-        )),
-        _ => Err(failure(
-            "E-OP-001",
-            "unsupported VO coverage policy",
-            ExitCode::Usage,
-        )),
-    }
-}
-
-fn parse_explicit_combinations(
-    dimensions: &[Dimension],
-    policy: Option<&str>,
-    values: &[String],
-) -> Result<Vec<Vec<String>>, CommandFailure> {
-    if policy != Some("explicit") {
-        if values.is_empty() {
-            return Ok(Vec::new());
-        }
-        return Err(failure(
-            "E-OP-001",
-            "--combination is only valid with --policy explicit",
-            ExitCode::Usage,
-        ));
-    }
-    if dimensions.is_empty() || values.is_empty() {
-        return Err(failure(
-            "E-OP-001",
-            "explicit coverage requires dimensions and at least one --combination",
-            ExitCode::Usage,
-        ));
-    }
-    let mut combinations = Vec::new();
-    let mut unique = BTreeSet::new();
-    for value in values {
-        let combination = value
-            .split(',')
-            .map(str::trim)
-            .map(str::to_owned)
-            .collect::<Vec<_>>();
-        if combination.len() != dimensions.len()
-            || combination.iter().any(|partition| partition.is_empty())
-        {
-            return Err(failure(
-                "E-OP-001",
-                format!(
-                    "combination `{value}` must provide one partition for each of {} dimensions",
-                    dimensions.len()
-                ),
-                ExitCode::Usage,
             ));
-        }
-        for (dimension, partition) in dimensions.iter().zip(&combination) {
-            if !dimension.partitions.contains(partition) {
-                return Err(failure(
-                    "E-OP-001",
-                    format!(
-                        "partition `{partition}` is not declared by dimension `{}`",
-                        dimension.name
-                    ),
-                    ExitCode::Usage,
+            if !approval.missing_subjects.is_empty() {
+                out.push_str(&format!(
+                    "    missing approval for: {}\n",
+                    approval.missing_subjects.join(", ")
                 ));
             }
         }
-        if !unique.insert(combination.clone()) {
-            return Err(failure(
-                "E-OP-001",
-                format!("duplicate explicit combination `{value}`"),
-                ExitCode::Usage,
-            ));
-        }
-        combinations.push(combination);
     }
-    Ok(combinations)
+
+    render_pending(&data.pending, &mut out);
+    out.push_str(&format!(
+        "\nAggregate state: {}\nNon-PASS checks: {}\nResult: {}\n",
+        data.state, data.non_pass, data.result
+    ));
+    out
 }
 
-fn parse_dimensions(values: &[String]) -> Result<Vec<Dimension>, CommandFailure> {
-    let mut dimensions = Vec::new();
-    let mut names = BTreeSet::new();
-    for value in values {
-        let Some((name, partitions)) = value.split_once('=') else {
-            return Err(failure(
-                "E-OP-001",
-                format!("dimension `{value}` must be name=p1,p2"),
-                ExitCode::Usage,
-            ));
-        };
-        let partitions = partitions
-            .split(',')
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(str::to_owned)
-            .collect::<Vec<_>>();
-        let name = name.trim();
-        if name.is_empty() || partitions.is_empty() {
-            return Err(failure(
-                "E-OP-001",
-                "dimension name and partitions are required",
-                ExitCode::Usage,
-            ));
-        }
-        if !names.insert(name.to_owned()) {
-            return Err(failure(
-                "E-OP-001",
-                format!("duplicate VO dimension `{name}`"),
-                ExitCode::Usage,
-            ));
-        }
-        let mut unique_partitions = BTreeSet::new();
-        for partition in &partitions {
-            if slug(partition).is_empty() {
-                return Err(failure(
-                    "E-OP-001",
-                    format!("partition `{partition}` has no alphanumeric ID component"),
-                    ExitCode::Usage,
-                ));
-            }
-            if !unique_partitions.insert(partition.clone()) {
-                return Err(failure(
-                    "E-OP-001",
-                    format!("duplicate partition `{partition}` in dimension `{name}`"),
-                    ExitCode::Usage,
-                ));
-            }
-        }
-        dimensions.push(Dimension {
-            name: name.to_owned(),
-            partitions,
-        });
+fn render_node(node: &TreeNode, depth: usize, out: &mut String) {
+    let pad = "  ".repeat(depth);
+    out.push_str(&format!(
+        "{pad}{:?} {} [{}]\n",
+        node.kind,
+        node.id,
+        state_name(node.state)
+    ));
+    for check in &node.checks {
+        out.push_str(&render_check(check, (depth + 1) * 2));
     }
-    Ok(dimensions)
+    for child in &node.children {
+        render_node(child, depth + 1, out);
+    }
 }
 
-fn spec_refs_from_args(
-    layout: &VerifyLayout,
-    specs: &[String],
-    sections: &[String],
-) -> Result<Vec<SpecRef>, CommandFailure> {
-    if !sections.is_empty() && sections.len() != specs.len() {
-        return Err(failure(
-            "E-OP-001",
-            "--spec and --section counts must match",
-            ExitCode::Usage,
-        ));
-    }
-    specs
-        .iter()
-        .enumerate()
-        .map(|(index, spec)| {
-            validate_id(spec, "SPEC-")?;
-            read_spec(layout, spec).map_err(store_failure)?;
-            Ok(SpecRef {
-                spec: SpecId::new(spec),
-                section: sections.get(index).cloned().unwrap_or_default(),
-            })
-        })
-        .collect()
-}
-
-fn effective_vo_status(layout: &VerifyLayout, record: &VoRecord) -> String {
-    let path = layout.vo_dir().join(format!("{}.yaml", record.id));
-    let Ok(text) = read_text(&path) else {
-        return "draft".to_owned();
+/// 状態列と診断ラベル列を分けて描画する（DS-1118）。診断ラベルは代表値の
+/// 順位に用いず併記するだけである（DS-1119）。
+fn render_check(check: &CheckOutcome, indent: usize) -> String {
+    let pad = " ".repeat(indent);
+    let labels = if check.labels.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "  {}",
+            check
+                .labels
+                .iter()
+                .map(|label| format!("[{}]", label_name(*label)))
+                .collect::<Vec<_>>()
+                .join(" ")
+        )
     };
-    let hash = ContentHash::from_text(&text);
-    let Ok(entries) = fs::read_dir(layout.approvals_dir()) else {
-        return "draft".to_owned();
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|value| value.to_str()) != Some("yaml") {
-            continue;
-        }
-        let file_id = path
-            .file_stem()
-            .and_then(|value| value.to_str())
-            .unwrap_or_default();
-        if !is_valid_ulid(file_id) {
-            continue;
-        }
-        if let Ok(approval) = read_approval(&path) {
-            if approval.subject == record.id && approval.subject_hash == hash {
-                return "approved".to_owned();
+    let mut line = format!(
+        "{pad}{:<18} {:<12}{labels}\n",
+        check_name(check.check),
+        state_name(check.state)
+    );
+    for basis in &check.basis {
+        line.push_str(&format!("{pad}    {basis}\n"));
+    }
+    line
+}
+
+// ---------------------------------------------------------------------------
+// Shared plumbing
+// ---------------------------------------------------------------------------
+
+fn emit<T: serde::Serialize>(
+    format: OutputFormat,
+    quiet: bool,
+    envelope: &JsonEnvelope<T>,
+    render_text: impl FnOnce(&JsonEnvelope<T>) -> String,
+) {
+    if quiet {
+        return;
+    }
+    match format {
+        OutputFormat::Json => println!(
+            "{}",
+            serde_json::to_string_pretty(envelope).unwrap_or_else(|error| format!(
+                "{{\"ok\":false,\"data\":null,\"diagnostics\":[\"{error}\"]}}"
+            ))
+        ),
+        OutputFormat::Text => {
+            print!("{}", render_text(envelope));
+            for diagnostic in &envelope.diagnostics {
+                println!("[{}] {}", diagnostic.code, diagnostic.message);
             }
         }
     }
-    "draft".to_owned()
 }
 
-fn read_record_ids_for(directory: &Path) -> CommandResult<Vec<String>> {
-    let entries = fs::read_dir(directory)
-        .map_err(|error| failure("E-CORE-001", error.to_string(), ExitCode::Internal))?;
-    let mut ids = Vec::new();
-    for entry in entries {
-        let entry =
-            entry.map_err(|error| failure("E-CORE-001", error.to_string(), ExitCode::Internal))?;
-        let path = entry.path();
-        if path.extension().and_then(|value| value.to_str()) == Some("yaml") {
-            if let Some(id) = path.file_stem().and_then(|value| value.to_str()) {
-                ids.push(id.to_owned());
-            }
-        }
-    }
-    ids.sort();
-    Ok(ids)
+fn emit_failure(format: OutputFormat, quiet: bool, code: &str, message: &str) {
+    let envelope = JsonEnvelope::new(
+        false,
+        serde_json::Value::Null,
+        vec![Diagnostic::error(code, message.to_owned())],
+    );
+    emit(format, quiet, &envelope, |_| String::new());
 }
 
-fn resolve_root(project: &Path, format: OutputFormat, quiet: bool) -> Result<PathBuf, ExitCode> {
-    match find_project_root(&absolute_path(project)) {
-        Ok(root) => Ok(root),
-        Err(error) => {
-            let (diagnostic, code) = store_error_with_code(error, ExitCode::Usage);
-            emit(
-                format,
-                quiet,
-                JsonEnvelope::new(false, serde_json::Value::Null, vec![diagnostic]),
-            );
-            Err(code)
-        }
-    }
+fn usage_failure(format: OutputFormat, quiet: bool, code: &str, message: &str) -> ExitCode {
+    emit_failure(format, quiet, code, message);
+    ExitCode::Usage
 }
 
-fn safe_project_path(root: &Path, relative: &Path) -> Result<PathBuf, CommandFailure> {
-    if relative.is_absolute()
-        || relative.components().any(|component| {
-            matches!(
-                component,
-                Component::ParentDir | Component::RootDir | Component::Prefix(_)
-            )
-        })
-    {
-        return Err(failure(
-            "E-OP-001",
-            "path must be project-relative",
-            ExitCode::Usage,
-        ));
-    }
-    let path = root.join(relative);
-    if !path.is_file() {
-        return Err(failure(
-            "E-OP-001",
-            format!("file does not exist: {}", path.display()),
-            ExitCode::Usage,
-        ));
-    }
-    Ok(path)
-}
-
-fn relative_path(root: &Path, path: &Path) -> String {
-    path.strip_prefix(root)
-        .unwrap_or(path)
-        .to_string_lossy()
-        .replace('\\', "/")
-}
-
-fn validate_id(id: &str, prefix: &str) -> Result<(), CommandFailure> {
-    if !id.starts_with(prefix)
-        || id.len() <= prefix.len()
-        || !id.chars().all(|character| {
-            character.is_ascii_uppercase() || character.is_ascii_digit() || character == '-'
-        })
-    {
-        return Err(failure(
-            "E-OP-001",
-            format!(
-                "id must start with `{prefix}` and contain only uppercase ASCII letters, digits, and hyphens"
-            ),
-            ExitCode::Usage,
-        ));
-    }
-    Ok(())
-}
-
-fn slug(value: &str) -> String {
-    let mut slug = String::new();
-    let mut separator = true;
-    for character in value.chars() {
-        if character.is_ascii_alphanumeric() {
-            slug.push(character.to_ascii_uppercase());
-            separator = false;
-        } else if !separator {
-            slug.push('-');
-            separator = true;
-        }
-    }
-    if separator {
-        slug.pop();
-    }
-    slug
+/// Prints a rejection the operation layer mapped and returns its exit code.
+fn failure_exit(failure: &ops::envelope::Failure, format: OutputFormat, quiet: bool) -> ExitCode {
+    emit_failure(
+        format,
+        quiet,
+        &failure.diagnostic.code,
+        &failure.diagnostic.message,
+    );
+    failure.exit
 }
 
 fn absolute_path(path: &Path) -> PathBuf {
@@ -3627,684 +2260,117 @@ fn absolute_path(path: &Path) -> PathBuf {
         path.to_owned()
     } else {
         std::env::current_dir()
-            .unwrap_or_else(|_| PathBuf::from("."))
-            .join(path)
+            .map(|cwd| cwd.join(path))
+            .unwrap_or_else(|_| path.to_owned())
     }
 }
 
-fn store_failure(error: StoreError) -> CommandFailure {
-    failure("E-CORE-001", error.to_string(), ExitCode::Internal)
+/// The built-in adapter registry (`vtest_ops::registry`), with its
+/// E-ADAPTER-001 failure printed. Every `run_*` wrapper that needs adapters
+/// gets them here.
+fn resolve_registry(
+    format: OutputFormat,
+    quiet: bool,
+) -> Result<vtest_adapter_api::AdapterRegistry, ExitCode> {
+    ops::registry::resolve_registry().map_err(|failure| failure_exit(&failure, format, quiet))
 }
 
-fn store_error_with_code(error: StoreError, default: ExitCode) -> (Diagnostic, ExitCode) {
-    match error {
-        StoreError::AlreadyInitialized(path) => (
-            Diagnostic::error(
-                "E-OP-001",
-                format!(".verify already exists at {}", path.display()),
-            ),
-            ExitCode::Usage,
-        ),
-        StoreError::NotInitialized(path) => (
-            Diagnostic::error(
-                "E-OP-001",
-                format!(
-                    "could not find a .verify directory above {}",
-                    path.display()
-                ),
-            ),
-            ExitCode::Usage,
-        ),
-        other => (Diagnostic::error("E-CORE-001", other.to_string()), default),
+/// The project root (the nearest ancestor holding `.verify/`) for `cli`,
+/// reporting the same E-OP-001 usage failure the other subcommands do.
+pub fn project_root(cli: &Cli) -> Result<PathBuf, ExitCode> {
+    resolve_root(&cli.project, general_format(cli)?, cli.quiet)
+}
+
+/// The format of a command other than `export`: `text` when omitted, and
+/// `md` is an argument error with exit code 2 (DS-1694).
+fn general_format(cli: &Cli) -> Result<OutputFormat, ExitCode> {
+    match cli.format {
+        None | Some(FormatArg::Text) => Ok(OutputFormat::Text),
+        Some(FormatArg::Json) => Ok(OutputFormat::Json),
+        Some(FormatArg::Md) => Err(argument_error(
+            cli.quiet,
+            "`--format md` is accepted by `vtest export` only",
+        )),
     }
 }
 
-fn failure(code: &str, message: impl Into<String>, exit_code: ExitCode) -> CommandFailure {
-    CommandFailure {
-        diagnostic: Box::new(Diagnostic::error(code, message)),
-        code: exit_code,
-    }
-}
-
-fn operation_failure(diagnostic: Diagnostic) -> CommandFailure {
-    let code = if diagnostic.code == "E-CORE-001" {
-        ExitCode::Internal
-    } else {
-        ExitCode::Usage
-    };
-    CommandFailure {
-        diagnostic: Box::new(diagnostic),
-        code,
-    }
-}
-
-fn emit<T: Serialize>(format: OutputFormat, quiet: bool, envelope: JsonEnvelope<T>) {
-    if quiet {
-        return;
-    }
+/// DS-1692 / DS-1693: `vtest export` takes `md` (the default) and `json`.
+/// The `Err` is the message of the argument error; it stays a `String`
+/// because the caller only prints it.
+fn export_format(format: Option<FormatArg>) -> Result<ExportFormat, String> {
     match format {
-        OutputFormat::Json => {
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&envelope).expect("JSON serialization")
-            );
-        }
-        OutputFormat::Text => emit_text(envelope),
-    }
-}
-
-fn emit_text<T: Serialize>(envelope: JsonEnvelope<T>) {
-    println!("{}", if envelope.ok { "OK" } else { "NG" });
-    if let Ok(value) = serde_json::to_value(envelope.data) {
-        if let Some(report) = value.get("report").and_then(serde_json::Value::as_object) {
-            let requested_scope = report
-                .get("requested_scope")
-                .and_then(serde_json::Value::as_array)
-                .map(|items| {
-                    items
-                        .iter()
-                        .filter_map(serde_json::Value::as_str)
-                        .collect::<Vec<_>>()
-                        .join(",")
-                })
-                .unwrap_or_else(|| "full".to_owned());
-            println!("Requested scope: {requested_scope}");
-            if let Some(entity) = report.get("entity_scope") {
-                println!("Entity scope: {entity}");
-            }
-            if report
-                .get("scope_outside_not_checked")
-                .and_then(serde_json::Value::as_bool)
-                == Some(true)
-            {
-                println!("Scope outside requested range: NOT_CHECKED");
-            }
-            if let Some(tree) = report.get("tree").and_then(serde_json::Value::as_array) {
-                for node in tree {
-                    print_text_tree_node(node, "├─ ");
-                }
-            } else if let Some(items) = report.get("items").and_then(serde_json::Value::as_array) {
-                for item in items {
-                    let key = item.get("item").and_then(serde_json::Value::as_str);
-                    let value = item.get("value").and_then(serde_json::Value::as_str);
-                    if let (Some(key), Some(value)) = (key, value) {
-                        println!("├─ {key:<24} {value}");
-                    }
-                }
-            }
-            if let Some(result) = report.get("result").and_then(serde_json::Value::as_str) {
-                println!("Result: {result}");
-            }
-        } else if value.get("result").is_some() && value.get("non_pass_items").is_some() {
-            println!(
-                "Result: {}",
-                value
-                    .get("result")
-                    .and_then(serde_json::Value::as_str)
-                    .unwrap_or("UNKNOWN")
-            );
-            println!(
-                "Non-PASS items: {}",
-                value
-                    .get("non_pass_items")
-                    .and_then(serde_json::Value::as_u64)
-                    .unwrap_or_default()
-            );
-        } else if let Some(summary) = value.get("summary") {
-            println!("summary: {summary}");
-        } else if !value.is_null() {
-            println!("data: {value}");
-        }
-    }
-    for diagnostic in envelope.diagnostics {
-        println!(
-            "{} {}: {}",
-            match diagnostic.severity {
-                vtest_model::DiagnosticSeverity::Error => "error",
-                vtest_model::DiagnosticSeverity::Warning => "warning",
-            },
-            diagnostic.code,
-            diagnostic.message
-        );
-        for candidate in diagnostic.candidates {
-            println!("  candidate: {candidate}");
+        None | Some(FormatArg::Md) => Ok(ExportFormat::Md),
+        Some(FormatArg::Json) => Ok(ExportFormat::Json),
+        Some(FormatArg::Text) => {
+            Err("`vtest export` accepts `--format md` or `--format json`".to_owned())
         }
     }
 }
 
-fn print_text_tree_node(node: &serde_json::Value, prefix: &str) {
-    let kind = node
-        .get("kind")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("entity");
-    let id = node
-        .get("id")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("?");
-    let value = node
-        .get("value")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("UNKNOWN");
-    println!("{prefix}{kind}:{id:<28} {value}");
-    if let Some(items) = node.get("items").and_then(serde_json::Value::as_array) {
-        for item in items {
-            let key = item.get("item").and_then(serde_json::Value::as_str);
-            let value = item.get("value").and_then(serde_json::Value::as_str);
-            if let (Some(key), Some(value)) = (key, value) {
-                println!("{prefix}│  ├─ {key:<24} {value}");
+/// An argument the parser accepted and the command does not: nothing on
+/// stdout, the reason on stderr unless `--quiet`, exit code 2 (DS-1766).
+fn argument_error(quiet: bool, message: &str) -> ExitCode {
+    if !quiet {
+        eprintln!("error: {message}");
+    }
+    ExitCode::Usage
+}
+
+/// Whether the raw arguments are a `vtest export` call with `--quiet`.
+/// Such a call prints nothing even when its arguments are rejected
+/// (DS-1706), which the binary has to decide before the parser reports.
+///
+/// The arguments are compared as `OsStr` and none is dropped: the value of
+/// `--project` may be a path that is not UTF-8, and it still has to be
+/// skipped as the value it is.
+pub fn is_quiet_export<S: AsRef<std::ffi::OsStr>>(arguments: &[S]) -> bool {
+    let mut subcommand = None;
+    let mut index = 0;
+    while index < arguments.len() {
+        let argument = arguments[index].as_ref();
+        if argument == "--project" || argument == "--format" {
+            // The next token is this option's value, whatever it is.
+            index += 1;
+        } else if !argument.as_encoded_bytes().starts_with(b"-") {
+            subcommand = Some(argument);
+            break;
+        }
+        index += 1;
+    }
+    subcommand.is_some_and(|subcommand| subcommand == "export")
+        && arguments
+            .iter()
+            .any(|argument| argument.as_ref() == "--quiet")
+}
+
+/// Walk upwards looking for a `.verify/` directory, so the CLI works from a
+/// subdirectory of the project.
+fn resolve_root(project: &Path, format: OutputFormat, quiet: bool) -> Result<PathBuf, ExitCode> {
+    find_root(project).map_err(|message| usage_failure(format, quiet, "E-OP-001", &message))
+}
+
+/// The nearest directory at or above `project` that holds `.verify/`, or
+/// the message of the E-OP-001 rejection (a `String`: the callers only
+/// report it).
+fn find_root(project: &Path) -> Result<PathBuf, String> {
+    let start = absolute_path(project);
+    let mut current = start.as_path();
+    loop {
+        if current.join(".verify").is_dir() {
+            return Ok(current.to_owned());
+        }
+        match current.parent() {
+            Some(parent) => current = parent,
+            None => {
+                return Err(format!(
+                    "could not find a .verify directory at or above {}",
+                    start.display()
+                ));
             }
         }
     }
-    if let Some(children) = node.get("children").and_then(serde_json::Value::as_array) {
-        for child in children {
-            print_text_tree_node(child, &format!("{prefix}│  "));
-        }
-    }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn root() -> PathBuf {
-        let suffix = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let root = std::env::temp_dir().join(format!("vtest-cli-{suffix}"));
-        assert_eq!(
-            run(Cli {
-                project: root.clone(),
-                format: OutputFormat::Json,
-                quiet: true,
-                command: Command::Init {
-                    name: Some("calc".to_owned()),
-                },
-            }) as u8,
-            0
-        );
-        root
-    }
-
-    #[test]
-    fn init_creates_project_and_second_init_is_usage_error() {
-        let root = root();
-        assert!(root.join(".verify/forms/rust-unit-function.yaml").is_file());
-        assert!(root.join(".verify/forms/rust-integration.yaml").is_file());
-        for directory in [
-            "spec",
-            "req",
-            "vo",
-            "rel",
-            "approvals",
-            "audits",
-            "evidence",
-        ] {
-            assert!(root
-                .join(".verify")
-                .join(directory)
-                .join(".gitkeep")
-                .is_file());
-        }
-        assert_eq!(
-            run(Cli {
-                project: root.clone(),
-                format: OutputFormat::Json,
-                quiet: true,
-                command: Command::Init { name: None },
-            }) as u8,
-            2
-        );
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn approval_is_derived_and_edit_makes_it_draft() {
-        let root = root();
-        fs::create_dir_all(root.join("docs")).unwrap();
-        fs::write(root.join("docs/spec.md"), "calculator\n").unwrap();
-        let invoke = |command| {
-            run(Cli {
-                project: root.clone(),
-                format: OutputFormat::Json,
-                quiet: true,
-                command,
-            })
-        };
-        assert_eq!(
-            invoke(Command::Spec {
-                command: SpecCommand::Add {
-                    id: "SPEC-CALC".to_owned(),
-                    path: PathBuf::from("docs/spec.md"),
-                    kind: "document".to_owned(),
-                    title: None,
-                    note: None,
-                    update: false,
-                },
-            }) as u8,
-            0
-        );
-        assert_eq!(
-            invoke(Command::Req {
-                command: ReqCommand::Add {
-                    id: "REQ-CALC".to_owned(),
-                    summary: "calculator works".to_owned(),
-                    parent: None,
-                    specs: vec!["SPEC-CALC".to_owned()],
-                    sections: vec!["1".to_owned()],
-                },
-            }) as u8,
-            0
-        );
-        assert_eq!(
-            invoke(Command::Vo {
-                command: VoCommand::Add {
-                    id: "VO-CALC".to_owned(),
-                    claim: "addition works".to_owned(),
-                    requirements: vec!["REQ-CALC".to_owned()],
-                    parent: None,
-                    specs: vec!["SPEC-CALC".to_owned()],
-                    sections: vec!["1".to_owned()],
-                    dimensions: Vec::new(),
-                    policy: None,
-                    combinations: Vec::new(),
-                },
-            }) as u8,
-            0
-        );
-        assert_eq!(
-            invoke(Command::Vo {
-                command: VoCommand::Approve {
-                    id: "VO-CALC".to_owned(),
-                    approver_kind: "human".to_owned(),
-                    approver_id: "reviewer".to_owned(),
-                    model: None,
-                    basis: Vec::new(),
-                },
-            }) as u8,
-            0
-        );
-        let layout = VerifyLayout::new(&root);
-        let approved = read_vo(&layout, "VO-CALC").unwrap();
-        assert_eq!(effective_vo_status(&layout, &approved), "approved");
-        assert_eq!(
-            invoke(Command::Vo {
-                command: VoCommand::Edit {
-                    id: "VO-CALC".to_owned(),
-                    claim: Some("changed claim".to_owned()),
-                    parent: None,
-                    status: None,
-                },
-            }) as u8,
-            0
-        );
-        let edited = read_vo(&layout, "VO-CALC").unwrap();
-        assert_eq!(effective_vo_status(&layout, &edited), "draft");
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn structured_create_generates_a_scannable_test() {
-        let root = root();
-        fs::create_dir_all(root.join("src")).unwrap();
-        fs::write(
-            root.join("Cargo.toml"),
-            "[package]\nname = \"structured-fixture\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[workspace]\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join("src/lib.rs"),
-            "pub enum CalcError { Overflow, Underflow }\npub fn add(left: i32, right: i32) -> i32 { left + right }\npub fn subtract(left: i32, right: i32) -> i32 { left - right }\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join(".verify/vo/VO-CALC-ADD.yaml"),
-            "id: VO-CALC-ADD\nparent: null\nrequirements: []\nspec_refs: []\nclaim: addition works\ndimensions: []\ncoverage_policy: null\nrepresentative_cases: []\nstatus: draft\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join("answers.yaml"),
-            "form: rust-unit-function\nanswers:\n  target: src/lib.rs::add\n  covers: [VO-CALC-ADD]\n  behavior: adds two integers\n  test_kind: normal\n  input: two integers\n  expect: their sum\n  fn_name: adds_two_integers\n",
-        )
-        .unwrap();
-
-        let parsed_answers = read_form_answers(&root.join("answers.yaml")).unwrap();
-        assert_eq!(
-            create_test(&root, "rust-unit-function", &parsed_answers, None, true)
-                .unwrap()
-                .test_id,
-            "TEST-CALC-001"
-        );
-        let before_dry_run = fs::read_to_string(root.join("src/lib.rs")).unwrap();
-        assert_eq!(
-            run(Cli {
-                project: root.clone(),
-                format: OutputFormat::Json,
-                quiet: true,
-                command: Command::Test {
-                    command: TestCommand::Create {
-                        form: "rust-unit-function".to_owned(),
-                        answers: PathBuf::from("answers.yaml"),
-                        id: Some("TEST-CALC-001".to_owned()),
-                        dry_run: true,
-                    },
-                },
-            }) as u8,
-            0
-        );
-        assert_eq!(
-            fs::read_to_string(root.join("src/lib.rs")).unwrap(),
-            before_dry_run
-        );
-
-        assert_eq!(
-            run(Cli {
-                project: root.clone(),
-                format: OutputFormat::Json,
-                quiet: true,
-                command: Command::Test {
-                    command: TestCommand::Create {
-                        form: "rust-unit-function".to_owned(),
-                        answers: PathBuf::from("answers.yaml"),
-                        id: Some("TEST-CALC-001".to_owned()),
-                        dry_run: false,
-                    },
-                },
-            }) as u8,
-            0
-        );
-        let scan = scan_project(&root).unwrap();
-        let created = scan
-            .tests
-            .iter()
-            .find(|test| test.id.as_str() == "TEST-CALC-001")
-            .expect("generated test is scanned");
-        assert_eq!(created.intent, "adds two integers");
-        assert_eq!(created.location.file, "src/lib.rs");
-        assert!(fs::read_to_string(root.join("src/lib.rs"))
-            .unwrap()
-            .contains("todo!(\"implement test body\")"));
-
-        fs::write(
-            root.join(".verify/vo/VO-CALC-ALT.yaml"),
-            "id: VO-CALC-ALT\nparent: null\nrequirements: []\nspec_refs: []\nclaim: alternate addition check\ndimensions: []\ncoverage_policy: null\nrepresentative_cases: []\nstatus: draft\ncreated: '2026-01-01'\nupdated: '2026-01-01'\n",
-        )
-        .unwrap();
-        fs::write(
-            root.join("second-answers.yaml"),
-            "form: rust-unit-function\nanswers:\n  target: src/lib.rs::add\n  covers: [VO-CALC-ADD]\n  behavior: second addition check\n  test_kind: boundary\n  input: zeroes\n  expect: zero\n  fn_name: adds_zeroes\n",
-        )
-        .unwrap();
-        assert_eq!(
-            run(Cli {
-                project: root.clone(),
-                format: OutputFormat::Json,
-                quiet: true,
-                command: Command::Test {
-                    command: TestCommand::Create {
-                        form: "rust-unit-function".to_owned(),
-                        answers: PathBuf::from("second-answers.yaml"),
-                        id: Some("TEST-CALC-002".to_owned()),
-                        dry_run: false,
-                    },
-                },
-            }) as u8,
-            0
-        );
-        let with_free_doc = fs::read_to_string(root.join("src/lib.rs"))
-            .unwrap()
-            .replace(
-                "/// @vtest.intent adds two integers\n",
-                "/// @vtest.intent adds two integers\n/// retained free-form explanation\n",
-            );
-        fs::write(root.join("src/lib.rs"), with_free_doc).unwrap();
-        let before_edit = scan_project(&root).unwrap();
-        let other_hash = before_edit
-            .tests
-            .iter()
-            .find(|test| test.id.as_str() == "TEST-CALC-002")
-            .unwrap()
-            .content_hash
-            .clone();
-        let edit_command = || Command::Test {
-            command: TestCommand::Edit {
-                id: "TEST-CALC-001".to_owned(),
-                answers: None,
-                set: vec!["covers=VO-CALC-ALT".to_owned()],
-                body_file: None,
-                dry_run: false,
-            },
-        };
-        let before_edit_dry_run = fs::read_to_string(root.join("src/lib.rs")).unwrap();
-        let dry_edit_command = Command::Test {
-            command: TestCommand::Edit {
-                id: "TEST-CALC-001".to_owned(),
-                answers: None,
-                set: vec!["covers=VO-CALC-ALT".to_owned()],
-                body_file: None,
-                dry_run: true,
-            },
-        };
-        assert_eq!(
-            run(Cli {
-                project: root.clone(),
-                format: OutputFormat::Json,
-                quiet: true,
-                command: dry_edit_command,
-            }) as u8,
-            0
-        );
-        assert_eq!(
-            fs::read_to_string(root.join("src/lib.rs")).unwrap(),
-            before_edit_dry_run
-        );
-        assert_eq!(
-            run(Cli {
-                project: root.clone(),
-                format: OutputFormat::Json,
-                quiet: true,
-                command: edit_command(),
-            }) as u8,
-            0
-        );
-        let after_edit = scan_project(&root).unwrap();
-        assert_eq!(
-            after_edit
-                .tests
-                .iter()
-                .find(|test| test.id.as_str() == "TEST-CALC-001")
-                .unwrap()
-                .covers[0]
-                .as_str(),
-            "VO-CALC-ALT"
-        );
-        assert_eq!(
-            after_edit
-                .tests
-                .iter()
-                .find(|test| test.id.as_str() == "TEST-CALC-002")
-                .unwrap()
-                .content_hash,
-            other_hash
-        );
-        let once = fs::read_to_string(root.join("src/lib.rs")).unwrap();
-        assert!(once.contains("/// retained free-form explanation"));
-        assert_eq!(
-            run(Cli {
-                project: root.clone(),
-                format: OutputFormat::Json,
-                quiet: true,
-                command: edit_command(),
-            }) as u8,
-            0
-        );
-        assert_eq!(
-            fs::read_to_string(root.join("src/lib.rs")).unwrap(),
-            once,
-            "reapplying the same desired state must be idempotent"
-        );
-
-        fs::write(root.join("invalid-body.rs"), "let = ;").unwrap();
-        assert_eq!(
-            run(Cli {
-                project: root.clone(),
-                format: OutputFormat::Json,
-                quiet: true,
-                command: Command::Test {
-                    command: TestCommand::Edit {
-                        id: "TEST-CALC-001".to_owned(),
-                        answers: None,
-                        set: Vec::new(),
-                        body_file: Some(PathBuf::from("invalid-body.rs")),
-                        dry_run: false,
-                    },
-                },
-            }) as u8,
-            2
-        );
-        assert_eq!(fs::read_to_string(root.join("src/lib.rs")).unwrap(), once);
-
-        fs::write(root.join("body.rs"), "assert_eq!(add(2, 3), 5);").unwrap();
-        assert_eq!(
-            run(Cli {
-                project: root.clone(),
-                format: OutputFormat::Json,
-                quiet: true,
-                command: Command::Test {
-                    command: TestCommand::Edit {
-                        id: "TEST-CALC-001".to_owned(),
-                        answers: None,
-                        set: Vec::new(),
-                        body_file: Some(PathBuf::from("body.rs")),
-                        dry_run: false,
-                    },
-                },
-            }) as u8,
-            0
-        );
-        let body_scan = scan_project(&root).unwrap();
-        assert_eq!(
-            body_scan
-                .tests
-                .iter()
-                .find(|test| test.id.as_str() == "TEST-CALC-002")
-                .unwrap()
-                .content_hash,
-            other_hash
-        );
-        assert!(fs::read_to_string(root.join("src/lib.rs"))
-            .unwrap()
-            .contains("assert_eq!(add(2, 3), 5);"));
-
-        fs::write(
-            root.join("integration-answers.yaml"),
-            "form: rust-integration\nanswers:\n  targets: [src/lib.rs::add, src/lib.rs::subtract]\n  covers: [VO-CALC-ADD]\n  behavior: combines calculator operations\n  test_kind: normal\n  input: two integers\n  expect: consistent arithmetic\n  fn_name: combines_operations\n  file: src/lib.rs\n",
-        )
-        .unwrap();
-        assert_eq!(
-            run(Cli {
-                project: root.clone(),
-                format: OutputFormat::Json,
-                quiet: true,
-                command: Command::Test {
-                    command: TestCommand::Create {
-                        form: "rust-integration".to_owned(),
-                        answers: PathBuf::from("integration-answers.yaml"),
-                        id: Some("TEST-CALC-004".to_owned()),
-                        dry_run: false,
-                    },
-                },
-            }) as u8,
-            0
-        );
-        let integration_scan = scan_project(&root).unwrap();
-        let integration = integration_scan
-            .tests
-            .iter()
-            .find(|test| test.id.as_str() == "TEST-CALC-004")
-            .unwrap();
-        assert_eq!(integration.additional_targets.len(), 1);
-        assert_eq!(integration.kind.as_deref(), Some("integration-normal"));
-        assert!(query_tests(&integration_scan, "src/lib.rs::subtract")
-            .unwrap()
-            .iter()
-            .any(|test| test.id.as_str() == "TEST-CALC-004"));
-
-        fs::write(
-            root.join("bad-answers.yaml"),
-            "form: rust-unit-function\nanswers:\n  target: src/lib.rs::ad\n  covers: [VO-CALC-ADD]\n  behavior: typo\n  test_kind: normal\n  input: two integers\n  expect: their sum\n  fn_name: typo_is_rejected\n",
-        )
-        .unwrap();
-        let bad_answers = read_form_answers(&root.join("bad-answers.yaml")).unwrap();
-        let error = create_test(
-            &root,
-            "rust-unit-function",
-            &bad_answers,
-            Some("TEST-CALC-003"),
-            true,
-        )
-        .expect_err("unknown symbol must be rejected");
-        assert_eq!(error.code, "E-OP-001");
-        assert_eq!(error.candidates, vec!["src/lib.rs::add"]);
-
-        fs::write(
-            root.join("bad-enum-answers.yaml"),
-            "form: rust-unit-function\nanswers:\n  target: src/lib.rs::add\n  covers: [VO-CALC-ADD]\n  behavior: invalid enum variant\n  test_kind: error\n  input: large integers\n  expect: CalcError::Missing\n  fn_name: enum_variant_is_rejected\n",
-        )
-        .unwrap();
-        let bad_enum_answers = read_form_answers(&root.join("bad-enum-answers.yaml")).unwrap();
-        let enum_error = create_test(
-            &root,
-            "rust-unit-function",
-            &bad_enum_answers,
-            Some("TEST-CALC-005"),
-            true,
-        )
-        .expect_err("known enum with an unknown variant must be rejected");
-        assert_eq!(enum_error.code, "E-OP-001");
-        assert_eq!(
-            enum_error.candidates,
-            vec!["CalcError::Overflow", "CalcError::Underflow"]
-        );
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn audit_diagnostics_are_merged_in_deterministic_order() {
-        let diagnostics = merge_diagnostics(
-            vec![Diagnostic::warning("W-SCAN-101", "scanner warning")],
-            vec![
-                Diagnostic::warning("W-DA-101", "audit warning"),
-                Diagnostic::error("E-DA-001", "audit error"),
-            ],
-        );
-        assert_eq!(
-            diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.code.as_str())
-                .collect::<Vec<_>>(),
-            vec!["E-DA-001", "W-DA-101", "W-SCAN-101"]
-        );
-    }
-
-    #[test]
-    fn static_audit_rejects_combined_test_and_all_selectors() {
-        let root = root();
-        assert_eq!(
-            run(Cli {
-                project: root.clone(),
-                format: OutputFormat::Json,
-                quiet: true,
-                command: Command::Audit {
-                    command: AuditCommand::Static {
-                        test: Some("TEST-EXAMPLE-001".to_owned()),
-                        all: true,
-                    },
-                },
-            }) as u8,
-            ExitCode::Usage as u8
-        );
-        fs::remove_dir_all(root).unwrap();
-    }
-}
+// `parse_items` / `entity_scope` argument-mapping tests now live with their
+// implementation in `ops::verify` (moved there so both the CLI and
+// `vtest-mcp` share one operation body — see DS-1563).

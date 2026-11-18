@@ -1,0 +1,12 @@
+id: VO-MODEL-CONTENT-HASH-NORMALIZATION
+parent: null
+derives_from:
+  - doc: DES-067
+  - doc: DES-069
+claim: byte-exactを要求しないテキストfragmentのcontent hashingは、改行をLFへ統一し、各行末尾の空白を除去する。それ以外の空白は正規化しない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

@@ -1,0 +1,16 @@
+id: VO-AUDIT-STATIC-MISSING-STATIC-ANALYSIS-CAPABILITY-E-ADAPTER-004
+parent: null
+derives_from:
+  - doc: DS-979
+  - doc: DS-1580
+claim: >-
+  導出。audit static（CLI・MCP）は、選択した Test の adapter が Static Analysis
+  capability を提供しないとき、明示操作に必須の capability 欠落として
+  E-ADAPTER-004、ok: false、終了コード 2 を返し、どの Test も解析せず
+  派生 cache を書かない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-06T12:00:00+09:00
+updated: 2026-11-06T12:00:00+09:00

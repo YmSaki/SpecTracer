@@ -1,0 +1,13 @@
+id: VO-ADAPTER-RUST-COVERAGE-DISAMBIGUATED-LOCATORS
+parent: null
+derives_from:
+  - doc: DS-510
+  - doc: DS-832
+claim: >-
+  導出。rust-cargo adapterのcoverage計測は、trait実装やcfg分岐で区別したLocatorを、そのLocatorが指す一意のsource constructの計測結果だけに対応づける。別のconstructのcountを流用せず、対応づけられない場合はUNKNOWNとする。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-06T12:00:00+09:00
+updated: 2026-11-06T12:00:00+09:00

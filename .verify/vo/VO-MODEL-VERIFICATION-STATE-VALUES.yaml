@@ -1,0 +1,11 @@
+id: VO-MODEL-VERIFICATION-STATE-VALUES
+parent: null
+derives_from:
+  - doc: REQ-085
+claim: 検証状態はPASS / FAIL / MISMATCH / NO_EVIDENCE / UNKNOWNの5つのみとする。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

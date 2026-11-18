@@ -1,0 +1,11 @@
+id: VO-VERIFY-EVIDENCE-PASS-TARGETS-REACHED
+parent: null
+derives_from:
+  - doc: DS-831
+claim: '有効なEvidenceが得られたとき、`result: PASS`かつ全宣言targetの到達要件が§7.3で充足（静的到達またはruntime到達）されれば`target_binding`は`PASS`とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-10T12:00:00+09:00

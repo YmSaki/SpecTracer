@@ -1,0 +1,40 @@
+name: 仕様の変更（spec/*）
+description: 正本（docs/canonical と .verify/doc）を変える作業。spec PR は同時に 1 本。
+labels: ["kind/spec", "area/canonical"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        正本は `spec/<topic>` ブランチだけで変える。他の `spec/*` の PR が open の間は、その merge を待ってから着手する。実装やテストは、この PR が merge されてから始める。
+  - type: textarea
+    id: purpose
+    attributes:
+      label: 目的
+    validations:
+      required: true
+  - type: textarea
+    id: basis
+    attributes:
+      label: 根拠（上流の条項）
+      description: 変更する文の `derives_from` になる上流の条項 ID を書く。上流に無い規範を足す場合は、足りない上流を明記し、Owner の裁定が要るかを書く。
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 作業範囲
+      description: 変更する層とノード。`.verify/doc/` の投影を同時に更新する。id は再利用しない。
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: 完了条件
+      placeholder: "- [ ] `spec/*` の PR が merge されている\n- [ ] `vtest doctor` が終了コード 0"
+    validations:
+      required: true
+  - type: input
+    id: branch
+    attributes:
+      label: ブランチ
+      placeholder: spec/<topic>

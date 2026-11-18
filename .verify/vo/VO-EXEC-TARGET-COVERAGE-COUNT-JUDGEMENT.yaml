@@ -1,0 +1,12 @@
+id: VO-EXEC-TARGET-COVERAGE-COUNT-JUDGEMENT
+parent: null
+derives_from:
+  - doc: DS-766
+  - doc: DS-767
+claim: 計測されたtarget別countが正のときはchecked:true・result:PASSとし、countが0のときはchecked:true・result:FAILとする
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T08:15:17+09:00
+updated: 2026-09-09T08:15:17+09:00

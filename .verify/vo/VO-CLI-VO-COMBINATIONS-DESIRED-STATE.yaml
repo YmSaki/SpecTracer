@@ -1,0 +1,11 @@
+id: VO-CLI-VO-COMBINATIONS-DESIRED-STATE
+parent: null
+derives_from:
+  - doc: DS-1035
+claim: "`vo edit` の `--combination` は desired state であり、1 回以上与えたときは既存 `combinations` を与えた集合で置換する（追記しない）。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T12:00:00+09:00
+updated: 2026-11-03T12:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-VERIFY-OUT-OF-ITEM-SCOPE-NOT-CHECKED
+parent: null
+derives_from:
+  - doc: DS-1110
+claim: --items で限定された scope 外の検査は NO_EVIDENCE（診断 NOT_CHECKED）として保持され PASS に変換されない
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-08T23:40:00+09:00

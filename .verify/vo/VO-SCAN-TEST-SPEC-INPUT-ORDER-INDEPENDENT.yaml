@@ -1,0 +1,11 @@
+id: VO-SCAN-TEST-SPEC-INPUT-ORDER-INDEPENDENT
+parent: null
+derives_from:
+  - doc: DES-606
+claim: 'テスト仕様書のデータを生成する部品は、入力の各集合の要素の順序が異なっても、同じテスト仕様書のデータを返す。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

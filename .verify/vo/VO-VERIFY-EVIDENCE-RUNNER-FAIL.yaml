@@ -1,0 +1,11 @@
+id: VO-VERIFY-EVIDENCE-RUNNER-FAIL
+parent: null
+derives_from:
+  - doc: DS-830
+claim: '有効なEvidenceが得られたとき、`result: FAIL`（テストランナーが失敗を報告）なら`target_binding`は`FAIL`とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-10T12:00:00+09:00

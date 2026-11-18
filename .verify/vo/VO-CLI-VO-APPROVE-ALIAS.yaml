@@ -1,0 +1,11 @@
+id: VO-CLI-VO-APPROVE-ALIAS
+parent: null
+derives_from:
+  - doc: DS-1045
+claim: "`vo approve VO-X <承認引数>` は `vtest approval create --subject-type vo --subject-id VO-X <承認引数>` の別名であり、引数・拒否条件・生成されるレコードは同一である。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T12:00:00+09:00
+updated: 2026-11-03T12:00:00+09:00

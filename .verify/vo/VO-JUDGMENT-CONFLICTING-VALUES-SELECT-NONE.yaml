@@ -1,0 +1,11 @@
+id: VO-JUDGMENT-CONFLICTING-VALUES-SELECT-NONE
+parent: null
+derives_from:
+  - doc: DS-725
+claim: "判断値が食い違う有効判断記録が併存する場合、機械はどれも選ばない。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-08T12:00:00+09:00
+updated: 2026-11-08T12:00:00+09:00

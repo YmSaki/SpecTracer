@@ -1,0 +1,24 @@
+{
+  "schema_version": "0.1",
+  "root": [
+    {
+      "id": "ROOT-047",
+      "statement": "`specification.json` は vtest 自身の `.verify/doc/` の文書モデルそのものである。",
+      "description": "Owner 裁定 2026-09-06（Issue #14 コメント 11）。`reports/doc-model-realignment-2026-09-06.md` §0.3 が「Owner の逐語が Issue #14 に無い」と開示した前提 P を、Owner が確認した。`docs/canonical/specification.json` は 7 層を 1 ファイルに束ねた形であり、変換・執筆のための束である。`.verify/doc/` へ登録する際は ROOT-048 に従って文書単位のファイルへ分かれる。",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/14#issuecomment-5556643752",
+        "heading": "C11",
+        "lines": [
+          1,
+          1
+        ]
+      }
+    }
+  ],
+  "request": [],
+  "require": [],
+  "spec": [],
+  "detailed_spec": [],
+  "basic_design": [],
+  "design": []
+}

@@ -1,0 +1,11 @@
+id: VO-SCAN-RUST-CARGO-SUITE-NAME
+parent: null
+derives_from:
+  - doc: DES-435
+claim: '`rust-cargo` adapterは`TestEntity.execution`の`suite.name`をbin名またはintegration test target名として解釈し、`lib`では省略する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

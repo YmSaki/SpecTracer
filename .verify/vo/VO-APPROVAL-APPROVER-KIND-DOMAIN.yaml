@@ -1,0 +1,11 @@
+id: VO-APPROVAL-APPROVER-KIND-DOMAIN
+parent: null
+derives_from:
+  - doc: DES-547
+claim: 承認主体はhuman/agentの二種のいずれであっても種別と識別子が同一に記録・追跡され、承認導出において区別されない
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

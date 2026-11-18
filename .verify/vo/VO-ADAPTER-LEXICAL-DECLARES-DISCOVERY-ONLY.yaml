@@ -1,0 +1,12 @@
+id: VO-ADAPTER-LEXICAL-DECLARES-DISCOVERY-ONLY
+parent: null
+derives_from:
+  - doc: DES-350
+claim: >-
+  各adapterは一意なID、languages、capabilities、config namespaceを宣言する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-07T00:00:00Z
+updated: 2026-11-07T00:00:00Z

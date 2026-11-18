@@ -1,0 +1,11 @@
+id: VO-SCAN-TEST-SPEC-INDEX-ORDER
+parent: null
+derives_from:
+  - doc: DS-1735
+claim: '`data.by_vo` は VO ID の昇順に、`data.by_path` は adapter ID・path の昇順に並べ、それぞれの `tests` は重複を除いて `data.tests` と同じ順に並べる。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

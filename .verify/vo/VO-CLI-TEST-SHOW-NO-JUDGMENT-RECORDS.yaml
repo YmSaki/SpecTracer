@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-SHOW-NO-JUDGMENT-RECORDS
+parent: null
+derives_from:
+  - doc: DS-1853
+claim: 当該 Test を subject とし `judgment_kind` が §8.1 の値域内である判断記録が1件もない場合、`data.judgments` は空の list とする。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-ADAPTER-REGISTRY-RESOLVES-REGISTERED
+parent: null
+derives_from:
+  - doc: REQ-261
+claim: core verifierを変更せずに別adapterを登録できる境界として、registryは登録済みadapter IDをIDで解決でき、登録済みID全体を列挙できる
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

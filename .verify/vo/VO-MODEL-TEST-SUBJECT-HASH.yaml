@@ -1,0 +1,13 @@
+id: VO-MODEL-TEST-SUBJECT-HASH
+parent: null
+derives_from:
+  - doc: DES-077
+  - doc: DES-078
+  - doc: DES-080
+claim: Test subject hashはdomain vtest:test-subject:v1を用い、adapter ID・Test ID・全canonical metadata（id/covers/targets/intent/input/expect/kind/cases/related）・Source Locationのadapter/project-relative path/opaque locator・ExecutionDescriptor・正規化したTest construct bytesを束縛し、byte range自体は束縛しない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

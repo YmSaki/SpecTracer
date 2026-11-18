@@ -1,0 +1,11 @@
+id: VO-MODEL-VO-DERIVES-FROM-DOCUMENT-LINK
+parent: null
+derives_from:
+  - doc: DS-391
+claim: 'VO レコードの `derives_from` fieldは1件以上のdocumentへの直結を表す。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

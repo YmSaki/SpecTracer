@@ -1,0 +1,11 @@
+id: VO-MCP-TEST-GET-TEST-QUERY-LISTED
+parent: null
+derives_from:
+  - doc: DS-1836
+claim: MCP サーバーは、ツール一覧に `test_get` と `test_query` を含める。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

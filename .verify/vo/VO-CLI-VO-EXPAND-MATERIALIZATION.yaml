@@ -1,0 +1,11 @@
+id: VO-CLI-VO-EXPAND-MATERIALIZATION
+parent: null
+derives_from:
+  - doc: DS-1041
+claim: "`vo expand` は本冊 §3.2.1 の実体化（`independent-axes` / `full-product` / `explicit`）である。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T12:00:00+09:00
+updated: 2026-11-03T12:00:00+09:00

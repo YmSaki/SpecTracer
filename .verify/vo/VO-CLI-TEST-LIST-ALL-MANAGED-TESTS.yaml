@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-LIST-ALL-MANAGED-TESTS
+parent: null
+derives_from:
+  - doc: DS-1817
+claim: '`--vo` も `--unregistered` も指定しない `vtest test list` の `data` は `tests` だけを持ち、`tests` は managed Test Entity を、Test ID が衝突したものを含めて全件、テスト仕様書の `data.tests` と同じ順（DS-1730）で含む。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

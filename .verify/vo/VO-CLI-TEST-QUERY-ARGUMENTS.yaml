@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-QUERY-ARGUMENTS
+parent: null
+derives_from:
+  - doc: DS-1821
+claim: '`vtest test query` は、グローバルオプション（`--project`・`--format`・`--quiet`）のほかに option として `--source <Source 参照>` だけを受理してちょうど1回必要とし、位置引数を取らず、`--source` を欠く場合、2回以上指定した場合、位置引数またはそれ以外の option を与えられた場合を、引数不正として終了コード2で拒否する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

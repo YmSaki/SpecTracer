@@ -1,0 +1,11 @@
+id: VO-JUDGMENT-IMPL-CONSISTENCY-BUNDLE-DOCUMENTS
+parent: null
+derives_from:
+  - doc: DES-426
+claim: "`impl-consistency`型の判断（対象実装が宣言と一致するかの意味判定）のように上流documentを要する対象では、対象VOから§3.5と同じ上流依存規則で導出するdocument subject完全集合とsource全文を加える。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-06T12:00:00+09:00
+updated: 2026-11-06T12:00:00+09:00

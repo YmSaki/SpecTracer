@@ -1,0 +1,11 @@
+id: VO-MODEL-VO-DERIVES-FROM-REQUIRED
+parent: null
+derives_from:
+  - doc: DS-396
+claim: 'VOは1件以上の `document` から `derives_from` で導出される。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

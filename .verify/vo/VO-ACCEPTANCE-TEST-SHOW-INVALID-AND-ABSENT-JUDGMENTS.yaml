@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-SHOW-INVALID-AND-ABSENT-JUDGMENTS
+parent: null
+derives_from:
+  - doc: DS-1872
+claim: 判断記録の提出後に Test の内容を変更した場合、当該判断記録の decision ID は `data.judgments` の当該要素の `invalid` にだけ現れ、`decision` は `null` になり、判断記録が1件もない Test の `data.judgments` は空の list である。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

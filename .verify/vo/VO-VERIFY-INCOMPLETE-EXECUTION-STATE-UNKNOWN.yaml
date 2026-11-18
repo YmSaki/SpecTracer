@@ -1,0 +1,11 @@
+id: VO-VERIFY-INCOMPLETE-EXECUTION-STATE-UNKNOWN
+parent: null
+derives_from:
+  - doc: DS-822
+claim: evidence.execution_state.complete が true でない、または現在再構築した Execution State subject を完全に構築不能な場合 UNKNOWN とする
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-08T23:40:00+09:00

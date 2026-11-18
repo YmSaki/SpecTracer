@@ -1,0 +1,11 @@
+id: VO-VERIFY-NO-RESULT-NOT-PASS
+parent: null
+derives_from:
+  - doc: DS-252
+claim: '`vtest verify` は正典または検証事実の欠落を対応する非 `PASS` 値として表示する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-10T12:00:00+09:00

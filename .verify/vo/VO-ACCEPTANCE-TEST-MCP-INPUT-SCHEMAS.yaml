@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-MCP-INPUT-SCHEMAS
+parent: null
+derives_from:
+  - doc: DS-1875
+claim: MCP の `tools/list` の結果で、`test_get` の入力 schema は、property が文字列型の `id` の1件だけで、必須の property が `id` だけであり、`test_query` の入力 schema は、property が文字列型の `vo`・文字列型の `source`・真偽値型の `unregistered` の3件だけであり、どちらも追加の property を許さない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

@@ -1,90 +1,39 @@
 #!/usr/bin/env python3
+"""Run the release baseline; milestone acceptance needs separate evidence."""
+
 import argparse
-import filecmp
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 
-MILESTONES = {
-    "M1": ["crates/vtest-model", "crates/vtest-store", "crates/vtest-scan", "crates/vtest-cli", "tests/fixtures"],
-    "M2": [],
-    "M3": ["crates/vtest-audit"],
-    "M4": ["crates/vtest-exec"],
-    "M5": [],
-    "M6": ["crates/vtest-verify"],
-    "M7": [],
-    "M8": [],
-    "M9": ["crates/vtest-mcp"],
-}
-
-
-def run(root: Path, command: list[str]) -> dict:
-    result = subprocess.run(command, cwd=root, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
-    return {
-        "command": command,
-        "exit_code": result.returncode,
-        "status": "PASS" if result.returncode == 0 else "FAIL",
-        "output_tail": result.stdout.splitlines()[-30:],
-    }
-
-
-def distribution_sync(root: Path) -> dict:
-    canonical = root / ".agents" / "skills"
-    bundled = root / "plugins" / "spectracer-development" / "skills"
-    mismatches = []
-    for skill in ("verify-change", "architecture-check", "release-check"):
-        left = canonical / skill
-        right = bundled / skill
-        left_files = (
-            sorted(path.relative_to(left) for path in left.rglob("*") if path.is_file() and "__pycache__" not in path.parts)
-            if left.exists()
-            else []
-        )
-        right_files = (
-            sorted(path.relative_to(right) for path in right.rglob("*") if path.is_file() and "__pycache__" not in path.parts)
-            if right.exists()
-            else []
-        )
-        if left_files != right_files:
-            mismatches.append(f"{skill}: file set differs")
-            continue
-        for relative in left_files:
-            if not filecmp.cmp(left / relative, right / relative, shallow=False):
-                mismatches.append(f"{skill}/{relative}: content differs")
-    return {"status": "PASS" if not mismatches else "FAIL", "mismatches": mismatches}
-
-
-def main() -> int:
+def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--root", type=Path, default=Path.cwd())
-    parser.add_argument("--milestone", choices=list(MILESTONES), required=True)
+    parser.add_argument("--root", type=Path, required=True)
+    parser.add_argument("--milestone", choices=[f"M{i}" for i in range(1, 10)], required=True)
     args = parser.parse_args()
     root = args.root.resolve()
-    target_number = int(args.milestone[1:])
-
-    required = []
-    for name, paths in MILESTONES.items():
-        if int(name[1:]) <= target_number:
-            required.extend(paths)
-    missing = sorted(path for path in set(required) if not (root / path).exists())
-
-    checks = []
-    if (root / "Cargo.toml").exists():
-        for command in (
-            ["cargo", "fmt", "--all", "--", "--check"],
-            ["cargo", "test", "--workspace"],
-            ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"],
-        ):
-            checks.append(run(root, command))
-        if (root / "crates" / "vtest-cli" / "Cargo.toml").exists():
-            checks.append(run(root, ["cargo", "run", "--quiet", "-p", "vtest-cli", "--", "doctor"]))
-
-    sync = distribution_sync(root)
-    ok = not missing and bool(checks) and all(check["status"] == "PASS" for check in checks) and sync["status"] == "PASS"
-    status = "READY" if ok else "NOT_READY"
-    print(json.dumps({"status": status, "milestone": args.milestone, "missing_paths": missing, "distribution_sync": sync, "checks": checks}, ensure_ascii=False, indent=2))
-    return 0 if ok else 1
+    expected = ["Cargo.toml", "tests/ACCEPTANCE.md", "crates/vtest-model", "crates/vtest-store",
+                "crates/vtest-scan", "crates/vtest-cli"]
+    if int(args.milestone[1:]) >= 9:
+        expected.append("crates/vtest-mcp")
+    presence = [{"path": path, "status": "PASS" if (root / path).exists() else "MISSING"}
+                for path in expected]
+    gate = Path(__file__).resolve().parents[2] / "verify-change/scripts/verify_change.py"
+    run = subprocess.run([sys.executable, str(gate), "--root", str(root)], text=True,
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    try:
+        baseline = json.loads(run.stdout)
+    except json.JSONDecodeError:
+        baseline = {"overall": "NOT_EXECUTED", "error": (run.stderr or run.stdout)[-4000:]}
+    baseline_ok = all(item["status"] == "PASS" for item in presence) and baseline.get("overall") == "PASS"
+    print(json.dumps({"milestone": args.milestone, "root": str(root), "presence": presence,
+                      "baseline": baseline, "baseline_status": "PASS" if baseline_ok else "NOT_READY",
+                      "acceptance_status": "NOT_CHECKED",
+                      "note": "Check every applicable Annex B acceptance criterion separately before release."},
+                     ensure_ascii=False, indent=2))
+    return 0 if baseline_ok else 1
 
 
 if __name__ == "__main__":

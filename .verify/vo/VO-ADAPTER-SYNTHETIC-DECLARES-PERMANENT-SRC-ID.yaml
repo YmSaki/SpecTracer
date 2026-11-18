@@ -1,0 +1,14 @@
+id: VO-ADAPTER-SYNTHETIC-DECLARES-PERMANENT-SRC-ID
+parent: null
+derives_from:
+  - doc: BD-279
+claim: >-
+  導出。synthetic adapterのfixtureはSource Targetごとに恒久SRC IDを1件宣言でき、
+  複数adapterが同じ恒久SRC IDを宣言する状態を表現できる。同一Source Targetでの
+  重複宣言はいずれの値も採用しない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-10-26T00:00:00Z
+updated: 2026-10-26T00:00:00Z

@@ -1,0 +1,11 @@
+id: VO-MODEL-CANONICAL-HASH-FIELD-NAME
+parent: null
+derives_from:
+  - doc: DES-597
+claim: 'hash inputの各fieldにおいて、`field-name` 自体もUTF-8 byte lengthを前置してencodeする。field名を非長さ付きの生byte列として連結しない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

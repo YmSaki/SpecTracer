@@ -1,0 +1,11 @@
+id: VO-CLI-EXPORT-REJECTED-OUTPUT
+parent: null
+derives_from:
+  - doc: DS-1697
+claim: '`--quiet` を指定せず、引数が受理され、終了コード2または3で終了する `vtest export` は、テスト仕様書を出力せず、`--format json` では `ok: false`・`data: null` とその診断を持つ envelope を標準出力へ出力し、`--format md` では標準出力へ何も出力せず、その診断を `[<code>] <message>` と LF の形で標準エラーへ出力する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

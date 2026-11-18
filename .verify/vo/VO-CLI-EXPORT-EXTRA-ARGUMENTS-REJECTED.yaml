@@ -1,0 +1,11 @@
+id: VO-CLI-EXPORT-EXTRA-ARGUMENTS-REJECTED
+parent: null
+derives_from:
+  - doc: DS-1770
+claim: '`--quiet` を指定しない `vtest export` は、位置引数、または `--project`・`--format`・`--quiet` 以外の option を与えられた場合、`--format` の値にかかわらず、引数不正として終了コード2で拒否し、標準出力へ何も出力せず、引数不正の内容を標準エラーへ出力する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

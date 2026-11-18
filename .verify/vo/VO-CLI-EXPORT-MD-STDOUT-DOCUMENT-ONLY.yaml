@@ -1,0 +1,11 @@
+id: VO-CLI-EXPORT-MD-STDOUT-DOCUMENT-ONLY
+parent: null
+derives_from:
+  - doc: DS-1704
+claim: '`vtest export --format md` の標準出力は、テスト仕様書の Markdown 文書だけを含み、診断を含まない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

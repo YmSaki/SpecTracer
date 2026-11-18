@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-QUERY-COMMANDS-QUIET-EXIT-CODES
+parent: null
+derives_from:
+  - doc: DS-1869
+claim: '`--quiet` を指定した `vtest test list`・`vtest test query`・`vtest test show` は、`--quiet` を指定しなければ終了コード0になる場合、終了コード1になる場合、E-OP-001 により終了コード2になる場合のそれぞれで、同じ終了コードを返し、標準出力と標準エラーへ何も出力しない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

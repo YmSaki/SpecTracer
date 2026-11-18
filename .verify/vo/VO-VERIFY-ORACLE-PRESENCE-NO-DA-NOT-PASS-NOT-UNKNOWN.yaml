@@ -1,0 +1,12 @@
+id: VO-VERIFY-ORACLE-PRESENCE-NO-DA-NOT-PASS-NOT-UNKNOWN
+parent: null
+derives_from:
+  - doc: REQ-079
+  - doc: REQ-108
+claim: DA 静的解析が無い場合 oracle_presence は PASS にも UNKNOWN にもならず NO_EVIDENCE（診断 NOT_CHECKED）となる
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-08T23:40:00+09:00

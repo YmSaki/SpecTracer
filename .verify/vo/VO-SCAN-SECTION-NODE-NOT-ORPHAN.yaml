@@ -1,0 +1,12 @@
+id: VO-SCAN-SECTION-NODE-NOT-ORPHAN
+parent: null
+derives_from:
+  - doc: DS-1688
+claim: >-
+  節ノードは規範内容を持たない容器であり、自身と先祖に上流が無くても孤児としない。配下の文ノードは、自分の辺または先祖の辺を持たなければ孤児である。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-10-26T00:00:00Z
+updated: 2026-10-26T00:00:00Z

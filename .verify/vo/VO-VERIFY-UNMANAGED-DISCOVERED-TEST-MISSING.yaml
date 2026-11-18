@@ -1,0 +1,11 @@
+id: VO-VERIFY-UNMANAGED-DISCOVERED-TEST-MISSING
+parent: null
+derives_from:
+  - doc: DS-560
+claim: 管理宣言のない発見済み Test は chain_integrity = MISMATCH（診断 MISSING）である
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-08T23:40:00+09:00

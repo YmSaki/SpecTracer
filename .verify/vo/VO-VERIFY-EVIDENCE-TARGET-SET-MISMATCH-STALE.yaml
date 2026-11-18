@@ -1,0 +1,11 @@
+id: VO-VERIFY-EVIDENCE-TARGET-SET-MISMATCH-STALE
+parent: null
+derives_from:
+  - doc: DS-819
+claim: Evidence の targets 参照集合が現在の canonical Locator 集合と一致しない場合 NO_EVIDENCE（診断 STALE）とする
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-08T23:40:00+09:00

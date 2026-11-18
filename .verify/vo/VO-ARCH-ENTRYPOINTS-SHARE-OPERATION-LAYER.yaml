@@ -1,0 +1,11 @@
+id: VO-ARCH-ENTRYPOINTS-SHARE-OPERATION-LAYER
+parent: null
+derives_from:
+- doc: BD-260
+claim: CLI と MCP は同じ操作層 crate（`vtest-ops`）を呼び、`vtest-mcp` は `vtest-cli` に、`vtest-ops` は `vtest-cli` と `vtest-mcp` に依存しない。`vtest-cli` で `vtest-mcp` を使うのはバイナリの `main.rs` だけである。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-12T05:52:17Z
+updated: 2026-11-12T05:52:17Z

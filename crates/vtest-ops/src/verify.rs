@@ -1,0 +1,588 @@
+//! Canonical `verify` operation, shared between the CLI's `run_verify`
+//! wrapper (which additionally renders human-readable text) and
+//! `vtest-mcp`'s `verify` tool handler.
+//!
+//! DS-1563「別紙A（§12〜§15）が定める全 MCP tool が同じ入力に対する CLI
+//! JSON と同じ data / diagnostics を返す」— this module is the single
+//! place that produces that `data`, so both callers stay identical by
+//! construction rather than by convention.
+
+use std::path::Path;
+
+use std::collections::BTreeSet;
+use vtest_adapter_api::AdapterRegistry;
+use vtest_model::{Diagnostic, ExitCode, VerificationCheck, VerificationState};
+use vtest_scan::{scan_project, ScanResult};
+use vtest_store::{load_config, GateConfig, ProjectConfig};
+
+use vtest_verify::{
+    parse_check, verify_project, CheckOutcome, EntityScope, NodeKind, ScopeReport, TreeNode,
+    VerifyOutcome,
+};
+
+/// Owned counterpart of the CLI's `VerifyData` — owned so it can be handed
+/// to a caller (CLI or MCP) instead of borrowing from a stack-local
+/// `VerifyOutcome`.
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct VerifyData {
+    pub scope: ScopeReport,
+    pub state: &'static str,
+    pub result: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gate: Option<GateEvaluation>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub structural: Vec<CheckOutcome>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub unevaluated: Vec<CheckOutcome>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tree: Vec<TreeNode>,
+    pub non_pass: usize,
+    /// DS-1147/DS-1214: unsettled facts and matters needing an outside
+    /// judgment, gathered across the whole result (`ops::pending`).
+    pub pending: Vec<super::pending::PendingItem>,
+}
+
+/// DES-554「`--gate` を指定した `verify` / `report` の JSON は `data.gate`
+/// に `name`・`verification.{required, actual, satisfied}`・
+/// `approvals[].{role, satisfied, missing_subjects}`・`satisfied` を返す」。
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct GateEvaluation {
+    pub name: String,
+    pub verification: GateVerification,
+    pub approvals: Vec<GateApproval>,
+    pub satisfied: bool,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct GateVerification {
+    pub required: String,
+    pub actual: String,
+    pub satisfied: bool,
+}
+
+/// One required approval role's evaluation (DS-1161/1163/1164/1171).
+///
+/// `missing_subjects` lists every subject in the requested entity scope
+/// (the `--doc` / `--vo` / `--test` entity, or the evaluation tree's root
+/// entities when none is given) that has no effective approval by an
+/// approver of this role. `satisfied` is true only when the scope has at
+/// least one subject and none is missing (fail-closed).
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct GateApproval {
+    pub role: String,
+    pub satisfied: bool,
+    pub missing_subjects: Vec<String>,
+}
+
+#[derive(Debug)]
+pub enum VerifyOpError {
+    /// Usage error (E-OP-001 / E-CONFIG-002): exit code 2, no verification run.
+    /// `candidates` carries the valid alternatives when the rejected input
+    /// names one of a closed set (DS-1154/DS-1216: the defined gate names
+    /// for an unknown `--gate`, possibly an empty set); it is `None` when the
+    /// input has no closed set of alternatives.
+    Usage {
+        code: &'static str,
+        message: String,
+        candidates: Option<Vec<String>>,
+    },
+    /// scan failed; caller maps to the appropriate exit code / diagnostic code.
+    Scan(vtest_scan::ScanError),
+    /// The tool itself failed (E-INTERNAL-001, exit code 3, DS-1689/DS-1690):
+    /// a verification input or the configuration could not be read because
+    /// of an I/O failure. No result is returned, because a result computed
+    /// without that input is not complete.
+    Internal { message: String },
+}
+
+impl VerifyOpError {
+    /// The exit code and the diagnostic of this rejection. `candidates` of a
+    /// usage error are not carried; a caller that reports them builds its
+    /// envelope from the variant.
+    pub fn failure(&self) -> crate::envelope::Failure {
+        match self {
+            Self::Usage { code, message, .. } => {
+                crate::envelope::Failure::usage(code, message.clone())
+            }
+            Self::Scan(error) => crate::envelope::scan_failure(error),
+            Self::Internal { message } => crate::envelope::Failure::internal(message.clone()),
+        }
+    }
+}
+
+/// DS-943/947/957/1114/1214: the `verify` JSON (CLI `--format json` and the
+/// MCP tool) carries the requested scope as a top-level `scope` field next
+/// to the common `ok` / `data` / `diagnostics` envelope, also on a complete
+/// verification. Both callers serialize through this one function so the
+/// CLI/MCP shapes cannot drift (DS-1563).
+pub fn scoped_envelope(
+    ok: bool,
+    data: &VerifyData,
+    diagnostics: &[Diagnostic],
+) -> serde_json::Value {
+    serde_json::json!({
+        "ok": ok,
+        "scope": data.scope,
+        "data": data,
+        "diagnostics": diagnostics,
+    })
+}
+
+#[expect(
+    clippy::too_many_arguments,
+    reason = "takes the arguments of the operation one to one, from both CLI and MCP"
+)]
+pub fn execute(
+    root: &Path,
+    items: &[String],
+    doc: Option<String>,
+    vo: Option<String>,
+    test: Option<String>,
+    gate: Option<&str>,
+    summary: bool,
+    registry: &AdapterRegistry,
+) -> Result<(ExitCode, VerifyData, Vec<Diagnostic>), VerifyOpError> {
+    evaluate(root, items, doc, vo, test, gate, summary, registry)
+        .map(|evaluated| (evaluated.exit, evaluated.data, evaluated.diagnostics))
+}
+
+/// One verification run plus the scan it ran on, so `report` can build its
+/// projection from the same inputs `verify` aggregated (SPEC-401).
+#[derive(Debug)]
+pub struct Evaluated {
+    pub exit: ExitCode,
+    pub data: VerifyData,
+    pub diagnostics: Vec<Diagnostic>,
+    pub scan: ScanResult,
+}
+
+/// The shared core of `verify` and `report`.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "takes the arguments of the operation one to one, from both CLI and MCP"
+)]
+pub fn evaluate(
+    root: &Path,
+    items: &[String],
+    doc: Option<String>,
+    vo: Option<String>,
+    test: Option<String>,
+    gate: Option<&str>,
+    summary: bool,
+    registry: &AdapterRegistry,
+) -> Result<Evaluated, VerifyOpError> {
+    let entity = entity_scope(doc, vo, test).map_err(|message| VerifyOpError::Usage {
+        code: "E-OP-001",
+        message,
+        candidates: None,
+    })?;
+    let requested = parse_items(items).map_err(|message| VerifyOpError::Usage {
+        code: "E-OP-001",
+        message,
+        candidates: None,
+    })?;
+
+    let config = load_verify_config(root)?;
+
+    let gate_config = resolve_gate(&config, gate)?;
+
+    let scan: ScanResult = scan_project(root, registry).map_err(VerifyOpError::Scan)?;
+    evaluate_scanned(
+        root,
+        &config,
+        scan,
+        requested.as_deref(),
+        entity,
+        gate_config,
+        summary,
+        registry,
+    )
+}
+
+/// The config `verify` evaluates against, with the failure `verify` reports
+/// when it cannot be loaded.
+pub fn load_verify_config(root: &Path) -> Result<ProjectConfig, VerifyOpError> {
+    load_config(root).map_err(|error| match error.config_load_code() {
+        Some(code) => VerifyOpError::Usage {
+            code,
+            message: error.to_string(),
+            candidates: None,
+        },
+        None => VerifyOpError::Internal {
+            message: error.to_string(),
+        },
+    })
+}
+
+/// [`evaluate`] from the point where the config is loaded and the project is
+/// scanned. `vtest test show` enters here with the scan it already used to
+/// find its Test, so its verification is the one `verify --test` computes
+/// (BD-345).
+#[expect(
+    clippy::too_many_arguments,
+    reason = "takes the arguments of the operation one to one, from both CLI and MCP"
+)]
+pub fn evaluate_scanned(
+    root: &Path,
+    config: &ProjectConfig,
+    scan: ScanResult,
+    requested: Option<&[VerificationCheck]>,
+    entity: Option<EntityScope>,
+    gate_config: Option<&GateConfig>,
+    summary: bool,
+    registry: &AdapterRegistry,
+) -> Result<Evaluated, VerifyOpError> {
+    let outcome = verify_project(root, &scan, requested, entity, registry);
+    if let Some(internal) = outcome
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.code == vtest_model::INTERNAL_ERROR_CODE)
+    {
+        return Err(VerifyOpError::Internal {
+            message: internal.message.clone(),
+        });
+    }
+    let mut diagnostics = scan.diagnostics.clone();
+    diagnostics.extend(outcome.diagnostics.iter().cloned());
+    let gate_evaluation = gate_config.map(|gate| {
+        let (evaluation, gate_diagnostics) = evaluate_gate(root, config, gate, &outcome);
+        diagnostics.extend(gate_diagnostics);
+        evaluation
+    });
+    let non_pass = outcome
+        .all_outcomes()
+        .iter()
+        .filter(|check| check.state != VerificationState::Pass)
+        .count();
+
+    let data = VerifyData {
+        scope: outcome.scope.clone(),
+        state: state_name(outcome.state),
+        result: if outcome.ok { "OK" } else { "NG" },
+        gate: gate_evaluation,
+        structural: if summary {
+            Vec::new()
+        } else {
+            outcome.structural.clone()
+        },
+        unevaluated: if summary {
+            Vec::new()
+        } else {
+            outcome.unevaluated.clone()
+        },
+        tree: if summary {
+            Vec::new()
+        } else {
+            outcome.tree.clone()
+        },
+        non_pass,
+        pending: Vec::new(),
+    };
+    let layout = vtest_store::VerifyLayout::new(root);
+    let vos = vtest_store::approval::read_all_vos(&layout).unwrap_or_default();
+    // The judgment records the pending section reads (DS-891). A store that
+    // cannot be read is never taken for an empty one: a filesystem failure
+    // is an internal error (DS-1689/DS-1690), and a record that breaks the
+    // schema is reported as E-SCAN-010 (DS-1676) with no judgment applied,
+    // so every case-coverage item stays.
+    let decisions = match vtest_store::decisions::read_all_decisions(&layout) {
+        Ok(records) => records,
+        Err(error) => match error.record_read_code() {
+            Some(code) => {
+                diagnostics.push(Diagnostic::error(
+                    code,
+                    format!("judgment records cannot be read for the pending section: {error}"),
+                ));
+                Vec::new()
+            }
+            None => {
+                return Err(VerifyOpError::Internal {
+                    message: format!("judgment records cannot be read: {error}"),
+                })
+            }
+        },
+    };
+    diagnostics.extend(vtest_store::decisions::kindless_record_warnings(&decisions));
+    let mut data = data;
+    let (pending, pending_diagnostics) = super::pending::pending_items(
+        &layout,
+        &scan,
+        &vos,
+        &decisions,
+        &outcome,
+        data.gate.as_ref(),
+    );
+    data.pending = pending;
+    diagnostics.extend(pending_diagnostics);
+
+    let exit = match &data.gate {
+        Some(evaluation) if evaluation.satisfied => ExitCode::Ok,
+        Some(_) => ExitCode::VerificationFailed,
+        None if outcome.ok => ExitCode::Ok,
+        None => ExitCode::VerificationFailed,
+    };
+
+    Ok(Evaluated {
+        exit,
+        data,
+        diagnostics,
+        scan,
+    })
+}
+
+/// The `Err` is the message of the E-OP-001 usage error the caller builds;
+/// it stays a `String` because nothing matches on it.
+fn entity_scope(
+    doc: Option<String>,
+    vo: Option<String>,
+    test: Option<String>,
+) -> Result<Option<EntityScope>, String> {
+    let selected = [
+        doc.map(EntityScope::Doc),
+        vo.map(EntityScope::Vo),
+        test.map(EntityScope::Test),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>();
+    match selected.len() {
+        0 => Ok(None),
+        1 => Ok(selected.into_iter().next()),
+        _ => Err("verify accepts at most one of --doc, --vo, or --test".to_owned()),
+    }
+}
+
+/// The `Err` is the message of the E-OP-001 usage error the caller builds;
+/// it stays a `String` because nothing matches on it.
+fn parse_items(items: &[String]) -> Result<Option<Vec<VerificationCheck>>, String> {
+    if items.is_empty() {
+        return Ok(None);
+    }
+    let mut checks = Vec::new();
+    for item in items {
+        let name = item.trim();
+        if name.is_empty() {
+            continue;
+        }
+        let Some(check) = parse_check(name) else {
+            return Err(format!(
+                "unknown check '{name}'; the fixed four are chain_integrity, \
+                 orphan_detection, target_binding, oracle_presence"
+            ));
+        };
+        if !checks.contains(&check) {
+            checks.push(check);
+        }
+    }
+    if checks.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(checks))
+}
+
+/// DS-1116/DS-1154/DS-1216: the gate name is an exact, case-sensitive match
+/// against `config.gates[].name`. An unknown name is E-CONFIG-002 whose
+/// message names the requested gate and every defined gate, and whose
+/// `candidates` carry the defined names (in config order) so a client can
+/// correct the input without re-reading config.yaml.
+fn resolve_gate<'a>(
+    config: &'a ProjectConfig,
+    gate: Option<&str>,
+) -> Result<Option<&'a GateConfig>, VerifyOpError> {
+    let Some(name) = gate else {
+        return Ok(None);
+    };
+    if let Some(found) = config.gates.iter().find(|candidate| candidate.name == name) {
+        return Ok(Some(found));
+    }
+    let candidates: Vec<String> = config.gates.iter().map(|g| g.name.clone()).collect();
+    let defined = if candidates.is_empty() {
+        "none".to_owned()
+    } else {
+        candidates.join(", ")
+    };
+    Err(VerifyOpError::Usage {
+        code: "E-CONFIG-002",
+        message: format!(
+            "no gate named '{name}' is defined in config.yaml (defined gates: {defined})"
+        ),
+        candidates: Some(candidates),
+    })
+}
+
+fn evaluate_gate(
+    root: &Path,
+    project: &ProjectConfig,
+    config: &GateConfig,
+    outcome: &VerifyOutcome,
+) -> (GateEvaluation, Vec<Diagnostic>) {
+    let actual = state_name(outcome.state);
+    let verification_satisfied = config.require.verification == actual;
+    let (approvals, diagnostics) = if config.require.approvals.is_empty() {
+        (Vec::new(), Vec::new())
+    } else {
+        evaluate_approval_roles(root, project, config, outcome)
+    };
+    let approvals_satisfied = approvals.iter().all(|approval| approval.satisfied);
+
+    (
+        GateEvaluation {
+            name: config.name.clone(),
+            verification: GateVerification {
+                required: config.require.verification.clone(),
+                actual: actual.to_owned(),
+                satisfied: verification_satisfied,
+            },
+            approvals,
+            satisfied: verification_satisfied && approvals_satisfied,
+        },
+        diagnostics,
+    )
+}
+
+/// DS-1163: the subjects a gate's approval roles are evaluated against —
+/// the entity named on the entity axis, or the root entities of the
+/// evaluated tree when the axis is omitted. Each is `(subject_type, id)`;
+/// a Test is not an approvable subject type, so it can never be satisfied.
+fn gate_subjects(outcome: &VerifyOutcome) -> Vec<(&'static str, String)> {
+    match &outcome.scope.entity {
+        Some(EntityScope::Doc(id)) => vec![("document", id.clone())],
+        Some(EntityScope::Vo(id)) => vec![("vo", id.clone())],
+        Some(EntityScope::Test(id)) => vec![("test", id.clone())],
+        None => outcome
+            .tree
+            .iter()
+            .map(|node| {
+                let kind = match node.kind {
+                    NodeKind::Doc => "document",
+                    NodeKind::Vo => "vo",
+                    NodeKind::Test => "test",
+                };
+                (kind, node.id.clone())
+            })
+            .collect(),
+    }
+}
+
+/// DS-1160〜1164/1171: a role is satisfied when every subject in the scope
+/// is effectively approved (current subject_hash and dependency closure,
+/// supersedes applied, DS-1466) by at least one approver the role lists.
+/// The approval axis never rewrites the verification state (DS-1168/1176).
+fn evaluate_approval_roles(
+    root: &Path,
+    project: &ProjectConfig,
+    config: &GateConfig,
+    outcome: &VerifyOutcome,
+) -> (Vec<GateApproval>, Vec<Diagnostic>) {
+    let layout = vtest_store::VerifyLayout::new(root);
+    let subjects = gate_subjects(outcome);
+    let mut diagnostics = Vec::new();
+    // Approvers whose approval is currently effective, per subject; `None`
+    // when the subject cannot be approved or resolved at all.
+    let approvers: Vec<Option<BTreeSet<String>>> =
+        match vtest_store::approval::read_all_approvals(&layout) {
+            Ok(records) => subjects
+                .iter()
+                .map(|(subject_type, id)| {
+                    if *subject_type == "test" {
+                        return None;
+                    }
+                    let (hash, dependencies) =
+                        super::approval::resolve_subject(&layout, subject_type, id).ok()?;
+                    let (approvers, subject_diagnostics) =
+                        vtest_store::approval::effective_approvers(
+                            &records,
+                            subject_type,
+                            id,
+                            &hash,
+                            &dependencies,
+                        );
+                    diagnostics.extend(subject_diagnostics);
+                    Some(approvers)
+                })
+                .collect(),
+            Err(error) => {
+                // DS-1676: an unreadable approval set is never read as a
+                // smaller one; every role stays unsatisfied.
+                diagnostics.push(Diagnostic::error(
+                    error.record_read_code().unwrap_or("E-CORE-001"),
+                    format!("approval records cannot be read for gate evaluation: {error}"),
+                ));
+                vec![None; subjects.len()]
+            }
+        };
+
+    let approvals = config
+        .require
+        .approvals
+        .iter()
+        .map(|role| {
+            let members = project.approval_roles.get(role);
+            let missing_subjects: Vec<String> = subjects
+                .iter()
+                .zip(&approvers)
+                .filter(|(_, approvers)| {
+                    !approvers.as_ref().is_some_and(|approvers| {
+                        members.is_some_and(|members| {
+                            members.iter().any(|member| approvers.contains(member))
+                        })
+                    })
+                })
+                .map(|((_, id), _)| id.clone())
+                .collect();
+            GateApproval {
+                role: role.clone(),
+                satisfied: !subjects.is_empty() && missing_subjects.is_empty(),
+                missing_subjects,
+            }
+        })
+        .collect();
+    (approvals, diagnostics)
+}
+
+pub fn state_name(state: VerificationState) -> &'static str {
+    match state {
+        VerificationState::Pass => "PASS",
+        VerificationState::Fail => "FAIL",
+        VerificationState::Mismatch => "MISMATCH",
+        VerificationState::NoEvidence => "NO_EVIDENCE",
+        VerificationState::Unknown => "UNKNOWN",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// @vtest.id TEST-VERIFY-PARSE-ITEMS-REJECT-UNKNOWN
+    /// @vtest.covers VO-VERIFY-RETIRED-CHECK-NAME-USAGE-ERROR
+    /// @vtest.target crates/vtest-ops/src/verify.rs::parse_items
+    /// @vtest.intent parse_items rejects a retired check name and accepts a current one
+    #[test]
+    fn items_reject_an_unknown_check_rather_than_narrowing_the_scope() {
+        assert!(parse_items(&["spec_coverage".to_owned()]).is_err());
+        assert!(parse_items(&["chain_integrity".to_owned()]).is_ok());
+    }
+
+    /// @vtest.id TEST-VERIFY-PARSE-ITEMS-OMITTED-FOUR
+    /// @vtest.covers VO-VERIFY-SCOPE-REQUESTED-WIRE-SHAPE
+    /// @vtest.target crates/vtest-ops/src/verify.rs::parse_items
+    /// @vtest.intent parse_items on an empty --items list returns None, mapping to the fixed four checks
+    #[test]
+    fn omitted_items_map_to_the_fixed_four() {
+        assert!(parse_items(&[]).expect("empty is valid").is_none());
+    }
+
+    /// @vtest.id TEST-VERIFY-ENTITY-AXIS-EXCLUSIVE
+    /// @vtest.covers VO-VERIFY-ENTITY-AXIS-SINGLE-SELECTOR
+    /// @vtest.target crates/vtest-ops/src/verify.rs::entity_scope
+    /// @vtest.intent entity_scope rejects two simultaneous selectors and accepts zero or one
+    #[test]
+    fn entity_axis_is_exclusive() {
+        assert!(entity_scope(Some("D".to_owned()), Some("V".to_owned()), None).is_err());
+        assert!(entity_scope(None, Some("V".to_owned()), None).is_ok());
+        assert!(entity_scope(None, None, None)
+            .expect("none is valid")
+            .is_none());
+    }
+}

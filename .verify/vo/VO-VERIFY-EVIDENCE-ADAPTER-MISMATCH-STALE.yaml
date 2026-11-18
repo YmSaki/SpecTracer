@@ -1,0 +1,11 @@
+id: VO-VERIFY-EVIDENCE-ADAPTER-MISMATCH-STALE
+parent: null
+derives_from:
+  - doc: DS-1628
+claim: Evidence の adapter が現在の Test の execution.adapter と明示的に不一致の場合 NO_EVIDENCE（診断 STALE）とする
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-08T23:40:00+09:00

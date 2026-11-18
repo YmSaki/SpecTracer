@@ -1,0 +1,11 @@
+id: VO-JUDGMENT-ACCEPTANCE-NO-STATE-CHANGE
+parent: null
+derives_from:
+  - doc: DS-693
+claim: "判断記録の受理は当該対象の検証状態を昇格させない。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00

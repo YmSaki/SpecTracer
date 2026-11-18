@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-REVERSED-ENUMERATION-IDENTICAL
+parent: null
+derives_from:
+  - doc: DS-1791
+claim: 受入専用の registry で、registry への adapter の登録順と、受入専用の adapter が返す DiscoveryBatch・Test・file の列挙順をすべて反転した2回の export の操作は、同じ repository 内容に対して、JSON 直列化が byte 単位で同一の `data` を返し、それぞれの `data` から CLI の Markdown 文書を生成する部品が生成した文書も byte 単位で同一である。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

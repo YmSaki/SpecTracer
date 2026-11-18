@@ -1,0 +1,11 @@
+id: VO-SCAN-EDIT-COLLIDING-TEST-ID-NO-REPRESENTATIVE
+parent: null
+derives_from:
+  - doc: DS-582
+claim: '曖昧な解決から代表候補を選ばない'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-REPORT-DOC-DOWN-DERIVES-FROM-PAIRS
+parent: null
+derives_from:
+  - doc: DS-1524
+claim: "`report --from DOC-X --direction down --format json` は、`derives_from` エッジごとに `from` / `relation` / `to` と当該 entry の `anchor`・`note` を返し、「どの上流条項がどの VO へ対応するか」の対応ペア集合として読める。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-04T12:00:00+09:00
+updated: 2026-11-04T12:00:00+09:00

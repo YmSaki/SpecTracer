@@ -1,0 +1,11 @@
+id: VO-MCP-TEST-QUERY-INPUT-SCHEMA
+parent: null
+derives_from:
+  - doc: DS-1859
+claim: MCP の `tools/list` が返す `test_query` の入力 schema は、property として文字列型の `vo`、文字列型の `source`、真偽値型の `unregistered` だけを持ち、それ以外の property を許さない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

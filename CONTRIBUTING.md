@@ -10,22 +10,16 @@ public issue.
 
 ## Git Flow
 
-This repository uses **Git Flow, not GitHub Flow**.
+Branch roles, branch naming, tag naming, and merge destinations are defined
+canonically in [DEVELOPMENT.md](DEVELOPMENT.md). Follow that policy, because a
+second workflow definition here would diverge from it; when it does not cover
+your case, open an issue.
 
-* `main`: released production code only. Do not develop directly on it.
-* `develop`: integration branch for the next release.
-* `feature/*`: branch from `develop`; merge back into `develop`.
-* `release/*`: branch from `develop`; when complete, merge into **both `main` and `develop`**.
-* `hotfix/*`: branch from `main`; when complete, merge into **both `main` and `develop`**.
-* For normal implementation work, use `feature/*` based on `develop`.
-* Do not treat `main` as the default development branch.
-
-The `develop` branch must be created before normal feature work begins. Until it
-exists, do not create feature branches from `main`; maintainers should establish
-the integration branch first.
-
-Do not force-push shared branches. Keep pull requests focused and preserve the
-canonical-record and fail-closed invariants described in [ARCHITECTURE.md](ARCHITECTURE.md).
+Update shared branches by merge or fast-forward, because a force-push rewrites
+history that others have built on; when a push is rejected, merge the remote
+branch and push again. Keep pull requests focused and preserve the
+canonical-record and fail-closed invariants described in
+[ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Pull requests
 
@@ -40,14 +34,20 @@ Before opening a pull request:
    limitation explicitly.
 
 The pull request body should explain the problem, the chosen scope, the tests
-that provide evidence, and any specification or design review item. A passing
-test must not be used to hide missing or stale evidence.
+that provide evidence, and any specification or design review item. Name the
+missing or stale evidence beside every passing test that depends on it, because a
+passing test hides an evidence gap that nobody has named.
 
 ## Development boundaries
 
-Keep the dependency direction and one-source-of-truth rules in `AGENTS.md`. Do
-not hand-edit `.verify/cache/`; rebuild derived data from canonical records. Keep
-CLI and MCP on the same core implementation and JSON result shape.
+Keep the dependency direction and one-source-of-truth rules in `AGENTS.md`.
+Rebuild `.verify/cache/` from canonical records, because a hand edit makes
+derived data disagree with its source. When a cache file looks wrong, find the
+cause first: rebuild it when it is stale, fix the generating code when that is
+defective, and change a canonical record only after the canonical error is
+confirmed, using the operation that owns that record. For specification records,
+follow the specification-change procedure in [DEVELOPMENT.md](DEVELOPMENT.md). Keep CLI
+and MCP on the same core implementation and JSON result shape.
 
 The current v0.1 implementation is Rust/Cargo-specific at its adapter boundary,
 but the verification model is language-independent. New language support should
@@ -56,10 +56,9 @@ follow the adapter separation plan in
 
 ## Releases
 
-Only maintainers create release tags. Update the workspace version, add the
-user-visible entries to `CHANGELOG.md`, merge the release branch into `main`, and
-create a `vMAJOR.MINOR.PATCH` or `vMAJOR.MINOR.PATCH-alpha.1` tag. GitHub Actions
-verifies that the tag is on `main`, runs the full gate, builds Linux x86_64, macOS
-x86_64, and Windows x86_64 archives, and publishes them with SHA-256 checksum
-files. Pre-release tags are marked as GitHub pre-releases. See the
-[prebuilt release instructions](README.md#install-a-prebuilt-release).
+Create release tags as a maintainer; as a contributor, ask a maintainer to cut the
+release, because a published tag is an immutable reference to a released commit.
+When a published tag looks wrong, report it in an issue and leave it where it is.
+
+The canonical release branch roles, merge destinations, tag naming, and release
+workflow are defined in [DEVELOPMENT.md](DEVELOPMENT.md).

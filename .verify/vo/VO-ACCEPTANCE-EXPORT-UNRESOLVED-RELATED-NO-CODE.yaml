@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-EXPORT-UNRESOLVED-RELATED-NO-CODE
+parent: null
+derives_from:
+  - doc: DS-1788
+claim: 参照先が0件の `related` 参照は、`data.unresolved` に `field` が `related`・`code` が `null` の要素として含まれ、severity が error の診断がなければ `vtest export` の終了コードは0である。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

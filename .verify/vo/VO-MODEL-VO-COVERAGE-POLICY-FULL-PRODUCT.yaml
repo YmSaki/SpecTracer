@@ -1,0 +1,11 @@
+id: VO-MODEL-VO-COVERAGE-POLICY-FULL-PRODUCT
+parent: null
+derives_from:
+  - doc: DS-408
+claim: '`full-product` は直積ごとに1子VOを生成する（上例では8件）。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

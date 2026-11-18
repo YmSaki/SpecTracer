@@ -1,0 +1,12 @@
+id: VO-EXEC-STATE-ABSENT-HEAD-COMMIT-INCOMPLETE
+parent: null
+derives_from:
+  - doc: DES-209
+  - doc: DES-184
+claim: 'snapshotが不完全な場合はcomplete:false・hash:nullとし、現在の有効なPASS証拠へ使用しない'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

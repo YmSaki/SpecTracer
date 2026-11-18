@@ -1,0 +1,405 @@
+{
+  "schema_version": "0.1",
+  "root": [
+    {
+      "id": "ROOT-001",
+      "statement": "v0.1 最終形",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "v0.1 最終形",
+        "lines": [
+          627,
+          627
+        ]
+      }
+    },
+    {
+      "id": "ROOT-002",
+      "statement": "Owner 裁定 2026-08-21",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "Owner 裁定 2026-08-21",
+        "lines": [
+          628,
+          628
+        ]
+      }
+    },
+    {
+      "id": "ROOT-003",
+      "statement": "Owner 裁定 2026-08-23（1）",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "Owner 裁定 2026-08-23（1）",
+        "lines": [
+          629,
+          629
+        ]
+      }
+    },
+    {
+      "id": "ROOT-004",
+      "statement": "Owner 裁定 2026-08-23（2）",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "Owner 裁定 2026-08-23（2）",
+        "lines": [
+          630,
+          630
+        ]
+      }
+    },
+    {
+      "id": "ROOT-005",
+      "statement": "Owner 裁定 2026-08-23（8）",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "Owner 裁定 2026-08-23（8）",
+        "lines": [
+          638,
+          638
+        ]
+      }
+    },
+    {
+      "id": "ROOT-006",
+      "statement": "Owner 裁定 2026-08-23（7）",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "Owner 裁定 2026-08-23（7）",
+        "lines": [
+          642,
+          642
+        ]
+      }
+    },
+    {
+      "id": "ROOT-007",
+      "statement": "U-04 裁定",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "U-04 裁定",
+        "lines": [
+          643,
+          643
+        ]
+      }
+    },
+    {
+      "id": "ROOT-008",
+      "statement": "U-02 裁定",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "U-02 裁定",
+        "lines": [
+          645,
+          645
+        ]
+      }
+    },
+    {
+      "id": "ROOT-009",
+      "statement": "Owner 裁定 2026-08-23（10）",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "Owner 裁定 2026-08-23（10）",
+        "lines": [
+          649,
+          649
+        ]
+      }
+    },
+    {
+      "id": "ROOT-010",
+      "statement": "Owner 裁定 2026-08-23（11）",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "Owner 裁定 2026-08-23（11）",
+        "lines": [
+          650,
+          650
+        ]
+      }
+    },
+    {
+      "id": "ROOT-011",
+      "statement": "Owner 裁定 2026-08-23（9）",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "Owner 裁定 2026-08-23（9）",
+        "lines": [
+          651,
+          651
+        ]
+      }
+    },
+    {
+      "id": "ROOT-012",
+      "statement": "Owner 裁定 2026-08-23（12）",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "Owner 裁定 2026-08-23（12）",
+        "lines": [
+          652,
+          652
+        ]
+      }
+    },
+    {
+      "id": "ROOT-013",
+      "statement": "U-04 裁定（条項3）",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "U-04 裁定（条項3）",
+        "lines": [
+          653,
+          653
+        ]
+      }
+    },
+    {
+      "id": "ROOT-014",
+      "statement": "U-05 裁定",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "U-05 裁定",
+        "lines": [
+          655,
+          655
+        ]
+      }
+    },
+    {
+      "id": "ROOT-015",
+      "statement": "U-03 裁定",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "U-03 裁定",
+        "lines": [
+          660,
+          660
+        ]
+      }
+    },
+    {
+      "id": "ROOT-016",
+      "statement": "A′ 裁定",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "A′ 裁定",
+        "lines": [
+          661,
+          661
+        ]
+      }
+    },
+    {
+      "id": "ROOT-017",
+      "statement": "Owner 裁定 2026-08-23（6）",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "Owner 裁定 2026-08-23（6）",
+        "lines": [
+          690,
+          690
+        ]
+      }
+    },
+    {
+      "id": "ROOT-018",
+      "statement": "Owner 裁定 2026-08-24（判断/承認分離）",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "Owner 裁定 2026-08-24（判断/承認分離）",
+        "lines": [
+          691,
+          691
+        ]
+      }
+    },
+    {
+      "id": "ROOT-019",
+      "statement": "Owner 裁定 2026-08-24（記録要件）",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "Owner 裁定 2026-08-24（記録要件）",
+        "lines": [
+          692,
+          692
+        ]
+      }
+    },
+    {
+      "id": "ROOT-020",
+      "statement": "Owner 裁定 2026-08-23（4）",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "Owner 裁定 2026-08-23（4）",
+        "lines": [
+          702,
+          702
+        ]
+      }
+    },
+    {
+      "id": "ROOT-021",
+      "statement": "Owner 裁定 2026-08-23（5）",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "Owner 裁定 2026-08-23（5）",
+        "lines": [
+          703,
+          703
+        ]
+      }
+    },
+    {
+      "id": "ROOT-022",
+      "statement": "Owner 裁定 2026-08-23（3）",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "Owner 裁定 2026-08-23（3）",
+        "lines": [
+          704,
+          704
+        ]
+      }
+    },
+    {
+      "id": "ROOT-023",
+      "statement": "Owner 裁定 2026-08-24（判断/承認分離・記録要件）",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "Owner 裁定 2026-08-24（判断/承認分離・記録要件）",
+        "lines": [
+          709,
+          709
+        ]
+      }
+    },
+    {
+      "id": "ROOT-024",
+      "statement": "Owner 裁定 2026-08-24（状態/承認/ゲート）",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "Owner 裁定 2026-08-24（状態/承認/ゲート）",
+        "lines": [
+          710,
+          710
+        ]
+      }
+    },
+    {
+      "id": "ROOT-025",
+      "statement": "Owner 裁定 2026-08-24（ゲート正式要件化）",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "Owner 裁定 2026-08-24（ゲート正式要件化）",
+        "lines": [
+          713,
+          713
+        ]
+      }
+    },
+    {
+      "id": "ROOT-026",
+      "statement": "U-04 裁定（条項4）",
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "U-04 裁定（条項4）",
+        "lines": [
+          720,
+          720
+        ]
+      }
+    }
+  ],
+  "request": [
+    {
+      "id": "R-1",
+      "statement": "一次ユーザーは開発者自身である。守る瞬間は、AI の完了宣言の受領時である。防ぐのは、嘘の PASS を信じてマージすることである。MCP インターフェースは飾りではなく本体である。嘘はエージェントのループ内で止める。",
+      "derives_from": [
+        "ROOT-027"
+      ],
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## R-1. 一次場面",
+        "lines": [
+          11,
+          17
+        ]
+      }
+    },
+    {
+      "id": "R-2",
+      "statement": "v0.1 は順方向 — 宣言された義務の裏付けの検証 — のみで出荷する。v0.1 は宣言されていない実装の存在を関知しない。README に非関知宣言を一行入れる。実装レイヤーの孤児検出（過実装検出）・シンボル列挙の定義・上流文書の意味構造は v0.2 へ送る。",
+      "description": "選定理由: スコープ拡大は所有者の既知の悪癖であるため、完成の防衛を優先する。",
+      "derives_from": [
+        "ROOT-001",
+        "ROOT-028",
+        "ROOT-035"
+      ],
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## R-2. スコープ防衛",
+        "lines": [
+          18,
+          24
+        ]
+      }
+    },
+    {
+      "id": "R-3",
+      "statement": "言語依存なし。テストツール依存なし。言語とツールは拡張可能。どのバージョンで実現するかは指定しない。",
+      "derives_from": [
+        "ROOT-002"
+      ],
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## R-3. 言語・ツール非依存と拡張性",
+        "lines": [
+          25,
+          31
+        ]
+      }
+    },
+    {
+      "id": "R-4",
+      "statement": "本システムは、複数の人間および複数の AI Agent が同時並行で開発する環境でも成立する。最小構成は人間 1 人でもよいが、実利用では人間複数 + AI Agent 複数、場合によっては多数の AI Agent が並列に作業する環境を想定する。",
+      "derives_from": [
+        "ROOT-003"
+      ],
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## R-4. 対象環境（並列開発）",
+        "lines": [
+          32,
+          36
+        ]
+      }
+    },
+    {
+      "id": "R-5",
+      "statement": "本システムは、プロジェクト開始時から導入されていることを前提としない。既に開発途中または既存のプロジェクトへ、後から導入できる。「既に大量のソースコードと Test が存在するプロジェクトを検証対象として扱える」ことは本要求の子とする（並列開発要求 R-4 からは導出しない）。",
+      "derives_from": [
+        "ROOT-004"
+      ],
+      "cites": [
+        "R-4"
+      ],
+      "source": {
+        "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+        "heading": "## R-5. 途中導入可能性",
+        "lines": [
+          37,
+          41
+        ]
+      }
+    }
+  ],
+  "require": [],
+  "spec": [],
+  "detailed_spec": [],
+  "basic_design": [],
+  "design": []
+}

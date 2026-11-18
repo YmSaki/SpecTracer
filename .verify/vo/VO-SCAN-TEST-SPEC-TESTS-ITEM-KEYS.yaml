@@ -1,0 +1,11 @@
+id: VO-SCAN-TEST-SPEC-TESTS-ITEM-KEYS
+parent: null
+derives_from:
+  - doc: DS-1707
+claim: '`data.tests` は managed Test Entity を、Test ID が衝突したものと同一 construct から複数生じたものを含めて全件含み、各要素は `key`・`id`・`intent`・`covers`・`targets`・`input`・`expect`・`kind`・`cases`・`related`・`location` を持つ。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

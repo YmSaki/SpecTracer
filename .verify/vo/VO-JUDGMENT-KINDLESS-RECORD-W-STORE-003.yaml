@@ -1,0 +1,11 @@
+id: VO-JUDGMENT-KINDLESS-RECORD-W-STORE-003
+parent: null
+derives_from:
+  - doc: DS-446
+claim: "`judgment_kind` を欠くか §8.1 の値域外の判断記録は、履歴として保持するがいずれの `(subject, judgment_kind)` の実効判断へも寄与させず、W-STORE-003を出す。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-08T12:00:00+09:00
+updated: 2026-11-08T12:00:00+09:00

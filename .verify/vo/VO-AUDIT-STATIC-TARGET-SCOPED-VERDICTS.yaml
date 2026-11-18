@@ -1,0 +1,11 @@
+id: VO-AUDIT-STATIC-TARGET-SCOPED-VERDICTS
+parent: null
+derives_from:
+  - doc: DS-1208
+claim: "`audit_static` は `test` または `all` を入力とし、rule 別 verdict（target-scoped な DA-002 / DA-003 は target 別 verdict を含む）と根拠 span を出力する。"
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-03T12:00:00+09:00
+updated: 2026-11-03T12:00:00+09:00

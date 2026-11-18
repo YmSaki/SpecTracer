@@ -1,0 +1,115 @@
+{
+  "schema_version": "0.1",
+  "root": [
+    {
+      "id": "ROOT-039",
+      "statement": "要求や要件定義、基本仕様や設計なんてものを全部 JSON データ化してグラフで表現しやすくして、JSON を正本にして特定のフォーマットで md にエクスポートするってのを導入しちゃうのがよさそうだ。今はやらないとか言ってる暇じゃねぇ。",
+      "description": "Owner 裁定 2026-09-04（Issue #14 コメント 1）。JSON を正本、md は一方向エクスポート。",
+      "source": {
+        "doc": "github:YmSaki/SpecTracer/issues/14",
+        "heading": "C1",
+        "lines": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "ROOT-040",
+      "statement": "凍結台帳はどうでもいいです。そんなん今解答されました。",
+      "description": "Owner 裁定 2026-09-04（Issue #14 コメント 1）。凍結事項 F11（ROOT-037）との衝突を示されたうえでの回答。「（上流差戻フェーズなので）」は書記の補足。",
+      "source": {
+        "doc": "github:YmSaki/SpecTracer/issues/14",
+        "heading": "C1",
+        "lines": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "ROOT-041",
+      "statement": "あくまで derived_from は参照なので。",
+      "description": "Owner 裁定 2026-09-05（Issue #14 コメント 2）。`derives_from` は導出の証明ではなく参照。ペアごとの承認は行わない。",
+      "source": {
+        "doc": "github:YmSaki/SpecTracer/issues/14",
+        "heading": "C2",
+        "lines": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "ROOT-042",
+      "statement": "辺は層をまたぐ参照だけ。要求 → 要件定義 → 基本仕様 → 詳細設計の間の参照を辺にし、同じ層の中の節参照（本冊内の「§7.3」、別紙A → 本冊）は辺にしない。",
+      "description": "Owner 裁定 2026-09-05（Issue #14 コメント 4）。直前のコメント 3「関係をグラフに置き換えると言っているだけなので。」（＝参照はすべて辺）を撤回してこれで確定。",
+      "source": {
+        "doc": "github:YmSaki/SpecTracer/issues/14",
+        "heading": "C4",
+        "lines": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "ROOT-043",
+      "statement": "導入するでいいんじゃないの？何か問題あった？",
+      "description": "Owner 裁定 2026-09-05（Issue #14 コメント 5）。「この JSON を仕様書の正本として受け入れるか」への回答。",
+      "source": {
+        "doc": "github:YmSaki/SpecTracer/issues/14",
+        "heading": "C5",
+        "lines": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "ROOT-044",
+      "statement": "基本仕様 = 何を実現するかを確定する\n基本設計 = それをどんな構造で実現するかを決める\n詳細設計 = 各部品をどう実装するかまで落とす\n詳細設計は自然言語で記述したコードになるのは避けたい。",
+      "description": "Owner 定義 2026-09-05（Issue #14 コメント 6）。同コメントの「ついでにこれの分割もしてしまおう。」で層の分割を指示。`LAYERING.md` 冒頭に逐語保存。",
+      "source": {
+        "doc": "github:YmSaki/SpecTracer/issues/14",
+        "heading": "C6",
+        "lines": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "ROOT-045",
+      "statement": "採用してもいいし、これを既定の規定にしてもいい。\n基本仕様は複数の詳細仕様を内包できる。\n基本設計は[仕様]から導出され、複数の詳細設計に分割される。\n詳細設計は基本仕様から導出される。",
+      "description": "Owner 裁定 2026-09-05（Issue #14 コメント 8）。6 段（要求 / 要件 / 基本仕様 / 詳細仕様 / 基本設計 / 詳細設計）を既定の規定として採用。",
+      "source": {
+        "doc": "github:YmSaki/SpecTracer/issues/14",
+        "heading": "C8",
+        "lines": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "ROOT-046",
+      "statement": "残す必要あるんですか？ vtest がやるべきことを python で先に作る分には構わないんですが、これを正としないために消してください。",
+      "description": "Owner 指示 2026-09-06（Issue #14 コメント 10）。変換の Python 足場を削除。同等機能は vtest 側で実装する。",
+      "source": {
+        "doc": "github:YmSaki/SpecTracer/issues/14",
+        "heading": "C10",
+        "lines": [
+          1,
+          1
+        ]
+      }
+    }
+  ],
+  "request": [],
+  "require": [],
+  "spec": [],
+  "detailed_spec": [],
+  "basic_design": [],
+  "design": []
+}

@@ -1,0 +1,2 @@
+# テストでは panic が assertion なので、unwrap() を許可する（AGENTS.md 8.2）。
+allow-unwrap-in-tests = true

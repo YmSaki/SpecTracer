@@ -1,0 +1,11 @@
+id: VO-SCAN-NON-TEST-UNKNOWN-KEY-W-SCAN-105
+parent: null
+derives_from:
+  - doc: DS-551
+claim: 'Test constructとして解析されない関数itemのdoc comment内の認識されない@vtest.キーはW-SCAN-105 warningである'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

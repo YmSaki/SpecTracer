@@ -1,0 +1,11 @@
+id: VO-VERIFY-TESTID-COLLISION-CHAIN-INTEGRITY-MISMATCH
+parent: null
+derives_from:
+  - doc: DS-561
+claim: E-SCAN-002 の Test ID 衝突は chain_integrity = MISMATCH に写像し、orphan_detection には影響しない
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-08T23:40:00+09:00

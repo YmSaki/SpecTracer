@@ -1,0 +1,15 @@
+id: VO-ADAPTER-SYNTHETIC-SCAN-VERIFY-WITHOUT-CORE-CHANGES
+parent: null
+derives_from:
+  - doc: DS-1584
+claim: >-
+  synthetic adapterは、registryへの登録・scan・verifyの全経路を通過できる
+  （discovery capabilityしか宣言しないため、oracle_presenceとtarget_bindingは
+  capability欠落としてNO_EVIDENCEに落ちる一方、chain_integrityとorphan_detection
+  は宣言鎖に対して通常どおり評価される）。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-12T00:00:00+09:00
+updated: 2026-09-12T00:00:00+09:00

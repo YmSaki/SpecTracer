@@ -1,0 +1,11 @@
+id: VO-DOC-DERIVES-FROM-NONE-VS-EMPTY
+parent: null
+derives_from:
+  - doc: DS-1685
+claim: --derives-fromは置換であり追記ではないため、指定が無い（None）場合は既存derives_fromを変更せず、空list（Some(empty)）を指定した場合は既存derives_fromを空へ置換する
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

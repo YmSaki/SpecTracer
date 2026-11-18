@@ -1,0 +1,11 @@
+id: VO-SCAN-TARGET-UNRESOLVABLE-E-SCAN-004
+parent: null
+derives_from:
+  - doc: DS-538
+claim: E-SCAN-004はerrorであり、targetのロケータ／SRC IDを解決できないことを意味する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

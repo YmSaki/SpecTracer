@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-DETERMINISTIC-FIXTURE-REPRODUCIBILITY
+parent: null
+derives_from:
+  - doc: DES-532
+claim: 受入条件は決定論的なfixtureと統合テストで再現でき、独立に構築された同一入力のfixtureは同一内容を生成する
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

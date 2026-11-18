@@ -1,0 +1,12 @@
+id: VO-EXEC-STATE-HASH-DETERMINISTIC-FOR-IDENTICAL-INPUTS
+parent: null
+derives_from:
+  - doc: DES-097
+  - doc: DES-099
+claim: 'Execution State subject hashは列挙された入力と正規化identity順のmanifest entry集合を束縛する'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

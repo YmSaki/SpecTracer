@@ -1,0 +1,11 @@
+id: VO-CLI-EXPORT-WRITES-NOTHING
+parent: null
+derives_from:
+  - doc: DS-1695
+claim: '`vtest export` はファイル・ディレクトリを1件も作成・変更・削除しない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-15T00:00:00+09:00
+updated: 2026-11-15T00:00:00+09:00

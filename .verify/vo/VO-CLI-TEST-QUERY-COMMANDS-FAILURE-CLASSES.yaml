@@ -1,0 +1,11 @@
+id: VO-CLI-TEST-QUERY-COMMANDS-FAILURE-CLASSES
+parent: null
+derives_from:
+  - doc: DS-1814
+claim: '`vtest test list`・`vtest test query`・`vtest test show` は、registry・config・adapter契約の検証または adapter 呼出しが E-ADAPTER-* / E-CONFIG-* で拒否された場合は終了コード2、内部エラーの場合は診断コード E-INTERNAL-001 と終了コード3とし、`--format json` では `ok: false`・`data: null` とその診断を持つ envelope を出力する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

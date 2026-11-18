@@ -1,8 +1,8 @@
 # Testing guide
 
-SpecTracer tests whether a passing test is trustworthy; a green test command is
-not by itself proof that the verification graph is complete. Tests should keep
-missing, stale, unavailable, and ambiguous evidence non-passing.
+SpecTracer tests whether a passing test is trustworthy; treat a green test command
+as one input and confirm the completeness of the verification graph separately.
+Tests should keep missing, stale, unavailable, and ambiguous evidence non-passing.
 
 ## Required local gate
 
@@ -10,13 +10,32 @@ Run this set before opening or updating a pull request:
 
 ```bash
 cargo fmt --all -- --check
-cargo test --workspace --locked
+cargo test --workspace --locked --no-fail-fast
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo run --quiet -p vtest-cli --locked -- doctor
 ```
 
 The same gate runs in `.github/workflows/ci.yml` for `main`, `develop`, and their
-pull requests.
+pull requests. Pass `--no-fail-fast` locally, because without it `cargo test`
+stops at the first failing test binary and the later binaries never report.
+Without `cargo-llvm-cov` nine tests fail, all because the `rust-cargo`
+adapter cannot measure coverage, so `target_binding` stays `NO_EVIDENCE` where
+the test expects `PASS`: in `vtest-adapter-rust --lib`
+`coverage::tests::real_llvm_cov_keeps_same_line_constructs_and_type_syntax_apart`
+and `coverage::tests::real_llvm_cov_measures_trait_impl_and_cfg_locators_separately`
+(they call the missing command); in `evidence_e2e`
+`a_covered_test_with_a_git_committed_environment_reaches_ok_true`,
+`a_test_that_reaches_only_one_of_two_declared_targets_is_not_pass`,
+`an_invalid_latest_evidence_record_does_not_fall_back_to_an_older_pass`,
+`verify_reports_e_scan_010_for_an_aggregate_that_contradicts_its_entries` and
+`only_oracle_presence_breaks_on_a_self_comparison_assertion`; in
+`execution_state_e2e`
+`a_relocated_target_directory_inside_the_root_still_records_evidence` and
+`an_unchanged_environment_still_reaches_pass`. Report them as `NOT_EXECUTED`
+in the PR and cite the CI run, which has the tool, as the evidence. For any
+other failure, run the same test on the base branch: one that also fails
+there is an environment difference to report as such, and one that fails only
+on the PR branch is a regression.
 
 The CI environment installs `llvm-tools-preview` and `cargo-llvm-cov` so that M7
 can distinguish measured target execution from the fail-closed unavailable
@@ -29,12 +48,18 @@ cargo install cargo-llvm-cov --locked
 
 ## Acceptance tests
 
-Milestone acceptance tests live in `crates/vtest-cli/tests/` and are recorded in
-[`tests/ACCEPTANCE.md`](tests/ACCEPTANCE.md). Run a single milestone while
+Acceptance tests live in `crates/vtest-cli/tests/` and are organized by 別紙C
+（詳細設計 v0.1 別紙C 受入仕様）§18 section, one file per subsection —
+`acceptance_18_1.rs`, `acceptance_18_3_7.rs`, `acceptance_18_3_8.rs`,
+`acceptance_18_3_9.rs`, `acceptance_18_3_13.rs`, `acceptance_18_3_14.rs`. Each `#[test]` cites the 別紙C node id(s) it covers in
+a doc comment. The predecessor `m1_acceptance.rs`…`m9_acceptance.rs` files
+(keyed to 別紙B §18.3, a non-normative implementation-plan document, not the
+normative 別紙C) have been retired; `autotests` is on, so every file in
+`tests/` is discovered automatically. Run a single acceptance file while
 developing, for example:
 
 ```bash
-cargo test -p vtest-cli --test m9_acceptance
+cargo test -p vtest-cli --test acceptance_18_3_7
 ```
 
 Run all CLI acceptance tests with:
@@ -43,24 +68,34 @@ Run all CLI acceptance tests with:
 cargo test -p vtest-cli --tests --locked
 ```
 
-The acceptance ledger is the evidence source for M1 through M9. A milestone is
-not complete when a required check is unavailable or not executed; record that
-state as `NOT_CHECKED` or `NOT_EXECUTED`.
+Not every 別紙C §18 node has a dedicated acceptance test yet. Record a node
+without one as a gap in [`tests/ACCEPTANCE.md`](tests/ACCEPTANCE.md) or
+[`docs/reports/adapter-acceptance-matrix.md`](docs/reports/adapter-acceptance-matrix.md)
+instead of writing a test that asserts the feature's absence, because such a
+test passes while the feature is missing. When the feature is implemented, add
+its acceptance test and remove the gap row.
 
 ## Verification behavior to preserve
 
-- Every non-`PASS` state (`FAIL`, `MISMATCH`, `MISSING`, `NOT_CHECKED`,
-  `NOT_EXECUTED`, `STALE`, or `UNKNOWN`) contributes to a non-passing result.
-- Stale approval, audit, and Evidence hashes cannot satisfy a current verify.
-- Limited scopes keep out-of-scope items as `NOT_CHECKED` rather than converting
-  them to `PASS`.
+- Every non-`PASS` state (`FAIL`, `MISMATCH`, `NO_EVIDENCE`, or `UNKNOWN`)
+  contributes to a non-passing result. Diagnostic labels (`MISSING`,
+  `NOT_CHECKED`, `NOT_EXECUTED`, `STALE`) explain the cause and are never
+  ranked.
+- Stale approval and Evidence hashes leave a current verify non-passing.
+- Limited scopes keep out-of-scope checks as `NO_EVIDENCE` (`NOT_CHECKED`)
+  rather than converting them to `PASS`.
 - CLI and MCP must preserve the same core JSON envelope and result semantics.
 - Structured test edits must stay within one Test and be deterministic and
   idempotent.
 
-When changing static audit, execution, aggregation, record schemas, CLI, or MCP,
-also run the applicable fixture flow (`vtest audit static`, bundle/submit,
-`vtest run`, and `vtest verify`) and record the result.
+When changing execution, aggregation, record schemas, CLI, or MCP, also run
+the applicable fixture flow (`vtest scan`, `vtest run`, and `vtest verify`)
+and record the result.
+For a refactoring PR that must not change behavior, the gate above and the
+existing acceptance and equivalence tests are the evidence; report the same
+test count and results as the base. When the PR touches text rendering, exit
+codes or record formats, also run the base and head binaries on the same input
+and write any difference, with its clause ID, into the PR.
 
 ## Release verification
 

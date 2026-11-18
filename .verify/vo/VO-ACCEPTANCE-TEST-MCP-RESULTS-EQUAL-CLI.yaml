@@ -1,0 +1,11 @@
+id: VO-ACCEPTANCE-TEST-MCP-RESULTS-EQUAL-CLI
+parent: null
+derives_from:
+  - doc: DS-1845
+claim: 同じプロジェクトルート・同じ実行環境・同じ repository 内容に対して、`test_get` の結果は `vtest test show --format json` の標準出力と、`test_query` の結果は `vo`・`source`・`unregistered` のそれぞれで対応する CLI の標準出力と、`ok`・`data`・`diagnostics` が一致し、`isError` は `ok` が `false` の場合だけ `true` である。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-16T00:00:00+09:00
+updated: 2026-11-16T00:00:00+09:00

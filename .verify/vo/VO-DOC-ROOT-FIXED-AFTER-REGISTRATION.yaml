@@ -1,0 +1,11 @@
+id: VO-DOC-ROOT-FIXED-AFTER-REGISTRATION
+parent: null
+derives_from:
+  - doc: DS-1683
+claim: '`--root` は当該 document のトップレベルノードを新規登録時に `root` 層配列へ登録し、`--no-root` は `root` 層以外の層配列へ登録する。根指定は登録先の層配列という形でノード自体に属し、登録後は変更しない。`config.yaml` に根集合（`doc.roots`）を持たない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-10T12:00:00+09:00

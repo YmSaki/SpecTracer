@@ -1,0 +1,11 @@
+id: VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
+parent: null
+derives_from:
+  - doc: DES-212
+claim: 除外領域をbuild script、macro、`include_*`、path dependencyその他の経路で読み込む可能性を排除できない場合、snapshotを完全と報告しない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

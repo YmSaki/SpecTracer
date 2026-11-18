@@ -1,0 +1,12 @@
+id: VO-ADAPTER-JAVASCRIPT-REGISTERS-WITHOUT-CORE-CHANGES
+parent: null
+derives_from:
+  - doc: BD-102
+claim: >-
+  core verifierを変更せずに別adapterを登録できる境界を要求する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-07T00:00:00Z
+updated: 2026-11-07T00:00:00Z

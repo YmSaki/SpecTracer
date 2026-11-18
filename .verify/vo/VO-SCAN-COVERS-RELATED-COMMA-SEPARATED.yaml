@@ -1,0 +1,11 @@
+id: VO-SCAN-COVERS-RELATED-COMMA-SEPARATED
+parent: null
+derives_from:
+  - doc: DS-493
+claim: coversとrelatedの値はカンマ区切りで複数指定できる。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T00:00:00+09:00
+updated: 2026-09-09T00:00:00+09:00

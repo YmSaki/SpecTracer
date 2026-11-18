@@ -1,0 +1,11 @@
+id: VO-MODEL-DOCUMENT-LAYER-ID-PREFIX
+parent: null
+derives_from:
+  - doc: BD-318
+claim: ノードのIDは層ごとの接頭辞（ROOT- / R- / P- / REQ- / SPEC- / DS- / BD- / DES-、節は-Sを伴う）とする。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

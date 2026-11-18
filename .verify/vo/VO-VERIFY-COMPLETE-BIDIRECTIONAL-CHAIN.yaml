@@ -1,0 +1,11 @@
+id: VO-VERIFY-COMPLETE-BIDIRECTIONAL-CHAIN
+parent: null
+derives_from:
+  - doc: REQ-056
+claim: 'leaf VO から Test への方向（検証実装の存在）と、発見された Test から宣言への方向（管理宣言の解決）の両方が成立して初めて、宣言鎖の双方向完全性が成立する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-08T23:40:00+09:00
+updated: 2026-09-10T12:00:00+09:00

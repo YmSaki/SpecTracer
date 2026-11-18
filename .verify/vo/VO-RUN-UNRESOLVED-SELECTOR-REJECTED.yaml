@@ -1,0 +1,12 @@
+id: VO-RUN-UNRESOLVED-SELECTOR-REJECTED
+parent: null
+derives_from:
+  - doc: DS-744
+  - doc: DS-929
+claim: vtest runの--test/--voが検証グラフから展開できない未知idを指す場合、操作拒否として終了コード2で拒否され、対象が黙って除外されることはない
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-09-09T12:00:00+09:00
+updated: 2026-09-09T12:00:00+09:00

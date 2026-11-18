@@ -1,0 +1,40 @@
+//! Canonical `scan` operation, shared between the CLI's `run_scan` wrapper
+//! and `vtest-mcp`'s `scan` tool handler (DS-1563: MCP tools return the same
+//! `data` / `diagnostics` as the CLI JSON envelope for the same input).
+//!
+//! Returns the exit code and the JSON envelope value directly; printing and
+//! text rendering stay in the CLI's `lib.rs`.
+
+use std::path::Path;
+
+use vtest_adapter_api::AdapterRegistry;
+use vtest_model::ExitCode;
+use vtest_scan::scan_project;
+use vtest_store::load_config;
+
+pub fn execute(root: &Path, registry: &AdapterRegistry) -> (ExitCode, serde_json::Value) {
+    // config の拒否は操作拒否（E-CONFIG-001、DS-935）。読めない config は
+    // 内部エラー（E-INTERNAL-001、DS-930）。
+    if let Err(error) = load_config(root) {
+        return crate::envelope::config_failure(&error).result();
+    }
+    match scan_project(root, registry) {
+        Ok(result) => {
+            let has_errors = result.has_errors();
+            let data = serde_json::json!({
+                "files": result.summary.files,
+                "tests": result.summary.tests,
+                "sources": result.summary.sources,
+                "discovered": result.discovered.len(),
+            });
+            let envelope = crate::envelope::envelope_json(!has_errors, data, &result.diagnostics);
+            let exit = if has_errors {
+                ExitCode::VerificationFailed
+            } else {
+                ExitCode::Ok
+            };
+            (exit, envelope)
+        }
+        Err(error) => crate::envelope::scan_failure(&error).result(),
+    }
+}
