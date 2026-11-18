@@ -1063,6 +1063,22 @@
           }
         },
         {
+          "id": "SPEC-490",
+          "statement": "`go`・`javascript` のStructured Test Operation（`test create` / `test edit`）と組込Formは提供範囲外である。",
+          "derives_from": [
+            "R-2",
+            "REQ-263"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
           "id": "SPEC-459",
           "statement": "third-party plugin ABIは提供範囲外である。",
           "derives_from": [],

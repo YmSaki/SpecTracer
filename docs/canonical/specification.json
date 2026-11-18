@@ -612,6 +612,19 @@
           2
         ]
       }
+    },
+    {
+      "id": "ROOT-051",
+      "statement": "実際に使える状態にまで仕上げる。要求されている機能が実装されている状態になることが望ましい。少なくともdogfooding可能であり、rust以外の言語でも同様にツールを使用できる状態、できればalpha版やbeta版を突破してrc版になることが望ましい。",
+      "description": "Owner の作業指示 2026-11-19（PM が会話で受けた原文）。到達点の記録は Issue #270 の「目的」節。",
+      "source": {
+        "doc": "github:YmSaki/SpecTracer/issues/270",
+        "heading": "目的",
+        "lines": [
+          1,
+          7
+        ]
+      }
     }
   ],
   "request": [
@@ -700,6 +713,7 @@
       "id": "R-6",
       "statement": "v0.1 は、Rust に加えて Go と JavaScript・TypeScript の Test についても、実行による Evidence の記録と検証を提供する。",
       "derives_from": [
+        "ROOT-051",
         "ROOT-050"
       ],
       "cites": [
@@ -11369,21 +11383,6 @@
           }
         },
         {
-          "id": "SPEC-488",
-          "statement": "`rust-cargo`・`go`・`javascript` 以外のlanguage adapterを配布物に登録する場合、そのadapterはproduction language adapterではない。",
-          "derives_from": [
-            "REQ-264"
-          ],
-          "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-            "lines": [
-              25,
-              25
-            ]
-          }
-        },
-        {
           "id": "SPEC-219",
           "statement": "能力不足で確認できない項目は§8条項4に従い扱う。",
           "derives_from": [],
@@ -17221,6 +17220,22 @@
             "lines": [
               341,
               341
+            ]
+          }
+        },
+        {
+          "id": "SPEC-490",
+          "statement": "`go`・`javascript` のStructured Test Operation（`test create` / `test edit`）と組込Formは提供範囲外である。",
+          "derives_from": [
+            "R-2",
+            "REQ-263"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
             ]
           }
         },
@@ -30485,7 +30500,7 @@
             },
             {
               "id": "DS-1901",
-              "statement": "adapterのrunnerが実行できないTest constructのTestについて、runnerはEvidenceを生成しない。",
+              "statement": "adapterのrunnerが実行できないTest constructのTestについて、runnerはEvidenceを生成せず、診断W-EXEC-102を出す。",
               "derives_from": [],
               "source": {
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
@@ -30578,7 +30593,7 @@
             },
             {
               "id": "DS-750",
-              "statement": "プロセス終了コードと結果行の集計が矛盾する場合もE-EXEC-003とする。",
+              "statement": "プロセス終了コードと結果行の集計が矛盾する場合もE-EXEC-003とし、Evidenceを記録しない。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -30831,7 +30846,7 @@
             },
             {
               "id": "DS-1930",
-              "statement": "そのTest関数の名前と一致する結果を`go test`が2件以上報告した場合（同じdirectoryの`package x`と`package x_test`に同名のTest関数がある場合を含む）、Evidenceを記録しない。",
+              "statement": "そのTest関数の名前と一致する結果を`go test`が2件以上報告した場合（同じdirectoryの`package x`と`package x_test`に同名のTest関数がある場合を含む）は、E-EXEC-005とし、Evidenceを記録しない。",
               "description": "Test 名の一致だけでは、どちらの結果が当該 Test のものかを決められない。",
               "derives_from": [],
               "source": {
@@ -33325,6 +33340,21 @@
           }
         },
         {
+          "id": "DS-1931",
+          "statement": "`E-EXEC-005`はerrorであり、要求したテストに一致する結果が2件以上報告されることである。",
+          "derives_from": [
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
           "id": "DS-908",
           "statement": "`W-EXEC-101`はwarningであり、カバレッジツール利用不能である（target_coverageはchecked: false、検証時NO_EVIDENCE/NOT_CHECKED）。",
           "derives_from": [],
@@ -33334,6 +33364,19 @@
             "lines": [
               1630,
               1630
+            ]
+          }
+        },
+        {
+          "id": "DS-1932",
+          "statement": "`W-EXEC-102`はwarningであり、adapterのrunnerが実行できないTest constructであることである（Evidenceは生成せず、検証時NO_EVIDENCE/NOT_EXECUTED）。",
+          "derives_from": [],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
             ]
           }
         },
@@ -57975,6 +58018,7 @@
         {
           "id": "DES-629",
           "statement": "選択Testのビルドに含まれるパッケージ（標準libraryと依存moduleのパッケージを含む）のうちcgoを使うものが1つでもある場合、`go` adapterはsnapshotを完全と報告しない。",
+          "description": "制限: cgo を有効にした環境で `net`・`os/user` など cgo を使う標準 library を import する Test は、`go` adapter では snapshot が完全と報告されない。",
           "derives_from": [
             "DS-1390",
             "BD-357"
@@ -62344,7 +62388,7 @@
             },
             {
               "id": "DES-665",
-              "statement": "宣言targetの実行回数は、そのtargetのSource Target constructのsource範囲に開始位置が入るblockの実行回数の最大値とする。",
+              "statement": "宣言targetの実行回数は、そのtargetのSource Target constructのsource範囲に開始位置が入るblockの実行回数の合計とする。",
               "derives_from": [],
               "source": {
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/270",

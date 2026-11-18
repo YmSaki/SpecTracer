@@ -5053,21 +5053,6 @@
           }
         },
         {
-          "id": "SPEC-488",
-          "statement": "`rust-cargo`・`go`・`javascript` 以外のlanguage adapterを配布物に登録する場合、そのadapterはproduction language adapterではない。",
-          "derives_from": [
-            "REQ-264"
-          ],
-          "source": {
-            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
-            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
-            "lines": [
-              25,
-              25
-            ]
-          }
-        },
-        {
           "id": "SPEC-219",
           "statement": "能力不足で確認できない項目は§8条項4に従い扱う。",
           "derives_from": [],

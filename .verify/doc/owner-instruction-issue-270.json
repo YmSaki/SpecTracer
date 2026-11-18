@@ -1,0 +1,24 @@
+{
+  "schema_version": "0.1",
+  "root": [
+    {
+      "id": "ROOT-051",
+      "statement": "実際に使える状態にまで仕上げる。要求されている機能が実装されている状態になることが望ましい。少なくともdogfooding可能であり、rust以外の言語でも同様にツールを使用できる状態、できればalpha版やbeta版を突破してrc版になることが望ましい。",
+      "description": "Owner の作業指示 2026-11-19（PM が会話で受けた原文）。到達点の記録は Issue #270 の「目的」節。",
+      "source": {
+        "doc": "github:YmSaki/SpecTracer/issues/270",
+        "heading": "目的",
+        "lines": [
+          1,
+          7
+        ]
+      }
+    }
+  ],
+  "request": [],
+  "require": [],
+  "spec": [],
+  "detailed_spec": [],
+  "basic_design": [],
+  "design": []
+}
