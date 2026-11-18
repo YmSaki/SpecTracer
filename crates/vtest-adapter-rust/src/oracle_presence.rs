@@ -51,7 +51,10 @@
 //!   A call written inside a macro invocation's tokens is not a syntax-tree node
 //!   (#282; derivations from DS-615 / DS-651 / DS-1680): in the checked arguments of
 //!   `assert!` / `assert_eq!` / `assert_ne!` (read as expressions, with nested
-//!   `matches!`, `format!` and `vec!`) it verifies the target; a call-shaped use of
+//!   `matches!`, `format!` and `vec!`) it verifies the target only where its value
+//!   can reach the compared value, and a call whose value is dropped there (a block
+//!   statement, `let _ =`, a closure body, a loop, a branch condition) makes DA-003
+//!   `Unknown` (#289; see `CheckedCallVisitor`); a call-shaped use of
 //!   the target's name (`name(..)`, `name::<T>(..)`) in any other macro, in an
 //!   assert's message argument, or in tokens that do not parse as expressions
 //!   makes DA-003 `Unknown`. A bare reference or a path prefix (`name::item`) is
@@ -1111,12 +1114,7 @@ impl<'ast> Visit<'ast> for MacroUseVisitor<'_> {
             self.found.opaque = true;
             return;
         };
-        let mut calls = CheckedCallVisitor {
-            names: self.names,
-            path: false,
-            method: false,
-            opaque: false,
-        };
+        let mut calls = CheckedCallVisitor::new(self.names, None);
         for expression in &arguments.checked {
             calls.visit_expr(expression);
         }
@@ -1133,11 +1131,93 @@ impl<'ast> Visit<'ast> for MacroUseVisitor<'_> {
 /// Finds calls of the target in the checked arguments of an assert, reading a
 /// nested macro as `macro_arguments` does. The target's name as a value there is
 /// `opaque`, as outside a macro.
+///
+/// Derivation (not stated in DS-615 / DS-623 / DS-628 / DS-1680): a call verifies
+/// the target only where its value can reach the compared value, which is `flows`.
+/// The argument expression itself flows, and so do the operand of an operator, a
+/// method chain, a field, a reference, a cast or `?`, the tail expression of a
+/// block, and the tail expression of each branch of an `if` or a `match`. A block
+/// statement, the initializer of a `let` whose name the tail expression of the block
+/// does not carry on (`let _ =`, an unused name, a pattern that is not one name, a
+/// name bound again), a closure body, a loop, a branch condition or scrutinee, an
+/// assignment, `return`, `break` and an `async` block drop or hold the value
+/// instead; a call there is `opaque` (UNKNOWN: whether the value is verified is not
+/// shown, and a call in a position not listed above is read the same way, to the
+/// side of UNKNOWN). A `let` name is followed only through the tail expression of its
+/// own block, one binding deep (DS-628's `let` binding, bounded as the rest of
+/// DA-003 is).
 struct CheckedCallVisitor<'a> {
     names: &'a NameUse<'a>,
+    /// The name of a `let` whose reach into the tail expression of its block is
+    /// being probed, instead of the target's calls.
+    probe: Option<&'a str>,
+    flows: bool,
     path: bool,
     method: bool,
     opaque: bool,
+    /// `probe` is used where it flows.
+    probe_flows: bool,
+    /// `probe` is bound or assigned again.
+    probe_rebound: bool,
+}
+
+impl<'a> CheckedCallVisitor<'a> {
+    fn new(names: &'a NameUse<'a>, probe: Option<&'a str>) -> Self {
+        Self {
+            names,
+            probe,
+            flows: true,
+            path: false,
+            method: false,
+            opaque: false,
+            probe_flows: false,
+            probe_rebound: false,
+        }
+    }
+
+    fn dropping(&mut self, visit: impl FnOnce(&mut Self)) {
+        let outer = self.flows;
+        self.flows = false;
+        visit(self);
+        self.flows = outer;
+    }
+
+    /// Whether the value of `local`'s initializer reaches the tail expression of
+    /// its block: a single name bound once, used where the tail expression flows,
+    /// and not assigned or bound again in the statements after it.
+    fn local_reaches_tail(&self, local: &syn::Local, rest: &[syn::Stmt]) -> bool {
+        let mut pattern = &local.pat;
+        while let syn::Pat::Type(typed) = pattern {
+            pattern = &typed.pat;
+        }
+        let syn::Pat::Ident(binding) = pattern else {
+            return false;
+        };
+        let Some((tail, statements)) = rest.split_last() else {
+            return false;
+        };
+        let syn::Stmt::Expr(tail, None) = tail else {
+            return false;
+        };
+        if binding.by_ref.is_some()
+            || binding.subpat.is_some()
+            || local
+                .init
+                .as_ref()
+                .is_none_or(|init| init.diverge.is_some())
+        {
+            return false;
+        }
+        let name = binding.ident.to_string();
+        let mut probe = CheckedCallVisitor::new(self.names, Some(&name));
+        probe.flows = false;
+        for statement in statements {
+            probe.visit_stmt(statement);
+        }
+        probe.flows = true;
+        probe.visit_expr(tail);
+        probe.probe_flows && !probe.probe_rebound
+    }
 }
 
 impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
@@ -1149,7 +1229,11 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
                 .last()
                 .is_some_and(|segment| segment.ident == self.names.symbol)
             {
-                self.path = true;
+                if self.flows {
+                    self.path = true;
+                } else {
+                    self.opaque = true;
+                }
             }
         } else {
             self.visit_expr(&node.func);
@@ -1161,19 +1245,123 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
 
     fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
         if node.method == self.names.symbol {
-            self.method = true;
+            if self.flows {
+                self.method = true;
+            } else {
+                self.opaque = true;
+            }
         }
         syn::visit::visit_expr_method_call(self, node);
     }
 
     fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
+        if let Some(name) = self.probe {
+            if node.qself.is_none() && node.path.is_ident(name) && self.flows {
+                self.probe_flows = true;
+            }
+            return;
+        }
         if self.names.path_is_value_use(node) {
             self.opaque = true;
         }
     }
 
+    fn visit_pat_ident(&mut self, node: &'ast syn::PatIdent) {
+        if self.probe.is_some_and(|name| node.ident == name) {
+            self.probe_rebound = true;
+        }
+        syn::visit::visit_pat_ident(self, node);
+    }
+
+    fn visit_block(&mut self, node: &'ast syn::Block) {
+        let outer = self.flows;
+        for (index, statement) in node.stmts.iter().enumerate() {
+            self.flows = outer
+                && match statement {
+                    syn::Stmt::Expr(_, None) => index + 1 == node.stmts.len(),
+                    syn::Stmt::Local(local) => {
+                        self.local_reaches_tail(local, &node.stmts[index + 1..])
+                    }
+                    syn::Stmt::Expr(_, Some(_)) | syn::Stmt::Item(_) | syn::Stmt::Macro(_) => false,
+                };
+            self.visit_stmt(statement);
+        }
+        self.flows = outer;
+    }
+
+    fn visit_expr_closure(&mut self, node: &'ast syn::ExprClosure) {
+        self.dropping(|visitor| syn::visit::visit_expr_closure(visitor, node));
+    }
+
+    fn visit_expr_for_loop(&mut self, node: &'ast syn::ExprForLoop) {
+        self.dropping(|visitor| syn::visit::visit_expr_for_loop(visitor, node));
+    }
+
+    fn visit_expr_while(&mut self, node: &'ast syn::ExprWhile) {
+        self.dropping(|visitor| syn::visit::visit_expr_while(visitor, node));
+    }
+
+    fn visit_expr_loop(&mut self, node: &'ast syn::ExprLoop) {
+        self.dropping(|visitor| syn::visit::visit_expr_loop(visitor, node));
+    }
+
+    fn visit_expr_async(&mut self, node: &'ast syn::ExprAsync) {
+        self.dropping(|visitor| syn::visit::visit_expr_async(visitor, node));
+    }
+
+    fn visit_expr_return(&mut self, node: &'ast syn::ExprReturn) {
+        self.dropping(|visitor| syn::visit::visit_expr_return(visitor, node));
+    }
+
+    fn visit_expr_break(&mut self, node: &'ast syn::ExprBreak) {
+        self.dropping(|visitor| syn::visit::visit_expr_break(visitor, node));
+    }
+
+    fn visit_expr_if(&mut self, node: &'ast syn::ExprIf) {
+        self.dropping(|visitor| visitor.visit_expr(&node.cond));
+        self.visit_block(&node.then_branch);
+        if let Some((_, other)) = &node.else_branch {
+            self.visit_expr(other);
+        }
+    }
+
+    fn visit_expr_match(&mut self, node: &'ast syn::ExprMatch) {
+        self.dropping(|visitor| visitor.visit_expr(&node.expr));
+        for arm in &node.arms {
+            self.visit_pat(&arm.pat);
+            if let Some((_, guard)) = &arm.guard {
+                self.dropping(|visitor| visitor.visit_expr(guard));
+            }
+            self.visit_expr(&arm.body);
+        }
+    }
+
+    fn visit_expr_assign(&mut self, node: &'ast syn::ExprAssign) {
+        if self
+            .probe
+            .is_some_and(|name| is_assignment_to(&node.left, name))
+        {
+            self.probe_rebound = true;
+        }
+        self.dropping(|visitor| syn::visit::visit_expr_assign(visitor, node));
+    }
+
+    fn visit_expr_binary(&mut self, node: &'ast syn::ExprBinary) {
+        if is_compound_assignment(node.op) {
+            if self
+                .probe
+                .is_some_and(|name| is_assignment_to(&node.left, name))
+            {
+                self.probe_rebound = true;
+            }
+            self.dropping(|visitor| syn::visit::visit_expr_binary(visitor, node));
+        } else {
+            syn::visit::visit_expr_binary(self, node);
+        }
+    }
+
     fn visit_macro(&mut self, node: &'ast syn::Macro) {
-        if !self.names.tokens_use_name(node.tokens.clone()) {
+        if self.probe.is_none() && !self.names.tokens_use_name(node.tokens.clone()) {
             return;
         }
         let Some(arguments) = macro_arguments(node) else {
@@ -2820,6 +3008,114 @@ mod tests {
             "#[test]\nfn t() {\n    let r = double(2);\n    assert_eq!(r, 4);\n    let f = double;\n}\n",
         ] {
             let analysis = analyze(text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::NoViolation),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// A call in a position of an assert's checked argument where its value is
+    /// dropped (a statement of a block, a `let _`, a closure body, a loop, a branch
+    /// condition) does not verify the target.
+    /// @vtest.id TEST-ORACLE-DA-003-DISCARDED-CALL-IN-ASSERT-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN, VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.intent assert の検査される引数の中で、ブロックの文、let _、使われない let の束縛、クロージャの本体、ループ、if と match の条件と被検査式、代入の右辺にある target の呼出は、結果が比較される値へ流れないので検証済みと数えず、DA-003 が UNKNOWN で合成結果が PASS にならないことを確認する
+    #[test]
+    fn a_call_whose_value_is_dropped_inside_an_assert_argument_is_unknown() {
+        for text in [
+            "assert!({ double(2); true });",
+            "assert_eq!({ let _ = double(2); 1 }, 1);",
+            "assert_ne!({ let _ = double(2); 1 }, 2);",
+            "assert_eq!(1, { double(2); 1 });",
+            "assert!((|| { double(2); true })());",
+            "assert!((|| double(2) == 4)());",
+            "assert_eq!(xs.iter().map(|x| double(*x)).sum::<i32>(), 4);",
+            "assert!({ for i in 0..2 { double(i); } true });",
+            "assert!({ while c { double(2); } true });",
+            "assert!({ loop { double(2); break; } true });",
+            "assert!({ let x = double(2); true });",
+            "assert!({ let x = double(2); let _y = 1; true });",
+            "assert_eq!({ let (a, b) = (double(2), 1); b }, 1);",
+            "assert!({ let r = double(2); true && { r; false } });",
+            "assert!({ let r = double(2); (|| r)() == 4 });",
+            "assert!({ let r = double(2); let r = 4; r == 4 });",
+            "assert!({ let mut r = 0; r = double(2); r == 4 });",
+            "assert!({ let mut r = 0; r += double(2); r == 4 });",
+            "assert!(if double(2) > 0 { true } else { false });",
+            "assert!(match double(2) { 4 => true, _ => false });",
+            "assert!(match c { _ => { double(2); true } });",
+            "assert!({ match c { _ => { double(2); } } true });",
+            "assert_eq!(unsafe { double(2); 1 }, 1);",
+            "assert!({ format!(\"{}\", double(2)); true });",
+            "assert!({ let _f = async { double(2) }; true });",
+            "assert!({ let r = double(2); let s = r + 1; s == 5 });",
+            "assert!({ s.double(2); true });",
+            "assert!({ let _ = s.double(2); true });",
+            "assert!({ let _ = Calc::double(2); true });",
+            "assert!({ let _ = double::<u8>(2); true });",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {text}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            let (is_fail, is_unknown, basis) = compose(&analysis);
+            assert!(
+                !is_fail && is_unknown,
+                "{text}: not UNKNOWN: {basis:?} / {:?}",
+                analysis.da_003
+            );
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// A call whose value can reach the compared value still verifies the target.
+    /// @vtest.id TEST-ORACLE-DA-003-CALL-REACHING-THE-ASSERT-STAYS-NO-VIOLATION
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.intent assert の検査される引数の式そのもの、二項演算、メソッドチェーン、フィールド、参照、キャスト、? の被演算子、ブロックの末尾の式、末尾で使われる let の束縛、if と match の各分岐の末尾の式にある target の呼出は、検証済みと数えられ、DA-003 が違反なしのままであることを確認する
+    #[test]
+    fn a_call_whose_value_reaches_the_compared_value_inside_an_assert_stays_no_violation() {
+        for text in [
+            "assert_eq!(double(2), 4);",
+            "assert!(double(2) > 0);",
+            "assert_eq!(1, double(2));",
+            "assert_eq!(double(2) + 1, 5);",
+            "assert_eq!(-double(2), -4);",
+            "assert!(!(double(2) == 5));",
+            "assert_eq!(double(2).abs(), 4);",
+            "assert_eq!(double(2).0, 4);",
+            "assert_eq!(&double(2), &4);",
+            "assert_eq!(double(2) as u8, 4);",
+            "assert_eq!(double(2)?, 4);",
+            "assert_eq!(Calc::double(2), 4);",
+            "assert_eq!(double::<u8>(2), 4);",
+            "assert_eq!(s.double(2), 4);",
+            "assert_eq!(double(double(2)), 8);",
+            "assert_eq!(identity(double(2)), 4);",
+            "assert_eq!((double(2), 1), (4, 1));",
+            "assert_eq!(vec![double(2)], vec![4]);",
+            "assert_eq!(format!(\"{}\", double(2)), \"4\");",
+            "assert!(matches!(double(2), 4));",
+            "assert!({ double(2) == 4 });",
+            "assert!(unsafe { double(2) } == 4);",
+            "assert_eq!({ let _unused = 1; double(2) }, 4);",
+            "assert_eq!({ let r = double(2); r }, 4);",
+            "assert_eq!({ let r: i32 = double(2); r }, 4);",
+            "assert_eq!({ let r = double(2); r + 1 }, 5);",
+            "assert_eq!({ let r = double(2); r.value }, 4);",
+            "assert_eq!({ let r = double(2); &r }, &4);",
+            "assert!(if c { double(2) == 4 } else { false });",
+            "assert_eq!(if c { double(2) } else { 0 }, 4);",
+            "assert!(match c { true => double(2) == 4, false => false });",
+            "assert_eq!(match c { 0 => 1, _ => double(2) }, 4);",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {text}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
             assert!(
                 matches!(analysis.da_003, DaVerdict::NoViolation),
                 "{text}: {:?}",
