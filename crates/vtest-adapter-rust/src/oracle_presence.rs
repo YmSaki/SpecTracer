@@ -942,38 +942,35 @@ struct NameUse<'a> {
     /// callable, and Rust names them in upper case, so its value is not an
     /// indirect call.
     is_constant: bool,
-    /// Where the name is bound by a `let` statement of the function body's top
-    /// level (the end of the first such `let`): a single-segment path after it
-    /// names that local, not the target (derivation). A binding in a nested block,
-    /// a closure, a match arm, a nested fn or an assignment does not scope over
-    /// the rest of the body, so it is no exception.
-    local_from: Option<usize>,
+    /// The byte ranges in which the name is bound by a `let` statement: from the
+    /// end of the `let` to the end of its block. A single-segment path inside one
+    /// names that local, not the target (derivation: lexical scope). A binding in
+    /// a closure, a match arm, a nested fn or an assignment is no exception, and
+    /// neither is a use before the `let` or outside its block.
+    local_ranges: Vec<(usize, usize)>,
 }
 
 impl<'a> NameUse<'a> {
     fn new(text: &'a str, symbol: &'a str, function: &syn::ItemFn) -> Self {
-        let local_from = function
-            .block
-            .stmts
-            .iter()
-            .filter_map(|statement| match statement {
-                syn::Stmt::Local(local) if pattern_binds(&local.pat, symbol) => {
-                    Some(span_offset(local.span().end(), text))
-                }
-                _ => None,
-            })
-            .min();
+        let mut scopes = LetScopeVisitor {
+            text,
+            symbol,
+            ranges: Vec::new(),
+        };
+        scopes.visit_item_fn(function);
         Self {
             symbol,
             text,
             is_constant: is_constant_name(symbol),
-            local_from,
+            local_ranges: scopes.ranges,
         }
     }
 
     fn is_local_at(&self, location: proc_macro2::LineColumn) -> bool {
-        self.local_from
-            .is_some_and(|from| span_offset(location, self.text) >= from)
+        let offset = span_offset(location, self.text);
+        self.local_ranges
+            .iter()
+            .any(|&(from, to)| offset >= from && offset < to)
     }
 
     /// An expression path that is a value use of the target.
@@ -1023,6 +1020,27 @@ impl<'a> NameUse<'a> {
             }
             TokenTree::Ident(_) | TokenTree::Punct(_) | TokenTree::Literal(_) => false,
         })
+    }
+}
+
+struct LetScopeVisitor<'a> {
+    text: &'a str,
+    symbol: &'a str,
+    ranges: Vec<(usize, usize)>,
+}
+
+impl<'ast> Visit<'ast> for LetScopeVisitor<'_> {
+    fn visit_block(&mut self, node: &'ast syn::Block) {
+        let block_end = span_offset(node.brace_token.span.join().end(), self.text);
+        for statement in &node.stmts {
+            if let syn::Stmt::Local(local) = statement {
+                if pattern_binds(&local.pat, self.symbol) {
+                    self.ranges
+                        .push((span_offset(local.span().end(), self.text), block_end));
+                }
+            }
+        }
+        syn::visit::visit_block(self, node);
     }
 }
 
@@ -2711,15 +2729,22 @@ mod tests {
         }
     }
 
-    /// The local exception covers only a `let` of the body's top level and the
-    /// uses after it: a binding in a nested block, a closure, a match arm, a nested
-    /// fn or an assignment, and a use before the `let`, are no exception.
+    /// The local exception covers only a `let` and the uses after it in its own
+    /// block: a use outside that block or before the `let`, and a binding in a
+    /// closure, a match arm, a nested fn or an assignment, are no exception.
     /// @vtest.id TEST-ORACLE-DA-003-LOCAL-EXCEPTION-IS-SCOPED
     /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::NameUse::new
-    /// @vtest.intent 同名のローカルの例外は、関数本体の最上位の let とその後ろの使用だけに効き、ブロックの中の束縛、クロージャの引数、match のアーム、ネストした fn の引数、代入、let より前の使用には効かず、DA-003 が UNKNOWN になることを確認する
+    /// @vtest.intent 同名のローカルの例外は、let とその同じブロックの中の後ろの使用だけに効き、ブロックの外の使用、let より前の使用、クロージャの引数、match のアーム、ネストした fn の引数、代入には効かず、DA-003 が UNKNOWN になることを確認する
     #[test]
-    fn the_local_name_exception_is_scoped_to_a_top_level_let() {
+    fn the_local_name_exception_is_scoped_to_its_let() {
+        let in_block = "#[test]\nfn t() {\n    for i in 0..2 {\n        let double = make(i);\n        assert_eq!(double[\"a\"], 1);\n    }\n    assert_eq!(other(), 1);\n}\n";
+        let analysis = analyze(in_block, &["double".to_owned()], &[]);
+        assert!(
+            matches!(analysis.da_003, DaVerdict::NoViolation),
+            "{:?}",
+            analysis.da_003
+        );
         for text in [
             "#[test]\nfn t() {\n    { let double = 1; }\n    apply(double);\n    assert_eq!(other(), 1);\n}\n",
             "#[test]\nfn t() {\n    let f = double;\n    let double = 5;\n    f(2);\n    assert_eq!(other(), double);\n}\n",
