@@ -12,7 +12,7 @@
 //! CoverageTargetMeasurement`]（DS-832の3値判定済み）を`target_coverage`へ
 //! 写すだけになる。
 
-use std::{path::Path, process::Command};
+use std::{collections::BTreeSet, path::Path, process::Command};
 
 use vtest_adapter_api::{CoverageAdapter, CoverageTargetMeasurement, CoverageUnavailable};
 use vtest_model::{Locator, TargetCoverageResult};
@@ -50,6 +50,7 @@ impl CoverageAdapter for RustCargoCoverageAdapter {
 
     fn measure(
         &self,
+        root: &Path,
         coverage_output_path: &Path,
         targets: &[Locator],
     ) -> Vec<CoverageTargetMeasurement> {
@@ -59,7 +60,7 @@ impl CoverageAdapter for RustCargoCoverageAdapter {
             .map(|target| {
                 let count = output
                     .as_deref()
-                    .and_then(|output| llvm_cov_function_count(output, target));
+                    .and_then(|output| llvm_cov_function_count(output, root, target));
                 match count {
                     Some(count) => CoverageTargetMeasurement {
                         target: target.clone(),
@@ -134,10 +135,10 @@ enum TargetMatch {
         name: String,
         construct: ResolvedConstruct,
     },
-    /// The measured file cannot be read (e.g. coverage output from another
-    /// machine): the plain item path is compared with the symbol name. A
-    /// disambiguated Locator is never matched this way, so it stays
-    /// UNKNOWN rather than borrowing another branch's count.
+    /// The target's source file cannot be read or does not hold exactly one
+    /// construct with this Locator: the plain item path is compared with
+    /// the symbol name. A disambiguated Locator is never matched this way,
+    /// so it stays UNKNOWN rather than borrowing another branch's count.
     ItemPath(String),
 }
 
@@ -192,65 +193,87 @@ fn is_disambiguated(item_path: &str) -> bool {
 }
 
 /// Resolves `target` to the one source construct the `rust-cargo` scanner
-/// gives that Locator, using the project root implied by an absolute
-/// llvm-cov filename that ends with the Locator's path.
-fn resolve_target(data: &[serde_json::Value], target: &Locator) -> Option<ResolvedConstruct> {
+/// gives that Locator in the target's own source file, `<root>/<path>`.
+fn resolve_target(root: &Path, target: &Locator) -> Option<ResolvedConstruct> {
     let (target_path, _) = locator_parts(target);
-    let suffix = target_path.replace('\\', "/");
-    let filenames = data
+    let file = root.join(target_path);
+    let text = std::fs::read_to_string(&file).ok()?;
+    let mut scanner = crate::Scanner::new(root, "");
+    scanner.scan_file(&file).ok()?;
+    let outcome = scanner.finish(1);
+    let mut found = outcome
+        .sources
         .iter()
+        .filter(|source| source.locator.value == target.value);
+    let (Some(source), None) = (found.next(), found.next()) else {
+        return None;
+    };
+    let range_of = |range: &vtest_model::SourceRange| (range.start, range.end);
+    let others = outcome
+        .sources
+        .iter()
+        .filter(|other| other.locator.value != target.value)
+        .map(|other| range_of(&other.location.byte_range))
+        .collect();
+    let line_starts = std::iter::once(0)
+        .chain(
+            text.bytes()
+                .enumerate()
+                .filter(|&(_, byte)| byte == b'\n')
+                .map(|(index, _)| index as u64 + 1),
+        )
+        .collect();
+    Some(ResolvedConstruct {
+        range: range_of(&source.location.byte_range),
+        others,
+        line_starts,
+    })
+}
+
+/// The `filenames` entries of the output that name the target's own source
+/// file, `<root>/<target_path>`.
+///
+/// DES-457 requires the end of a filename to match the Locator's path. That
+/// alone also holds for another file whose path merely ends the same way
+/// (`crates/helper/src/lib.rs` for `src/lib.rs`), and a same-named function
+/// there would lend its count to a target that never ran (#257). A Locator's
+/// path is relative to the project root, and the target is the Source Target
+/// that Locator names (DS-1412), so only the file at `<root>/<target_path>`
+/// is the target's: a filename counts when it ends with the path and names
+/// that file.
+fn target_filenames<'a>(
+    data: &'a [serde_json::Value],
+    root: &Path,
+    target_path: &str,
+) -> BTreeSet<&'a str> {
+    let target_file = root.join(target_path);
+    data.iter()
         .filter_map(|item| item.get("functions")?.as_array())
         .flatten()
         .filter_map(|function| function.get("filenames")?.as_array())
         .flatten()
-        .filter_map(serde_json::Value::as_str);
-    for filename in filenames {
-        let normalized = filename.replace('\\', "/");
-        let Some(root) = normalized.strip_suffix(&suffix) else {
-            continue;
-        };
-        if !root.ends_with('/') || !Path::new(root).is_absolute() {
-            continue;
-        }
-        let root = Path::new(root);
-        let file = root.join(target_path);
-        let Ok(text) = std::fs::read_to_string(&file) else {
-            continue;
-        };
-        let mut scanner = crate::Scanner::new(root, "");
-        if scanner.scan_file(&file).is_err() {
-            continue;
-        }
-        let outcome = scanner.finish(1);
-        let mut found = outcome
-            .sources
-            .iter()
-            .filter(|source| source.locator.value == target.value);
-        let (Some(source), None) = (found.next(), found.next()) else {
-            return None;
-        };
-        let range_of = |range: &vtest_model::SourceRange| (range.start, range.end);
-        let others = outcome
-            .sources
-            .iter()
-            .filter(|other| other.locator.value != target.value)
-            .map(|other| range_of(&other.location.byte_range))
-            .collect();
-        let line_starts = std::iter::once(0)
-            .chain(
-                text.bytes()
-                    .enumerate()
-                    .filter(|&(_, byte)| byte == b'\n')
-                    .map(|(index, _)| index as u64 + 1),
-            )
-            .collect();
-        return Some(ResolvedConstruct {
-            range: range_of(&source.location.byte_range),
-            others,
-            line_starts,
-        });
+        .filter_map(serde_json::Value::as_str)
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .filter(|filename| {
+            path_suffix_matches(filename, target_path) && is_same_file(filename, &target_file)
+        })
+        .collect()
+}
+
+/// Whether `filename` (as llvm-cov wrote it) names `target_file`. Both are
+/// resolved through the file system when they exist, so a relative root, a
+/// `.` component or a symbolic link in either spelling does not hide the
+/// match; when either cannot be resolved (the file is gone), the spellings
+/// are compared with `\\` and `/` taken as the same separator.
+fn is_same_file(filename: &str, target_file: &Path) -> bool {
+    match (
+        std::fs::canonicalize(filename),
+        std::fs::canonicalize(target_file),
+    ) {
+        (Ok(filename), Ok(target_file)) => filename == target_file,
+        _ => filename.replace('\\', "/") == target_file.to_string_lossy().replace('\\', "/"),
     }
-    None
 }
 
 /// The earliest `(line, column)` among a function record's regions.
@@ -266,13 +289,14 @@ fn function_start(function: &serde_json::Value) -> Option<(u64, u64)> {
         .min()
 }
 
-fn llvm_cov_function_count(output: &str, target: &Locator) -> Option<u64> {
+fn llvm_cov_function_count(output: &str, root: &Path, target: &Locator) -> Option<u64> {
     let value = serde_json::from_str::<serde_json::Value>(output).ok()?;
     let data = value.get("data")?.as_array()?;
     let mut total = 0_u64;
     let mut matched = false;
     let (target_path, target_item_path) = locator_parts(target);
-    let rule = match resolve_target(data, target) {
+    let target_filenames = target_filenames(data, root, target_path);
+    let rule = match resolve_target(root, target) {
         Some(construct) => TargetMatch::Span {
             name: construct_name(target_item_path).to_owned(),
             construct,
@@ -298,7 +322,7 @@ fn llvm_cov_function_count(output: &str, target: &Locator) -> Option<u64> {
                 }
                 TargetMatch::ItemPath(item_path) => llvm_name_matches(name, item_path),
             };
-            if !name_matches || !llvm_filenames_match(function, target_path) {
+            if !name_matches || !llvm_filenames_match(function, &target_filenames) {
                 continue;
             }
             let function_count = function
@@ -341,7 +365,7 @@ fn llvm_name_matches(name: &str, item_path: &str) -> bool {
         .is_some_and(|arguments| !arguments.is_empty() && arguments.ends_with('>'))
 }
 
-fn llvm_filenames_match(function: &serde_json::Value, target_path: &str) -> bool {
+fn llvm_filenames_match(function: &serde_json::Value, target_filenames: &BTreeSet<&str>) -> bool {
     function
         .get("filenames")
         .and_then(serde_json::Value::as_array)
@@ -349,7 +373,7 @@ fn llvm_filenames_match(function: &serde_json::Value, target_path: &str) -> bool
             filenames.iter().any(|filename| {
                 filename
                     .as_str()
-                    .is_some_and(|filename| path_suffix_matches(filename, target_path))
+                    .is_some_and(|filename| target_filenames.contains(filename))
             })
         })
 }
@@ -384,6 +408,63 @@ mod tests {
         path
     }
 
+    /// The project root of the unit fixtures whose source files do not
+    /// exist: their llvm-cov filenames are spelled under this root.
+    const FIXTURE_ROOT: &str = "/vtest-fixture-project";
+
+    /// #257: `crates/helper/src/lib.rs` ends with `src/lib.rs` too. Its
+    /// same-named function is another Source Target, so its count is not the
+    /// target's: the target that never ran stays at 0 (FAIL, DS-767), and a
+    /// target whose own file the output does not mention is not located
+    /// (UNKNOWN, DS-768) instead of taking the other file's count.
+    /// @vtest.id TEST-ADAPTER-RUST-LLVM-COV-OTHER-FILE-WITH-SAME-PATH-ENDING-NOT-COUNTED
+    /// @vtest.covers VO-EXEC-LLVM-COV-ZERO-COUNT-DISTINCT-FROM-UNKNOWN, VO-EXEC-TARGET-COVERAGE-COUNT-JUDGEMENT
+    /// @vtest.target crates/vtest-adapter-rust/src/coverage.rs::llvm_cov_function_count
+    /// @vtest.target crates/vtest-adapter-rust/src/coverage.rs::target_filenames
+    /// @vtest.intent Locatorのpathで終わる別ファイル（crates/helper/src/lib.rs、xsrc/lib.rs）の同名関数のcountをtargetに合算せず、target自身のファイルのcount（0）だけを返し、target自身のファイルが出力に無ければNoneを返すことを確認する
+    #[test]
+    fn a_same_named_function_in_another_file_does_not_lend_its_count() {
+        let target = rust_locator("src/lib.rs", "double");
+        let other_files = r#"
+                    {
+                        "name": "helper::double",
+                        "filenames": ["/vtest-fixture-project/crates/helper/src/lib.rs"],
+                        "count": 3
+                    },
+                    {
+                        "name": "sibling::double",
+                        "filenames": ["/vtest-fixture-project/xsrc/lib.rs"],
+                        "count": 5
+                    }"#;
+        let with_own_file = format!(
+            r#"{{"data": [{{"functions": [
+                    {{
+                        "name": "fx::double",
+                        "filenames": ["/vtest-fixture-project/src/lib.rs"],
+                        "count": 0
+                    }},{other_files}
+            ]}}]}}"#
+        );
+        let root = Path::new(FIXTURE_ROOT);
+        assert_eq!(
+            llvm_cov_function_count(&with_own_file, root, &target),
+            Some(0)
+        );
+
+        let without_own_file = format!(r#"{{"data": [{{"functions": [{other_files}]}}]}}"#);
+        assert_eq!(
+            llvm_cov_function_count(&without_own_file, root, &target),
+            None
+        );
+
+        // The member's own Locator still gets the member's count.
+        let member = rust_locator("crates/helper/src/lib.rs", "double");
+        assert_eq!(
+            llvm_cov_function_count(&with_own_file, root, &member),
+            Some(3)
+        );
+    }
+
     /// @vtest.id TEST-ADAPTER-RUST-LLVM-COV-FUNCTION-COUNT-MATCH-AND-SUM
     /// @vtest.covers VO-EXEC-LLVM-COV-FUNCTIONS-LOOKUP, VO-EXEC-LLVM-COV-LOCATOR-SUFFIX-MATCH, VO-EXEC-LLVM-COV-GENERIC-COUNTS-SUM
     /// @vtest.target crates/vtest-adapter-rust/src/coverage.rs::llvm_cov_function_count
@@ -412,10 +493,11 @@ mod tests {
                 ]
             }]
         }"#;
-        assert_eq!(llvm_cov_function_count(output, &target), Some(5));
+        let root = Path::new("C:/workspace/calc");
+        assert_eq!(llvm_cov_function_count(output, root, &target), Some(5));
 
         let absent = rust_locator("src/lib.rs", "subtract");
-        assert_eq!(llvm_cov_function_count(output, &absent), None);
+        assert_eq!(llvm_cov_function_count(output, root, &absent), None);
     }
 
     /// @vtest.id TEST-ADAPTER-RUST-LLVM-COV-ZERO-COUNT-NOT-CONFUSED-WITH-UNKNOWN
@@ -429,12 +511,15 @@ mod tests {
             "data": [{
                 "functions": [{
                     "name": "calc::add",
-                    "filenames": ["src/lib.rs"],
+                    "filenames": ["/vtest-fixture-project/src/lib.rs"],
                     "count": 0
                 }]
             }]
         }"#;
-        assert_eq!(llvm_cov_function_count(output, &target), Some(0));
+        assert_eq!(
+            llvm_cov_function_count(output, Path::new(FIXTURE_ROOT), &target),
+            Some(0)
+        );
     }
 
     /// @vtest.id TEST-ADAPTER-RUST-LLVM-COV-DEMANGLE-RUST-V0-NAME-MATCH
@@ -511,8 +596,8 @@ mod tests {
         let output = r#"{
             "data": [{
                 "functions": [
-                    { "name": "calc::add", "filenames": ["src/lib.rs"], "count": 4 },
-                    { "name": "calc::subtract", "filenames": ["src/lib.rs"], "count": 0 }
+                    { "name": "calc::add", "filenames": ["/vtest-fixture-project/src/lib.rs"], "count": 4 },
+                    { "name": "calc::subtract", "filenames": ["/vtest-fixture-project/src/lib.rs"], "count": 0 }
                 ]
             }]
         }"#;
@@ -523,7 +608,7 @@ mod tests {
             rust_locator("src/lib.rs", "subtract"),
             rust_locator("src/lib.rs", "multiply"),
         ];
-        let measurements = adapter.measure(&path, &targets);
+        let measurements = adapter.measure(Path::new(FIXTURE_ROOT), &path, &targets);
         assert_eq!(measurements.len(), 3);
         assert_eq!(measurements[0].result, TargetCoverageResult::Pass);
         assert_eq!(measurements[0].count, Some(4));
@@ -697,7 +782,7 @@ assert!(super::A::f(&w) + super::a::f() + super::g() + <super::W as super::T<[u8
             );
         }
 
-        let measured = RustCargoCoverageAdapter::new().measure(&output_path, &targets);
+        let measured = RustCargoCoverageAdapter::new().measure(&root, &output_path, &targets);
         let results: Vec<_> = measured
             .iter()
             .map(|measurement| (measurement.result, measurement.count.map(|count| count > 0)))
@@ -793,7 +878,7 @@ assert_eq!(super::A::f(&super::Widget) + super::g(), if cfg!(unix) { 4 } else { 
             );
         }
 
-        let measured = RustCargoCoverageAdapter::new().measure(&output_path, &targets);
+        let measured = RustCargoCoverageAdapter::new().measure(&root, &output_path, &targets);
         let results: Vec<_> = measured
             .iter()
             .map(|measurement| (measurement.result, measurement.count.map(|count| count > 0)))
@@ -812,8 +897,77 @@ assert_eq!(super::A::f(&super::Widget) + super::g(), if cfg!(unix) { 4 } else { 
         // Without the source file the disambiguated Locators cannot be tied
         // to one construct, so they are UNKNOWN, never another one's count.
         std::fs::remove_file(root.join("src/lib.rs")).expect("remove lib.rs");
-        let measured = RustCargoCoverageAdapter::new().measure(&output_path, &targets[..1]);
+        let measured = RustCargoCoverageAdapter::new().measure(&root, &output_path, &targets[..1]);
         assert_eq!(measured[0].result, TargetCoverageResult::Unknown);
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// #257 with real cargo-llvm-cov: a workspace whose root package and
+    /// member both have `src/lib.rs` with a method `new` at the same line and
+    /// column. The Test calls only the member's. The root package's
+    /// `Account::new` is measured from its own file (count 0, FAIL) and the
+    /// member's `Session::new` from its own (PASS).
+    /// @vtest.id TEST-ADAPTER-RUST-COVERAGE-WORKSPACE-MEMBER-WITH-SAME-PATH-ENDING
+    /// @vtest.covers VO-EXEC-TARGET-COVERAGE-COUNT-JUDGEMENT
+    /// @vtest.target crates/vtest-adapter-rust/src/coverage.rs::RustCargoCoverageAdapter::measure
+    /// @vtest.target crates/vtest-adapter-rust/src/coverage.rs::resolve_target
+    /// @vtest.intent ルートpackageとworkspace memberの両方のsrc/lib.rsに同じ位置・同じ名前のメソッドがあり、Testがmember側だけを呼ぶとき、ルート側のtargetがFAIL（count 0）、member側のtargetがPASSと判定されることを実cargo-llvm-covで確認する
+    #[test]
+    fn real_llvm_cov_does_not_count_a_workspace_member_for_the_root_package() {
+        let root = std::env::temp_dir().join(format!(
+            "vtest-adapter-rust-coverage-workspace-member-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("src")).expect("create src");
+        std::fs::create_dir_all(root.join("crates/helper/src")).expect("create member src");
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n\
+[dependencies]\nhelper = { path = \"crates/helper\" }\n\n\
+[workspace]\nmembers = [\"crates/helper\"]\n",
+        )
+        .expect("write manifest");
+        std::fs::write(
+            root.join("crates/helper/Cargo.toml"),
+            "[package]\nname = \"helper\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .expect("write member manifest");
+        std::fs::write(
+            root.join("crates/helper/src/lib.rs"),
+            "pub struct Session;\n\
+impl Session {\n    pub fn new() -> Self {\n        Session\n    }\n}\n",
+        )
+        .expect("write member lib.rs");
+        std::fs::write(
+            root.join("src/lib.rs"),
+            "pub struct Account;\n\
+impl Account {\n    pub fn new() -> Self {\n        Account\n    }\n}\n\
+pub fn make() -> helper::Session {\n    helper::Session::new()\n}\n\
+#[cfg(test)]\nmod tests {\n    #[test]\n    fn makes_a_session_only() {\n        \
+assert_eq!(std::mem::size_of_val(&super::make()), 0);\n    }\n}\n",
+        )
+        .expect("write lib.rs");
+
+        let output_path = run_real_llvm_cov(&root);
+
+        let targets = vec![
+            rust_locator("src/lib.rs", "Account::new"),
+            rust_locator("crates/helper/src/lib.rs", "Session::new"),
+        ];
+        let measured = RustCargoCoverageAdapter::new().measure(&root, &output_path, &targets);
+        let results: Vec<_> = measured
+            .iter()
+            .map(|measurement| (measurement.result, measurement.count.map(|count| count > 0)))
+            .collect();
+        assert_eq!(
+            results,
+            [
+                (TargetCoverageResult::Fail, Some(false)),
+                (TargetCoverageResult::Pass, Some(true)),
+            ],
+            "{measured:?}"
+        );
         std::fs::remove_dir_all(&root).ok();
     }
 }
