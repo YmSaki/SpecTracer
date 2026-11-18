@@ -36,6 +36,12 @@
 //!   there still reports `FAIL`. DA-003 treats the same way a body with no
 //!   assert-equivalent macro and a call other than the declared targets and
 //!   the assert-equivalent methods: `Unknown`, not `FAIL` (DS-642, DS-640).
+//!   This deviates from DS-616: the "no assert-equivalent construct" premise
+//!   looks at assert macros only, not at DS-619/620's `.unwrap()`/`.expect()`/
+//!   `?` and Result signature, so it differs from DA-006's reading. The
+//!   verdict only moves FAIL -> UNKNOWN. The target's own call is not counted
+//!   as a delegation target (a derivation; DA-006 counts it, which differs
+//!   from DS-650's self-delegation reading).
 //! - DA-001's constant-expression classifier only recognizes literals
 //!   (numeric/string/bool/char) and simple arithmetic/comparison
 //!   combinations of literals; any identifier reference (a `const` item
@@ -489,25 +495,41 @@ fn da_003_result_unverified(
         // DS-642: with no assert-equivalent construct, every other call in the
         // body is a delegation target of the Test. Its termination (§7.2.1,
         // #242) is not confirmed here, so DA-003 is neither a violation nor
-        // its absence (DS-640, DS-652). The target's own call is excluded:
-        // a derivation (DS-642 does not exclude it), so that a body that
-        // only calls and discards the target stays FAIL.
-        return if assert_spans.is_empty() && !has_non_target_call(text, target_symbols) {
-            DaVerdict::Fail(
-                "a declared target's call result reaches no assert-equivalent construct, \
-                 and no #[should_panic] is present (DS-623)",
-            )
-        } else {
-            DaVerdict::Unknown(
-                "a declared target's call could not be traced into any of the function's \
-                 assert-equivalent constructs by this capability's bounded dataflow \
-                 tracking (a method chain, a second let-binding, or a field access this \
-                 capability does not follow could still carry the result there) — neither \
-                 reaching nor non-reaching can be said deterministically, which is DS-1680's \
-                 own UNKNOWN condition, not a structural proof of non-verification"
-                    .to_owned(),
-            )
-        };
+        // its absence (DS-640, DS-652).
+        // Deviation from DS-616 (disclosed): `assert_spans` holds assert
+        // macros only, not the full assert-equivalent set of DS-616/619/620
+        // (`.unwrap()`/`.expect()`/`?`, Result signature), so "no
+        // assert-equivalent construct" is read more widely than DA-006 reads
+        // it. This only moves a verdict FAIL -> UNKNOWN, never toward PASS.
+        // Derivation (DS-642 does not exclude it): the target's own call is
+        // not counted as a delegation target, so a body that only calls and
+        // discards the target stays FAIL. DA-006 counts the target as a
+        // delegation target, which differs from this reading (cf. DS-650's
+        // self-delegation).
+        if assert_spans.is_empty() {
+            return if has_non_target_call(text, target_symbols) {
+                DaVerdict::Unknown(
+                    "a call other than the declared target is a delegation target of this Test \
+                     (DS-642) and its termination (§7.2.1) is not confirmed, so the result is \
+                     neither a violation nor its absence (DS-652)"
+                        .to_owned(),
+                )
+            } else {
+                DaVerdict::Fail(
+                    "a declared target's call result reaches no assert-equivalent construct, \
+                     and no #[should_panic] is present (DS-623)",
+                )
+            };
+        }
+        return DaVerdict::Unknown(
+            "a declared target's call could not be traced into any of the function's \
+             assert-equivalent constructs by this capability's bounded dataflow \
+             tracking (a method chain, a second let-binding, or a field access this \
+             capability does not follow could still carry the result there) — neither \
+             reaching nor non-reaching can be said deterministically, which is DS-1680's \
+             own UNKNOWN condition, not a structural proof of non-verification"
+                .to_owned(),
+        );
     }
     DaVerdict::NoViolation
 }
@@ -1342,20 +1364,23 @@ mod tests {
     /// non-target call in it; the delegation target's termination is not
     /// confirmed (DS-640, DS-652), so DA-003 is UNKNOWN, not FAIL.
     /// @vtest.id TEST-ORACLE-DA-003-RESULT-FLOWING-TO-OTHER-CALL-IS-UNKNOWN
-    /// @vtest.covers VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
+    /// @vtest.covers VO-ORACLE-DA-003-DELEGATION-NOT-FAIL
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
-    /// @vtest.intent assert相当が無く、target以外の関数へ結果が流れる本体はDA-003がFAILではなくUNKNOWNになることを確認する
+    /// @vtest.intent assert macroが無く、target以外の関数へ結果が流れる本体(#277の実物の形で.expect付きを含む)はDA-003がFAILではなくUNKNOWNになり、basisが委譲(DS-642、DS-652)を理由に挙げることを確認する
     #[test]
     fn a_result_flowing_into_a_non_target_call_without_assert_is_unknown() {
         for text in [
+            "#[test]\nfn real() {\n    let data = build(&scan);\n    let mut json = to_json(&data).expect(\"serialize data\");\n    json.push('\\n');\n    golden(\"data.json\", &json);\n}\n",
             "#[test]\nfn flows() {\n    let data = build(&scan);\n    let json = to_json(&data);\n    golden(\"a\", &json);\n}\n",
             "#[test]\nfn method_flows() {\n    let data = build(&scan);\n    data.render();\n}\n",
         ] {
             let analysis = analyze(text, &["build".to_owned()], &[]);
+            let DaVerdict::Unknown(basis) = &analysis.da_003 else {
+                panic!("{text}: {:?}", analysis.da_003);
+            };
             assert!(
-                matches!(analysis.da_003, DaVerdict::Unknown(_)),
-                "{text}: {:?}",
-                analysis.da_003
+                basis.contains("DS-642") && basis.contains("DS-652") && basis.contains("delegation"),
+                "{basis}"
             );
         }
     }
@@ -1365,7 +1390,7 @@ mod tests {
     /// @vtest.id TEST-ORACLE-DA-003-DISCARDED-RESULT-STAYS-FAIL
     /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
-    /// @vtest.intent target呼出だけで結果を捨てる本体(double(2); と let _ = double(2);)はDA-003がFAILのままであることを確認する
+    /// @vtest.intent target呼出だけで結果を捨てる本体(double(2); 、let _ = double(2); 、let _ = Type::double(2); の3形)はDA-003がFAILのままであることを確認する
     #[test]
     fn a_discarded_target_result_with_no_other_call_stays_fail() {
         for text in [
