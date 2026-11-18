@@ -47764,7 +47764,7 @@
         },
         {
           "id": "BD-003",
-          "statement": "組込 production adapter は `rust-cargo` とする。",
+          "statement": "組込 production adapter は `rust-cargo`、`go`、`javascript` とする。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -47819,6 +47819,36 @@
             "lines": [
               19,
               19
+            ]
+          }
+        },
+        {
+          "id": "BD-350",
+          "statement": "Go固有処理は組込 `go` adapter が所有する。",
+          "derives_from": [
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "目的",
+            "lines": [
+              5,
+              5
+            ]
+          }
+        },
+        {
+          "id": "BD-351",
+          "statement": "JavaScript・TypeScript固有処理は組込 `javascript` adapter が所有する。",
+          "derives_from": [
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "目的",
+            "lines": [
+              5,
+              5
             ]
           }
         },
@@ -49654,7 +49684,7 @@
         },
         {
           "id": "BD-104",
-          "statement": "組込production adapterは `rust-cargo` とする。",
+          "statement": "組込production adapterは `rust-cargo`、`go`、`javascript` とする。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -49873,7 +49903,7 @@
         },
         {
           "id": "BD-114",
-          "statement": "`vtest-scan`、`vtest-audit`、`vtest-exec` は、それぞれが `syn`、`quote`、`rustc-demangle`、Cargo commandを直接所有しない。",
+          "statement": "`vtest-scan`、`vtest-audit`、`vtest-exec` は、それぞれが `syn`、`quote`、`rustc-demangle`、Cargo command、`go` command、Node.js・vitestの起動を直接所有しない。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -50586,6 +50616,38 @@
             "lines": [
               173,
               173
+            ]
+          }
+        },
+        {
+          "id": "BD-352",
+          "statement": "Go固有の呼出し名の綴りや `go-cover` 制約は `go` adapterに限って適用する。",
+          "derives_from": [
+            "DS-1879",
+            "DS-1886"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "既知の食い違い",
+            "lines": [
+              44,
+              44
+            ]
+          }
+        },
+        {
+          "id": "BD-353",
+          "statement": "JavaScript・TypeScript固有の呼出し名の綴りや `v8` 制約は `javascript` adapterに限って適用する。",
+          "derives_from": [
+            "DS-1880",
+            "DS-1894"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "既知の食い違い",
+            "lines": [
+              44,
+              44
             ]
           }
         }
@@ -52003,7 +52065,7 @@
     },
     {
       "id": "BD-S058",
-      "title": "7. Static Analysis orchestrationと`rust-cargo`ルール",
+      "title": "7. Static Analysis orchestrationとルール",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
         "heading": "7. Static Analysis orchestrationと`rust-cargo`ルール",
@@ -52050,7 +52112,7 @@
         },
         {
           "id": "BD-S060",
-          "title": "7.2 `rust-cargo` ルール一覧",
+          "title": "7.2 ルール一覧",
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "7.2 `rust-cargo` ルール一覧",
@@ -52265,7 +52327,7 @@
         },
         {
           "id": "BD-S066",
-          "title": "9.2 `rust-cargo` TestRunnerAdapter",
+          "title": "9.2 TestRunnerAdapter",
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "9.2 `rust-cargo` TestRunnerAdapter",
@@ -52295,7 +52357,7 @@
     },
     {
       "id": "BD-S067",
-      "title": "10. `rust-cargo` Target Binding 動的計測",
+      "title": "10. Target Binding 動的計測",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
         "heading": "10. `rust-cargo` Target Binding 動的計測",
@@ -52347,6 +52409,38 @@
                 "lines": [
                   1363,
                   1363
+                ]
+              }
+            },
+            {
+              "id": "BD-354",
+              "statement": "`go` CoverageAdapterは`go test`のカバレッジ計測を使用する（adapter configの`run.coverage: go-cover`）。",
+              "derives_from": [
+                "DS-1879",
+                "DS-1926"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  27,
+                  27
+                ]
+              }
+            },
+            {
+              "id": "BD-355",
+              "statement": "`javascript` CoverageAdapterはvitestのV8カバレッジprovider（`@vitest/coverage-v8`）を使用する（adapter configの`run.coverage: v8`）。",
+              "derives_from": [
+                "DS-1880",
+                "DS-1927"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  28,
+                  28
                 ]
               }
             },
@@ -53297,7 +53391,7 @@
         },
         {
           "id": "BD-258",
-          "statement": "production adapter として提供するのは `rust-cargo` だけである。",
+          "statement": "production adapter として提供するのは `rust-cargo`、`go`、`javascript` である。",
           "derives_from": [
             "REQ-263",
             "REQ-264"
@@ -53308,6 +53402,22 @@
             "lines": [
               579,
               579
+            ]
+          }
+        },
+        {
+          "id": "BD-356",
+          "statement": "`go` と `javascript` は Structured Test capability を宣言しない。",
+          "derives_from": [
+            "SPEC-486",
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
             ]
           }
         }
@@ -54183,6 +54293,38 @@
             "lines": [
               317,
               317
+            ]
+          }
+        },
+        {
+          "id": "BD-357",
+          "statement": "`go` adapterはGoのdiscovery、static audit、runner、coverageを所有する。",
+          "derives_from": [
+            "SPEC-486",
+            "DS-S168"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              27,
+              27
+            ]
+          }
+        },
+        {
+          "id": "BD-358",
+          "statement": "`javascript` adapterはJavaScript・TypeScriptのdiscovery、static audit、runner、coverageを所有する。",
+          "derives_from": [
+            "SPEC-487",
+            "DS-S169"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              28,
+              28
             ]
           }
         },

@@ -11797,7 +11797,7 @@
         },
         {
           "id": "BD-003",
-          "statement": "組込 production adapter は `rust-cargo` とする。",
+          "statement": "組込 production adapter は `rust-cargo`、`go`、`javascript` とする。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
@@ -11852,6 +11852,36 @@
             "lines": [
               19,
               19
+            ]
+          }
+        },
+        {
+          "id": "BD-350",
+          "statement": "Go固有処理は組込 `go` adapter が所有する。",
+          "derives_from": [
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "目的",
+            "lines": [
+              5,
+              5
+            ]
+          }
+        },
+        {
+          "id": "BD-351",
+          "statement": "JavaScript・TypeScript固有処理は組込 `javascript` adapter が所有する。",
+          "derives_from": [
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "目的",
+            "lines": [
+              5,
+              5
             ]
           }
         },
@@ -13687,7 +13717,7 @@
         },
         {
           "id": "BD-104",
-          "statement": "組込production adapterは `rust-cargo` とする。",
+          "statement": "組込production adapterは `rust-cargo`、`go`、`javascript` とする。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",

@@ -8244,6 +8244,38 @@
           }
         },
         {
+          "id": "BD-357",
+          "statement": "`go` adapterはGoのdiscovery、static audit、runner、coverageを所有する。",
+          "derives_from": [
+            "SPEC-486",
+            "DS-S168"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              27,
+              27
+            ]
+          }
+        },
+        {
+          "id": "BD-358",
+          "statement": "`javascript` adapterはJavaScript・TypeScriptのdiscovery、static audit、runner、coverageを所有する。",
+          "derives_from": [
+            "SPEC-487",
+            "DS-S169"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              28,
+              28
+            ]
+          }
+        },
+        {
           "id": "BD-311",
           "statement": "`vtest-scan`はadapter discoveryの委譲・出力検証・決定論的統合・core record整合性を所有し、`*.rs`列挙、`syn::parse_file`、`#[test]`抽出、doc comment parseを所有しない。",
           "derives_from": [],
