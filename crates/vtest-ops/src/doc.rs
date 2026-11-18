@@ -71,6 +71,20 @@ pub struct AddArgs {
     pub update: bool,
 }
 
+/// Rejects a document name that cannot name a file in `.verify/doc/` (a
+/// path separator, `..`, an absolute path). The store rejects such a name
+/// too; checking it here reports it as a usage error (E-OP-001) before
+/// anything is read or written, for the CLI and MCP add / show alike.
+fn require_valid_name(id: &str) -> Result<(), DocOpError> {
+    if vtest_store::canonical::is_valid_document_name(id) {
+        Ok(())
+    } else {
+        Err(DocOpError::Usage(
+            StoreError::InvalidDocumentName(id.to_owned()).to_string(),
+        ))
+    }
+}
+
 /// DES-595: registers `--path` (an already-built node-tree JSON file,
 /// anywhere under the project) as `.verify/doc/<id>.json`. Rejects a
 /// duplicate id unless `--update`; rejects `--update` of an id that was
@@ -83,6 +97,7 @@ pub fn add(
     layout: &VerifyLayout,
     args: AddArgs,
 ) -> Result<DocView, DocOpError> {
+    require_valid_name(&args.id)?;
     let existing = doc_exists(layout, &args.id);
     if existing && !args.update {
         return Err(DocOpError::Usage(format!(
@@ -202,6 +217,7 @@ pub struct ShowResult {
 }
 
 pub fn show(layout: &VerifyLayout, id: &str) -> Result<ShowResult, DocOpError> {
+    require_valid_name(id)?;
     let view = read_doc_view(layout, id)
         .map_err(|_| DocOpError::Usage(format!("no document '{id}' is registered")))?;
 
