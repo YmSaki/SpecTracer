@@ -925,11 +925,24 @@ fn macro_target_use(text: &str, symbol: &str) -> MacroUse {
     visitor.visit_item_fn(&function);
     let mut values = ValueUseVisitor {
         symbol,
+        // Derivation (not stated in DS-615 / DS-1680): a constant or static is not
+        // callable, and Rust names them in upper case, so its value is not an
+        // indirect call; a name bound by a pattern in the body (`let bundle = ..`)
+        // names that local for a single-segment path, not the target.
+        is_constant: is_constant_name(symbol),
+        is_shadowed: count_rebindings(text, symbol) > 0,
         found: false,
     };
     values.visit_item_fn(&function);
     visitor.found.opaque |= values.found;
     visitor.found
+}
+
+fn is_constant_name(name: &str) -> bool {
+    name.chars().any(|c| c.is_ascii_uppercase())
+        && name
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
 }
 
 /// Derivation (not stated in DS-615 / DS-623 / DS-1680): the target's name as an
@@ -942,6 +955,8 @@ fn macro_target_use(text: &str, symbol: &str) -> MacroUse {
 /// read (`tokens_call_ident`), so a bare reference there is not a value use.
 struct ValueUseVisitor<'a> {
     symbol: &'a str,
+    is_constant: bool,
+    is_shadowed: bool,
     found: bool,
 }
 
@@ -958,12 +973,14 @@ impl<'ast> Visit<'ast> for ValueUseVisitor<'_> {
     }
 
     fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
-        if node
+        let names_symbol = node
             .path
             .segments
             .last()
-            .is_some_and(|segment| segment.ident == self.symbol)
-        {
+            .is_some_and(|segment| segment.ident == self.symbol);
+        let names_local =
+            self.is_shadowed && node.qself.is_none() && node.path.get_ident().is_some();
+        if names_symbol && !self.is_constant && !names_local {
             self.found = true;
         }
     }
@@ -2608,6 +2625,38 @@ mod tests {
                 analysis.da_003
             );
         }
+    }
+
+    /// A constant target is not callable and a local that is named like the
+    /// target is not the target: neither is an indirect call. A path to the target
+    /// through a type still is.
+    /// @vtest.id TEST-ORACLE-DA-003-CONSTANT-OR-LOCAL-NAME-IS-NOT-AN-INDIRECT-CALL
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::is_constant_name
+    /// @vtest.intent 大文字の名前の target(定数)の値の使用と、パターンで束縛された同名のローカル変数の使用は、間接呼出と読まず DA-003 が違反なしのままで、型を経由する同名の経路は値の使用として UNKNOWN になることを確認する
+    #[test]
+    fn a_constant_or_local_name_is_not_an_indirect_call() {
+        let constant = "#[test]\nfn t() {\n    let form = parse(RUST_FORM);\n    assert_eq!(form.kind, 1);\n}\n";
+        let analysis = analyze(constant, &["RUST_FORM".to_owned()], &[]);
+        assert!(
+            matches!(analysis.da_003, DaVerdict::NoViolation),
+            "{:?}",
+            analysis.da_003
+        );
+        let local = "#[test]\nfn t() {\n    let bundle = &envelope;\n    let n = count(bundle);\n    assert_eq!(n, 1);\n}\n";
+        let analysis = analyze(local, &["bundle".to_owned()], &[]);
+        assert!(
+            matches!(analysis.da_003, DaVerdict::NoViolation),
+            "{:?}",
+            analysis.da_003
+        );
+        let through_type = "#[test]\nfn t() {\n    let bundle = 1;\n    let f = Calc::bundle;\n    assert_eq!(other(), bundle);\n}\n";
+        let analysis = analyze(through_type, &["bundle".to_owned()], &[]);
+        assert!(
+            matches!(analysis.da_003, DaVerdict::Unknown(_)),
+            "{:?}",
+            analysis.da_003
+        );
     }
 
     /// A name that is not a value use of the target is not an indirect call: a
