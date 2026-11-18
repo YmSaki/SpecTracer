@@ -978,12 +978,18 @@ impl<'ast> syn::visit::Visit<'ast> for MacroVisitor<'_> {
     }
 }
 
+/// Byte offset of a `proc_macro2` position in `text`. The column counts
+/// characters, so it goes through the crate's character-aware conversion:
+/// adding it to the line start as bytes lands inside a multi-byte character
+/// and the slice panics (#264). A position outside `text` clamps to its end.
 fn span_offset(location: proc_macro2::LineColumn, text: &str) -> usize {
-    text.lines()
-        .take(location.line.saturating_sub(1))
-        .map(|line| line.len() + 1)
-        .sum::<usize>()
-        + location.column
+    crate::line_column_byte_offset(
+        text,
+        &crate::line_offsets(text),
+        location.line,
+        location.column,
+    )
+    .unwrap_or(text.len())
 }
 
 fn find_matching_close(text: &str, open_pos: usize, open: char, close: char) -> Option<usize> {
@@ -1324,6 +1330,28 @@ fn real_check() {
         let text = "#[test]\nfn real_check() {\n    assert_eq!(double(2), 4);\n}\n";
         let analysis = analyze(text, &[], &[]);
         assert!(matches!(analysis.da_001, DaVerdict::NoViolation));
+    }
+
+    /// @vtest.id TEST-ORACLE-DA-001-NON-ASCII-LINE
+    /// @vtest.covers VO-ORACLE-DA-001-CONSTANT-ASSERTION
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::span_offset
+    /// @vtest.intent an assert that follows non-ASCII text on its line, with LF or CRLF line ends, is read at its own byte range: a call-result assert is no violation and an all-literal assert still fails DA-001 (#264)
+    #[test]
+    fn an_assert_after_non_ascii_text_on_its_line_is_read_at_its_own_range() {
+        for newline in ["\n", "\r\n"] {
+            let real = format!(
+                "#[test]{newline}fn real_check() {{{newline}    let label = \"日本語é\"; assert_eq!(double(2), 4, \"é\");{newline}}}{newline}"
+            );
+            let analysis = analyze(&real, &["double".to_owned()], &[]);
+            assert!(matches!(analysis.da_001, DaVerdict::NoViolation), "{real}");
+            assert!(matches!(analysis.da_003, DaVerdict::NoViolation), "{real}");
+
+            let constant = format!(
+                "#[test]{newline}fn constant() {{{newline}    let label = \"日本語é\"; assert_eq!(1, 1);{newline}}}{newline}"
+            );
+            let analysis = analyze(&constant, &[], &[]);
+            assert!(matches!(analysis.da_001, DaVerdict::Fail(_)), "{constant}");
+        }
     }
 
     /// @vtest.id TEST-ORACLE-DA-006-RESULT-RETURNING-SIGNATURE-PASSES
