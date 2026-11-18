@@ -456,7 +456,26 @@ pub enum ApprovalCommand {
     },
 }
 
+/// Runs the command. A panic inside it is reported as E-INTERNAL-001 with
+/// exit 3 in the requested format (DS-1689/DS-1690), not as the runtime's
+/// exit code 101.
 pub fn run(cli: Cli) -> ExitCode {
+    let format = match cli.format {
+        Some(FormatArg::Json) => OutputFormat::Json,
+        _ => OutputFormat::Text,
+    };
+    let quiet = cli.quiet;
+    run_guarded(format, quiet, || run_command(cli))
+}
+
+fn run_guarded(format: OutputFormat, quiet: bool, command: impl FnOnce() -> ExitCode) -> ExitCode {
+    match ops::envelope::catch_internal(command) {
+        Ok(code) => code,
+        Err(failure) => failure_exit(&failure, format, quiet),
+    }
+}
+
+fn run_command(cli: Cli) -> ExitCode {
     if matches!(cli.command, Command::Export) {
         return match export_format(cli.format) {
             Ok(format) => run_export(&cli.project, format, cli.quiet),
@@ -2374,3 +2393,46 @@ fn find_root(project: &Path) -> Result<PathBuf, String> {
 // `parse_items` / `entity_scope` argument-mapping tests now live with their
 // implementation in `ops::verify` (moved there so both the CLI and
 // `vtest-mcp` share one operation body — see DS-1563).
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const CHILD_MARKER: &str = "VTEST_TEST_PANIC_CHILD";
+
+    /// @vtest.id TEST-CLI-PANIC-INTERNAL-ERROR
+    /// @vtest.covers VO-INTERNAL-ERROR-CODE-CLI-MCP
+    /// @vtest.target crates/vtest-cli/src/lib.rs::run_guarded
+    /// @vtest.intent a panic inside a command ends the process with exit code 3 and, under --format json, a failure envelope whose only diagnostic is E-INTERNAL-001 with no data and no panic payload, instead of the runtime's exit code 101
+    #[test]
+    fn a_panicking_command_exits_3_with_an_internal_error_envelope() {
+        if std::env::var_os(CHILD_MARKER).is_some() {
+            // Child process: real stdout and a real process exit code.
+            let code = run_guarded(OutputFormat::Json, false, || -> ExitCode {
+                panic!("secret-payload")
+            });
+            std::process::exit(code as i32);
+        }
+        let output = std::process::Command::new(std::env::current_exe().expect("test binary"))
+            .args([
+                "--exact",
+                "tests::a_panicking_command_exits_3_with_an_internal_error_envelope",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env(CHILD_MARKER, "1")
+            .output()
+            .expect("spawn the child");
+        assert_eq!(output.status.code(), Some(ExitCode::Internal as i32));
+        let stdout = String::from_utf8(output.stdout).expect("utf-8 stdout");
+        let start = stdout.find('{').expect("a JSON envelope on stdout");
+        let end = stdout.rfind('}').expect("a JSON envelope on stdout");
+        let envelope: serde_json::Value =
+            serde_json::from_str(&stdout[start..=end]).expect("the envelope is JSON");
+        assert_eq!(envelope["ok"], false);
+        assert!(envelope["data"].is_null());
+        assert_eq!(envelope["diagnostics"].as_array().map(Vec::len), Some(1));
+        assert_eq!(envelope["diagnostics"][0]["code"], "E-INTERNAL-001");
+        assert!(!stdout.contains("secret"));
+    }
+}
