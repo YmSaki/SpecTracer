@@ -23518,7 +23518,7 @@
         },
         {
           "id": "DS-350",
-          "statement": "`config.yaml` の各adapterの `scan` 設定の `assertion_macros` は、追加でassert相当として扱うマクロ名を指定する。",
+          "statement": "`config.yaml` の各adapterの `scan` 設定の `assertion_macros` は、追加でassert相当として扱う名前（`rust-cargo` ではマクロ名、`go`・`javascript` では呼出し先の名前）を指定する。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -23531,7 +23531,7 @@
         },
         {
           "id": "DS-351",
-          "statement": "`config.yaml` の各adapterの `run` 設定の `coverage` は `target_binding` の動的計測方式を指定し、値は `llvm-cov` または `off` である。",
+          "statement": "`config.yaml` の各adapterの `run` 設定の `coverage` は `target_binding` の動的計測方式を指定し、値域はadapterごとに定める。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -23539,6 +23539,65 @@
             "lines": [
               144,
               144
+            ]
+          }
+        },
+        {
+          "id": "DS-1878",
+          "statement": "`rust-cargo` の `run.coverage` の値は `llvm-cov` または `off` である。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "### 2.2 `config.yaml`",
+            "lines": [
+              144,
+              144
+            ]
+          }
+        },
+        {
+          "id": "DS-1879",
+          "statement": "`go` の `run.coverage` の値は `go-cover` または `off` である。",
+          "derives_from": [
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "既知の食い違い",
+            "lines": [
+              44,
+              44
+            ]
+          }
+        },
+        {
+          "id": "DS-1880",
+          "statement": "`javascript` の `run.coverage` の値は `v8` または `off` である。",
+          "derives_from": [
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "既知の食い違い",
+            "lines": [
+              44,
+              44
+            ]
+          }
+        },
+        {
+          "id": "DS-1881",
+          "statement": "`run.coverage` の値がそのadapterの値域にない場合は、無効なadapter設定（E-CONFIG-001）とする。",
+          "derives_from": [],
+          "cites": [
+            "DS-352"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "既知の食い違い",
+            "lines": [
+              44,
+              44
             ]
           }
         },
@@ -27870,12 +27929,30 @@
               1024
             ]
           }
+        },
+        {
+          "id": "DS-1882",
+          "statement": "assert相当の構文が本書に定義されていないadapterのTestについて、静的解析は`oracle_presence`を`PASS`にしない。",
+          "description": "照合装置の存在は、その adapter の assert 相当の構文が定義されていなければ決定論的に確認できない（DS-1680）。",
+          "derives_from": [],
+          "cites": [
+            "DS-605",
+            "DS-1680"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
         }
       ]
     },
     {
       "id": "DS-S096",
-      "title": "7.2 `rust-cargo` ルール一覧",
+      "title": "7.2 ルール一覧",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
         "heading": "7.2 `rust-cargo` ルール一覧",
@@ -28203,6 +28280,282 @@
           }
         },
         {
+          "id": "DS-1883",
+          "statement": "`go`のassert相当の構文はDA-001〜DA-006で共通に用いる。",
+          "description": "Test関数の`*testing.T`引数に対する失敗の報告、`panic(...)`、configの`assertion_macros`に列挙した呼出し、の3分類の総称。",
+          "derives_from": [
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1884",
+          "statement": "`go`のassert相当の構文は、Test関数の`*testing.T`引数に対する`Error` / `Errorf` / `Fatal` / `Fatalf` / `Fail` / `FailNow`の呼出し（以下、失敗の報告）を含む。",
+          "derives_from": [
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1885",
+          "statement": "`go`のassert相当の構文は`panic(...)`の呼出しを含む。",
+          "derives_from": [
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1886",
+          "statement": "`go`のassert相当の構文は、`go` configの`assertion_macros`に列挙された名前とソース上の呼出し先の綴り（`assert.Equal`のように`.`で区切った識別子の列）が完全一致する呼出しを含む。",
+          "derives_from": [
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1887",
+          "statement": "`go`の失敗の報告と`panic(...)`について、DA-001・DA-003・DA-004が見るassert相当の引数は、Test関数の本体の中でその呼出しを囲む`if`文の条件式と`switch`文のtag式・case式のすべてとする。",
+          "derives_from": [
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1888",
+          "statement": "`go` configの`assertion_macros`に列挙された呼出しについて、DA-001・DA-003・DA-004が見るassert相当の引数は、Test関数の`*testing.T`引数を除くその呼出しの引数とする。",
+          "derives_from": [
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1889",
+          "statement": "`go`で2つの値を照合するassert相当（DA-004）は、失敗の報告または`panic(...)`を囲む条件式に現れる`==` / `!=`の比較であり、照合する2つの値はその比較の両辺とする。",
+          "derives_from": [
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1890",
+          "statement": "`javascript`のassert相当の構文はDA-001〜DA-006で共通に用いる。",
+          "description": "`expect(...)`に続くmatcherの呼出し、`assert(...)` / `assert.<name>(...)`、`throw`文、configの`assertion_macros`に列挙した呼出し、の4分類の総称。",
+          "derives_from": [
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1891",
+          "statement": "`javascript`のassert相当の構文は、`expect(...)`の呼出しの結果に対するmatcherのメソッド呼出し（`.not` / `.resolves` / `.rejects`のプロパティ参照を経るものを含む）を含む。",
+          "derives_from": [
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1892",
+          "statement": "`javascript`のassert相当の構文は`assert(...)`と`assert.<name>(...)`の呼出しを含む。",
+          "derives_from": [
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1893",
+          "statement": "`javascript`のassert相当の構文は`throw`文を含む。",
+          "derives_from": [
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1894",
+          "statement": "`javascript`のassert相当の構文は、`javascript` configの`assertion_macros`に列挙された名前とソース上の呼出し先の綴り（`.`で区切った識別子の列）が完全一致する呼出しを含む。",
+          "derives_from": [
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1895",
+          "statement": "`javascript`の`expect(...)`とmatcherの組について、DA-001・DA-003・DA-004が見るassert相当の引数は、`expect(...)`の引数とmatcherの引数とする。",
+          "derives_from": [
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1896",
+          "statement": "`javascript`の`assert(...)`・`assert.<name>(...)`と`assertion_macros`に列挙された呼出しについて、DA-001・DA-003・DA-004が見るassert相当の引数は、その呼出しの引数とする。",
+          "derives_from": [
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1897",
+          "statement": "`javascript`の`throw`文について、DA-001・DA-003・DA-004が見るassert相当の引数は、Test constructの本体の中でその文を囲む`if`文の条件式と`switch`文の判別式・case式のすべてとする。",
+          "derives_from": [
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1898",
+          "statement": "`javascript`で2つの値を照合するassert相当（DA-004）は、引数を1つ取るmatcherと`expect(...)`の組であり、照合する2つの値は`expect(...)`の引数とmatcherの引数とする。",
+          "derives_from": [
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1899",
+          "statement": "`javascript`のTest constructの本体は`test(...)` / `it(...)`に渡した関数の本体であり、DA-001〜DA-006が見る関数・関数本体はこの関数とその本体を指す。",
+          "derives_from": [
+            "SPEC-485",
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1900",
+          "statement": "`javascript`のTest constructの本体として渡した関数は、DS-629のクロージャとして扱わない。",
+          "derives_from": [
+            "SPEC-487"
+          ],
+          "cites": [
+            "DS-629"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
           "id": "DS-621",
           "statement": "DA-001（定数アサーション）はoracle_presenceへ供給する検査であり、引数がすべてリテラル・定数式のassertを内容とし、関数内のassert相当がすべて定数アサーションであることをFAIL条件とし、定数性を確定できない式をUNKNOWNへ退避する例とする。",
           "derives_from": [],
@@ -28230,7 +28583,7 @@
         },
         {
           "id": "DS-623",
-          "statement": "DA-003（結果未検証）はoracle_presenceへ供給する検査であり、targetを呼ぶがその結果をassert相当で一切検証しないこと（照合の委譲先がある場合は§7.2.1で終端を確認する）を内容とし、target呼出結果（戻り値、および結果から派生した束縛）がassert相当に到達しない、かつ`#[should_panic]`がないことをFAIL条件とし、結果が可変参照・グローバル状態経由で検証される可能性がある場合をUNKNOWNへ退避する例とする。",
+          "statement": "DA-003（結果未検証）はoracle_presenceへ供給する検査であり、targetを呼ぶがその結果をassert相当で一切検証しないこと（照合の委譲先がある場合は§7.2.1で終端を確認する）を内容とし、target呼出結果（戻り値、および結果から派生した束縛）がassert相当に到達しない、かつ期待する失敗を宣言する構文（`rust-cargo`では`#[should_panic]`）がないことをFAIL条件とし、結果が可変参照・グローバル状態経由で検証される可能性がある場合をUNKNOWNへ退避する例とする。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -28243,7 +28596,7 @@
         },
         {
           "id": "DS-624",
-          "statement": "DA-004（自己比較）はoracle_presenceへ供給する検査であり、`assert_eq!(a, b)`でaとbがトークン列として同一であることを内容とし、該当assertが存在することをFAIL条件とし、UNKNOWNへ退避する例は無い（構文的に確定）。",
+          "statement": "DA-004（自己比較）はoracle_presenceへ供給する検査であり、2つの値を照合するassert相当（`rust-cargo`では`assert_eq!(a, b)`）で、照合する2つの値がトークン列として同一であることを内容とし、該当assertが存在することをFAIL条件とし、UNKNOWNへ退避する例は無い（構文的に確定）。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -28256,7 +28609,7 @@
         },
         {
           "id": "DS-625",
-          "statement": "DA-005（空テスト）はoracle_presenceへ供給する検査であり、関数本体に文が存在しないことを内容とし、該当することをFAIL条件とし、UNKNOWNへ退避する例は無い。",
+          "statement": "DA-005（空テスト）はoracle_presenceへ供給する検査であり、Test constructの本体（`rust-cargo`・`go`では関数本体）に文が存在しないことを内容とし、該当することをFAIL条件とし、UNKNOWNへ退避する例は無い。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -28295,7 +28648,7 @@
         },
         {
           "id": "DS-628",
-          "statement": "DA-002 / DA-003のデータフロー解析は関数内のローカル束縛の追跡（let束縛、メソッドチェーン、フィールドアクセス）までとする。",
+          "statement": "DA-002 / DA-003のデータフロー解析は関数内のローカル束縛の追跡（ローカル変数への束縛〔`rust-cargo`では`let`、`go`では`:=`・`var`、`javascript`では`const`・`let`・`var`〕、メソッドチェーン、フィールドアクセス）までとする。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -30031,7 +30384,7 @@
         },
         {
           "id": "DS-S107",
-          "title": "9.2 `rust-cargo` TestRunnerAdapter",
+          "title": "9.2 TestRunnerAdapter",
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "9.2 `rust-cargo` TestRunnerAdapter",
@@ -30067,12 +30420,51 @@
                   1323
                 ]
               }
+            },
+            {
+              "id": "DS-1901",
+              "statement": "adapterのrunnerが実行できないTest constructのTestについて、runnerはEvidenceを生成しない。",
+              "derives_from": [],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  27,
+                  27
+                ]
+              }
+            },
+            {
+              "id": "DS-1902",
+              "statement": "runnerが実行できないTest constructのTestの`target_binding`は`NO_EVIDENCE`（診断`NOT_EXECUTED`）とする。",
+              "derives_from": [],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  27,
+                  27
+                ]
+              }
+            },
+            {
+              "id": "DS-1903",
+              "statement": "runnerが実行できないTest constructのTestは、同じ`vtest run`で実行する他のTestの実行とEvidenceの生成を妨げない。",
+              "derives_from": [],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  27,
+                  27
+                ]
+              }
             }
           ]
         },
         {
           "id": "DS-S108",
-          "title": "9.3 `rust-cargo` 結果のパース",
+          "title": "9.3 結果のパース",
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
             "heading": "9.3 `rust-cargo` 結果のパース",
@@ -30085,7 +30477,7 @@
           "items": [
             {
               "id": "DS-747",
-              "statement": "`test <selector> ... ignored`が実行されずの場合、Evidenceは記録しない。",
+              "statement": "runnerが要求したTestを実行しなかったと報告した場合（`rust-cargo`では`test <selector> ... ignored`）、Evidenceは記録しない。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -30098,7 +30490,7 @@
             },
             {
               "id": "DS-748",
-              "statement": "`test <selector> ... ignored`が実行されずの場合、target_bindingは診断NOT_EXECUTEDとする。",
+              "statement": "runnerが要求したTestを実行しなかったと報告した場合、target_bindingは診断NOT_EXECUTEDとする。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -30272,12 +30664,313 @@
               }
             }
           ]
+        },
+        {
+          "id": "DS-S168",
+          "title": "9.5 `go` TestRunnerAdapter",
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              27,
+              27
+            ]
+          },
+          "derives_from": [
+            "SPEC-484",
+            "SPEC-486",
+            "REQ-346"
+          ],
+          "items": [
+            {
+              "id": "DS-1904",
+              "statement": "`go`のrunnerが実行できるTest constructは、ファイル名が`_test.go`で終わるファイルの最上位に宣言され、名前が`Test`であるか`Test`に小文字以外の文字が続き、型引数を持たず、引数が`*testing.T`型の1つだけで、戻り値を持たない関数である。",
+              "derives_from": [],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  27,
+                  27
+                ]
+              }
+            },
+            {
+              "id": "DS-1905",
+              "statement": "`go`のrunnerは、Test 1件ごとに、Test関数が属するパッケージを対象とし、関数名の完全一致で1件だけを選んで`go test`を実行する。",
+              "derives_from": [],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  27,
+                  27
+                ]
+              }
+            },
+            {
+              "id": "DS-1906",
+              "statement": "`go`のrunnerは`go test`の結果のキャッシュを使わずに実行する。",
+              "derives_from": [],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  27,
+                  27
+                ]
+              }
+            },
+            {
+              "id": "DS-1907",
+              "statement": "`go`のTestの合否は、そのTest関数に対して`go test`が報告した結果から読み、成功を`PASS`、失敗を`FAIL`とする。",
+              "derives_from": [],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  27,
+                  27
+                ]
+              }
+            },
+            {
+              "id": "DS-1908",
+              "statement": "そのTest関数に対して`go test`がスキップを報告した場合は、runnerが要求したTestを実行しなかったと報告した場合（DS-747、DS-748）として扱う。",
+              "derives_from": [],
+              "cites": [
+                "DS-747",
+                "DS-748"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  27,
+                  27
+                ]
+              }
+            },
+            {
+              "id": "DS-1909",
+              "statement": "そのTest関数の結果を`go test`が報告しなかった場合（関数名が0件に一致し`go test`が成功で終了した場合を含む）、そのTestの実行は失敗（E-EXEC-002）とし、Evidenceを記録しない。",
+              "derives_from": [],
+              "cites": [
+                "DS-749"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  27,
+                  27
+                ]
+              }
+            },
+            {
+              "id": "DS-1910",
+              "statement": "`go test`がパッケージのビルド失敗を報告した場合は、テストビルド失敗（E-EXEC-001）とし、そのパッケージのTestのEvidenceを記録しない。",
+              "derives_from": [],
+              "cites": [
+                "DS-758"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  27,
+                  27
+                ]
+              }
+            },
+            {
+              "id": "DS-1911",
+              "statement": "`go test`の終了コードと、報告された全結果の集計が矛盾する場合は、E-EXEC-003とする。",
+              "derives_from": [],
+              "cites": [
+                "DS-750"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  27,
+                  27
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "DS-S169",
+          "title": "9.6 `javascript` TestRunnerAdapter",
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              28,
+              28
+            ]
+          },
+          "derives_from": [
+            "SPEC-485",
+            "SPEC-487",
+            "SPEC-489",
+            "REQ-347"
+          ],
+          "items": [
+            {
+              "id": "DS-1912",
+              "statement": "`javascript`のrunnerが実行できるTest constructは、呼出し先が識別子`test`または`it`で、第1引数が文字列リテラルである呼出しである。",
+              "derives_from": [],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  28,
+                  28
+                ]
+              }
+            },
+            {
+              "id": "DS-1913",
+              "statement": "`javascript`のrunnerは、Test 1件ごとに、Test constructのファイルを対象とし、Test constructの第1引数の文字列（以下、タイトル）で選んでvitestを実行する。",
+              "derives_from": [],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  28,
+                  28
+                ]
+              }
+            },
+            {
+              "id": "DS-1914",
+              "statement": "`javascript`のTestの合否は、vitestが報告した結果のうち、ソース上の位置がTest constructの呼出しの開始位置と一致する結果から読み、成功を`PASS`、失敗を`FAIL`とする。",
+              "description": "タイトルの一致は同じファイルの複数のTestに当たりうるため、位置でTestの同一性を確かめる。",
+              "derives_from": [],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  28,
+                  28
+                ]
+              }
+            },
+            {
+              "id": "DS-1915",
+              "statement": "位置が一致する結果がスキップ（実行されず）である場合は、runnerが要求したTestを実行しなかったと報告した場合（DS-747、DS-748）として扱う。",
+              "derives_from": [],
+              "cites": [
+                "DS-747",
+                "DS-748"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  28,
+                  28
+                ]
+              }
+            },
+            {
+              "id": "DS-1916",
+              "statement": "位置が一致する結果がない場合、そのTestの実行は失敗（E-EXEC-002）とし、Evidenceを記録しない。",
+              "derives_from": [],
+              "cites": [
+                "DS-749"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  28,
+                  28
+                ]
+              }
+            },
+            {
+              "id": "DS-1917",
+              "statement": "位置が一致する結果が2件以上ある場合、Evidenceを記録しない。",
+              "derives_from": [],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  28,
+                  28
+                ]
+              }
+            },
+            {
+              "id": "DS-1918",
+              "statement": "vitestがTest constructのファイルの読込み失敗（構文エラー、importの解決失敗等）を報告した場合は、テストビルド失敗（E-EXEC-001）とし、そのファイルのTestのEvidenceを記録しない。",
+              "derives_from": [],
+              "cites": [
+                "DS-758"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  28,
+                  28
+                ]
+              }
+            },
+            {
+              "id": "DS-1919",
+              "statement": "`javascript`のrunnerは、project rootから解決できるvitestだけを起動する。",
+              "derives_from": [],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  31,
+                  31
+                ]
+              }
+            },
+            {
+              "id": "DS-1920",
+              "statement": "project rootからvitestを解決できない場合、`javascript`のrunnerはE-ADAPTER-002とし、Evidenceを記録しない。",
+              "description": "jest等を使うプロジェクトでは vitest を解決できない。capability がない場合（E-ADAPTER-004）とは区別する。",
+              "derives_from": [],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  28,
+                  28
+                ]
+              }
+            },
+            {
+              "id": "DS-1921",
+              "statement": "vitestの終了コードと、報告された全結果の集計が矛盾する場合は、E-EXEC-003とする。",
+              "derives_from": [],
+              "cites": [
+                "DS-750"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  28,
+                  28
+                ]
+              }
+            }
+          ]
         }
       ]
     },
     {
       "id": "DS-S110",
-      "title": "10. `rust-cargo` Target Binding 動的計測",
+      "title": "10. Target Binding 動的計測",
       "source": {
         "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
         "heading": "10. `rust-cargo` Target Binding 動的計測",
@@ -30584,7 +31277,7 @@
           "items": [
             {
               "id": "DS-778",
-              "statement": "`--fast`モードはcargo testのみとし、`target_coverage.checked: false`で記録し、検証時は`NO_EVIDENCE`（診断`NOT_CHECKED`）とする。",
+              "statement": "`--fast`モードはカバレッジ計測をせずにTestを実行し、`target_coverage.checked: false`で記録し、検証時は`NO_EVIDENCE`（診断`NOT_CHECKED`）とする。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -30596,8 +31289,51 @@
               }
             },
             {
+              "id": "DS-1922",
+              "statement": "`rust-cargo`の`--fast`モードはcargo testだけで実行する。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+                "heading": "10.3 実行モードの整理",
+                "lines": [
+                  1405,
+                  1405
+                ]
+              }
+            },
+            {
+              "id": "DS-1923",
+              "statement": "`go`の`--fast`モードは、カバレッジ計測を指定しない`go test`で実行する。",
+              "derives_from": [
+                "SPEC-486"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  27,
+                  27
+                ]
+              }
+            },
+            {
+              "id": "DS-1924",
+              "statement": "`javascript`の`--fast`モードは、カバレッジproviderを有効にしないvitestで実行する。",
+              "derives_from": [
+                "SPEC-487"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  28,
+                  28
+                ]
+              }
+            },
+            {
               "id": "DS-779",
-              "statement": "既定モード（完全検証向け）はcargo-llvm-covによるTest単位実行とする。",
+              "statement": "既定モード（完全検証向け）は、adapterのcoverage計測を伴うTest単位実行とする。",
               "description": "実行時間と引き換えに `target_binding` の動的証拠を得る。",
               "derives_from": [],
               "source": {
@@ -30606,6 +31342,49 @@
                 "lines": [
                   1406,
                   1406
+                ]
+              }
+            },
+            {
+              "id": "DS-1925",
+              "statement": "`rust-cargo`の既定モードはcargo-llvm-covによるTest単位実行とする。",
+              "derives_from": [],
+              "source": {
+                "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+                "heading": "10.3 実行モードの整理",
+                "lines": [
+                  1406,
+                  1406
+                ]
+              }
+            },
+            {
+              "id": "DS-1926",
+              "statement": "`go`の既定モードは、`go test`のカバレッジ計測（`run.coverage: go-cover`）によるTest単位実行とする。",
+              "derives_from": [
+                "SPEC-486"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  27,
+                  27
+                ]
+              }
+            },
+            {
+              "id": "DS-1927",
+              "statement": "`javascript`の既定モードは、vitestのV8カバレッジprovider（`run.coverage: v8`）によるTest単位実行とする。",
+              "derives_from": [
+                "SPEC-487"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+                "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+                "lines": [
+                  28,
+                  28
                 ]
               }
             }
@@ -35698,7 +36477,7 @@
         },
         {
           "id": "DS-1102",
-          "statement": "`--fast` は cargo test のみで、`target_coverage` を `checked: false` として記録する。",
+          "statement": "`--fast` はカバレッジ計測をせずにTestを実行し、`target_coverage` を `checked: false` として記録する。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",

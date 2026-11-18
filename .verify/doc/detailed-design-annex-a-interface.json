@@ -4337,7 +4337,7 @@
         },
         {
           "id": "DS-1102",
-          "statement": "`--fast` は cargo test のみで、`target_coverage` を `checked: false` として記録する。",
+          "statement": "`--fast` はカバレッジ計測をせずにTestを実行し、`target_coverage` を `checked: false` として記録する。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙A インターフェース仕様 v0.1.md",
