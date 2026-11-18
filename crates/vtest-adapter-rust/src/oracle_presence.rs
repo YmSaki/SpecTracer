@@ -902,11 +902,13 @@ struct MacroUse {
 /// other macro, a message argument, tokens that do not parse) may or may not exist
 /// and may or may not be verified, and DS-651 reads a call hidden in a macro
 /// expansion as UNKNOWN, so a call-shaped use of the name there is `opaque`
-/// (`tokens_call_ident`; a bare reference or a path prefix is not). A verified
-/// call wins over an `opaque` name, as a verified call outside a macro wins over
-/// an unverified one in `target_call_result_is_verified`; the exception is a
-/// verified method call, matched by name only, which does not clear an `opaque`
-/// name that may be a function call.
+/// (`tokens_call_ident`; a bare reference or a path prefix is not). Reading macro
+/// tokens only moves a verdict toward UNKNOWN or turns "not called" into
+/// verified: `target_call_result_is_verified` takes a call read in an assert as
+/// verifying only when the Test has no call outside a macro, so it never clears
+/// a call outside a macro that stays unverified, and a verified method call
+/// (matched by name only) does not clear an `opaque` name that may be a
+/// function call.
 fn macro_target_use(text: &str, symbol: &str) -> MacroUse {
     let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
         return MacroUse::default();
@@ -1156,10 +1158,19 @@ fn target_call_result_is_verified(
 ) -> TargetCallVerification {
     let call_sites = find_call_sites(text, symbol);
     let macro_use = macro_target_use(text, symbol);
-    if call_sites.is_empty()
-        && !(macro_use.verified_path || macro_use.verified_method || macro_use.opaque)
-    {
-        return TargetCallVerification::NotCalled;
+    if call_sites.is_empty() {
+        // Derivation (#282): a call read inside an assert verifies the target only
+        // when no call outside a macro exists, so reading macro tokens never
+        // clears a call that stays unverified (DS-615: it only moves toward UNKNOWN).
+        return if macro_use.verified_path || (macro_use.verified_method && !macro_use.opaque) {
+            TargetCallVerification::Verified
+        } else if macro_use.opaque {
+            // A verified method call is matched by name only: it does not clear a
+            // call that a macro may make as a function.
+            TargetCallVerification::MacroOpaque
+        } else {
+            TargetCallVerification::NotCalled
+        };
     }
     // A call whose result is consumed by an assert-equivalent construct
     // (directly, through DS-626's method chain, or through the single `let`
@@ -1167,8 +1178,8 @@ fn target_call_result_is_verified(
     // call sites in the function does not change that. Only when no call is
     // verified this way does a call inside a loop make the outcome
     // ambiguous.
-    let mut path_verified = macro_use.verified_path;
-    let mut method_verified = macro_use.verified_method;
+    let mut path_verified = false;
+    let mut method_verified = false;
     for site in &call_sites {
         let call_start = site.callee_start;
         if assert_spans
@@ -2358,7 +2369,7 @@ mod tests {
     /// #282: a target named in the tokens of a macro that is not an assert is not
     /// read, so the call is neither proven nor refuted: UNKNOWN, never PASS.
     /// @vtest.id TEST-ORACLE-DA-003-TARGET-IN-NON-ASSERT-MACRO-IS-UNKNOWN
-    /// @vtest.covers VO-ORACLE-DA-003-UNIDENTIFIED-CALL-UNKNOWN
+    /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent target の名前が assert 以外のマクロ(println!、dbg!、vec!、独自マクロ)のトークンに現れ、target と無関係な assert_eq! が本体にある Test は、DA-003 が UNKNOWN になり合成結果が PASS にならないことを確認する
     #[test]
@@ -2420,7 +2431,7 @@ mod tests {
     /// grammar of which is not known, or in tokens that do not parse as
     /// expressions is not shown verified.
     /// @vtest.id TEST-ORACLE-DA-003-TARGET-IN-UNCHECKED-ASSERT-TOKENS-IS-UNKNOWN
-    /// @vtest.covers VO-ORACLE-DA-003-UNIDENTIFIED-CALL-UNKNOWN
+    /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent target の名前が assert のメッセージ引数、config の assertion_macros のマクロ、式として読めない assert の引数にだけ現れる Test は、DA-003 が UNKNOWN になることを確認する
     #[test]
@@ -2437,6 +2448,30 @@ mod tests {
             let analysis = analyze(text, &["double".to_owned()], &config);
             let (is_fail, is_unknown, basis) = compose(&analysis);
             assert!(is_fail || is_unknown, "{text}: composed to PASS: {basis:?}");
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// Reading a call inside an assert never clears a call outside a macro that
+    /// stays unverified: the verdict is the one without the assert's call, so no
+    /// shape moves from UNKNOWN or FAIL to PASS.
+    /// @vtest.id TEST-ORACLE-DA-003-ASSERT-CALL-DOES-NOT-CLEAR-UNVERIFIED-CALL
+    /// @vtest.covers VO-ORACLE-DA-003-UNIDENTIFIED-CALL-UNKNOWN
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent マクロの外に検証されない target 呼出が残る Test は、別の target 呼出が assert の検証される引数にあっても DA-003 が違反なしにならない(UNKNOWN)ことを確認する
+    #[test]
+    fn an_assert_call_does_not_clear_an_unverified_call_outside_a_macro() {
+        for text in [
+            "#[test]\nfn t() {\n    double(3);\n    assert_eq!(double(2), 4);\n}\n",
+            "#[test]\nfn t() {\n    let _ = double(3);\n    assert_eq!(double(2), 4);\n}\n",
+            "#[test]\nfn t() {\n    c.double(3);\n    assert_eq!(c.double(2), 4);\n}\n",
+            "#[test]\nfn t() {\n    let Some(x) = double(3) else { return };\n    assert_eq!(double(2), 4);\n}\n",
+        ] {
+            let analysis = analyze(text, &["double".to_owned()], &[]);
             assert!(
                 matches!(analysis.da_003, DaVerdict::Unknown(_)),
                 "{text}: {:?}",
