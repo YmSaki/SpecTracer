@@ -279,6 +279,13 @@ fn display_path(root: &Path, path: &Path) -> String {
         .replace('\\', "/")
 }
 
+/// libtest appends this to the name of a `#[should_panic]` Test in its result
+/// line (`test <name> - should panic ... ok`). It is part of the rendering,
+/// not of the Test's name, so it is removed before the name is compared with
+/// the selector (#259; DS-618 counts `#[should_panic]` as an assert-equivalent
+/// construct, so such a Test is one the runner must be able to record).
+const SHOULD_PANIC_SUFFIX: &str = " - should panic";
+
 fn parse_cargo_result(output: &str, selector: &str) -> RunnerTestResult {
     output
         .lines()
@@ -286,6 +293,7 @@ fn parse_cargo_result(output: &str, selector: &str) -> RunnerTestResult {
             let line = line.trim();
             let rest = line.strip_prefix("test ")?;
             let (name, result) = rest.split_once(" ... ")?;
+            let name = name.strip_suffix(SHOULD_PANIC_SUFFIX).unwrap_or(name);
             if name != selector && !name.ends_with(&format!("::{selector}")) {
                 return None;
             }
@@ -2284,6 +2292,43 @@ mod tests {
             RunnerTestResult::Ignored
         );
         assert_eq!(parse("test another ... ok"), RunnerTestResult::Unknown);
+    }
+
+    /// @vtest.id TEST-ADAPTER-RUST-PARSE-RESULT-SHOULD-PANIC-LINE
+    /// @vtest.covers VO-EXEC-RUNNER-OUTPUT-RESULT-PARSING
+    /// @vtest.target crates/vtest-adapter-rust/src/lib.rs::RustCargoTestRunner::parse
+    /// @vtest.intent libtestが#[should_panic]のTestに出力する「test <name> - should panic ... ok / FAILED」を対象selectorの結果として解釈し、別のTestの同形式の行は対象にしないことを確認する
+    #[test]
+    fn runner_parser_reads_the_result_line_of_a_should_panic_test() {
+        let runner = RustCargoTestRunner::new();
+        let target = execution("lib", None);
+        let parse = |stdout| {
+            runner.parse(
+                &target,
+                RunnerOutput {
+                    stdout,
+                    stderr: "",
+                    exit_code: Some(0),
+                },
+            )
+        };
+
+        assert_eq!(
+            parse("test module::selected - should panic ... ok"),
+            RunnerTestResult::Pass
+        );
+        assert_eq!(
+            parse("test module::selected - should panic ... FAILED"),
+            RunnerTestResult::Fail
+        );
+        assert_eq!(
+            parse("test outer::module::selected - should panic ... ok"),
+            RunnerTestResult::Pass
+        );
+        assert_eq!(
+            parse("test another - should panic ... ok"),
+            RunnerTestResult::Unknown
+        );
     }
 
     // DS-043 は実行座標（DES-016: adapter・project・suite・selector）と同じ段落の
