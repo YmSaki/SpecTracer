@@ -23,6 +23,18 @@
 //!   extent — a target call several bindings removed, or reached only
 //!   through a closure, is not tracked and reports `Unknown` rather than
 //!   `NoViolation` (fail-closed: DS-615 "違反なしと推測しない").
+//! - DA-003 finds a target's call as a function call (`name(..)`, `Type::name(..)`)
+//!   or as a method call (`receiver.name(..)`, #279). The callee is matched by the
+//!   final name only; a method call's receiver type is not resolved, so a method
+//!   call cannot be told from a same-named method of another type. When every
+//!   call of the target that is not verified is such a method call, DA-003 reports
+//!   `Unknown` (DS-1680: neither the call's identity nor the result's non-
+//!   verification is proven), not `FAIL`. A verified method call is no violation
+//!   as before; the reading only moves NoViolation toward FAIL/UNKNOWN. A target
+//!   declared by `SrcId` has no call symbol, so `RustCargoStaticAnalysisAdapter::
+//!   analyze` reports `Unknown` instead of a PASS composed without it.
+//!   Still unseen: a call written inside a macro invocation's tokens (assert macros
+//!   included; the tokens are not parsed, so such a call is read as not called).
 //! - §7.2.1's cross-Test delegation-chain search (DA-003/DA-006's "照合の
 //!   委譲先") is not implemented: this capability never confirms that a
 //!   delegation target terminates (DS-643). For DA-006 it only recognizes
@@ -189,7 +201,25 @@ impl StaticAnalysisAdapter for RustCargoStaticAnalysisAdapter {
             &target_symbols,
             input.extra_assertion_macros,
         );
-        let (is_fail, is_unknown, basis) = compose(&analysis);
+        let (is_fail, mut is_unknown, mut basis) = compose(&analysis);
+        // #279: a SrcId target has no call symbol here, so DA-003 cannot look
+        // for its call. That is neither a proof of non-verification nor of a
+        // verifying device (DS-1680): a would-be PASS becomes UNKNOWN. A FAIL
+        // from another rule is unaffected.
+        let has_unidentified_target = input
+            .test
+            .targets
+            .iter()
+            .any(|target| matches!(target, TargetRef::SrcId(_)));
+        if has_unidentified_target && !is_fail && !is_unknown {
+            is_unknown = true;
+            basis = vec![
+                "DA-003: a SrcId target is not resolved to a call symbol by this analysis, so \
+                 its call cannot be found and the result being unverified is neither proven \
+                 nor refuted (DS-1680)"
+                    .to_owned(),
+            ];
+        }
         if is_fail {
             StaticAnalysisVerdict::Fail(basis)
         } else if is_unknown {
@@ -438,6 +468,7 @@ fn da_003_result_unverified(
     }
     let mut any_call_found = false;
     let mut any_ambiguous = false;
+    let mut any_unidentified = false;
     let mut any_unverified = false;
     for symbol in target_symbols {
         match target_call_result_is_verified(text, symbol, assert_spans) {
@@ -453,6 +484,10 @@ fn da_003_result_unverified(
                 any_call_found = true;
                 any_ambiguous = true;
             }
+            TargetCallVerification::Unidentified => {
+                any_call_found = true;
+                any_unidentified = true;
+            }
         }
     }
     if !any_call_found {
@@ -465,6 +500,18 @@ fn da_003_result_unverified(
         return DaVerdict::Unknown(
             "a target call's result may be verified through a mutable reference or \
              global state, which this capability does not track (DS-623)"
+                .to_owned(),
+        );
+    }
+    if any_unidentified {
+        // #279: a method call is matched to the target by name only; the
+        // receiver's type is not resolved. A same-named method of another type
+        // cannot be told from the target, so neither "the target's result is not
+        // verified" (DS-623's FAIL condition) nor "it is verified" (DS-1680's
+        // verifying device) can be said deterministically: UNKNOWN (DS-1680).
+        // This reading only moves a verdict from NoViolation to UNKNOWN.
+        return DaVerdict::Unknown(
+            "a declared target is called as a method (`receiver.name(..)`); the receiver's              type is not resolved, so this call cannot be identified as the target and its              result being unverified is neither proven nor refuted (DS-1680)"
                 .to_owned(),
         );
     }
@@ -586,6 +633,21 @@ enum TargetCallVerification {
     Verified,
     Unverified,
     Ambiguous,
+    /// Every unverified call is a method call matched by name only (#279).
+    Unidentified,
+}
+
+/// One call of a declared target found in the Test body.
+struct CallSite {
+    /// Byte offset where the callee name starts (the `ExprCall` function path,
+    /// or the method name of an `ExprMethodCall`). `call_open_position` reads
+    /// the argument list from here.
+    callee_start: usize,
+    /// Byte offset where the whole call expression starts (for a method call,
+    /// its receiver).
+    expr_start: usize,
+    /// `true` for `receiver.name(..)`: identified by name only.
+    is_method: bool,
 }
 
 fn target_call_result_is_verified(
@@ -603,7 +665,8 @@ fn target_call_result_is_verified(
     // call sites in the function does not change that. Only when no call is
     // verified this way does a call inside a loop make the outcome
     // ambiguous.
-    if call_sites.iter().any(|&call_start| {
+    if call_sites.iter().any(|site| {
+        let call_start = site.callee_start;
         assert_spans
             .iter()
             .any(|&(start, end)| call_start >= start && call_start < end)
@@ -622,10 +685,10 @@ fn target_call_result_is_verified(
         }
     }
     let loop_bodies = loop_body_spans(text);
-    if call_sites.iter().any(|&call_start| {
+    if call_sites.iter().any(|site| {
         loop_bodies
             .iter()
-            .any(|&(start, end)| call_start >= start && call_start < end)
+            .any(|&(start, end)| site.callee_start >= start && site.callee_start < end)
     }) {
         return TargetCallVerification::Ambiguous;
     }
@@ -635,16 +698,19 @@ fn target_call_result_is_verified(
     // span right after `symbol`), not the rest of the function text —
     // scanning past the call site would flag an unrelated `&mut ` written
     // anywhere later in the function as if it belonged to this call.
-    if call_sites.iter().any(|&start| {
-        call_argument_list(text, start, symbol).is_some_and(|arguments| arguments.contains("&mut "))
+    if call_sites.iter().any(|site| {
+        call_argument_list(text, site.callee_start, symbol)
+            .is_some_and(|arguments| arguments.contains("&mut "))
     }) {
         return TargetCallVerification::Ambiguous;
     }
-    if call_sites
-        .iter()
-        .any(|&start| target_call_is_passed_to_other_function(text, start, symbol))
-    {
+    if call_sites.iter().any(|site| {
+        target_call_is_passed_to_other_function(text, site.expr_start, site.callee_start, symbol)
+    }) {
         return TargetCallVerification::Ambiguous;
+    }
+    if call_sites.iter().all(|site| site.is_method) {
+        return TargetCallVerification::Unidentified;
     }
     TargetCallVerification::Unverified
 }
@@ -737,11 +803,16 @@ impl<'ast> Visit<'ast> for LoopBodyVisitor<'_> {
 
 /// Passing a target result to an ordinary function is a delegation/data-flow
 /// shape this adapter cannot resolve, so DS-1680 requires UNKNOWN.
-fn target_call_is_passed_to_other_function(text: &str, call_start: usize, symbol: &str) -> bool {
-    let Some(close) = call_close_position(text, call_start, symbol) else {
+fn target_call_is_passed_to_other_function(
+    text: &str,
+    expr_start: usize,
+    callee_start: usize,
+    symbol: &str,
+) -> bool {
+    let Some(close) = call_close_position(text, callee_start, symbol) else {
         return false;
     };
-    let before = text[..call_start].trim_end();
+    let before = text[..expr_start].trim_end();
     before.ends_with('(')
         || before.ends_with(',')
         || text[close + 1..].trim_start().starts_with(",")
@@ -755,7 +826,7 @@ fn call_argument_list<'a>(text: &'a str, call_start: usize, symbol: &str) -> Opt
     Some(&text[open_pos + 1..close_pos])
 }
 
-fn find_call_sites(text: &str, symbol: &str) -> Vec<usize> {
+fn find_call_sites(text: &str, symbol: &str) -> Vec<CallSite> {
     let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
         return Vec::new();
     };
@@ -771,7 +842,7 @@ fn find_call_sites(text: &str, symbol: &str) -> Vec<usize> {
 struct CallSiteVisitor<'a> {
     text: &'a str,
     symbol: &'a str,
-    sites: Vec<usize>,
+    sites: Vec<CallSite>,
 }
 
 impl<'ast> Visit<'ast> for CallSiteVisitor<'_> {
@@ -783,11 +854,26 @@ impl<'ast> Visit<'ast> for CallSiteVisitor<'_> {
                 .last()
                 .is_some_and(|segment| segment.ident == self.symbol)
             {
-                self.sites
-                    .push(span_offset(node.func.span().start(), self.text));
+                let start = span_offset(node.func.span().start(), self.text);
+                self.sites.push(CallSite {
+                    callee_start: start,
+                    expr_start: start,
+                    is_method: false,
+                });
             }
         }
         syn::visit::visit_expr_call(self, node);
+    }
+
+    fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
+        if node.method == self.symbol {
+            self.sites.push(CallSite {
+                callee_start: span_offset(node.method.span().start(), self.text),
+                expr_start: span_offset(node.span().start(), self.text),
+                is_method: true,
+            });
+        }
+        syn::visit::visit_expr_method_call(self, node);
     }
 }
 
@@ -1405,6 +1491,147 @@ mod tests {
                 analysis.da_003
             );
         }
+    }
+
+    /// #279: a target called as a method (`c.double(2)`) is a `syn::ExprMethodCall`,
+    /// which DA-003 did not read as a call, so a discarded result beside an assert
+    /// on something else composed to PASS. The composed verdict must not be PASS.
+    /// @vtest.id TEST-ORACLE-DA-003-METHOD-TARGET-DISCARDED-IS-NOT-PASS
+    /// @vtest.covers VO-ORACLE-DA-003-UNIDENTIFIED-CALL-UNKNOWN
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent target をメソッドとして呼び結果を捨て、target と無関係な assert_eq! が本体にある Test は、DA-001〜006 の合成結果が PASS にならない(UNKNOWN)ことを確認する
+    #[test]
+    fn a_method_target_whose_result_is_discarded_beside_an_unrelated_assert_is_not_pass() {
+        for text in [
+            "#[test]\nfn t() {\n    let c = Calc::default();\n    c.double(2);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let c = Calc::default();\n    let _ = c.double(2);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    Calc::default().double(2);\n    assert_eq!(other(), 1);\n}\n",
+            "#[test]\nfn t() {\n    let c = Calc::default();\n    c.double(2);\n}\n",
+        ] {
+            let analysis = analyze(text, &["double".to_owned()], &[]);
+            let (is_fail, is_unknown, basis) = compose(&analysis);
+            assert!(is_fail || is_unknown, "{text}: composed to PASS: {basis:?}");
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// A method call whose result reaches an assert-equivalent construct is still
+    /// no violation: the method-call reading only moves NoViolation toward
+    /// FAIL/UNKNOWN, never the reverse, and does not turn verified calls UNKNOWN.
+    /// @vtest.id TEST-ORACLE-DA-003-METHOD-TARGET-VERIFIED-STAYS-NO-VIOLATION
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent メソッドとして呼んだ target の結果が assert(直接、let 束縛、.unwrap() / .expect() の連鎖)に到達する Test は、DA-003 が違反なしのままであることを確認する
+    #[test]
+    fn a_method_target_whose_result_reaches_an_assert_is_no_violation() {
+        for text in [
+            "#[test]\nfn t() {\n    assert_eq!(c.double(2), 4);\n}\n",
+            "#[test]\nfn t() {\n    let r = c.double(2);\n    assert_eq!(r, 4);\n}\n",
+            "#[test]\nfn t() {\n    c.double(2).unwrap();\n}\n",
+            "#[test]\nfn t() {\n    Calc::default().double(2).expect(\"ok\");\n}\n",
+            "#[test]\nfn t() -> Result<(), E> {\n    c.double(2)?;\n    Ok(())\n}\n",
+        ] {
+            let analysis = analyze(text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::NoViolation),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// A method call is identified by name only (the receiver's type is not
+    /// resolved), so a call to a same-named method of another type cannot be told
+    /// from the target: the discard is neither proven a violation (FAIL) nor
+    /// absent. A path call keeps its FAIL.
+    /// @vtest.id TEST-ORACLE-DA-003-METHOD-CALL-IS-IDENTIFIED-BY-NAME-ONLY
+    /// @vtest.covers VO-ORACLE-DA-003-UNIDENTIFIED-CALL-UNKNOWN
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent メソッド呼出は名前だけで target と同定できないため、結果を捨てる形は FAIL でも違反なしでもなく UNKNOWN になり、関数呼出の形は FAIL のままであることを確認する
+    #[test]
+    fn a_method_call_matched_by_name_only_is_unknown_not_fail() {
+        let method = "#[test]\nfn t() {\n    other.double(2);\n}\n";
+        let analysis = analyze(method, &["double".to_owned()], &[]);
+        assert!(
+            matches!(analysis.da_003, DaVerdict::Unknown(_)),
+            "{:?}",
+            analysis.da_003
+        );
+        let path = "#[test]\nfn t() {\n    Other::double(2);\n}\n";
+        let analysis = analyze(path, &["double".to_owned()], &[]);
+        assert!(
+            matches!(analysis.da_003, DaVerdict::Fail(_)),
+            "{:?}",
+            analysis.da_003
+        );
+    }
+
+    /// A SrcId target has no call symbol, so its call cannot be found: the
+    /// static-analysis verdict is UNKNOWN, not the PASS the other rules compose to.
+    /// @vtest.id TEST-ORACLE-DA-003-SRC-ID-TARGET-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-003-UNIDENTIFIED-CALL-UNKNOWN
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::RustCargoStaticAnalysisAdapter
+    /// @vtest.intent SrcId で宣言された target は呼出箇所を同定できないため、他の規則が違反なしでも静的解析の判定が PASS ではなく UNKNOWN になり、Locator の target だけの同じ本体は PASS のままであることを確認する
+    #[test]
+    fn a_src_id_target_makes_the_static_analysis_verdict_unknown_not_pass() {
+        use vtest_model::{
+            AdapterId, ContentHash, ExecutionDescriptor, ProjectPath, SourceLocation, SourceRange,
+            SrcId, TestEntity, TestId,
+        };
+
+        let construct = "#[test]\nfn t() {\n    assert_eq!(double(2), 4);\n}\n";
+        let hash = ContentHash::from_text(construct);
+        let entity = |targets: Vec<TargetRef>| TestEntity {
+            id: TestId::new("TEST-X"),
+            covers: Vec::new(),
+            targets,
+            intent: "x".to_owned(),
+            input: None,
+            expect: None,
+            kind: None,
+            cases: Vec::new(),
+            related: Vec::new(),
+            location: SourceLocation {
+                adapter: AdapterId::new("rust-cargo"),
+                path: ProjectPath("tests/x.rs".to_owned()),
+                locator: "x".to_owned(),
+                byte_range: SourceRange { start: 0, end: 1 },
+            },
+            content_hash: hash.clone(),
+            execution: ExecutionDescriptor {
+                adapter: AdapterId::new("rust-cargo"),
+                project: None,
+                suite: None,
+                selector: "x".to_owned(),
+            },
+        };
+        let verdict = |targets: Vec<TargetRef>| {
+            let test = entity(targets);
+            RustCargoStaticAnalysisAdapter::new().analyze(StaticAnalysisInput {
+                test: &test,
+                construct_text: construct,
+                content_hash: &hash,
+                extra_assertion_macros: &[],
+            })
+        };
+        let locator_target = TargetRef::Locator(locator("src/lib.rs::double"));
+        assert!(matches!(
+            verdict(vec![locator_target.clone()]),
+            StaticAnalysisVerdict::Pass(_)
+        ));
+        let src_id_target = TargetRef::SrcId(SrcId::new("SRC-DOUBLE"));
+        assert!(matches!(
+            verdict(vec![src_id_target.clone()]),
+            StaticAnalysisVerdict::Unknown(_)
+        ));
+        assert!(matches!(
+            verdict(vec![locator_target, src_id_target]),
+            StaticAnalysisVerdict::Unknown(_)
+        ));
     }
 
     /// @vtest.id TEST-ORACLE-DA-004-IDENTICAL-ARGUMENTS-FAILS
