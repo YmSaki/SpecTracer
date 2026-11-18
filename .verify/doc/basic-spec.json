@@ -14459,6 +14459,36 @@
               261
             ]
           }
+        },
+        {
+          "id": "DES-619",
+          "statement": "`go` adapterのStatic Audit capabilityは、§8.3の不成立構造を決定論的に検出する。",
+          "derives_from": [
+            "BD-357"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              27,
+              27
+            ]
+          }
+        },
+        {
+          "id": "DES-620",
+          "statement": "`javascript` adapterのStatic Audit capabilityは、§8.3の不成立構造を決定論的に検出する。",
+          "derives_from": [
+            "BD-358"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              28,
+              28
+            ]
+          }
         }
       ]
     },
@@ -14544,6 +14574,36 @@
             "lines": [
               287,
               287
+            ]
+          }
+        },
+        {
+          "id": "DES-621",
+          "statement": "`go` adapterにおける判定権威は `go test` である。",
+          "derives_from": [
+            "REQ-346"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              27,
+              27
+            ]
+          }
+        },
+        {
+          "id": "DES-622",
+          "statement": "`javascript` adapterにおける判定権威は vitest である。",
+          "derives_from": [
+            "REQ-347"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              28,
+              28
             ]
           }
         }
