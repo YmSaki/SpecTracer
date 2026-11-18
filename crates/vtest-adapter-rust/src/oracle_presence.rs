@@ -736,16 +736,28 @@ enum BindingReach {
 /// known), or when the name appears in a nested macro other than `matches!`,
 /// `format!`, `vec!` and the assert macros, or in one of those whose tokens do not
 /// parse as expressions.
-fn binding_reach(text: &str, binding: &str, assert_spans: &[(usize, usize)]) -> BindingReach {
+///
+/// Derivation (not stated in DS-623 / DS-628 / DS-1680 / DS-615): a `let mut` binding
+/// that is changed through a place also cannot be told to mean the result
+/// (`is_changed_through_place`), as DS-623 sends a result verified through a mutable
+/// reference to UNKNOWN. A binding that is not `let mut` cannot be changed that way.
+fn binding_reach(
+    text: &str,
+    binding: &DerivedBinding,
+    assert_spans: &[(usize, usize)],
+) -> BindingReach {
+    let name = binding.name.as_str();
     let reaches = |outcome: &BindingReach| matches!(outcome, BindingReach::Reaches);
     let outcomes: Vec<BindingReach> = assert_spans
         .iter()
         .map(|&(start, end)| {
-            span_binding_reach(&text[start..end], macro_name_before(text, start), binding)
+            span_binding_reach(&text[start..end], macro_name_before(text, start), name)
         })
         .collect();
     if outcomes.iter().any(reaches) {
-        return if count_rebindings(text, binding) > 1 {
+        return if count_rebindings(text, name) > 1
+            || (binding.mutable && is_changed_through_place(text, name, assert_spans))
+        {
             BindingReach::Uncertain
         } else {
             BindingReach::Reaches
@@ -1638,6 +1650,118 @@ fn count_rebindings(text: &str, name: &str) -> usize {
     counter.count
 }
 
+/// Whether the function changes the value of the `let mut` binding `name` through
+/// something other than the name itself (`name = ..` is `count_rebindings`').
+///
+/// Derivation (DS-623 sends a result that may be verified through a mutable
+/// reference to UNKNOWN; DS-615): the value an assert reads is not shown to be the
+/// target's result when the binding is
+/// - the base of an assigned place (`r.0 = ..`, `r[i] += ..`, `*r = ..`, or an
+///   element of a destructuring assignment),
+/// - borrowed as `&mut r` (or `&mut r.0`), or
+/// - the receiver of a method call outside an assert (`r.clear()`): whether the
+///   method takes `&mut self` is not decided by this capability, so every method
+///   call on the `let mut` binding counts. A receiver inside an assert is not read
+///   as a change made before the assert's comparison.
+///
+/// Macro arguments that parse as comma-separated expressions are read as well; other
+/// macro tokens are not (DS-629).
+fn is_changed_through_place(text: &str, name: &str, assert_spans: &[(usize, usize)]) -> bool {
+    struct Changes<'a> {
+        text: &'a str,
+        name: &'a str,
+        assert_spans: &'a [(usize, usize)],
+        found: bool,
+    }
+    impl<'ast> Visit<'ast> for Changes<'_> {
+        fn visit_expr_assign(&mut self, node: &'ast syn::ExprAssign) {
+            self.found |= assigned_place_roots_at(&node.left, self.name, false);
+            syn::visit::visit_expr_assign(self, node);
+        }
+
+        fn visit_expr_binary(&mut self, node: &'ast syn::ExprBinary) {
+            self.found |= is_compound_assignment(node.op)
+                && assigned_place_roots_at(&node.left, self.name, false);
+            syn::visit::visit_expr_binary(self, node);
+        }
+
+        fn visit_expr_reference(&mut self, node: &'ast syn::ExprReference) {
+            self.found |= node.mutability.is_some() && place_roots_at(&node.expr, self.name);
+            syn::visit::visit_expr_reference(self, node);
+        }
+
+        fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
+            let offset = span_offset(node.method.span().start(), self.text);
+            let in_assert = self
+                .assert_spans
+                .iter()
+                .any(|&(start, end)| offset >= start && offset < end);
+            self.found |= !in_assert && place_roots_at(&node.receiver, self.name);
+            syn::visit::visit_expr_method_call(self, node);
+        }
+
+        fn visit_macro(&mut self, node: &'ast syn::Macro) {
+            if let Ok(arguments) = syn::parse::Parser::parse2(
+                syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated,
+                node.tokens.clone(),
+            ) {
+                for argument in &arguments {
+                    self.visit_expr(argument);
+                }
+            }
+        }
+    }
+    let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
+        return false;
+    };
+    let mut changes = Changes {
+        text,
+        name,
+        assert_spans,
+        found: false,
+    };
+    changes.visit_item_fn(&function);
+    changes.found
+}
+
+/// Whether `expression` is `name` or a field, index or dereference of a place that is.
+fn place_roots_at(expression: &syn::Expr, name: &str) -> bool {
+    match unwrap_parens(expression) {
+        syn::Expr::Path(path) => path.qself.is_none() && path.path.is_ident(name),
+        syn::Expr::Field(field) => place_roots_at(&field.base, name),
+        syn::Expr::Index(index) => place_roots_at(&index.expr, name),
+        syn::Expr::Unary(unary) if matches!(unary.op, syn::UnOp::Deref(_)) => {
+            place_roots_at(&unary.expr, name)
+        }
+        _ => false,
+    }
+}
+
+/// Whether the left side of an assignment changes `name` other than as the plain
+/// name at its top (`nested` is true inside a destructuring pattern, where the plain
+/// name is assigned as well).
+fn assigned_place_roots_at(left: &syn::Expr, name: &str, nested: bool) -> bool {
+    match unwrap_parens(left) {
+        syn::Expr::Tuple(tuple) => tuple
+            .elems
+            .iter()
+            .any(|element| assigned_place_roots_at(element, name, true)),
+        syn::Expr::Array(array) => array
+            .elems
+            .iter()
+            .any(|element| assigned_place_roots_at(element, name, true)),
+        syn::Expr::Struct(literal) => literal
+            .fields
+            .iter()
+            .any(|field| assigned_place_roots_at(&field.expr, name, true)),
+        syn::Expr::Call(call) => call
+            .args
+            .iter()
+            .any(|argument| assigned_place_roots_at(argument, name, true)),
+        other => place_roots_at(other, name) && (nested || !is_assignment_to(other, name)),
+    }
+}
+
 /// One call of a declared target found in the Test body.
 struct CallSite {
     /// Byte offset where the callee name starts (the `ExprCall` function path,
@@ -1698,10 +1822,10 @@ fn target_call_result_is_verified(
     // where `NAME` (optionally followed by `.field`/`.method()`) later
     // appears inside an assert span as an identifier of its own (#281).
     let mut binding_uncertain = false;
-    for (binding, has_path_call) in find_let_bindings_containing_call(text, symbol) {
+    for binding in find_let_bindings_containing_call(text, symbol) {
         match binding_reach(text, &binding, assert_spans) {
             BindingReach::Reaches => {
-                if has_path_call {
+                if binding.has_path_call {
                     path_verified = true;
                 } else {
                     method_verified = true;
@@ -1940,7 +2064,7 @@ impl<'ast> Visit<'ast> for CallSiteVisitor<'_> {
 /// closure as UNKNOWN. A `match` scrutinee is outside the range DS-628 gives the
 /// tracking (a `let` binding, a method chain, a field access), so DS-615 reads it as
 /// UNKNOWN. Calls in macro tokens are not read here: `macro_target_use` reads them.
-fn find_let_bindings_containing_call(text: &str, symbol: &str) -> Vec<(String, bool)> {
+fn find_let_bindings_containing_call(text: &str, symbol: &str) -> Vec<DerivedBinding> {
     let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
         return Vec::new();
     };
@@ -1953,9 +2077,18 @@ fn find_let_bindings_containing_call(text: &str, symbol: &str) -> Vec<(String, b
     visitor.bindings
 }
 
+/// A `let` binding whose initializer carries the target's result.
+struct DerivedBinding {
+    name: String,
+    /// The result comes from a function call of the target, not a method call.
+    has_path_call: bool,
+    /// Declared `let mut`.
+    mutable: bool,
+}
+
 struct LetBindingVisitor<'a> {
     names: &'a NameUse<'a>,
-    bindings: Vec<(String, bool)>,
+    bindings: Vec<DerivedBinding>,
 }
 
 impl<'ast> Visit<'ast> for LetBindingVisitor<'_> {
@@ -1965,7 +2098,11 @@ impl<'ast> Visit<'ast> for LetBindingVisitor<'_> {
             calls.init_mode = true;
             calls.visit_expr(init.expr.as_ref());
             if calls.path || calls.method {
-                self.bindings.push((pattern.ident.to_string(), calls.path));
+                self.bindings.push(DerivedBinding {
+                    name: pattern.ident.to_string(),
+                    has_path_call: calls.path,
+                    mutable: pattern.mutability.is_some(),
+                });
             }
         }
         syn::visit::visit_local(self, node);
@@ -2839,6 +2976,70 @@ mod tests {
             let analysis = analyze(&text, &["double".to_owned()], &[]);
             assert!(
                 matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{body}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// A `let mut` binding changed through a place (a field, an index, a dereference),
+    /// through `&mut`, or through a method receiver is not the target's result when the
+    /// assert reads it.
+    /// @vtest.id TEST-ORACLE-DA-003-OVERWRITE-THROUGH-PLACE-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW, VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent `let mut` の束縛を、フィールド・index・参照外しへの代入、`&mut`、メソッドの受け手として変更する Test は、assert が読む値が target の結果と決められず、PASS にならず UNKNOWN になることを確認する
+    #[test]
+    fn a_let_mut_binding_changed_through_a_place_is_unknown() {
+        for body in [
+            "let mut r = double(2); r.0 = other(); assert_eq!(r.0, 1);",
+            "let mut r = double(2); r.0 += 1; assert_eq!(r.0, 1);",
+            "let mut r = double(2); r[0] = other(); assert_eq!(r[0], 1);",
+            "let mut r = double(2); *r = other(); assert_eq!(*r, 1);",
+            "let mut r = double(2); (*r).x = other(); assert_eq!(r.x, 1);",
+            "let mut r = double(2); *(&mut r) = other(); assert_eq!(r, 1);",
+            "let mut r = double(2); let p = &mut r; *p = other(); assert_eq!(r, 1);",
+            "let mut r = double(2); touch(&mut r.0); assert_eq!(r.0, 1);",
+            "let mut r = double(2); (r.0, x) = (other(), 1); assert_eq!(r.0, 1);",
+            "let mut r = double(2); r.clear(); assert_eq!(r, 1);",
+            "let mut r = double(2); r.0.push(1); assert_eq!(r.0, 1);",
+            "let mut r = double(2); r[0].push(1); assert_eq!(r[0], 1);",
+            "let mut r = double(2); let f = || r.0 = other(); f(); assert_eq!(r.0, 1);",
+            "let mut r = double(2); assert_eq!(touch(&mut r), 1);",
+            "let mut r = double(2); assert!({ r.0 = other(); r.0 == 1 });",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{body}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// A binding that cannot be changed through a place (not `let mut`), or a `let mut`
+    /// that is only read, stays as it was.
+    /// @vtest.id TEST-ORACLE-DA-003-UNCHANGED-BINDING-STAYS-NO-VIOLATION
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent `let` の束縛、変更のない `let mut` の束縛、assert の中だけで受け手になる `let mut` の束縛が assert に届く Test は、違反なしのままであることを確認する
+    #[test]
+    fn a_binding_that_is_only_read_stays_no_violation() {
+        for body in [
+            "let r = double(2); assert_eq!(r.0, 4);",
+            "let r = double(2); let n = r.len(); assert_eq!(r, n);",
+            "let mut r = double(2); assert_eq!(r, 4);",
+            "let mut r = double(2); assert_eq!(r.0, 4);",
+            "let mut r = double(2); assert_eq!(r.len(), 4);",
+            "let mut r = double(2); let mut v = other(); v.0 = 1; assert_eq!(r, 4);",
+            "let mut r = double(2); v[r] = 1; assert_eq!(r, 4);",
+            "let mut r = double(2); let c = &r; assert_eq!(r, 4);",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::NoViolation),
                 "{body}: {:?}",
                 analysis.da_003
             );
