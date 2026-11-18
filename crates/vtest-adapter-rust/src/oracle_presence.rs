@@ -1149,8 +1149,11 @@ impl<'ast> Visit<'ast> for MacroUseVisitor<'_> {
 /// `match`; the initializer of a `let` whose single name the tail expression of the
 /// block uses where it flows; and the elements of a tuple, array or struct literal,
 /// except that a literal projected directly (`(a, b).1`, `S { a, b }.b`,
-/// `[a, b][1]`) passes only the element that is projected, and none when that cannot
-/// be told. A `let` name is followed only through the tail expression of its own
+/// `[a, b][1]`, `vec![a, b][1]`) passes only the element that is projected, and none
+/// when that cannot be told; a chain of projections (`((a, b), c).0.1`) is applied
+/// step by step. The same test applied to the initializer of a `let` decides whether
+/// its binding is derived from the target's result (`find_let_bindings_containing_call`).
+/// A `let` name is followed only through the tail expression of its own
 /// block, one binding deep (DS-628's `let` binding, bounded as the rest of DA-003
 /// is). The same positions decide whether the name of a `let` outside the assert
 /// reaches it (`probe`, `binding_reach`).
@@ -1169,6 +1172,16 @@ struct CheckedCallVisitor<'a> {
     probe_dropped: bool,
     /// `probe` is bound or assigned again.
     probe_rebound: bool,
+    /// The expression is the initializer of a `let` (`let_initializer_calls`), where
+    /// calls in macro tokens are not read.
+    init_mode: bool,
+}
+
+/// One step of a field access or an index expression, applied to a literal.
+enum Projection<'e> {
+    Member(&'e syn::Member),
+    /// An index that is an integer literal, or `None` when it is not one.
+    Index(Option<usize>),
 }
 
 impl<'a> CheckedCallVisitor<'a> {
@@ -1183,6 +1196,126 @@ impl<'a> CheckedCallVisitor<'a> {
             probe_flows: false,
             probe_dropped: false,
             probe_rebound: false,
+            init_mode: false,
+        }
+    }
+
+    /// Visits the index of `node` as flowing and returns the step it makes.
+    ///
+    /// Derivation (from DS-623, as a function's argument is): the value of the index
+    /// decides which element is compared (`function[range]`), so it flows.
+    fn index_projection(&mut self, node: &syn::ExprIndex) -> Projection<'static> {
+        self.visit_expr(&node.index);
+        Projection::Index(match node.index.as_ref() {
+            syn::Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Int(index),
+                ..
+            }) => index.base10_parse::<usize>().ok(),
+            _ => None,
+        })
+    }
+
+    /// Visits a chain of field accesses and index expressions over `base` (`first`
+    /// is the outermost step). Derivation (DS-623: the value of a projection is the
+    /// projected element's): the steps are applied to a literal one after another, so
+    /// only the element they select flows (`((a, b), c).0.1` passes `b`).
+    fn visit_projections<'e>(&mut self, base: &'e syn::Expr, mut steps: Vec<Projection<'e>>) {
+        let mut base = unwrap_parens(base);
+        loop {
+            match base {
+                syn::Expr::Field(field) => {
+                    steps.push(Projection::Member(&field.member));
+                    base = unwrap_parens(&field.base);
+                }
+                syn::Expr::Index(index) => {
+                    let step = self.index_projection(index);
+                    steps.push(step);
+                    base = unwrap_parens(&index.expr);
+                }
+                _ => break,
+            }
+        }
+        steps.reverse();
+        self.visit_projected(base, &steps);
+    }
+
+    /// Visits `base` with the elements that `steps` (innermost first) select as
+    /// flowing, and the others as dropped. A base that is not a literal passes its
+    /// value whole.
+    fn visit_projected(&mut self, base: &syn::Expr, steps: &[Projection<'_>]) {
+        let base = unwrap_parens(base);
+        let Some((first, rest)) = steps.split_first() else {
+            return self.visit_expr(base);
+        };
+        let selected = match first {
+            Projection::Index(index) => *index,
+            Projection::Member(syn::Member::Unnamed(member)) => Some(member.index as usize),
+            Projection::Member(syn::Member::Named(_)) => None,
+        };
+        match base {
+            syn::Expr::Tuple(tuple) => {
+                let by_member = matches!(first, Projection::Member(_));
+                for (index, element) in tuple.elems.iter().enumerate() {
+                    self.visit_selected(element, by_member && selected == Some(index), rest);
+                }
+            }
+            syn::Expr::Array(array) => {
+                let by_index = matches!(first, Projection::Index(_));
+                for (index, element) in array.elems.iter().enumerate() {
+                    self.visit_selected(element, by_index && selected == Some(index), rest);
+                }
+            }
+            syn::Expr::Struct(literal) => {
+                for field in &literal.fields {
+                    let projected = match (first, &field.member) {
+                        (Projection::Member(syn::Member::Named(a)), syn::Member::Named(b)) => {
+                            a == b
+                        }
+                        (Projection::Member(syn::Member::Unnamed(a)), syn::Member::Unnamed(b)) => {
+                            a.index == b.index
+                        }
+                        _ => false,
+                    };
+                    self.visit_selected(&field.expr, projected, rest);
+                }
+                if let Some(base) = &literal.rest {
+                    self.visit_element(base, false);
+                }
+            }
+            syn::Expr::Macro(node) if node.mac.path.is_ident("vec") => {
+                if self.init_mode || !self.macro_relevant(&node.mac) {
+                    return;
+                }
+                let Some(arguments) = macro_arguments(&node.mac) else {
+                    self.opaque = true;
+                    return;
+                };
+                let by_index = matches!(first, Projection::Index(_));
+                for (index, element) in arguments.checked.iter().enumerate() {
+                    self.visit_selected(element, by_index && selected == Some(index), rest);
+                }
+            }
+            syn::Expr::Repeat(_) => self.dropping(|visitor| visitor.visit_expr(base)),
+            _ => self.visit_expr(base),
+        }
+    }
+
+    /// Visits an element of a literal: the selected one goes on with the remaining
+    /// steps, any other is dropped.
+    fn visit_selected(&mut self, element: &syn::Expr, selected: bool, rest: &[Projection<'_>]) {
+        if selected {
+            self.visit_projected(element, rest);
+        } else {
+            self.visit_element(element, false);
+        }
+    }
+
+    /// Whether the tokens of a macro mention what is looked for.
+    fn macro_relevant(&self, node: &syn::Macro) -> bool {
+        match (self.probe, self.names) {
+            (Some(name), _) => tokens_mention_ident(node.tokens.clone(), name),
+            (None, Some(names)) => names.tokens_use_name(node.tokens.clone()),
+            (None, None) => false,
         }
     }
 
@@ -1331,58 +1464,12 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
     }
 
     fn visit_expr_field(&mut self, node: &'ast syn::ExprField) {
-        let kept = |index: usize| match &node.member {
-            syn::Member::Unnamed(member) => member.index as usize == index,
-            syn::Member::Named(_) => false,
-        };
-        match unwrap_parens(&node.base) {
-            syn::Expr::Tuple(tuple) => {
-                for (index, element) in tuple.elems.iter().enumerate() {
-                    self.visit_element(element, kept(index));
-                }
-            }
-            syn::Expr::Struct(literal) => {
-                for field in &literal.fields {
-                    let projected = match (&field.member, &node.member) {
-                        (syn::Member::Named(a), syn::Member::Named(b)) => a == b,
-                        (syn::Member::Unnamed(a), syn::Member::Unnamed(b)) => a.index == b.index,
-                        _ => false,
-                    };
-                    self.visit_element(&field.expr, projected);
-                }
-                if let Some(rest) = &literal.rest {
-                    self.visit_element(rest, false);
-                }
-            }
-            syn::Expr::Array(_) | syn::Expr::Repeat(_) => {
-                self.dropping(|visitor| visitor.visit_expr(&node.base));
-            }
-            _ => self.visit_expr(&node.base),
-        }
+        self.visit_projections(&node.base, vec![Projection::Member(&node.member)]);
     }
 
     fn visit_expr_index(&mut self, node: &'ast syn::ExprIndex) {
-        // Derivation (from DS-623, as a function's argument is): the value of the index
-        // decides which element is compared (`function[range]`), so it flows.
-        self.visit_expr(&node.index);
-        let projected = match node.index.as_ref() {
-            syn::Expr::Lit(syn::ExprLit {
-                lit: syn::Lit::Int(index),
-                ..
-            }) => index.base10_parse::<usize>().ok(),
-            _ => None,
-        };
-        match unwrap_parens(&node.expr) {
-            syn::Expr::Array(array) => {
-                for (index, element) in array.elems.iter().enumerate() {
-                    self.visit_element(element, projected == Some(index));
-                }
-            }
-            syn::Expr::Tuple(_) | syn::Expr::Struct(_) | syn::Expr::Repeat(_) => {
-                self.dropping(|visitor| visitor.visit_expr(&node.expr));
-            }
-            _ => self.visit_expr(&node.expr),
-        }
+        let projection = self.index_projection(node);
+        self.visit_projections(&node.expr, vec![projection]);
     }
 
     fn visit_expr_struct(&mut self, node: &'ast syn::ExprStruct) {
@@ -1463,12 +1550,7 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
     }
 
     fn visit_macro(&mut self, node: &'ast syn::Macro) {
-        let relevant = match (self.probe, self.names) {
-            (Some(name), _) => tokens_mention_ident(node.tokens.clone(), name),
-            (None, Some(names)) => names.tokens_use_name(node.tokens.clone()),
-            (None, None) => false,
-        };
-        if !relevant {
+        if self.init_mode || !self.macro_relevant(node) {
             return;
         }
         let Some(arguments) = macro_arguments(node) else {
@@ -1842,15 +1924,24 @@ impl<'ast> Visit<'ast> for CallSiteVisitor<'_> {
     }
 }
 
-/// Names bound by `let NAME = ...<call>...;`, each with whether the initializer
-/// holds a function call of `symbol` (not only a method call).
+/// Names bound by `let NAME = ...<call>...;` where the call's value can flow to
+/// the initializer's value, each with whether such a call is a function call of
+/// `symbol` (not only a method call).
+///
+/// Derivation (not stated in DS-615 / DS-623 / DS-628 / DS-1680): a binding is
+/// derived from the target's result (DS-623) only where the call's value can reach
+/// the initializer's value, which is the flow test of `CheckedCallVisitor` applied to
+/// the initializer. A call whose value is dropped there (a block statement, a
+/// short-circuit, a `match` scrutinee, a projection that leaves it out, a closure
+/// body) leaves the binding underived, so the call stays unverified, UNKNOWN
+/// (DS-615). Calls in macro tokens are not read here: `macro_target_use` reads them.
 fn find_let_bindings_containing_call(text: &str, symbol: &str) -> Vec<(String, bool)> {
     let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
         return Vec::new();
     };
+    let names = NameUse::new(text, symbol, &function);
     let mut visitor = LetBindingVisitor {
-        text,
-        symbol,
+        names: &names,
         bindings: Vec::new(),
     };
     visitor.visit_item_fn(&function);
@@ -1858,24 +1949,18 @@ fn find_let_bindings_containing_call(text: &str, symbol: &str) -> Vec<(String, b
 }
 
 struct LetBindingVisitor<'a> {
-    text: &'a str,
-    symbol: &'a str,
+    names: &'a NameUse<'a>,
     bindings: Vec<(String, bool)>,
 }
 
 impl<'ast> Visit<'ast> for LetBindingVisitor<'_> {
     fn visit_local(&mut self, node: &'ast syn::Local) {
         if let (syn::Pat::Ident(pattern), Some(init)) = (&node.pat, &node.init) {
-            let mut calls = CallSiteVisitor {
-                text: self.text,
-                symbol: self.symbol,
-                sites: Vec::new(),
-            };
+            let mut calls = CheckedCallVisitor::new(Some(self.names), None);
+            calls.init_mode = true;
             calls.visit_expr(init.expr.as_ref());
-            if !calls.sites.is_empty() {
-                let has_path_call = calls.sites.iter().any(|site| !site.is_method);
-                self.bindings
-                    .push((pattern.ident.to_string(), has_path_call));
+            if calls.path || calls.method {
+                self.bindings.push((pattern.ident.to_string(), calls.path));
             }
         }
         syn::visit::visit_local(self, node);
@@ -3300,8 +3385,93 @@ mod tests {
             "let r = double(2);\n    assert_eq!(r, 4);",
             "let r = double(2);\n    assert!({ r == 4 });",
             "let r = double(2);\n    assert_eq!({ let t = r; t }, 4);",
-            "let f = |x: i32| double(x);\n    assert_eq!(f(2), 4);",
             "let range = double(2);\n    assert_eq!(&function[range], \"x\");",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {text}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::NoViolation),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// A `let` outside the assert is derived from the target's result only where the
+    /// target's value can flow to the initializer's value; a value dropped inside the
+    /// initializer (a block statement, a short-circuit, a `match` scrutinee, a
+    /// projection that leaves it out, a closure body) leaves the binding underived.
+    /// @vtest.id TEST-ORACLE-DA-003-LET-INITIALIZER-DROPPING-CALL-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN, VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::find_let_bindings_containing_call
+    /// @vtest.intent let の初期化式の中で target の値が捨てられる位置(ブロックの文、||、match の被検査式、射影で残らない要素、入れ子の射影、vec! の添字で残らない要素、クロージャの本体)にあるとき、その束縛は target の結果から派生した束縛と数えず、束縛が assert に届いても DA-003 が UNKNOWN になり合成結果が PASS にならないことを確認する
+    #[test]
+    fn a_let_initializer_that_drops_the_call_is_unknown_not_pass() {
+        for text in [
+            "let r = { double(2); 1 };\n    assert_eq!(r, 1);",
+            "let r = (double(2), 1).1;\n    assert_eq!(r, 1);",
+            "let r = double(2) == 4 || true;\n    assert!(r);",
+            "let r = match double(2) { _ => 1 };\n    assert_eq!(r, 1);",
+            "let f = |x| { double(x); 1 };\n    assert_eq!(f(2), 1);",
+            "let f = |x| double(x);\n    assert_eq!(f(2), 4);",
+            "let f = |x: i32| double(x);\n    assert_eq!(f(2), 4);",
+            "assert_eq!((|x| double(x))(2), 4);",
+            "let r = ((double(2), 1), 2).0.1;\n    assert_eq!(r, 1);",
+            "let r = vec![double(2), 1][1];\n    assert_eq!(r, 1);",
+            "assert_eq!(((double(2), 1), 2).0.1, 1);",
+            "assert_eq!(vec![double(2), 1][1], 1);",
+            "let r = [double(2), 1][1];\n    assert_eq!(r, 1);",
+            "let r = Pair { a: double(2), b: 1 }.b;\n    assert_eq!(r, 1);",
+            "let r = { let _ = double(2); 1 };\n    assert_eq!(r, 1);",
+            "let r = { let x = double(2); 1 };\n    assert_eq!(r, 1);",
+            "let r = if c { { double(2); 1 } } else { 0 };\n    assert_eq!(r, 1);",
+            "let r = s.double(2).is_some() || true;\n    assert!(r);",
+            "let r = { s.double(2); 1 };\n    assert_eq!(r, 1);",
+            "let r = xs.iter().map(|x| double(*x)).count();\n    assert_eq!(r, 1);",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {text}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            let (is_fail, is_unknown, basis) = compose(&analysis);
+            assert!(
+                !is_fail && is_unknown,
+                "{text}: not UNKNOWN: {basis:?} / {:?}",
+                analysis.da_003
+            );
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{text}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// A `let` initializer in which the target's value flows to the initializer's
+    /// value still derives the binding from the result.
+    /// @vtest.id TEST-ORACLE-DA-003-LET-INITIALIZER-FLOWING-CALL-STAYS-NO-VIOLATION
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::find_let_bindings_containing_call
+    /// @vtest.intent let の初期化式の中で target の値が初期化式の値へ流れる位置(式そのもの、二項演算、メソッドチェーン、? と unwrap、if と match の分岐の末尾、ブロックの末尾、射影された要素、関数の引数)にあるとき、束縛は結果から派生したものと数えられ、assert に届けば DA-003 が違反なしのままであることを確認する
+    #[test]
+    fn a_let_initializer_that_carries_the_call_stays_no_violation() {
+        for text in [
+            "let r = double(2);\n    assert_eq!(r, 4);",
+            "let r = double(2) + 1;\n    assert_eq!(r, 5);",
+            "let r = c.double(2).unwrap();\n    assert_eq!(r, 4);",
+            "let r = if c { double(2) } else { 0 };\n    assert_eq!(r, 4);",
+            "let r = match c { 0 => 1, _ => double(2) };\n    assert_eq!(r, 4);",
+            "let r = { let q = double(2); q };\n    assert_eq!(r, 4);",
+            "let r = { double(1); double(2) };\n    assert_eq!(r, 4);",
+            "let r = (double(2), 1).0;\n    assert_eq!(r, 4);",
+            "let r = ((double(2), 1), 2).0.0;\n    assert_eq!(r, 4);",
+            "let r = ((1, double(2)), 2).0.1;\n    assert_eq!(r, 4);",
+            "let r = Pair { a: double(2), b: 1 }.a;\n    assert_eq!(r, 4);",
+            "let r = [double(2), 1][0];\n    assert_eq!(r, 4);",
+            "let r = identity(double(2));\n    assert_eq!(r, 4);",
+            "let r = s.double(2)?;\n    assert_eq!(r, 4);",
+            "let r = &double(2);\n    assert_eq!(r, &4);",
+            "let r = double(2) as u8;\n    assert_eq!(r, 4);",
+            "let r = Calc::double(2);\n    assert_eq!(r, 4);",
+            "let mut r = double(2);\n    assert_eq!(r, 4);",
         ] {
             let text = format!("#[test]\nfn t() {{\n    {text}\n}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
