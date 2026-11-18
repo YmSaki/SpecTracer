@@ -251,7 +251,7 @@ fn initial_run_without_cargo_lock_reports_cargo_lock_in_cli_and_mcp() {
     assert_eq!(diag["code"], "E-EXEC-004", "{cli_env}");
     let message = diag["message"].as_str().unwrap();
     assert!(
-        message.contains("added: Cargo.lock"),
+        message.contains("added: workspace-root:Cargo.lock"),
         "expected Cargo.lock in E-EXEC-004 message: {message}"
     );
     assert!(
@@ -301,11 +301,11 @@ fn test_writing_and_modifying_project_files_reports_relative_paths_without_leaks
     assert_eq!(diag["code"], "E-EXEC-004", "{envelope}");
     let message = diag["message"].as_str().unwrap();
     assert!(
-        message.contains("added: generated/created.txt"),
+        message.contains("added: workspace-root:generated/created.txt"),
         "expected added path in message: {message}"
     );
     assert!(
-        message.contains("modified: data/existing.txt"),
+        message.contains("modified: workspace-root:data/existing.txt"),
         "expected modified path in message: {message}"
     );
     for forbidden in [

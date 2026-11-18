@@ -310,7 +310,6 @@ pub fn run_tests_with_runner(
         // execution. Even incomplete drafts may reveal an input change.
         if before_draft != after_draft || before_state != after_state {
             let summary = state_diff::summarize_execution_state_change(
-                root,
                 before_draft.as_ref(),
                 after_draft.as_ref(),
                 before_state.as_ref(),
@@ -1450,17 +1449,18 @@ mod tests {
             .find(|d| d.code == "E-EXEC-004")
             .expect("E-EXEC-004 diagnostic");
         assert!(
-            diag.message.contains("added: generated/output.txt"),
+            diag.message
+                .contains("added: workspace-root:generated/output.txt"),
             "missing added path in: {}",
             diag.message
         );
         assert!(
-            diag.message.contains("removed: stale.tmp"),
+            diag.message.contains("removed: workspace-root:stale.tmp"),
             "missing removed path in: {}",
             diag.message
         );
         assert!(
-            diag.message.contains("modified: src/lib.rs"),
+            diag.message.contains("modified: workspace-root:src/lib.rs"),
             "missing modified path in: {}",
             diag.message
         );
@@ -1490,13 +1490,52 @@ mod tests {
     /// @vtest.intent E-EXEC-004 lists changed input paths in deterministic sorted order, caps listed entries, and reports the omitted count
     #[test]
     fn e_exec_004_truncates_input_paths_above_limit_with_omitted_count() {
-        let root = std::env::temp_dir().join(format!("vtest-diff-limit-{}", new_record_id()));
-        fs::create_dir_all(&root).unwrap();
+        let (message, evidence_empty) = added_files_message("limit", 15);
+        assert!(evidence_empty);
+        // The listed entries are the first ten in lexicographic order, in order.
+        let expected = (1..=10)
+            .map(|index| format!("workspace-root:generated/file-{index:02}.txt"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        assert!(
+            message.contains(&format!("added: {expected} (+5 omitted)")),
+            "{message}"
+        );
+        for index in 11..=15 {
+            let omitted = format!("generated/file-{index:02}.txt");
+            assert!(
+                !message.contains(&omitted),
+                "expected {omitted} to be truncated in {message}"
+            );
+        }
+    }
 
+    /// @vtest.id TEST-EXEC-STATE-DIFF-LIMIT-BOUNDARY
+    /// @vtest.covers VO-EXEC-STATE-PREPOST-STABILITY
+    /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
+    /// @vtest.intent E-EXEC-004 lists exactly the maximum number of changed input paths without an omitted count, and omits exactly one when one more path changed
+    #[test]
+    fn e_exec_004_limit_boundary_exact_and_one_over() {
+        let (exact, evidence_empty) = added_files_message("exact", 10);
+        assert!(evidence_empty);
+        assert!(exact.contains("generated/file-10.txt"), "{exact}");
+        assert!(!exact.contains("omitted"), "{exact}");
+
+        let (over, evidence_empty) = added_files_message("over", 11);
+        assert!(evidence_empty);
+        assert!(over.contains("generated/file-10.txt"), "{over}");
+        assert!(!over.contains("generated/file-11.txt"), "{over}");
+        assert!(over.contains("(+1 omitted)"), "{over}");
+    }
+
+    /// Runs with `count` added files (pushed in reverse order) and returns the
+    /// E-EXEC-004 message and whether no Evidence was produced.
+    fn added_files_message(tag: &str, count: u8) -> (String, bool) {
+        let root = std::env::temp_dir().join(format!("vtest-diff-{tag}-{}", new_record_id()));
+        fs::create_dir_all(&root).unwrap();
         let before = base_draft();
         let mut after = base_draft();
-        // Push in reverse order to verify deterministic lexicographical sorting.
-        for index in (1..=15).rev() {
+        for index in (1..=count).rev() {
             after.inputs.push(vtest_model::ExecutionInputDraft {
                 root_identity: "workspace-root".into(),
                 root_relative_path: format!("generated/file-{index:02}.txt"),
@@ -1504,36 +1543,16 @@ mod tests {
                 bytes: vec![index],
             });
         }
-
         let result = run_with_drafts(&root, Some(before), Some(after));
-        let diag = result
+        fs::remove_dir_all(&root).unwrap();
+        let message = result
             .diagnostics
             .iter()
             .find(|d| d.code == "E-EXEC-004")
-            .expect("E-EXEC-004 diagnostic");
-        for index in 1..=10 {
-            let expected = format!("generated/file-{index:02}.txt");
-            assert!(
-                diag.message.contains(&expected),
-                "expected {expected} in {}",
-                diag.message
-            );
-        }
-        for index in 11..=15 {
-            let omitted = format!("generated/file-{index:02}.txt");
-            assert!(
-                !diag.message.contains(&omitted),
-                "expected {omitted} to be truncated in {}",
-                diag.message
-            );
-        }
-        assert!(
-            diag.message.contains("(+5 omitted)"),
-            "expected omitted count in {}",
-            diag.message
-        );
-
-        fs::remove_dir_all(root).unwrap();
+            .expect("E-EXEC-004 diagnostic")
+            .message
+            .clone();
+        (message, result.evidence.is_empty())
     }
 
     /// @vtest.id TEST-EXEC-STATE-DIFF-REDACTION-AND-ELEMENTS
@@ -1562,12 +1581,22 @@ mod tests {
         });
         after.inputs.push(vtest_model::ExecutionInputDraft {
             root_identity: "workspace-root".into(),
+            root_relative_path: format!(
+                "{}/inside/slash.txt",
+                root.to_string_lossy().replace('\\', "/")
+            ),
+            kind: "file".into(),
+            bytes: b"SECRET_SLASH_BYTES".to_vec(),
+        });
+        after.inputs.push(vtest_model::ExecutionInputDraft {
+            root_identity: "workspace-root".into(),
             root_relative_path: "/secret/outside/private.key".into(),
             kind: "file".into(),
             bytes: b"SECRET_OUTSIDE_BYTES".to_vec(),
         });
 
         let result = run_with_drafts(&root, Some(before), Some(after));
+        assert!(result.evidence.is_empty());
         let diag = result
             .diagnostics
             .iter()
@@ -1582,17 +1611,17 @@ mod tests {
             );
         }
         assert!(
-            diag.message.contains("inside/added.txt"),
-            "expected stripped root-relative path in {}",
+            diag.message.contains("workspace-root:<non-relative-path>"),
+            "expected redacted placeholder for non-relative paths in {}",
             diag.message
         );
-        assert!(
-            diag.message.contains("<non-relative-path>"),
-            "expected redacted placeholder for external path in {}",
-            diag.message
-        );
+        let root_native = root.to_string_lossy().into_owned();
+        let root_slash = root_native.replace('\\', "/");
         for forbidden in [
-            root.to_string_lossy().as_ref(),
+            root_native.as_str(),
+            root_slash.as_str(),
+            "inside/added.txt",
+            "inside/slash.txt",
             "/secret/outside/private.key",
             "private.key",
             "SECRET_ENV_VALUE",

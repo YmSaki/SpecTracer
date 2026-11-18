@@ -34,8 +34,8 @@ pub fn materialize_execution_state(
     let mut identities = BTreeSet::new();
     let mut entries: Vec<_> = draft.inputs.iter().collect();
     for entry in &entries {
-        if !logical_path(&entry.root_identity)
-            || !logical_path(&entry.root_relative_path)
+        if !is_logical_path(&entry.root_identity)
+            || !is_logical_path(&entry.root_relative_path)
             || entry.kind.is_empty()
             || !identities.insert((&entry.root_identity, &entry.root_relative_path))
         {
@@ -89,7 +89,12 @@ pub fn materialize_execution_state(
     }
 }
 
-fn logical_path(path: &str) -> bool {
+/// Whether `path` is a well-formed logical (relative, `/`-separated, no `.` or
+/// `..` segment, no drive or scheme `:`) root identity or root-relative path.
+/// The same rule `materialize_execution_state` applies to Execution State
+/// inputs (DES-097–101); callers that display such values reuse it.
+#[must_use]
+pub fn is_logical_path(path: &str) -> bool {
     !path.is_empty()
         && !path.contains('\\')
         && !path.contains(':')

@@ -2,24 +2,28 @@
 //!
 //! Boundary: this module only summarizes differences between two already
 //! captured `(ExecutionStateDraft, ExecutionState)` pairs. It does not decide
-//! whether `E-EXEC-004` applies, does not read files or environment variables,
-//! and never emits absolute paths, file contents, or environment values.
+//! whether `E-EXEC-004` applies (the caller invokes it only when the pairs
+//! differ), does not read files or environment variables, and does not
+//! interpret adapter-specific root identity values: every input is shown as
+//! `<root_identity>:<root_relative_path>`. A root identity or path that is not
+//! a logical relative path (the rule `vtest-store` applies when materializing
+//! the state) violates the adapter contract and is replaced by a placeholder,
+//! so absolute paths, file contents, and environment values are never emitted.
 //!
 //! Clauses: DS-532, DS-907, DS-1375, DES-097, DES-098, DES-099, DES-371.
 
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    path::Path,
-};
+use std::collections::{BTreeMap, BTreeSet};
 
 use vtest_model::{ExecutionInputDraft, ExecutionState, ExecutionStateDraft};
+use vtest_store::is_logical_path;
 
 /// Upper bound on paths shown per change kind (`added`, `removed`, `modified`)
 /// so a bulk file change stays readable in both text and JSON diagnostics.
+/// The canonical specification does not define the content of this message
+/// (DS-942); the value is an implementation choice to keep the display finite.
 const MAX_REPORTED_INPUT_PATHS_PER_KIND: usize = 10;
 
 const REDACTED_PATH: &str = "<non-relative-path>";
-const REDACTED_ROOT: &str = "<non-relative-root>";
 
 type InputKey<'a> = (&'a str, &'a str);
 type InputEntry<'a> = (&'a str, &'a [u8]);
@@ -27,48 +31,45 @@ type GroupedInputs<'a> = BTreeMap<InputKey<'a>, Vec<InputEntry<'a>>>;
 
 /// Formats a deterministic, secret-free summary explaining why the pre-run and
 /// post-run Execution State snapshots differed.
+///
+/// The caller must call this only when the pairs differ; the states are
+/// derived from the drafts, so both drafts being `None` cannot occur then.
 pub(crate) fn summarize_execution_state_change(
-    root: &Path,
     before_draft: Option<&ExecutionStateDraft>,
     after_draft: Option<&ExecutionStateDraft>,
     before_state: Option<&ExecutionState>,
     after_state: Option<&ExecutionState>,
 ) -> String {
     match (before_draft, after_draft) {
+        (Some(before), Some(after)) => {
+            summarize_draft_diff(before, after, before_state, after_state)
+        }
         (Some(_), None) => {
             "snapshot availability changed (before: available, after: unavailable)".to_owned()
         }
-        (None, Some(_)) => {
+        (None, _) => {
             "snapshot availability changed (before: unavailable, after: available)".to_owned()
-        }
-        (None, None) => "execution state changed".to_owned(),
-        (Some(before), Some(after)) => {
-            summarize_draft_diff(root, before, after, before_state, after_state)
         }
     }
 }
 
 fn summarize_draft_diff(
-    root: &Path,
     before: &ExecutionStateDraft,
     after: &ExecutionStateDraft,
     before_state: Option<&ExecutionState>,
     after_state: Option<&ExecutionState>,
 ) -> String {
     let mut sections = Vec::new();
-    let (added, removed, modified) = diff_inputs(root, &before.inputs, &after.inputs);
+    let (added, removed, modified) = diff_inputs(&before.inputs, &after.inputs);
 
-    if let Some(section) = format_path_list("added", &added, MAX_REPORTED_INPUT_PATHS_PER_KIND) {
-        sections.push(section);
-    }
-    if let Some(section) = format_path_list("removed", &removed, MAX_REPORTED_INPUT_PATHS_PER_KIND)
-    {
-        sections.push(section);
-    }
-    if let Some(section) =
-        format_path_list("modified", &modified, MAX_REPORTED_INPUT_PATHS_PER_KIND)
-    {
-        sections.push(section);
+    for (label, paths) in [
+        ("added", &added),
+        ("removed", &removed),
+        ("modified", &modified),
+    ] {
+        if let Some(section) = format_path_list(label, paths) {
+            sections.push(section);
+        }
     }
 
     let changed_elements = diff_non_input_elements(before, after, before_state, after_state);
@@ -76,17 +77,12 @@ fn summarize_draft_diff(
         sections.push(format!("changed: {}", changed_elements.join(", ")));
     }
 
-    if sections.is_empty() {
-        // Fallback when only the materialized hash differs while all inspected
-        // fields matched (should be unreachable for deterministic hashing).
-        sections.push("changed: state_hash".to_owned());
-    }
-
     sections.join("; ")
 }
 
+/// Returns `(added, removed, modified)` displayed inputs, each in the
+/// lexicographic order of their `(root_identity, root_relative_path)` keys.
 fn diff_inputs(
-    root: &Path,
     before_inputs: &[ExecutionInputDraft],
     after_inputs: &[ExecutionInputDraft],
 ) -> (Vec<String>, Vec<String>, Vec<String>) {
@@ -100,24 +96,14 @@ fn diff_inputs(
     let mut modified = Vec::new();
 
     for key @ (root_identity, root_relative_path) in keys {
+        let shown = format_input(root_identity, root_relative_path);
         match (before_map.get(&key), after_map.get(&key)) {
-            (None, Some(_)) => {
-                added.push(format_input_path(root, root_identity, root_relative_path))
-            }
-            (Some(_), None) => {
-                removed.push(format_input_path(root, root_identity, root_relative_path))
-            }
-            (Some(lhs), Some(rhs)) if lhs != rhs => {
-                modified.push(format_input_path(root, root_identity, root_relative_path))
-            }
-            (Some(_), Some(_)) | (None, None) => {}
+            (None, Some(_)) => added.push(shown),
+            (Some(_), None) => removed.push(shown),
+            (Some(lhs), Some(rhs)) if lhs != rhs => modified.push(shown),
+            _ => {}
         }
     }
-
-    // Re-sort after sanitization so redacted entries also stay deterministic.
-    added.sort();
-    removed.sort();
-    modified.sort();
 
     (added, removed, modified)
 }
@@ -177,11 +163,11 @@ fn diff_non_input_elements(
     changed
 }
 
-fn format_path_list(label: &str, paths: &[String], limit: usize) -> Option<String> {
+fn format_path_list(label: &str, paths: &[String]) -> Option<String> {
     if paths.is_empty() {
         return None;
     }
-    let shown = paths.len().min(limit);
+    let shown = paths.len().min(MAX_REPORTED_INPUT_PATHS_PER_KIND);
     let omitted = paths.len() - shown;
     let joined = paths[..shown].join(", ");
     if omitted > 0 {
@@ -191,64 +177,22 @@ fn format_path_list(label: &str, paths: &[String], limit: usize) -> Option<Strin
     }
 }
 
-fn format_input_path(root: &Path, root_identity: &str, root_relative_path: &str) -> String {
-    let rel = sanitize_relative_path(root, root_relative_path);
-    if matches!(root_identity, "workspace-root" | "workspace") {
-        rel
-    } else {
-        let root_label = sanitize_root_identity(root_identity);
-        format!("{root_label}:{rel}")
-    }
+fn format_input(root_identity: &str, root_relative_path: &str) -> String {
+    format!(
+        "{}:{}",
+        displayable(root_identity),
+        displayable(root_relative_path)
+    )
 }
 
-fn sanitize_relative_path(root: &Path, raw: &str) -> String {
-    let stripped_os = Path::new(raw)
-        .strip_prefix(root)
-        .ok()
-        .map(|path| path.to_string_lossy().replace('\\', "/"));
-
-    let candidate = match stripped_os {
-        Some(rel) => rel,
-        None => {
-            let root_norm = root.to_string_lossy().replace('\\', "/");
-            let root_trimmed = root_norm.trim_end_matches('/');
-            let raw_norm = raw.replace('\\', "/");
-            if !root_trimmed.is_empty() {
-                let prefix = format!("{root_trimmed}/");
-                if let Some(rel) = raw_norm.strip_prefix(&prefix) {
-                    rel.to_owned()
-                } else {
-                    raw_norm
-                }
-            } else {
-                raw_norm
-            }
-        }
-    };
-
-    if is_safe_relative_path(&candidate) {
-        candidate
+/// Adapters must return logical relative values; anything else (an absolute
+/// or out-of-root path) is a contract violation and is never shown (AGENTS.md
+/// 6.3).
+fn displayable(value: &str) -> &str {
+    if is_logical_path(value) {
+        value
     } else {
-        REDACTED_PATH.to_owned()
-    }
-}
-
-fn is_safe_relative_path(path: &str) -> bool {
-    !path.is_empty()
-        && !path.starts_with('/')
-        && !path.starts_with('\\')
-        && !path.contains(':')
-        && path.split('/').all(|part| !matches!(part, "" | "." | ".."))
-}
-
-fn sanitize_root_identity(root_identity: &str) -> &str {
-    if !root_identity.is_empty()
-        && !root_identity.contains(['/', '\\', ':'])
-        && !matches!(root_identity, "." | "..")
-    {
-        root_identity
-    } else {
-        REDACTED_ROOT
+        REDACTED_PATH
     }
 }
 
@@ -272,7 +216,7 @@ mod tests {
 
     fn input(path: &str, bytes: &[u8]) -> ExecutionInputDraft {
         ExecutionInputDraft {
-            root_identity: "workspace-root".into(),
+            root_identity: "root-a".into(),
             root_relative_path: path.into(),
             kind: "file".into(),
             bytes: bytes.to_vec(),
@@ -282,19 +226,18 @@ mod tests {
     /// @vtest.id TEST-EXEC-STATE-DIFF-AVAILABILITY-AND-SCHEMA
     /// @vtest.covers VO-EXEC-STATE-PREPOST-STABILITY
     /// @vtest.target crates/vtest-exec/src/state_diff.rs::summarize_execution_state_change
-    /// @vtest.intent summarize_execution_state_change reports snapshot availability mismatches, schema, runner_kind, completeness, and non-workspace root identities deterministically
+    /// @vtest.intent summarize_execution_state_change reports snapshot availability mismatches, schema, runner_kind, completeness, and every root identity uniformly and deterministically
     #[test]
-    fn reports_availability_schema_runner_completeness_and_non_workspace_roots() {
-        let root = Path::new("/tmp/project");
+    fn reports_availability_schema_runner_completeness_and_root_identities() {
         let base = draft_with_inputs(vec![input("Cargo.toml", b"a")]);
 
-        let lost = summarize_execution_state_change(root, Some(&base), None, None, None);
+        let lost = summarize_execution_state_change(Some(&base), None, None, None);
         assert!(
             lost.contains("before: available, after: unavailable"),
             "{lost}"
         );
 
-        let gained = summarize_execution_state_change(root, None, Some(&base), None, None);
+        let gained = summarize_execution_state_change(None, Some(&base), None, None);
         assert!(
             gained.contains("before: unavailable, after: available"),
             "{gained}"
@@ -308,16 +251,53 @@ mod tests {
                 kind: "file".into(),
                 bytes: b"x".to_vec(),
             },
+            input("Cargo.lock", b"y"),
         ]);
         modified.schema_version = "2".into();
         modified.runner_kind = "cargo-llvm-cov".into();
         modified.complete = false;
 
-        let summary =
-            summarize_execution_state_change(root, Some(&base), Some(&modified), None, None);
-        assert!(summary.contains("added: dep-a:src/lib.rs"), "{summary}");
+        let summary = summarize_execution_state_change(Some(&base), Some(&modified), None, None);
+        assert!(
+            summary.contains("added: dep-a:src/lib.rs, root-a:Cargo.lock"),
+            "{summary}"
+        );
         assert!(
             summary.contains("changed: schema, runner_kind, completeness"),
+            "{summary}"
+        );
+    }
+
+    /// @vtest.id TEST-EXEC-STATE-DIFF-NON-LOGICAL-REDACTION
+    /// @vtest.covers VO-EXEC-STATE-PREPOST-STABILITY
+    /// @vtest.target crates/vtest-exec/src/state_diff.rs::summarize_execution_state_change
+    /// @vtest.intent summarize_execution_state_change replaces absolute, drive-qualified, backslash, and parent-relative root identities or paths with a placeholder instead of showing them
+    #[test]
+    fn non_logical_identities_and_paths_are_redacted() {
+        let base = draft_with_inputs(vec![]);
+        let mut after = draft_with_inputs(vec![]);
+        for path in [
+            "/abs/secret.key",
+            "C:/abs/secret.key",
+            "a\\b.txt",
+            "../up.txt",
+        ] {
+            after.inputs.push(input(path, b"x"));
+        }
+        after.inputs.push(ExecutionInputDraft {
+            root_identity: "/abs/root".into(),
+            root_relative_path: "ok.txt".into(),
+            kind: "file".into(),
+            bytes: b"x".to_vec(),
+        });
+
+        let summary = summarize_execution_state_change(Some(&base), Some(&after), None, None);
+        for leaked in ["abs", "secret.key", "a\\b.txt", "up.txt"] {
+            assert!(!summary.contains(leaked), "leaked {leaked}: {summary}");
+        }
+        assert!(summary.contains("<non-relative-path>:ok.txt"), "{summary}");
+        assert!(
+            summary.contains("root-a:<non-relative-path>"),
             "{summary}"
         );
     }
