@@ -78,7 +78,7 @@ adapters:
       include: [src, tests]
       assertion_macros: []
     run:
-      coverage: none
+      coverage: off
 ```
 
 Each language adapter has its own page in this directory.
