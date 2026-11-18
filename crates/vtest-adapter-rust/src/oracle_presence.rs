@@ -3194,7 +3194,7 @@ mod tests {
 
     /// Only the listed positions carry a call's value to the compared value: a
     /// position that is not listed (a short-circuit `||`, a literal's element that a
-    /// projection leaves out, an index, a `match` scrutinee, a `let` that is not
+    /// projection leaves out or that an unresolved index may leave out, a `match` scrutinee, a `let` that is not
     /// used by the tail) does not.
     /// @vtest.id TEST-ORACLE-DA-003-UNLISTED-POSITION-IN-ASSERT-IS-UNKNOWN
     /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN, VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
