@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-003-CONDITIONAL-ASSIGNMENT-MERGE
+parent: null
+derives_from:
+- doc: DS-1966
+claim: '`rust-cargo`のDA-003で、条件付きで実行される代入（分岐の一部の腕、ループの本体、`&&` / `||`の右辺の中の代入。射影代入を含む）の後の合流点では、代入先の各位置を、合流するすべての経路（ループの本体が一度も実行されない経路を含み、失敗として発散する経路（DS-1951）を除く）でその位置が派生であれば派生、どの経路でも派生でなければ派生でないものとし、それ以外はUNKNOWNとする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-19T00:00:00Z
+updated: 2026-11-19T00:00:00Z

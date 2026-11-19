@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-003-BINDING-MUTATION-UNKNOWN
+parent: null
+derives_from:
+- doc: DS-1959
+claim: '`rust-cargo`で、`*x = ..`の代入、`&mut x`または`&mut x.p`（`x`の射影への可変参照）を作る式（関数・メソッドへ渡す形に限らず、`let r = &mut x;`を含む）、`x`を可変でキャプチャするクロージャ、`ref mut`パターンによる束縛、`let mut`で束縛した`x`をメソッド呼出の受け手にする形（assert相当の引数の中を含む）のいずれかを経た後の`x`の派生はUNKNOWNとする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-19T00:00:00Z
+updated: 2026-11-19T00:00:00Z
