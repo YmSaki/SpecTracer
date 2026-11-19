@@ -2638,6 +2638,7 @@
         {
           "id": "DS-1354",
           "statement": "別プロセス・別スレッド、および静的解析が追跡しなかった、または追跡できなかったクロージャ・他ファイル等、静的解析の到達境界を越えてtargetを実行するTestは、当該targetのtarget別DA-002 verdictがUNKNOWNになる。",
+          "description": "期待値の扱いは Issue #303（DS-1360・BD-284 の「DA-003 PASS」と DS-648・DS-651 の関係）で決まっていない。",
           "derives_from": [
             "ROOT-053"
           ],
@@ -2724,6 +2725,7 @@
         {
           "id": "DS-1360",
           "statement": "他ファイル・他クレートへ呼び出し、静的解析がその呼出先を追跡しなかった、または追跡できなかったためにDA-002がUNKNOWNとなるが、戻り値をTest本体内でassertするTestは、DA-003 PASSとなり、runtime`target_coverage`がPASSでかつ他ルールも違反なしなら`target_binding`は到達充足、`oracle_presence = PASS`になる（runtime救済で実益が出るのはこの型）。",
+          "description": "期待値の扱い（特に「DA-003 PASS」と DS-648・DS-651 の関係）は Issue #303 で決まっていない。",
           "derives_from": [
             "ROOT-053"
           ],
@@ -7730,7 +7732,8 @@
         },
         {
           "id": "BD-284",
-          "statement": "fixture は、他ファイル・他クレートへ呼び出し、静的解析がその呼出先を追跡しないためにDA-002がUNKNOWNになるが、戻り値を Test 本体内で assert する Test（DA-002 UNKNOWN・DA-003 PASS）を表現できる。",
+          "statement": "fixture は、他ファイル・他クレートへ呼び出し、静的解析がその呼出先を追跡しなかった、または追跡できなかったためにDA-002がUNKNOWNになるが、戻り値を Test 本体内で assert する Test（DA-002 UNKNOWN・DA-003 PASS）を表現できる。",
+          "description": "期待値の扱い（特に「DA-003 PASS」と DS-648・DS-651 の関係）は Issue #303 で決まっていない。",
           "derives_from": [
             "ROOT-053"
           ],
