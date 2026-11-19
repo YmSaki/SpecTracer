@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-003-NESTED-ITEM-ASYNC-NOT-FLOWING
+parent: null
+derives_from:
+- doc: DS-1943
+claim: '`rust-cargo`で、Test本体またはクロージャ本体の中にある入れ子の項目（`fn`・`impl`など）とasyncブロックの中の式は、それを囲む本体の値へ流れない。その中のtarget呼出とassert相当の扱いはDS-1962による。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-20T00:00:00Z
+updated: 2026-11-20T00:00:00Z
