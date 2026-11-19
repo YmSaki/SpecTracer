@@ -1467,9 +1467,11 @@ fn validated_target_entries(
 ///
 /// `reach` is each target's DA-002 verdict, aligned with `expected`. A target
 /// whose DA-002 is `Pass` is reached statically and needs no runtime proof
-/// (DS-666/DS-676); any other target is judged by its `target_coverage`
-/// (DS-677/DS-832). DA-002 `Fail` is never overturned by a measured count
-/// (DS-672/DS-678).
+/// (DS-666/DS-676), unless a valid measurement records a count of 0 for it:
+/// that target is FAIL (NOT_EXECUTED), as DS-684 reads, rather than a PASS
+/// against the run's evidence. Any other target is judged by its
+/// `target_coverage` (DS-677/DS-832). DA-002 `Fail` is never overturned by a
+/// measured count (DS-672/DS-678).
 fn dynamic_result_from_evidence(
     record: &EvidenceRecord,
     expected: &[String],
@@ -1503,22 +1505,27 @@ fn dynamic_result_from_evidence(
     // `checked`/`count`/`result`, not stored on the Evidence record's
     // `target_coverage` block (DES-183/DES-185).
     if !coverage.checked {
-        if statically_reached == expected.len() {
+        if !expected.is_empty() && statically_reached == expected.len() {
             return CheckOutcome::new(
                 VerificationCheck::TargetBinding,
                 VerificationState::Pass,
                 Vec::new(),
-                vec![format!(
-                    "all {} declared target(s) reached statically by DA-002 (DS-666/DS-831)",
-                    expected.len()
-                )],
+                vec![all_reached_statically(expected.len())],
             );
         }
+        let mut basis = vec!["target reachability was not measured (DS-832)".to_owned()];
+        basis.extend(
+            expected
+                .iter()
+                .zip(reach)
+                .filter(|(_, reach)| reach.outcome == ReachOutcome::Fail)
+                .map(|(target, reach)| da_002_fail_basis(target, &reach.reason)),
+        );
         return CheckOutcome::new(
             VerificationCheck::TargetBinding,
             VerificationState::NoEvidence,
             vec![DiagnosticLabel::NotChecked],
-            vec!["target reachability was not measured (DS-832)".to_owned()],
+            basis,
         );
     }
     // DS-1411/DS-1679: entries that are missing, duplicated, inconsistent, or
@@ -1550,7 +1557,13 @@ fn dynamic_result_from_evidence(
         let entry_reach = reach_of(&entry.target);
         let outcome = entry_reach.map_or(ReachOutcome::Unknown, |r| r.outcome);
         match (outcome, entry.result) {
-            (ReachOutcome::Pass, _)
+            // DS-666: a static PASS reaches the target unless the measurement
+            // shows it did not run.
+            (
+                ReachOutcome::Pass,
+                vtest_model::TargetCoverageResult::Pass
+                | vtest_model::TargetCoverageResult::Unknown,
+            )
             | (ReachOutcome::Unknown, vtest_model::TargetCoverageResult::Pass) => {}
             // DS-672/DS-678: the measured count does not overturn DA-002's
             // FAIL. DS-832 names no state for this row; FAIL follows DA-002's
@@ -1559,12 +1572,11 @@ fn dynamic_result_from_evidence(
             (ReachOutcome::Fail, vtest_model::TargetCoverageResult::Pass) => {
                 states.push(VerificationState::Fail);
                 let reason = entry_reach.map_or("", |r| r.reason.as_str());
-                basis.push(format!(
-                    "DA-002 found no call of {} within the analysis boundary, which a \
-                     measured count does not overturn (DS-672): {reason}",
-                    entry.target
-                ));
+                basis.push(da_002_fail_basis(&entry.target, reason));
             }
+            // DS-684/DS-832: a count of 0 is FAIL (NOT_EXECUTED) whatever
+            // DA-002 says. A static PASS against a measured count of 0 is a
+            // contradiction, and fail-closed keeps the run's evidence.
             (_, vtest_model::TargetCoverageResult::Fail) => {
                 states.push(VerificationState::Fail);
                 if !labels.contains(&DiagnosticLabel::NotExecuted) {
@@ -1591,6 +1603,8 @@ fn dynamic_result_from_evidence(
                 "all {} declared target(s) reached §7.3 coverage (DS-831)",
                 entries.len()
             )
+        } else if statically_reached == entries.len() {
+            all_reached_statically(entries.len())
         } else {
             format!(
                 "all {} declared target(s) reached: {statically_reached} statically by DA-002 \
@@ -1610,6 +1624,17 @@ fn dynamic_result_from_evidence(
         representative(states),
         labels,
         basis,
+    )
+}
+
+fn all_reached_statically(count: usize) -> String {
+    format!("all {count} declared target(s) reached statically by DA-002 (DS-666/DS-831)")
+}
+
+fn da_002_fail_basis(target: &str, reason: &str) -> String {
+    format!(
+        "DA-002 found no call of {target} within the analysis boundary, which runtime \
+         measurement does not overturn (DS-672): {reason}"
     )
 }
 
@@ -4214,7 +4239,7 @@ mod tests {
     /// @vtest.id TEST-VERIFY-TARGET-REACH-STATIC-PASS
     /// @vtest.covers VO-VERIFY-TARGET-REACH-STATIC-PASS, VO-VERIFY-EVIDENCE-PASS-TARGETS-REACHED
     /// @vtest.target crates/vtest-verify/src/lib.rs::dynamic_result_from_evidence
-    /// @vtest.intent A target whose DA-002 is PASS is reached whatever its coverage entry says, also when coverage was not measured, but invalid coverage entries still keep target_binding from PASS.
+    /// @vtest.intent A target whose DA-002 is PASS needs no runtime proof when coverage was not measured or could not locate the function, but a measured count of 0 or invalid coverage entries still keep target_binding from PASS.
     #[test]
     fn a_statically_reached_target_needs_no_runtime_proof() {
         use vtest_model::TargetCoverageResult as R;
@@ -4227,23 +4252,42 @@ mod tests {
         let outcome = dynamic_result_from_evidence(&unmeasured, &expected, &both);
         assert_eq!(outcome.state, VerificationState::Pass);
         assert!(outcome.labels.is_empty());
+        // No target at all is not "every target reached".
+        assert_ne!(
+            dynamic_result_from_evidence(&unmeasured, &[], &[]).state,
+            VerificationState::Pass
+        );
 
-        // Measured count 0 and an unlocated function do not undo static reach.
-        let unreached = measured(
-            R::Fail,
+        // The measurement could not locate the functions: static reach holds.
+        let unlocated = measured(
+            R::Unknown,
             vec![
-                coverage_entry(&expected[0], R::Fail, Some(0)),
+                coverage_entry(&expected[0], R::Unknown, None),
                 coverage_entry(&expected[1], R::Unknown, None),
             ],
         );
-        let outcome = dynamic_result_from_evidence(&unreached, &expected, &both);
+        let outcome = dynamic_result_from_evidence(&unlocated, &expected, &both);
         assert_eq!(outcome.state, VerificationState::Pass);
 
-        // One target static, the other by runtime coverage.
-        let mixed = measured(
+        // A measured count of 0 is not overridden by a static PASS (DS-684).
+        let not_run = measured(
             R::Fail,
             vec![
                 coverage_entry(&expected[0], R::Fail, Some(0)),
+                coverage_entry(&expected[1], R::Pass, Some(1)),
+            ],
+        );
+        let outcome = dynamic_result_from_evidence(&not_run, &expected, &both);
+        assert_eq!(outcome.state, VerificationState::Fail);
+        assert_eq!(outcome.labels, vec![DiagnosticLabel::NotExecuted]);
+        assert_eq!(outcome.basis.len(), 1, "{:?}", outcome.basis);
+        assert!(outcome.basis[0].contains(&expected[0]));
+
+        // One target static, the other by runtime coverage.
+        let mixed = measured(
+            R::Unknown,
+            vec![
+                coverage_entry(&expected[0], R::Unknown, None),
                 coverage_entry(&expected[1], R::Pass, Some(1)),
             ],
         );
@@ -4340,6 +4384,14 @@ mod tests {
         );
         assert_eq!(outcome.state, VerificationState::NoEvidence);
         assert_eq!(outcome.labels, vec![DiagnosticLabel::NotChecked]);
+        assert!(
+            outcome
+                .basis
+                .iter()
+                .any(|basis| basis.contains("DA-002") && basis.contains(&expected[0])),
+            "{:?}",
+            outcome.basis
+        );
     }
 
     /// @vtest.id TEST-VERIFY-TARGET-REACH-UNKNOWN-RUNTIME
@@ -4407,7 +4459,7 @@ mod tests {
             R::Fail,
             vec![
                 coverage_entry(&expected[1], R::Fail, Some(0)),
-                coverage_entry(&expected[0], R::Fail, Some(0)),
+                coverage_entry(&expected[0], R::Unknown, None),
             ],
         );
         let outcome = dynamic_result_from_evidence(
@@ -4532,6 +4584,184 @@ mod tests {
         assert!(static_reach(&test, &evidence)
             .iter()
             .all(|reach| reach.outcome == ReachOutcome::Unknown));
+    }
+
+    /// An adapter with every capability `target_binding` reads, whose DA-002
+    /// verdicts are fixed by the test and whose `target_reach` calls are
+    /// counted.
+    struct WiredAdapter {
+        reach: Vec<TargetReach>,
+        calls: std::rc::Rc<std::cell::Cell<usize>>,
+        runner: FakeTestRunnerAdapter,
+        coverage: FakeCoverageAdapter,
+    }
+
+    impl vtest_adapter_api::StaticAnalysisAdapter for WiredAdapter {
+        fn id(&self) -> &'static str {
+            "rust-cargo"
+        }
+
+        fn analyze(
+            &self,
+            _input: vtest_adapter_api::StaticAnalysisInput<'_>,
+        ) -> vtest_adapter_api::StaticAnalysisVerdict {
+            vtest_adapter_api::StaticAnalysisVerdict::Unknown(Vec::new())
+        }
+
+        fn target_reach(
+            &self,
+            _input: vtest_adapter_api::StaticAnalysisInput<'_>,
+        ) -> Vec<TargetReach> {
+            self.calls.set(self.calls.get() + 1);
+            self.reach.clone()
+        }
+    }
+
+    impl vtest_adapter_api::Adapter for WiredAdapter {
+        fn descriptor(&self) -> vtest_adapter_api::AdapterDescriptor {
+            vtest_adapter_api::AdapterDescriptor {
+                id: "rust-cargo".to_owned(),
+                languages: vec!["rust".to_owned()],
+                capabilities: vec![
+                    vtest_adapter_api::Capability::StaticAnalysis,
+                    vtest_adapter_api::Capability::TestRunner,
+                    vtest_adapter_api::Capability::Coverage,
+                ],
+                config_namespace: "rust-cargo".to_owned(),
+            }
+        }
+
+        fn as_static_analysis(&self) -> Option<&dyn vtest_adapter_api::StaticAnalysisAdapter> {
+            Some(self)
+        }
+
+        fn as_test_runner(&self) -> Option<&dyn vtest_adapter_api::TestRunnerAdapter> {
+            Some(&self.runner)
+        }
+
+        fn as_coverage(&self) -> Option<&dyn vtest_adapter_api::CoverageAdapter> {
+            Some(&self.coverage)
+        }
+    }
+
+    /// @vtest.id TEST-VERIFY-TARGET-REACH-EVALUATE-TARGET-BINDING
+    /// @vtest.covers VO-VERIFY-TARGET-REACH-STATIC-PASS, VO-VERIFY-TARGET-REACH-PER-TARGET-NOT-CONFUSED
+    /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_target_binding
+    /// @vtest.intent With valid Evidence, target_binding reads each declared target's DA-002 verdict for that target only, and only after the runner passed; a runner FAIL is FAIL without reading DA-002.
+    #[test]
+    fn evaluate_target_binding_reads_static_reach_per_target_after_a_runner_pass() {
+        use vtest_model::TargetCoverageResult as R;
+        let root = temp_root("tb-wired");
+        std::fs::create_dir_all(root.join("tests")).expect("tests dir");
+        std::fs::write(root.join("tests/fixture.rs"), "fn t() {}\n").expect("fixture source");
+        let head = "1111111111111111111111111111111111111111";
+        let test = test_entity("TEST-ONE", &["VO-ONE"], 2);
+        let locators: Vec<vtest_model::Locator> = test
+            .targets
+            .iter()
+            .filter_map(|target| match target {
+                TargetRef::Locator(locator) => Some(locator.clone()),
+                TargetRef::SrcId(_) => None,
+            })
+            .collect();
+        let hashes: Vec<ContentHash> = locators
+            .iter()
+            .map(|locator| ContentHash::from_text(&locator.value))
+            .collect();
+        let scan = ScanResult {
+            summary: vtest_model::ScanSummary {
+                files: 1,
+                tests: 1,
+                sources: 2,
+            },
+            discovered: Vec::new(),
+            tests: vec![test.clone()],
+            sources: locators
+                .iter()
+                .zip(&hashes)
+                .map(|(locator, hash)| vtest_model::SourceFunction {
+                    locator: locator.clone(),
+                    src_id: None,
+                    location: location(&locator.value),
+                    content_hash: hash.clone(),
+                })
+                .collect(),
+            diagnostics: Vec::new(),
+            test_spec_basis: Default::default(),
+        };
+        let keys: Vec<String> = locators.iter().map(ToString::to_string).collect();
+        let draft = vtest_adapter_api::TestRunnerAdapter::execution_state(
+            &FakeTestRunnerAdapter,
+            &root,
+            &test.execution,
+            Some(head),
+            "cargo-test",
+        )
+        .expect("fake runner reconstructs an Execution State");
+        let mut record = sample_evidence("TEST-ONE", "rust-cargo", Some(head));
+        record.hashes.test_fn = test.content_hash.clone();
+        record.hashes.target_fns = hashes;
+        record.execution_state = materialize_execution_state(&test.execution.adapter, &draft);
+        // target0: the measurement could not locate it; target1: reached.
+        record.target_coverage = measured(
+            R::Unknown,
+            vec![
+                coverage_entry(&keys[0], R::Unknown, None),
+                coverage_entry(&keys[1], R::Pass, Some(1)),
+            ],
+        )
+        .target_coverage;
+
+        let judge = |outcomes: [ReachOutcome; 2], record: &EvidenceRecord| {
+            let calls = std::rc::Rc::new(std::cell::Cell::new(0));
+            let mut registry = vtest_adapter_api::AdapterRegistry::new();
+            registry
+                .register(Box::new(WiredAdapter {
+                    reach: reach(&outcomes),
+                    calls: calls.clone(),
+                    runner: FakeTestRunnerAdapter,
+                    coverage: FakeCoverageAdapter,
+                }))
+                .expect("fake adapter must register cleanly in a fresh registry");
+            let evidence = EvidenceContext {
+                root: root.clone(),
+                latest_by_test: BTreeMap::from([("TEST-ONE".to_owned(), record.clone())]),
+                invalid: Vec::new(),
+                diagnostics: Vec::new(),
+                head_commit: Some(head.to_owned()),
+                registry: &registry,
+                assertion_macros: BTreeMap::new(),
+            };
+            let outcome =
+                evaluate_target_binding(&test, &TargetResolution::default(), &scan, &evidence);
+            (outcome, calls.get())
+        };
+
+        // target0's static PASS covers its unlocated function.
+        let (outcome, calls) = judge([ReachOutcome::Pass, ReachOutcome::Unknown], &record);
+        assert_eq!(
+            outcome.state,
+            VerificationState::Pass,
+            "{:?}",
+            outcome.basis
+        );
+        assert_eq!(calls, 1);
+        // The same PASS on target1 does not cover target0.
+        let (outcome, _) = judge([ReachOutcome::Unknown, ReachOutcome::Pass], &record);
+        assert_eq!(
+            outcome.state,
+            VerificationState::Unknown,
+            "{:?}",
+            outcome.basis
+        );
+        assert!(outcome.basis.iter().any(|basis| basis.contains(&keys[0])));
+
+        // DS-830: a runner FAIL is FAIL, and DA-002 is not read for it.
+        let mut failed = record;
+        failed.result = vtest_model::TestResult::Fail;
+        let (outcome, calls) = judge([ReachOutcome::Pass, ReachOutcome::Pass], &failed);
+        assert_eq!(outcome.state, VerificationState::Fail);
+        assert_eq!(calls, 0);
     }
 
     /// @vtest.id TEST-VERIFY-INVALID-LATEST-EVIDENCE-SELECTION
