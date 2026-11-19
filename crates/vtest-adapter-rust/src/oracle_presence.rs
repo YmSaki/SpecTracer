@@ -1499,6 +1499,19 @@ impl<'a> CheckedCallVisitor<'a> {
         }
     }
 
+    /// Visits the qualified self type and the generic arguments of a path, where a
+    /// call (`f::<{ g() }>`) is not carried to the path's value.
+    fn visit_path_generics(&mut self, node: &syn::ExprPath) {
+        self.dropping(|visitor| {
+            if let Some(qself) = &node.qself {
+                visitor.visit_qself(qself);
+            }
+            for segment in &node.path.segments {
+                visitor.visit_path_arguments(&segment.arguments);
+            }
+        });
+    }
+
     fn dropping(&mut self, visit: impl FnOnce(&mut Self)) {
         let outer = self.flows;
         self.flows = false;
@@ -1607,6 +1620,8 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
             // A probed `let` name may be the callee (`let f = |x| ..; f(2)`).
             if self.probe.is_some() {
                 self.visit_expr(&node.func);
+            } else {
+                self.visit_path_generics(path);
             }
             if is_value_conversion(&path.path) {
                 ArgumentFlow::Flows
@@ -1647,6 +1662,7 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
     }
 
     fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
+        self.visit_path_generics(node);
         if let Some(name) = self.probe {
             if node.qself.is_none() && node.path.is_ident(name) {
                 if self.flows && self.delegating {
@@ -4198,6 +4214,9 @@ mod tests {
         for body in [
             "assert!({ x.f::<{ double(2) }>(); true });",
             "assert!(x.f::<{ double(2) }>() || true);",
+            "assert!(f::<{ double(2) }>(1) == 1 || true);",
+            "assert!({ f::<{ double(2) }>(); true });",
+            "assert!({ (pick(double(2)))(); true });",
         ] {
             let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
