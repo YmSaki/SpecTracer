@@ -133,12 +133,16 @@
 //!   prefix, where the order would decide. A compound assignment whose value
 //!   absorbs (`r.b &= false`, `r.b |= true`) counts as a plain assignment (DS-1948).
 //!   After a projection assignment, a read of the binding in an arm of a branch
-//!   expression (`if`, `if let`, `match`) in an assert is `Unknown`: DS-1940 derives
-//!   such a value only when every arm does, and the arms are not compared here. Each
+//!   expression (`if`, `if let`, `match`) or in the value of a `break` (which joins a
+//!   labeled block's value) in an assert is `Unknown`: DS-1940 derives such a value
+//!   only when every arm does, and the arms are not compared here. Each
 //!   of these narrowings only keeps a verdict `Unknown`. Field names are compared
 //!   unraw (`r.r#f` and `r.f` are one position). Not covered: DS-1940 for a branch
 //!   that does not read such a binding (`if c() { 5 } else { x }` reaches the assert
-//!   through its `x` arm), and a binding name spelled raw in one place and plain in
+//!   through its `x` arm), any join other than the arms of `if` / `if let` / `match`
+//!   whose values are not compared either (a labeled block whose `break` value does
+//!   not read the binding: `'a: { if c() { break 'a 5; } r.g }` reaches the assert
+//!   through its tail), and a binding name spelled raw in one place and plain in
 //!   another (`let r#r = ..; r.f`), which is matched by its spelling.
 //! - DS-1939's per-position derivation is not applied to a binding without a
 //!   projection assignment: a binding of a literal that holds the target's result
@@ -1002,7 +1006,8 @@ fn da_003_result_unverified(
              macro (DS-1959), the assert reads a position that a projection assignment \
              may have overwritten (DS-1956, DS-1966), a value holding one other than as a \
              value compared whole or through an index that is not an integer literal \
-             (DS-1939), or the binding in an arm of a branch expression (DS-1940), or it \
+             (DS-1939), or the binding in an arm of a branch expression or a `break` value \
+             (DS-1940), or it \
              appears in tokens this capability does not parse), so the result reaching the \
              assert is neither proven nor refuted (DS-1680)"
                 .to_owned(),
@@ -1764,6 +1769,8 @@ struct CheckedCallVisitor<'a> {
     probe_in_branch: bool,
     /// The expression is in an arm of a branch expression.
     in_branch: bool,
+    /// The expression is in the value of a `break`.
+    in_break: bool,
     /// The expression is a value that `assert_eq!` / `assert_ne!` or `==` / `!=`
     /// compares whole, through parentheses, references and projections only.
     in_compared: bool,
@@ -1887,6 +1894,7 @@ impl<'a> CheckedCallVisitor<'a> {
             probe_overwritten: false,
             probe_in_branch: false,
             in_branch: false,
+            in_break: false,
             in_compared: false,
             path_unknown: false,
             init_mode: false,
@@ -1910,8 +1918,9 @@ impl<'a> CheckedCallVisitor<'a> {
         }
         let derived = read_is_derived(self.probe_overwrites, &path, self.in_compared);
         // DS-1940 reads each arm's derivation; it is not compared across arms here,
-        // so after a projection assignment a read in an arm is not shown derived.
-        if self.in_branch && self.flows && !self.probe_overwrites.is_empty() {
+        // so after a projection assignment a read in an arm is not shown derived. A
+        // `break` value joins its labeled block's value the same way.
+        if ((self.in_branch && self.flows) || self.in_break) && !self.probe_overwrites.is_empty() {
             self.probe_in_branch = true;
         }
         if !derived && self.flows && !self.delegating {
@@ -2223,8 +2232,14 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
             | syn::Expr::Array(_)
             | syn::Expr::Struct(_)
             | syn::Expr::Macro(_) => syn::visit::visit_expr(self, node),
+            syn::Expr::Break(_) => {
+                let outer = self.in_break;
+                self.in_break = true;
+                self.dropping(|visitor| syn::visit::visit_expr(visitor, node));
+                self.in_break = outer;
+            }
             // Every other position (a closure, a loop, a range, `let`, `return`,
-            // `break`, an assignment, `async`, ...) drops or holds the value.
+            // an assignment, `async`, ...) drops or holds the value.
             _ => self.dropping(|visitor| syn::visit::visit_expr(visitor, node)),
         }
         self.in_compared = outer_compared;
@@ -4881,13 +4896,15 @@ mod tests {
     /// @vtest.id TEST-ORACLE-DA-003-BRANCH-ARMS-AFTER-PROJECTION-ASSIGNMENT-ARE-UNKNOWN
     /// @vtest.covers VO-ORACLE-DA-003-BRANCH-ARM-DERIVATION
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::span_binding_reach
-    /// @vtest.intent 射影代入したあと、assert の中の `if`・`if let`・`match` の腕で、代入した位置と代入していない位置を読み分ける Test が違反なしにならないことを確認する
+    /// @vtest.intent 射影代入したあと、assert の中の `if`・`if let`・`match` の腕や、ラベル付きブロックの `break` の値と末尾で、代入した位置と代入していない位置を読み分ける Test が違反なしにならないことを確認する
     #[test]
     fn a_branch_whose_arms_mix_assigned_positions_is_unknown() {
         for body in [
             "let mut r = double(2); r.f = 5; assert_eq!(if c() { r.f } else { r.g[0] }, 5);",
             "let mut r = double(2); r.f = 5; assert_eq!(if let Some(_) = o() { r.f } else { r.g }, 5);",
             "let mut r = double(2); r.f = 5; assert_eq!(match k() { 1 => r.f, _ => r.g }, 5);",
+            "let mut r = double(2); r.f = 5; assert_eq!('a: { if c() { break 'a r.f; } r.g[0] }, 5);",
+            "let mut r = double(2); r.f = 5; assert_eq!('a: { match k() { 0 => break 'a r.f, _ => {} } r.g }, 5);",
         ] {
             assert!(
                 matches!(da_003_of(body), DaVerdict::Unknown(_)),
