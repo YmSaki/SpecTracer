@@ -99,6 +99,16 @@
 //!   verdict only moves FAIL -> UNKNOWN. The target's own call is not counted
 //!   as a delegation target (a derivation; DA-006 counts it, which differs
 //!   from DS-650's self-delegation reading).
+//! - DS-1964 is recognized only where the receiver's variant is fixed by syntax
+//!   in the narrowest form: a constructor call (`Some(..).unwrap()`,
+//!   `Err(..).unwrap_err()`, `Ok(..)?`), or a name bound exactly once by a plain,
+//!   non-`mut`, non-`ref` `let` whose initializer is that constructor. An
+//!   `.unwrap()` / `.expect(..)` / `?` on a `let mut` binding, on a name bound by
+//!   a pattern (`let (o, _) = (Some(x), 1)`, `if let`, `match`), or on a name bound
+//!   again (shadowed or rebound) stays an assert-equivalent (DS-619). DA-006 then
+//!   stays `NoViolation` for such a body, e.g. `let mut o = Some(f()); o.unwrap();`,
+//!   `let (o, _) = (Some(f()), 1); o.unwrap();`, or
+//!   `let o = Some(f()); let o = o; o.unwrap();`.
 //! - DA-001's constant-expression classifier only recognizes literals
 //!   (numeric/string/bool/char) and simple arithmetic/comparison
 //!   combinations of literals; any identifier reference (a `const` item
@@ -548,6 +558,7 @@ fn da_003_result_unverified(
     let mut any_binding_uncertain = false;
     let mut any_macro_opaque = false;
     let mut any_delegated = false;
+    let mut any_into_target = false;
     for symbol in target_symbols {
         match target_call_result_is_verified(text, symbol, all_targets, assert_spans) {
             TargetCallVerification::NotCalled => {}
@@ -573,6 +584,10 @@ fn da_003_result_unverified(
             TargetCallVerification::BindingUncertain => {
                 any_call_found = true;
                 any_binding_uncertain = true;
+            }
+            TargetCallVerification::IntoTargetArgument => {
+                any_call_found = true;
+                any_into_target = true;
             }
             TargetCallVerification::MacroOpaque => {
                 any_call_found = true;
@@ -618,6 +633,19 @@ fn da_003_result_unverified(
              dereference, `&mut`, `ref mut` pattern, method call or macro, or it appears in \
              tokens this capability does not parse), so the result reaching the assert is \
              neither proven nor refuted (DS-1680)"
+                .to_owned(),
+        );
+    }
+    if any_into_target {
+        // DS-1960 excludes a declared target's call from the delegation targets
+        // and does not carry its argument to its value, so a result that reaches
+        // an assert only as such an argument is not shown verified (DS-615).
+        return DaVerdict::Unknown(
+            "a declared target's result is bound to a name that reaches an \
+             assert-equivalent only as an argument of another declared target's call: \
+             that call is not a delegation target and does not carry the argument to its \
+             value (DS-1960), so the result is not compared directly, and its being \
+             unverified is neither proven nor refuted (DS-615)"
                 .to_owned(),
         );
     }
@@ -777,6 +805,9 @@ enum TargetCallVerification {
     /// The target is called in macro tokens that are not read as a call whose
     /// result is checked (#282).
     MacroOpaque,
+    /// The binding that holds a call's result reaches an assert only as an
+    /// argument of a declared target's call (DS-1960).
+    IntoTargetArgument,
     /// The result flows into a delegation target in an assert-equivalent's
     /// checked argument or in a binding that reaches one (DS-641, DS-1960).
     Delegated,
@@ -789,6 +820,9 @@ enum BindingReach {
     Uncertain,
     /// The name flows into an argument of a delegation target there (DS-1960).
     Delegated,
+    /// The name is used there only in an argument of a declared target's call,
+    /// which carries no value to the assert (DS-1960).
+    IntoTarget,
 }
 
 /// Derivation (not stated in DS-623 / DS-628 / DS-1680 / DS-615): a binding's name
@@ -831,12 +865,16 @@ fn binding_reach(
             )
         })
         .collect();
+    // A name bound again or changed in place is not shown to mean this binding,
+    // whether it reaches an assert directly or through a delegation target.
+    let name_uncertain = || {
+        count_rebindings(text, name) > 1
+            || (binding.mutable && is_changed_through_place(text, name, assert_spans))
+    };
     // DS-623 / DS-1962: an assert the name reaches directly decides, and a
     // delegation target in another assert does not make it UNKNOWN.
     if outcomes.iter().any(reaches) {
-        return if count_rebindings(text, name) > 1
-            || (binding.mutable && is_changed_through_place(text, name, assert_spans))
-        {
+        return if name_uncertain() {
             BindingReach::Uncertain
         } else {
             BindingReach::Reaches
@@ -846,13 +884,27 @@ fn binding_reach(
         .iter()
         .any(|outcome| matches!(outcome, BindingReach::Delegated))
     {
-        return BindingReach::Delegated;
+        return if name_uncertain() {
+            BindingReach::Uncertain
+        } else {
+            BindingReach::Delegated
+        };
     }
     if outcomes
         .iter()
         .any(|outcome| matches!(outcome, BindingReach::Uncertain))
     {
         return BindingReach::Uncertain;
+    }
+    if outcomes
+        .iter()
+        .any(|outcome| matches!(outcome, BindingReach::IntoTarget))
+    {
+        return if name_uncertain() {
+            BindingReach::Uncertain
+        } else {
+            BindingReach::IntoTarget
+        };
     }
     BindingReach::NotReached
 }
@@ -929,6 +981,8 @@ fn span_binding_reach(
         BindingReach::Delegated
     } else if visitor.probe_dropped {
         BindingReach::Uncertain
+    } else if visitor.probe_into_target {
+        BindingReach::IntoTarget
     } else {
         BindingReach::NotReached
     }
@@ -1301,6 +1355,10 @@ struct CheckedCallVisitor<'a> {
     probe_delegated: bool,
     /// `probe` is used where it does not flow.
     probe_dropped: bool,
+    /// Inside the argument of a declared target's call (DS-1960).
+    into_target: bool,
+    /// `probe` is used only inside the argument of a declared target's call.
+    probe_into_target: bool,
     /// `probe` is bound or assigned again.
     probe_rebound: bool,
     /// The expression is the initializer of a `let` (`find_let_bindings_containing_call`), where
@@ -1320,8 +1378,11 @@ enum Projection<'e> {
 enum ArgumentFlow {
     /// A value conversion: the argument flows as the call's value does.
     Flows,
-    /// A declared target's call: the argument is neither carried nor delegated.
+    /// A message argument (DS-1935): the argument is neither carried nor delegated.
     Dropped,
+    /// A declared target's call: the argument is neither carried nor delegated
+    /// (DS-1960).
+    IntoTarget,
     /// A delegation target: the argument is handed to it (DS-641).
     Delegated,
 }
@@ -1341,6 +1402,8 @@ impl<'a> CheckedCallVisitor<'a> {
             probe_flows: false,
             probe_delegated: false,
             probe_dropped: false,
+            into_target: false,
+            probe_into_target: false,
             probe_rebound: false,
             init_mode: false,
         }
@@ -1363,6 +1426,12 @@ impl<'a> CheckedCallVisitor<'a> {
         match flow {
             ArgumentFlow::Flows => self.visit_expr(argument),
             ArgumentFlow::Dropped => self.dropping(|visitor| visitor.visit_expr(argument)),
+            ArgumentFlow::IntoTarget => {
+                let outer = self.into_target;
+                self.into_target = true;
+                self.dropping(|visitor| visitor.visit_expr(argument));
+                self.into_target = outer;
+            }
             ArgumentFlow::Delegated => {
                 let outer = self.delegating;
                 self.delegating = true;
@@ -1632,7 +1701,7 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
             if is_value_conversion(&path.path) {
                 ArgumentFlow::Flows
             } else if last.is_some_and(|name| self.is_declared_target(name)) {
-                ArgumentFlow::Dropped
+                ArgumentFlow::IntoTarget
             } else {
                 ArgumentFlow::Delegated
             }
@@ -1657,8 +1726,10 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
         // DS-619's `.expect(..)` / `.expect_err(..)` is an assert-equivalent, not a
         // delegation target (DS-641), and its argument is a message (DS-1935).
         let is_assert_equivalent = node.method == "expect" || node.method == "expect_err";
-        let flow = if is_assert_equivalent || self.is_declared_target(&node.method) {
+        let flow = if is_assert_equivalent {
             ArgumentFlow::Dropped
+        } else if self.is_declared_target(&node.method) {
+            ArgumentFlow::IntoTarget
         } else {
             ArgumentFlow::Delegated
         };
@@ -1675,6 +1746,8 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
                     self.probe_delegated = true;
                 } else if self.flows {
                     self.probe_flows = true;
+                } else if self.into_target {
+                    self.probe_into_target = true;
                 } else {
                     self.probe_dropped = true;
                 }
@@ -2192,6 +2265,7 @@ fn target_call_result_is_verified(
     // where `NAME` (optionally followed by `.field`/`.method()`) later
     // appears inside an assert span as an identifier of its own (#281).
     let mut binding_uncertain = false;
+    let mut binding_into_target = false;
     for (binding, reach) in &bindings {
         match reach {
             BindingReach::Reaches => {
@@ -2202,6 +2276,7 @@ fn target_call_result_is_verified(
                 }
             }
             BindingReach::Uncertain => binding_uncertain = true,
+            BindingReach::IntoTarget => binding_into_target = true,
             BindingReach::NotReached | BindingReach::Delegated => {}
         }
     }
@@ -2210,6 +2285,9 @@ fn target_call_result_is_verified(
     }
     if binding_uncertain {
         return TargetCallVerification::BindingUncertain;
+    }
+    if binding_into_target {
+        return TargetCallVerification::IntoTargetArgument;
     }
     if method_verified {
         // #279: a method call is matched by name only, so a verified method call
@@ -4242,6 +4320,37 @@ mod tests {
         assert!(!reason.contains("DS-1960"), "{reason}");
     }
 
+    /// A name handed to a delegation target, or to a declared target's call, is
+    /// not shown to mean the binding when it is bound again or changed in place,
+    /// so a verified method call beside it does not clear DA-003 (DS-1680).
+    /// @vtest.id TEST-ORACLE-DA-003-DELEGATED-BINDING-REBOUND-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-003-DELEGATE-FUNCTION-ARGS
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::binding_reach
+    /// @vtest.intent 委譲先か宣言 target の引数に渡る束縛の名前が再束縛や可変変更を受ける Test は、別の呼出が照合されていても DA-003 が違反なしにならず、宣言 target の引数に入るだけの束縛は、その結果が直接照合されないことを示す理由で UNKNOWN になることを確認する
+    #[test]
+    fn a_delegated_binding_that_is_bound_again_stays_unknown() {
+        for body in [
+            "let r = c.m(2);\n    assert!(check(r));\n    let r = 0;\n    c.m(3).unwrap();",
+            "let mut r = c.m(2);\n    r.push(1);\n    assert!(check(r));\n    c.m(3).unwrap();",
+            "let r = c.m(2);\n    assert!(v.contains(&r));\n    for r in xs {}\n    c.m(3)?;",
+            "let r = c.m(2);\n    assert!(check(r));\n    let s = c.m(3);\n    assert_eq!(s, 1);\n    let r = 1;",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["m".to_owned()], &[]);
+            let (is_fail, is_unknown, basis) = compose(&analysis);
+            assert!(!is_fail && is_unknown, "{body}: not UNKNOWN: {basis:?}");
+        }
+        let text = "#[test]\nfn t() {\n    let yaml = to_yaml(&r);\n    assert_eq!(from_yaml(&yaml), r);\n}\n";
+        let analysis = analyze(text, &["to_yaml".to_owned(), "from_yaml".to_owned()], &[]);
+        let DaVerdict::Unknown(reason) = &analysis.da_003 else {
+            panic!("{:?}", analysis.da_003);
+        };
+        assert!(
+            reason.contains("only as an argument of another declared target"),
+            "{reason}"
+        );
+    }
+
     /// The other side of DS-1960: a value conversion and a method's receiver
     /// carry the result, and a call that the result does not flow into, or that
     /// sits in a message argument (DS-1935), is not read as a delegation target.
@@ -4407,6 +4516,10 @@ mod tests {
             "let o = Some(double(2));\n    let o = other();\n    o.unwrap();",
             "Ok::<_, ()>(double(2)).unwrap_err();",
             "Err::<(), _>(double(2)).unwrap();",
+            // The narrowed reach of DS-1964 disclosed in the module comment.
+            "let mut o = Some(double(2));\n    o.unwrap();",
+            "let (o, _) = (Some(double(2)), 1);\n    o.unwrap();",
+            "let o = Some(double(2));\n    let o = o;\n    o.unwrap();",
         ] {
             let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
