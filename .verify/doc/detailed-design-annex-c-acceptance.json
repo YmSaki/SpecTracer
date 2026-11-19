@@ -1048,7 +1048,8 @@
         },
         {
           "id": "SPEC-458",
-          "statement": "`rust-cargo`・`go`・`javascript`以外のproduction language adapterは提供範囲外である。",
+          "statement": "組込 production adapter（要件定義 §21）以外のproduction language adapterは提供範囲外である。",
+          "description": "adapterの一覧を要件定義 §21 のadapterごとの条項（REQ-343、REQ-344、REQ-345）だけに置くため、列挙を参照に替えた（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "REQ-263",
             "REQ-264"

@@ -200,7 +200,8 @@
         },
         {
           "id": "SPEC-011",
-          "statement": "`rust-cargo`・`go`・`javascript` 以外の production language adapter はv0.1の提供範囲に含めない。",
+          "statement": "組込 production adapter（要件定義 §21）以外の production language adapter はv0.1の提供範囲に含めない。",
+          "description": "adapterの一覧を要件定義 §21 のadapterごとの条項（REQ-343、REQ-344、REQ-345）だけに置くため、列挙を参照に替えた（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "REQ-258",
             "REQ-259",
@@ -5034,7 +5035,8 @@
         },
         {
           "id": "SPEC-218",
-          "statement": "`rust-cargo`・`go`・`javascript` 以外のproduction language adapterはv0.1の提供範囲に含めない。",
+          "statement": "組込 production adapter（要件定義 §21）以外のproduction language adapterはv0.1の提供範囲に含めない。",
+          "description": "adapterの一覧を要件定義 §21 のadapterごとの条項（REQ-343、REQ-344、REQ-345）だけに置くため、列挙を参照に替えた（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "R-2",
             "REQ-263",
@@ -11786,7 +11788,8 @@
         },
         {
           "id": "BD-003",
-          "statement": "組込 production adapter は `rust-cargo`、`go`、`javascript` とする。",
+          "statement": "組込 production adapter は、要件定義 §21 が定める adapter とする。",
+          "description": "adapterの一覧を要件定義 §21 のadapterごとの条項（REQ-343、REQ-344、REQ-345）だけに置くため、列挙を参照に替えた（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "SPEC-011",
             "SPEC-218"
@@ -13709,7 +13712,8 @@
         },
         {
           "id": "BD-104",
-          "statement": "組込production adapterは `rust-cargo`、`go`、`javascript` とする。",
+          "statement": "組込production adapterは、要件定義 §21 が定める adapter とする。",
+          "description": "adapterの一覧を要件定義 §21 のadapterごとの条項（REQ-343、REQ-344、REQ-345）だけに置くため、列挙を参照に替えた（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "SPEC-218"
           ],
