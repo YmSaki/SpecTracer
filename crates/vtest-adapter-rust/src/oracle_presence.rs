@@ -218,8 +218,8 @@
 //!   constant `false` (DS-1953), nor after an exit that only constants decide.
 //!   Its reach is undecided, and it counts for nothing, in a closure, an `async`
 //!   block or a nested item (DS-1962), in the cases of DS-1963 (1) / (2) (also for
-//!   the pattern of an `if let`, of the links of an `else if let` chain over one
-//!   scrutinee, of a `let ... else` and of a `matches!` in a condition, and counting
+//!   the pattern of an `if let` and of a `let ... else` (each with the patterns
+//!   refuted on the path to it) and of a `matches!` in a condition, and counting
 //!   an arm whose guard is constant `true` as one without a guard), after a `?`, a
 //!   `return` / `break` / `continue` in a loop or a macro whose expansion is not
 //!   read (DS-1983), after a statement that leaves on every path or whose leaving
@@ -247,21 +247,22 @@
 //!   compared, so the last `else` counts as reached; and an exit decided by the
 //!   target's result beside an unrelated non-constant condition
 //!   (`if double(2) == 99 { return } if flag() { panic!() }`) makes the divergence
-//!   count as reached, though a wrong result may skip it. So do: an `if let` chain
-//!   whose links check one value through another name (`let p = o;` then
-//!   `else if let None = p`) or through a method (`o.is_some()` beside `if let
-//!   None = o`); a pattern in a `match` arm that checks again the value the arm
-//!   already checked; and an arm or an exit at a non-constant position that is not
-//!   derived (`let k = 1;`) and always matches or always runs.
-//! - The pattern of an `if let` link (with the earlier links of its `else` chain)
-//!   and of a `let ... else` is read by DS-1963 (2) too, which the canon names for
-//!   the arms of a `match` only: one whose checks may match every value at a
-//!   position leaves the `else` undecided, also where the value is not exhausted
-//!   (`let Some(Kind::A(x)) = f() else { .. }`, whose inner variant check is
-//!   opaque). An `else if let` chain whose links' scrutinees are not one
-//!   expression (after parentheses, references and a block's tail are removed), or
-//!   whose `else` block runs a statement before its tail `if`, leaves the last
-//!   `else` undecided.
+//!   count as reached, though a wrong result may skip it. So do: refuted patterns
+//!   and a later check of one value through another name (`let p = o;` then
+//!   `if let None = p`) or through a method (`o.is_some()` beside `if let
+//!   None = o`); a pattern that only repeats values refuted or matched before it,
+//!   so that its own branch never runs; and an arm or an exit at a non-constant
+//!   position that is not derived (`let k = 1;`) and always matches or always runs.
+//! - The pattern of an `if let` and of a `let ... else` is read by DS-1963 (2) too,
+//!   which the canon names for the arms of a `match` only, and so are the patterns
+//!   refuted on the path to an `if let`, a `let ... else` or a `match` at any depth
+//!   (inside the `else` of an `if let` or a `let ... else`, or inside an arm after
+//!   earlier arms without a guard): where they may together match every value at a
+//!   position, the `else` or the later arms are undecided, also where the value is
+//!   not exhausted (`let Some(Kind::A(x)) = f() else { .. }`, whose inner variant
+//!   check is opaque). A refuted pattern over a scrutinee not shown to be the same
+//!   expression (after parentheses, references and a block's tail are removed)
+//!   leaves them undecided too.
 //! - DA-001 reads a failure divergence by its deciding positions, not by its
 //!   arguments (DS-1950): one with no deciding position, or whose deciding positions
 //!   DA-001's classifier all fixes, is a constant assertion (`if true { .. }`,
@@ -834,6 +835,10 @@ struct DivergenceContext<'a> {
     deciders: Vec<Decider<'a>>,
     reach: DivergenceReach,
     in_loop: bool,
+    /// The patterns that did not match on the path to here (the `else` of an
+    /// `if let`, the `else` of a `let ... else`, the arms of a `match` after its
+    /// earlier arms), with their scrutinees as `scrutinee_key` writes them.
+    refuted: Vec<(String, &'a syn::Pat)>,
 }
 
 /// The failure divergences of `function` (DS-1951) with what decides whether they
@@ -866,11 +871,11 @@ fn collect_divergences<'a>(text: &'a str, function: &'a syn::ItemFn) -> Vec<Dive
             deciders: Vec::new(),
             reach: DivergenceReach::Counted,
             in_loop: false,
+            refuted: Vec::new(),
         },
         nested: false,
         divergences: Vec::new(),
         exits: Vec::new(),
-        if_chain: None,
     };
     collector.visit_block(&function.block);
     collector.divergences
@@ -933,15 +938,9 @@ struct DivergenceCollector<'a> {
     nested: bool,
     divergences: Vec<Divergence<'a>>,
     exits: Vec<Exit<'a>>,
-    /// The `if` that continues an `else if` chain (directly, or as the tail of an
-    /// `else` block), with the scrutinees and patterns of the chain's earlier
-    /// `if let` links; a link without a pattern stands for one that is not read.
-    if_chain: Option<(*const syn::ExprIf, IfChain<'a>)>,
 }
 
-type IfChain<'a> = Vec<(String, Option<&'a syn::Pat>)>;
-
-/// A scrutinee as compared across the links of an `if let` chain: without
+/// A scrutinee as compared with the patterns refuted before it: without
 /// parentheses, references and a block around a tail expression.
 fn scrutinee_key(expression: &syn::Expr) -> String {
     match expression {
@@ -970,6 +969,39 @@ impl<'a> DivergenceCollector<'a> {
         self.context.in_loop |= in_loop;
         visit(self);
         self.context = outer;
+    }
+
+    /// Runs `visit` with `refuted` added to the patterns that did not match on the
+    /// path to here.
+    fn refuting(&mut self, refuted: Vec<(String, &'a syn::Pat)>, visit: impl FnOnce(&mut Self)) {
+        let outer = self.context.refuted.len();
+        self.context.refuted.extend(refuted);
+        visit(self);
+        self.context.refuted.truncate(outer);
+    }
+
+    /// DS-1963 (2): whether `patterns` over `scrutinee`, together with the patterns
+    /// that did not match on the path to here (at any depth: an `if let`, a
+    /// `let ... else` or a `match` inside the `else` or a later arm of another),
+    /// may match every value, so that a branch for the values they leave may never
+    /// run. A refuted pattern over a scrutinee not shown to be this one may take part
+    /// too, so it counts as one that may.
+    fn may_exhaust_with_refuted(
+        &self,
+        scrutinee: &str,
+        patterns: impl IntoIterator<Item = &'a syn::Pat>,
+    ) -> bool {
+        self.context
+            .refuted
+            .iter()
+            .any(|(other, _)| other != scrutinee)
+            || patterns_may_exhaust(
+                self.context
+                    .refuted
+                    .iter()
+                    .map(|(_, pattern)| *pattern)
+                    .chain(patterns),
+            )
     }
 
     fn nesting(&mut self, visit: impl FnOnce(&mut Self)) {
@@ -1639,9 +1671,8 @@ fn arms_may_exhaust(arms: &[syn::Arm]) -> bool {
 }
 
 /// DS-1963 (2) over patterns: whether they may together match every value at one
-/// position. It also reads the pattern of an `if let` (with the earlier links of an
-/// `else if let` chain over the same scrutinee) and of a `let ... else`, whose
-/// `else` then may never run.
+/// position. It also reads the pattern of an `if let` and of a `let ... else`
+/// (with the patterns refuted on the path to it), whose `else` then may never run.
 fn patterns_may_exhaust<'p>(patterns: impl IntoIterator<Item = &'p syn::Pat>) -> bool {
     let mut atoms: Vec<(Vec<String>, PatternAtom)> = Vec::new();
     for pattern in patterns {
@@ -1941,39 +1972,35 @@ impl<'a> Visit<'a> for DivergenceCollector<'a> {
     }
 
     fn visit_expr_if(&mut self, node: &'a syn::ExprIf) {
-        let mut chain = match self.if_chain.take() {
-            Some((target, chain)) if std::ptr::eq(target, node) => chain,
-            other => {
-                self.if_chain = other;
-                Vec::new()
-            }
-        };
         let mark = self.exits.len();
-        let (deciders, then_reach, else_reach) = match unwrap_parens(&node.cond) {
+        let (deciders, then_reach, else_reach, refuted) = match unwrap_parens(&node.cond) {
             syn::Expr::Let(binding) => {
                 self.visit_expr(&binding.expr);
                 let (deciders, reach) = self.pattern_deciders(&binding.pat, &binding.expr);
                 let scrutinee = scrutinee_key(&binding.expr);
-                chain.push((scrutinee.clone(), Some(&binding.pat)));
-                // DS-1963 (2): the patterns of this link and of the earlier links of
-                // an `else if let` chain may together match every value, and the
-                // `else` then never runs. Links whose scrutinees are not shown to be
-                // one value may do so too, so the `else` is then undecided.
-                let exhausted = chain.iter().any(|(other, _)| *other != scrutinee)
-                    || patterns_may_exhaust(chain.iter().filter_map(|(_, pattern)| *pattern));
                 let else_reach = if is_irrefutable(&binding.pat) {
                     reach.max(DivergenceReach::NotCounted)
-                } else if exhausted {
+                } else if self.may_exhaust_with_refuted(&scrutinee, [&*binding.pat]) {
                     DivergenceReach::Undecided
                 } else {
                     reach
                 };
-                (deciders, reach, else_reach)
+                (
+                    deciders,
+                    reach,
+                    else_reach,
+                    vec![(scrutinee, &*binding.pat)],
+                )
             }
             condition => {
                 self.visit_expr(condition);
                 let (then_reach, else_reach) = condition_reach(condition);
-                (vec![Decider::value(condition)], then_reach, else_reach)
+                (
+                    vec![Decider::value(condition)],
+                    then_reach,
+                    else_reach,
+                    Vec::new(),
+                )
             }
         };
         let (mut exit_deciders, exit_reach) = self.exits_since(mark);
@@ -1989,28 +2016,7 @@ impl<'a> Visit<'a> for DivergenceCollector<'a> {
                 exit_deciders,
                 else_reach.max(exit_reach),
                 false,
-                |visitor| {
-                    // An `else` block whose tail is an `if` continues the chain; a
-                    // statement before that tail may change the scrutinee, so the
-                    // chain then holds a link that is not read.
-                    let next = match other.as_ref() {
-                        syn::Expr::If(next) => Some(next),
-                        syn::Expr::Block(block) => match block.block.stmts.last() {
-                            Some(syn::Stmt::Expr(syn::Expr::If(next), None)) => {
-                                if block.block.stmts.len() > 1 && !chain.is_empty() {
-                                    chain.push(("\0".to_owned(), None));
-                                }
-                                Some(next)
-                            }
-                            _ => None,
-                        },
-                        _ => None,
-                    };
-                    if let Some(next) = next {
-                        visitor.if_chain = Some((std::ptr::from_ref(next), chain));
-                    }
-                    visitor.visit_expr(other);
-                },
+                |visitor| visitor.refuting(refuted, |visitor| visitor.visit_expr(other)),
             );
         }
     }
@@ -2018,7 +2024,11 @@ impl<'a> Visit<'a> for DivergenceCollector<'a> {
     fn visit_expr_match(&mut self, node: &'a syn::ExprMatch) {
         let mark = self.exits.len();
         self.visit_expr(&node.expr);
+        let scrutinee = scrutinee_key(&node.expr);
         let (mut deciders, mut reach) = self.exits_since(mark);
+        // The patterns of the earlier arms that a value reaching this arm did not
+        // match: those without a guard, or with a guard that is always `true`.
+        let mut refuted: Vec<(String, &'a syn::Pat)> = Vec::new();
         for (index, arm) in node.arms.iter().enumerate() {
             let (checks, pattern_reach) = self.pattern_deciders(&arm.pat, &node.expr);
             deciders.extend(checks);
@@ -2028,15 +2038,29 @@ impl<'a> Visit<'a> for DivergenceCollector<'a> {
                 deciders.push(Decider::value(guard));
                 arm_reach = arm_reach.max(condition_reach(guard).0);
             }
-            if arms_may_exhaust(&node.arms[..index]) {
+            if index > 0
+                && self.may_exhaust_with_refuted(
+                    &scrutinee,
+                    refuted.iter().map(|(_, pattern)| *pattern),
+                )
+            {
                 arm_reach = DivergenceReach::Undecided;
             }
             self.within(deciders.clone(), arm_reach, false, |visitor| {
-                if let Some((_, guard)) = &arm.guard {
-                    visitor.visit_expr(guard);
-                }
-                visitor.visit_expr(&arm.body);
+                visitor.refuting(refuted.clone(), |visitor| {
+                    if let Some((_, guard)) = &arm.guard {
+                        visitor.visit_expr(guard);
+                    }
+                    visitor.visit_expr(&arm.body);
+                });
             });
+            if arm
+                .guard
+                .as_ref()
+                .is_none_or(|(_, guard)| fixed_value(guard) == Fixed::Value(true))
+            {
+                refuted.push((scrutinee.clone(), &arm.pat));
+            }
             // DS-1952: the arms after an irrefutable arm never run. A pattern read as
             // irrefutable that the type may refute, or a guard made of literals whose
             // value is not evaluated, leaves the later arms undecided.
@@ -2126,11 +2150,12 @@ impl<'a> Visit<'a> for DivergenceCollector<'a> {
         self.visit_expr(&init.expr);
         if let Some((_, diverge)) = &init.diverge {
             let (mut deciders, reach) = self.pattern_deciders(&node.pat, &init.expr);
+            let scrutinee = scrutinee_key(&init.expr);
             // DS-1952: the `else` of an irrefutable pattern never runs; that of a
             // pattern that may match every value may not (DS-1963 (2)).
             let reach = if is_irrefutable(&node.pat) {
                 reach.max(DivergenceReach::NotCounted)
-            } else if patterns_may_exhaust([&node.pat]) {
+            } else if self.may_exhaust_with_refuted(&scrutinee, [&node.pat]) {
                 DivergenceReach::Undecided
             } else {
                 reach
@@ -2138,7 +2163,9 @@ impl<'a> Visit<'a> for DivergenceCollector<'a> {
             let (exit_deciders, exit_reach) = self.exits_since(mark);
             deciders.extend(exit_deciders);
             self.within(deciders, reach.max(exit_reach), false, |visitor| {
-                visitor.visit_expr(diverge);
+                visitor.refuting(vec![(scrutinee, &node.pat)], |visitor| {
+                    visitor.visit_expr(diverge);
+                });
             });
         }
     }
@@ -8246,7 +8273,7 @@ fn real_check() {
     /// @vtest.id TEST-ORACLE-DIVERGENCE-EXHAUSTING-PATTERNS-ARE-UNKNOWN
     /// @vtest.covers VO-ORACLE-DIVERGENCE-REACH-UNDECIDABLE
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::collect_divergences
-    /// @vtest.intent if let・let-else・else if let の連鎖・matches! のパターンが組の両方を検査するとき、定数で真のガードの腕が組を検査するとき、Ok と Err を両方検査するとき、256 個以上のリテラルを検査するときは UNKNOWN になり、255 個なら PASS のままであることを確認する
+    /// @vtest.intent if let・let-else・matches! のパターンが、else 側やより後ろの腕の中のどの深さ（文・ブロック・括弧の中）でも経路上で反駁されたパターンと合わせて組の両方を検査するとき、反駁されたパターンの scrutinee が同じと確定できないとき、定数で真のガードの腕が組を検査するとき、Ok と Err を両方検査するとき、256 個以上のリテラルを検査するときは UNKNOWN になり、組を尽くさない else if の連鎖と 255 個のリテラルなら PASS のままであることを確認する
     #[test]
     fn patterns_that_may_match_every_value_leave_the_divergence_unknown() {
         assert_divergence_states(&[
@@ -8258,7 +8285,14 @@ fn real_check() {
             ("UNKNOWN", "", "", "    let o = double_opt(2);\n    if let Some(_) = o {\n    } else {\n        if let None = o {\n        } else {\n            panic!(\"bad\");\n        }\n    }\n"),
             ("UNKNOWN", "", "", "    let o = double_opt(2);\n    if let Some(_) = o {\n    } else {\n        let _k = 1;\n        if let None = o {\n        } else {\n            panic!(\"bad\");\n        }\n    }\n"),
             ("UNKNOWN", "", "", "    let o = double_opt(2);\n    let p = double_opt(3);\n    if let Some(4) = o {\n    } else if let Some(6) = p {\n    } else {\n        panic!(\"bad\");\n    }\n"),
+            ("UNKNOWN", "", "", "    let o = double_opt(2);\n    if let Some(_) = o {\n    } else {\n        if let None = o {\n        } else {\n            panic!(\"bad\");\n        };\n    }\n"),
+            ("UNKNOWN", "", "", "    let o = double_opt(2);\n    if let Some(_) = o {\n    } else {\n        if let None = o {\n        } else {\n            panic!(\"bad\");\n        }\n        let _k = 1;\n    }\n"),
+            ("UNKNOWN", "", "", "    let o = double_opt(2);\n    if let Some(_) = o {\n    } else {\n        {\n            if let None = o {\n            } else {\n                panic!(\"bad\");\n            }\n        }\n    }\n"),
+            ("UNKNOWN", "", "", "    let o = double_opt(2);\n    if let Some(_) = o {\n    } else {\n        (if let None = o {\n        } else {\n            panic!(\"bad\");\n        })\n    }\n"),
+            ("UNKNOWN", "", "", "    let o = double_opt(2);\n    let Some(_) = o else {\n        let None = o else {\n            panic!(\"bad\");\n        };\n        return;\n    };\n"),
+            ("UNKNOWN", "", "", "    let o = double_opt(2);\n    match o {\n        Some(_) => {}\n        _ => {\n            if let None = o {\n            } else {\n                panic!(\"bad\");\n            }\n        }\n    }\n"),
             ("PASS", "", "", "    let o = double_opt(2);\n    if let Some(4) = o {\n    } else if let None = o {\n        panic!(\"none\");\n    } else {\n        panic!(\"bad\");\n    }\n"),
+            ("PASS", "", "", "    let o = double_opt(2);\n    if let Some(4) = o {\n    } else {\n        let _k = 1;\n        {\n            if let None = o {\n                panic!(\"none\");\n            } else {\n                panic!(\"bad\");\n            }\n        }\n    }\n"),
             ("UNKNOWN", "", "", "    let r = double_opt(2);\n    if !matches!(r, Some(_) | None) {\n        panic!(\"bad\");\n    }\n"),
             ("UNKNOWN", "", "", "    let r = double(2);\n    if !matches!(r, _) {\n        panic!(\"bad\");\n    }\n"),
             ("UNKNOWN", "", "", "    match double(2) == 4 {\n        true if true => {}\n        false => {}\n        _ => unreachable!(),\n    }\n"),
