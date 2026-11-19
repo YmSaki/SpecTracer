@@ -2039,6 +2039,39 @@
               242
             ]
           }
+        },
+        {
+          "id": "REQ-346",
+          "statement": "go adapter における判定権威は go test である。",
+          "derives_from": [
+            "R-3",
+            "R-6"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              27,
+              27
+            ]
+          }
+        },
+        {
+          "id": "REQ-347",
+          "statement": "javascript adapter における判定権威は vitest である。",
+          "description": "vitest の選定は PM の調査（Issue #270：利用側のプロジェクトでは TypeScript の Test runner は vitest が多数）による。root に根拠はない。",
+          "derives_from": [
+            "R-3",
+            "R-6"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              28,
+              28
+            ]
+          }
         }
       ]
     },
@@ -4338,7 +4371,22 @@
         },
         {
           "id": "REQ-263",
-          "statement": "組込 production adapter は `rust-cargo` とし、Rust・Rust function unit test・小規模な integration test を対象とする。",
+          "statement": "組込 production adapter は `rust-cargo`、`go`、`javascript` とする。",
+          "derives_from": [
+            "R-6"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
+            "heading": "## 21. 対応範囲と adapter 境界",
+            "lines": [
+              480,
+              480
+            ]
+          }
+        },
+        {
+          "id": "REQ-343",
+          "statement": "`rust-cargo` は Rust・Rust function unit test・小規模な integration test を対象とする。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 要求・要件定義 v0.1.md",
@@ -4350,10 +4398,43 @@
           }
         },
         {
-          "id": "REQ-264",
-          "statement": "`rust-cargo` 以外の production language adapter は v0.1 の提供範囲に含めない。",
+          "id": "REQ-344",
+          "statement": "`go` は Go と、`go test` が実行する Test を対象とする。",
           "derives_from": [
-            "R-2"
+            "R-3",
+            "R-6"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "目的",
+            "lines": [
+              5,
+              5
+            ]
+          }
+        },
+        {
+          "id": "REQ-345",
+          "statement": "`javascript` は JavaScript・TypeScript と、vitest が実行する Test を対象とする。",
+          "derives_from": [
+            "R-3",
+            "R-6"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "目的",
+            "lines": [
+              5,
+              5
+            ]
+          }
+        },
+        {
+          "id": "REQ-264",
+          "statement": "`rust-cargo`、`go`、`javascript` 以外の production language adapter は v0.1 の提供範囲に含めない。",
+          "derives_from": [
+            "R-2",
+            "R-6"
           ],
           "cites": [
             "（R-2）"

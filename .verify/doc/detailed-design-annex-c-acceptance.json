@@ -1048,14 +1048,33 @@
         },
         {
           "id": "SPEC-458",
-          "statement": "`rust-cargo`以外のproduction language adapterは提供範囲外である。",
-          "derives_from": [],
+          "statement": "`rust-cargo`・`go`・`javascript`以外のproduction language adapterは提供範囲外である。",
+          "derives_from": [
+            "REQ-263",
+            "REQ-264"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
             "heading": "18.4 提供範囲外",
             "lines": [
               341,
               341
+            ]
+          }
+        },
+        {
+          "id": "SPEC-490",
+          "statement": "`go`・`javascript` のStructured Test Operation（`test create` / `test edit`）と組込Formは提供範囲外である。",
+          "derives_from": [
+            "R-2",
+            "REQ-263"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
             ]
           }
         },
@@ -8251,6 +8270,38 @@
             "lines": [
               317,
               317
+            ]
+          }
+        },
+        {
+          "id": "BD-357",
+          "statement": "`go` adapterはGoのdiscovery、static audit、runner、coverageを所有する。",
+          "derives_from": [
+            "SPEC-486",
+            "DS-S168"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              27,
+              27
+            ]
+          }
+        },
+        {
+          "id": "BD-358",
+          "statement": "`javascript` adapterはJavaScript・TypeScriptのdiscovery、static audit、runner、coverageを所有する。",
+          "derives_from": [
+            "SPEC-485",
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              28,
+              28
             ]
           }
         },
