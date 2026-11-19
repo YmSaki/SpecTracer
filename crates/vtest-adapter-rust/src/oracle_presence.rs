@@ -584,9 +584,10 @@ fn da_001_constant_assertion(
     }
     if undetermined_argument {
         return DaVerdict::Unknown(
-            "every other assert-equivalent call is constant, and an operand of `||` / `|` / \
-             `&&` / `&` is made only of literals whose value this analysis does not evaluate, \
-             so whether it fixes the argument is not decided (DS-621, DS-1949)"
+            "every other assert-equivalent call is constant, and an argument holds a macro \
+             whose expansion is not read, or an operand of `||` / `|` / `&&` / `&` made only \
+             of literals whose value this analysis does not evaluate, so whether it is \
+             constant is not decided (DS-621, DS-629, DS-1949)"
                 .to_owned(),
         );
     }
