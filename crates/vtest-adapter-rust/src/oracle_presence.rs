@@ -112,10 +112,18 @@
 //!   initializer with such an assignment keeps the whole binding `Unknown`, which is
 //!   narrower than DS-1939. A read in an assert's checked argument is then derived
 //!   when no assigned path is a prefix of the path it reads (DS-1956). A read of a
-//!   value that holds an assigned position is derived when the value is compared
-//!   whole (`assert_eq!(r, R { .. })`; the false PASS DS-1939 and DS-1956 disclose),
-//!   but not when the value is a method receiver or read through an index that is
-//!   not an integer literal (DS-1939). Statement order is not read: an assigned
+//!   value that holds an assigned position is derived only when that value is
+//!   compared whole by `assert_eq!` / `assert_ne!` or `==` / `!=` (`assert_eq!(r,
+//!   R { .. })`; the false PASS DS-1939 and DS-1956 disclose). As a method receiver
+//!   (DS-1939) and in any other use (an operator, `matches!`, `format!`, a
+//!   constructor) it is not, nor is a read through an index that is not an integer
+//!   literal (DS-1939); the uses other than a method receiver are a narrowing, as
+//!   they may read the assigned position alone. A read that leaves an assigned path
+//!   at a step of the other kind (an integer-literal index against a field or a
+//!   tuple number: `r.0 = 5; assert_eq!(r[0], 5)`, `r[0] = 5; assert_eq!(r.g, 4)`) is
+//!   not derived either, as an index of a type other than an array or a slice calls
+//!   its `Index` / `IndexMut` method on the whole value; DS-1956 does not tell the two
+//!   kinds apart, so this is a narrowing too. Statement order is not read: an assigned
 //!   position counts as assigned for every read, before the assignment too, and on
 //!   every path, in a branch, a loop or the right side of `&&` / `||` too (DS-1966).
 //!   Such a position is never read as derived: the value `e` is not followed, so
@@ -1332,7 +1340,10 @@ fn span_binding_reach(
     };
     let mut visitor = CheckedCallVisitor::new(None, Some(binding), targets);
     visitor.probe_overwrites = overwrites;
+    // `assert_eq!` / `assert_ne!` compare their two checked arguments whole.
+    let compares = matches!(macro_name, Some("assert_eq" | "assert_ne"));
     for argument in arguments.iter().take(checked) {
+        visitor.in_compared = compares;
         visitor.visit_expr(argument);
     }
     // A use of the name where its value is dropped (`{ r; true }`, `let _ = r`, a
@@ -1734,9 +1745,9 @@ struct CheckedCallVisitor<'a> {
     /// `probe` is read where it flows, but the read value is not shown derived
     /// (`read_is_derived`).
     probe_overwritten: bool,
-    /// The expression is a method call's receiver, through parentheses, references
-    /// and projections only (DS-1939's method chain over a value).
-    in_receiver: bool,
+    /// The expression is a value that `assert_eq!` / `assert_ne!` or `==` / `!=`
+    /// compares whole, through parentheses, references and projections only.
+    in_compared: bool,
     /// The expression is inside the base of a projection that does not start at
     /// `probe` itself (`(&r).f`, `{ r }.f`), or inside a block-local `let`
     /// initializer, so the path that a read of `probe` there leads to is not known.
@@ -1780,15 +1791,19 @@ enum PlaceStep {
 /// A read under an assigned path is not shown derived: the assigned value is not
 /// followed, and statement order and branches are not read, so the read may see
 /// the assigned value (DS-1956, DS-1966). A read whose value holds an assigned
-/// position and other positions is derived where it is compared whole, but not as a
-/// method receiver (`receiver`), and a read through a step not fixed by syntax may
-/// take an assigned position or not (DS-1939: UNKNOWN unless every position is
-/// derived). An index and a field of one value are not told apart by syntax as
-/// positions: an index of a type other than an array or a slice is a call of its
-/// `Index` / `IndexMut` method on the whole value, which may read or write any
-/// field (DS-1939's method over a value whose positions differ), so a read that
-/// leaves an assigned path at a step of the other kind is not derived either.
-fn read_is_derived(overwrites: &[Vec<PlaceStep>], read: &[PlaceStep], receiver: bool) -> bool {
+/// position and other positions is derived only where it is the value compared
+/// whole (`compared`: the false PASS DS-1939 and DS-1956 disclose). Anywhere else
+/// (a method receiver, an operand of another operator, a pattern match, a macro or a
+/// constructor argument) it is not shown derived: DS-1939 reads a method over such
+/// a value as UNKNOWN, and the other uses may take the assigned position alone. A
+/// read through a step not fixed by syntax may take an assigned position or not
+/// (DS-1939: UNKNOWN unless every position is derived). An index and a field of one
+/// value are not told apart by syntax as positions: an index of a type other than an
+/// array or a slice is a call of its `Index` / `IndexMut` method on the whole value,
+/// which may read or write any field (DS-1939's method over a value whose positions
+/// differ), so a read that leaves an assigned path at a step of the other kind is not
+/// derived either.
+fn read_is_derived(overwrites: &[Vec<PlaceStep>], read: &[PlaceStep], compared: bool) -> bool {
     let fixed = read
         .iter()
         .position(|step| *step == PlaceStep::Undetermined)
@@ -1808,7 +1823,7 @@ fn read_is_derived(overwrites: &[Vec<PlaceStep>], read: &[PlaceStep], receiver: 
         return false;
     }
     let holds_assigned = overwrites.iter().any(|path| path.starts_with(prefix));
-    !(holds_assigned && (receiver || fixed < read.len()))
+    !(holds_assigned && (!compared || fixed < read.len()))
 }
 
 /// How the value of a call's argument goes on (DS-1960).
@@ -1845,7 +1860,7 @@ impl<'a> CheckedCallVisitor<'a> {
             probe_rebound: false,
             probe_overwrites: &[],
             probe_overwritten: false,
-            in_receiver: false,
+            in_compared: false,
             path_unknown: false,
             init_mode: false,
         }
@@ -1858,7 +1873,7 @@ impl<'a> CheckedCallVisitor<'a> {
         if self.path_unknown {
             path.push(PlaceStep::Undetermined);
         }
-        let derived = read_is_derived(self.probe_overwrites, &path, self.in_receiver);
+        let derived = read_is_derived(self.probe_overwrites, &path, self.in_compared);
         if !derived && self.flows && !self.delegating {
             self.probe_overwritten = true;
         } else if self.flows && self.delegating {
@@ -1921,10 +1936,10 @@ impl<'a> CheckedCallVisitor<'a> {
     /// Derivation (from DS-623): the value of the index decides which element is
     /// compared (`function[range]`), so it flows.
     fn index_projection(&mut self, node: &syn::ExprIndex) -> Projection<'static> {
-        let outer = self.in_receiver;
-        self.in_receiver = false;
+        let outer = self.in_compared;
+        self.in_compared = false;
         self.visit_expr(&node.index);
-        self.in_receiver = outer;
+        self.in_compared = outer;
         Projection::Index(match node.index.as_ref() {
             syn::Expr::Lit(syn::ExprLit {
                 lit: syn::Lit::Int(index),
@@ -2134,8 +2149,8 @@ enum TailReach {
 
 impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
     fn visit_expr(&mut self, node: &'ast syn::Expr) {
-        let outer_receiver = self.in_receiver;
-        self.in_receiver &= matches!(
+        let outer_compared = self.in_compared;
+        self.in_compared &= matches!(
             node,
             syn::Expr::Paren(_)
                 | syn::Expr::Group(_)
@@ -2172,7 +2187,7 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
             // `break`, an assignment, `async`, ...) drops or holds the value.
             _ => self.dropping(|visitor| syn::visit::visit_expr(visitor, node)),
         }
-        self.in_receiver = outer_receiver;
+        self.in_compared = outer_compared;
     }
 
     fn visit_expr_call(&mut self, node: &'ast syn::ExprCall) {
@@ -2211,10 +2226,7 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
             self.found_target_call(true);
         }
         // DS-1937: the receiver flows to the method's value.
-        let outer_receiver = self.in_receiver;
-        self.in_receiver = true;
         self.visit_expr(&node.receiver);
-        self.in_receiver = outer_receiver;
         if let Some(turbofish) = &node.turbofish {
             self.dropping(|visitor| visitor.visit_angle_bracketed_generic_arguments(turbofish));
         }
@@ -2350,6 +2362,14 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
             // the value flows from.
             for (operand, sibling) in [(&node.left, &node.right), (&node.right, &node.left)] {
                 self.visit_element(operand, operand_flows(sibling, absorbing));
+            }
+        } else if matches!(node.op, syn::BinOp::Eq(_) | syn::BinOp::Ne(_)) {
+            // `==` / `!=` compares each operand whole, as `assert_eq!` does.
+            for operand in [&node.left, &node.right] {
+                let outer = self.in_compared;
+                self.in_compared = true;
+                self.visit_expr(operand);
+                self.in_compared = outer;
             }
         } else {
             syn::visit::visit_expr_binary(self, node);
@@ -4640,12 +4660,11 @@ mod tests {
     /// DS-1956: an assigned position holds the assigned value, not the target's
     /// result; DS-1966: one assigned on some paths only is neither. Reading it in an
     /// assert is not PASS, also through a reference, a block, a conversion or a
-    /// nested macro, and also when the read comes before the assignment, whose order
-    /// is not read.
+    /// nested macro.
     /// @vtest.id TEST-ORACLE-DA-003-ASSIGNED-POSITION-IS-NOT-PASS
     /// @vtest.covers VO-ORACLE-DA-003-PROJECTION-ASSIGNMENT, VO-ORACLE-DA-003-CONDITIONAL-ASSIGNMENT-MERGE
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
-    /// @vtest.intent 射影代入した位置（条件付き・ループ内・`&&` の右辺の代入を含む）を assert が読む Test、複合代入と代入の順序で派生が決まる位置を読む Test、assert の中で参照・ブロック・変換・入れ子のマクロを通して読む Test は、DA-003 が違反なしにならず UNKNOWN になることを確認する
+    /// @vtest.intent 射影代入した位置（条件付き・ループ内・`&&` の右辺の代入を含む）を assert が読む Test、平の代入のあとに複合代入した位置を読む Test、assert の中で参照・ブロック・変換・入れ子のマクロを通して読む Test は、DA-003 が違反なしにならず UNKNOWN になることを確認する
     #[test]
     fn a_read_of_an_assigned_position_is_not_pass() {
         for body in [
@@ -4653,10 +4672,8 @@ mod tests {
             "let mut v = double(2); v[0] = 7; assert_eq!(v[0], 7);",
             "let mut r = double(2); r.f.g = 5; assert_eq!(r.f.g, 5);",
             "let mut r = double(2); r.f = 5; assert_eq!(r.f.0, 5);",
-            "let mut r = double(2); r.f = double(3); assert_eq!(r.f, 6);",
             "let mut r = double(2); r.f = 5; r.f += 1; assert_eq!(r.f, 6);",
             "let mut r = double(2); r.f = 5; r.f.g += 1; assert_eq!(r.f.g, 6);",
-            "let mut r = double(2); assert_eq!(r.f, 4); r.f = 5;",
             "let mut r = double(2); if c() { r.f = 5; } assert_eq!(r.f, 5);",
             "let mut r = double(2); if c() { r.f = 5; } else { r.f = 6; } assert_eq!(r.f, 5);",
             "let mut r = double(2); match k() { 1 => r.f = 5, _ => {} } assert_eq!(r.f, 5);",
@@ -4703,7 +4720,6 @@ mod tests {
             "let mut r = double(2); let f = || r.f = 5; f(); assert_eq!(r.g, 4);",
             "let mut r = double(2); let f = async { r.f = 5; }; assert_eq!(r.g, 4);",
             "let mut r = double(2); set!{ r.f = 5 }; assert_eq!(r.g, 4);",
-            "let mut r = double(2); assert!({ r.f = 5; r.g == 4 });",
             "let mut r = double(2); r.f.push(1); assert_eq!(r.g, 4);",
             "let mut r = double(2); r.f = 5; let (ref mut a, _) = r; assert_eq!(r.g, 4);",
             "let mut r = double(2); r = other(); r.f = 5; assert_eq!(r.g, 4);",
@@ -4716,27 +4732,32 @@ mod tests {
         }
     }
 
-    /// DS-1939: a value whose positions differ is UNKNOWN as a method receiver and
-    /// through an index that is not an integer literal; compared whole it reaches the
-    /// assert (the false PASS DS-1939 and DS-1956 disclose). A binding of a literal
-    /// that holds the result in one element is not followed through an assignment,
-    /// so a read of an element that is not the result does not pass.
+    /// DS-1939: a value whose positions differ is UNKNOWN as a method receiver
+    /// (also an operator, a formatting trait or a pattern over it, whose positions
+    /// are not fixed by syntax) and through an index that is not an integer literal;
+    /// compared whole it reaches the assert (the false PASS DS-1939 and DS-1956
+    /// disclose). A binding of a literal that holds the result in one element is not
+    /// followed through an assignment, so a read of an element that is not the
+    /// result does not pass.
     /// @vtest.id TEST-ORACLE-DA-003-MIXED-POSITIONS-ARE-READ-BY-POSITION
     /// @vtest.covers VO-ORACLE-DA-003-PER-POSITION-DERIVATION
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::read_is_derived
-    /// @vtest.intent 一部の位置を射影代入した値を、メソッドの受け手にする Test、整数リテラルでない添字で読む Test、添字とフィールドの別の種類の位置で読む Test は UNKNOWN になり、値全体を比べる Test は開示された偽 PASS のとおり違反なしになることを確認する。target の値を一つの要素に持つ構築式の束縛で、target の値の要素に射影代入したあと別の要素を読む Test が違反なしにならないことも確認する
+    /// @vtest.intent 一部の位置を射影代入した値を、メソッドの受け手・演算子の被演算子・`matches!` と `format!` の引数にする Test、整数リテラルでない添字で読む Test は UNKNOWN になり、`assert_eq!` や `==` で値全体を比べる Test は開示された偽 PASS のとおり違反なしになることを確認する。target の値を一つの要素に持つ構築式の束縛で、target の値の要素に射影代入したあと別の要素を読む Test が違反なしにならないことも確認する
     #[test]
     fn a_value_with_an_assigned_position_is_read_by_position() {
         for body in [
             "let mut v = double(2); v[0] = 7; assert_eq!(v.len(), 1);",
             "let mut r = double(2); r.f = 5; assert!(r.is_ok());",
             "let mut r = double(2); r.f = 5; assert!((&r).is_ok());",
+            "let mut r = double(2); r.f = 5; assert!((*r).is_ok());",
             "let mut r = double(2); r.f.g = 5; assert_eq!(r.f.len(), 2);",
+            "let mut r = double(2); r.f = 5; assert!(matches!(r, R { f: 5, .. }));",
+            "let mut r = double(2); r.f = 5; assert_eq!(format!(\"{}\", r), \"5\");",
+            "let mut r = double(2); r.f = 5; assert!(!r);",
+            "let mut r = double(2); r.f = 5; assert_eq!(r + 1, x());",
+            "let mut r = double(2); r.f = 5; assert_eq!(Some(r), Some(x()));",
             "let mut v = double(2); v[0] = 7; let i = 1; assert_eq!(v[i], 4);",
             "let mut v = double(2); v[0] = 7; assert_eq!(v[..1], [7]);",
-            "let mut r = double(2); r.0 = 5; assert_eq!(r[0], 5);",
-            "let mut r = double(2); r[0] = 5; assert_eq!(r.0, 5);",
-            "let mut r = double(2); r[0] = 5; assert_eq!(r.g, 4);",
             "let mut t = (double(2), 1); t.0 = 5; assert_eq!(t.1, 1);",
             "let mut t = S { a: double(2), b: 1 }; t.a = 5; assert_eq!(t.b, 1);",
         ] {
@@ -4750,9 +4771,38 @@ mod tests {
             "let mut r = double(2); r.f = 5; assert_eq!(r, R { f: 5, g: 4 });",
             "let mut r = double(2); r.f = 5; r.g = 6; assert_eq!(r, R { f: 5, g: 6 });",
             "let mut r = double(2); if c() { r.f = 5; } assert_eq!(r, R { f: 5, g: 4 });",
+            "let mut r = double(2); r.f = 5; assert!(r == R { f: 5, g: 4 });",
+            "let mut r = double(2); r.f = 5; assert_ne!(&r, &R { f: 5, g: 3 });",
             "let mut r = double(2); r.f = 5; assert!(r.g.is_ok());",
         ] {
             assert_eq!(da_003_of(body), DaVerdict::NoViolation, "{body}");
+        }
+    }
+
+    /// Narrowings below DS-1956: the assigned value is not followed, statement
+    /// order is not read, an integer-literal index is not told apart from a field
+    /// or a tuple number at the same step, and an assignment inside the assert is
+    /// not read as a projection assignment. Each keeps the verdict UNKNOWN where
+    /// DS-1956 alone might derive the read.
+    /// @vtest.id TEST-ORACLE-DA-003-PROJECTION-ASSIGNMENT-NARROWINGS-ARE-UNKNOWN
+    /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN, VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::read_is_derived
+    /// @vtest.intent 代入した値を追わない・文の順序を読まない・同じ段の整数リテラル添字とフィールドを区別しない・assert の中の代入を射影代入として読まない、という解析の限界に当たる Test が、違反なしにならず UNKNOWN になることを確認する
+    #[test]
+    fn projection_assignment_narrowings_are_unknown() {
+        for body in [
+            "let mut r = double(2); r.f = double(3); assert_eq!(r.f, 6);",
+            "let mut r = double(2); assert_eq!(r.f, 4); r.f = 5;",
+            "let mut r = double(2); r.0 = 5; assert_eq!(r[0], 5);",
+            "let mut r = double(2); r[0] = 5; assert_eq!(r.0, 5);",
+            "let mut r = double(2); r[0] = 5; assert_eq!(r.g, 4);",
+            "let mut r = double(2); assert!({ r.f = 5; r.g == 4 });",
+        ] {
+            assert!(
+                matches!(da_003_of(body), DaVerdict::Unknown(_)),
+                "{body}: {:?}",
+                da_003_of(body)
+            );
         }
     }
 
