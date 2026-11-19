@@ -5893,7 +5893,7 @@ impl<'a> ShapeReader<'a> {
                 }) if !self.mentions(&index.index) => match literal.base10_parse::<usize>() {
                     Ok(position) => match self.shape(&index.expr, depth + 1) {
                         elements @ Shape::Elements(_) => elements.element(position),
-                        Shape::Plain => Shape::Plain,
+                        whole @ (Shape::Plain | Shape::Derived { .. }) => whole,
                         _ => Shape::Unknown,
                     },
                     Err(_) => Shape::Unknown,
@@ -9649,6 +9649,7 @@ fn real_check() {
             "match (double(2), double(3)) { (x, _) | (_, x) => assert!(x > 0) }",
             "let S { a, .. } = S { a: double(2), b: 0 }; assert_eq!(a, 4);",
             "let t = (double(2), 3); let (a, _) = t; assert_eq!(a, 4);",
+            "let v = double(2); let Some(x) = &v.items[0] else { panic!() }; assert_eq!(x, &4);",
         ] {
             assert_eq!(da_003_of_two(body), DaVerdict::NoViolation, "{body}");
         }
