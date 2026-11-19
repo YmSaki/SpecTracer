@@ -123,9 +123,11 @@
 //!   the meaning of the comparison (`f32` or `f64`) is not fixed by syntax. A `bool`
 //!   operand made only of literals whose value is not evaluated (`X || 1 + 1 == 2`,
 //!   `X || 0.1f32 == 0.100000001f32`) may absorb, so DA-001 is `Unknown` for it
-//!   (DS-621's escape). Only literals, `!`, the binary operators and parentheses are
-//!   read: another form made only of literals (`if true { .. }`, `{ true }`,
-//!   `matches!(1, 1)`) is not seen as absorbing, so the operand beside it flows.
+//!   (DS-621's escape). Another form with no variable, call, struct literal, closure
+//!   or identifier in macro tokens (`if true { .. }`, `{ true }`, `1 as u8 == 1`,
+//!   `matches!(1, 1)`) is built from literals only and is not evaluated, so it may
+//!   absorb in the same way. A macro whose tokens hold an identifier (`cfg!(test)`)
+//!   is not literal, which DS-1948 leaves as a false PASS.
 //!   Any other identifier
 //!   reference (a `const` item included) is treated as non-constant rather than
 //!   resolved, which can only make DA-001 report `NoViolation` where a deeper
@@ -2272,8 +2274,9 @@ enum Fixed {
 /// `||` / `|` / `&&` / `&` with an absorbing operand (DS-1948) or with both
 /// operands fixed; `^`, `==`, `!=` of fixed `bool`s; a comparison of two integer,
 /// string or char literals of one kind (not floats). Parentheses do not change it.
-/// Only literals, `!`, binary operators and parentheses are read; another form made
-/// only of literals (`if true { .. }`, `{ true }`, `matches!(1, 1)`) is `Open`.
+/// Only literals, `!`, binary operators and parentheses are evaluated; another form
+/// built from literals only (`if true { .. }`, `{ true }`, `matches!(1, 1)`) is
+/// `Fixed::Literal`.
 ///
 /// Derivation from DS-621 and DS-1949: an operand fixed this way (`!false`,
 /// `1 == 1`, `(true || ok)`) absorbs as the literal it equals, so `X || 1 == 1` is
@@ -2334,7 +2337,59 @@ fn fixed_value(expression: &syn::Expr) -> Fixed {
                 _ => Fixed::Constant,
             }
         }
-        _ => Fixed::Open,
+        // Any other form with no variable, call or identifier in macro tokens
+        // (`if true { true } else { false }`, `{ true }`, `matches!(1, 1)`) is built
+        // from literals only, so it may absorb (DS-1948 leaves only non-literal
+        // constants as a false PASS).
+        other => {
+            let mut finder = NonLiteralFinder { found: false };
+            finder.visit_expr(other);
+            if finder.found {
+                Fixed::Open
+            } else {
+                Fixed::Literal
+            }
+        }
+    }
+}
+
+/// Whether an expression refers to a variable, calls something (a struct literal
+/// and a closure included, whose comparison or call runs user code), or has an
+/// identifier other than `true` / `false` in macro tokens.
+struct NonLiteralFinder {
+    found: bool,
+}
+
+impl<'ast> Visit<'ast> for NonLiteralFinder {
+    fn visit_expr_path(&mut self, _node: &'ast syn::ExprPath) {
+        self.found = true;
+    }
+
+    fn visit_expr_struct(&mut self, _node: &'ast syn::ExprStruct) {
+        self.found = true;
+    }
+
+    fn visit_expr_closure(&mut self, _node: &'ast syn::ExprClosure) {
+        self.found = true;
+    }
+
+    fn visit_expr_call(&mut self, _node: &'ast syn::ExprCall) {
+        self.found = true;
+    }
+
+    fn visit_expr_method_call(&mut self, _node: &'ast syn::ExprMethodCall) {
+        self.found = true;
+    }
+
+    fn visit_macro(&mut self, node: &'ast syn::Macro) {
+        fn has_ident(tokens: proc_macro2::TokenStream) -> bool {
+            tokens.into_iter().any(|tree| match tree {
+                proc_macro2::TokenTree::Ident(ident) => ident != "true" && ident != "false",
+                proc_macro2::TokenTree::Group(group) => has_ident(group.stream()),
+                proc_macro2::TokenTree::Punct(_) | proc_macro2::TokenTree::Literal(_) => false,
+            })
+        }
+        self.found |= has_ident(node.tokens.clone());
     }
 }
 
@@ -4901,6 +4956,10 @@ mod tests {
             "assert!(double(2) == 4 || 0.1f32 == 0.100000001f32);",
             "assert!(double(2) == 4 && 0.1f32 != 0.100000001f32);",
             "assert!(double(2) == 4 || 0.5 < 1.5);",
+            "assert!(double(2) == 4 || if true { true } else { false });",
+            "assert!(double(2) == 4 || { true });",
+            "assert!(double(2) == 4 || matches!(1, 1));",
+            "assert!(double(2) == 4 && (1 as u8 == 2));",
         ] {
             let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
