@@ -1,5 +1,5 @@
 //! `rust-cargo`'s `oracle_presence` static-analysis capability (DS-605-627,
-//! DS-1950, DS-1951, DS-1954).
+//! DS-1947, DS-1950-DS-1954, DS-1963, DS-1983).
 //!
 //! `oracle_presence`'s question (REQ-073/077/079/080, verified present this
 //! session) is answered by composing five deterministic, adapter-owned
@@ -23,6 +23,8 @@
 //!   `(NAME, ..)`; not `x.NAME`, not a string literal). Checked arguments are
 //!   `assert!`'s condition and `assert_eq!`/`assert_ne!`'s two compared values;
 //!   the message arguments after them only print on failure and do not count.
+//!   The same two shapes also reach a position that decides whether a failure
+//!   divergence runs (DS-1947; see the divergence bullets below).
 //!   `NAME` is matched as a whole identifier read from the argument list's
 //!   tokens, not as a substring. When it cannot be told to mean the binding DA-003
 //!   reports `Unknown` (#281; derivations from DS-623 / DS-615 / DS-1680, not
@@ -239,7 +241,10 @@
 //!   position of a reached divergence is not constant. One whose reach is
 //!   undecided, or that is not reached while a deciding position is not constant
 //!   (`while false { if r != 4 { panic!() } }`), is not decided, so DA-001 is
-//!   `Unknown` when it decides the verdict (DS-621's escape). DA-001 still counts
+//!   `Unknown` when it decides the verdict (DS-621's escape). Under
+//!   `#[should_panic]` a non-constant deciding position does not decide it either
+//!   (`Unknown`): a divergence on every path passes whatever the target returns,
+//!   which DS-1950 read alone would leave as a false PASS. DA-001 still counts
 //!   only assert macros: an unconditional `return Err(..)` alone is not a constant
 //!   assertion here, and `assert_eq!(1, 2)` is classified by its arguments.
 //! - `debug_assert!` / `debug_assert_eq!` / `debug_assert_ne!` are not
@@ -353,7 +358,12 @@ pub fn analyze(
     let has_debug_assert = !debug_assert_macros(construct_text).is_empty();
 
     OraclePresenceAnalysis {
-        da_001: da_001_constant_assertion(construct_text, &assert_spans, method_or_try),
+        da_001: da_001_constant_assertion(
+            construct_text,
+            &assert_spans,
+            method_or_try,
+            has_should_panic,
+        ),
         da_003: da_003_result_unverified(
             construct_text,
             target_symbols,
@@ -605,6 +615,7 @@ fn da_001_constant_assertion(
     text: &str,
     assert_spans: &[(usize, usize)],
     method_or_try: MethodOrTry,
+    has_should_panic: bool,
 ) -> DaVerdict {
     if assert_spans.is_empty() {
         // No assert-equivalent macro call at all: DA-001's own subject
@@ -634,12 +645,24 @@ fn da_001_constant_assertion(
         .unwrap_or_default();
     let mut undetermined = false;
     let mut undetermined_argument = false;
+    let mut should_panic_divergence = false;
     for &(start, end) in assert_spans {
         let constancy = if let Some(divergence) = divergences
             .iter()
             .find(|divergence| divergence.start == Some(start))
         {
-            divergence_constancy(divergence)
+            match divergence_constancy(divergence) {
+                // Under `#[should_panic]` a divergence is the expected outcome, so a
+                // non-constant deciding position fixes the result only if some path
+                // avoids every divergence, which this analysis does not decide
+                // (DS-615, DS-1680): `if double(2) != 4 { panic!() } else { panic!() }`
+                // passes whatever `double` returns.
+                Constancy::NotAllLiteral if has_should_panic => {
+                    should_panic_divergence = true;
+                    Constancy::Undetermined
+                }
+                other => other,
+            }
         } else if macro_name_before(text, start)
             .is_some_and(|name| name == "panic" || is_diverging_macro(name))
         {
@@ -660,6 +683,14 @@ fn da_001_constant_assertion(
             Constancy::Undetermined => undetermined = true,
             Constancy::AllLiteral => {}
         }
+    }
+    if should_panic_divergence {
+        return DaVerdict::Unknown(
+            "every other assert-equivalent call is constant, and under #[should_panic] a \
+             failure divergence is the expected outcome, so whether a non-constant position \
+             deciding it fixes the result is not decided (DS-621, DS-1950, DS-1680)"
+                .to_owned(),
+        );
     }
     if undetermined {
         return DaVerdict::Unknown(
@@ -7831,7 +7862,7 @@ fn real_check() {
     /// @vtest.id TEST-ORACLE-DA-001-DIVERGENCE-CONSTANCY-BY-DECIDER
     /// @vtest.covers VO-ORACLE-DIVERGENCE-CONSTANCY-BY-DECIDING-POSITION
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_001_constant_assertion
-    /// @vtest.intent 失敗として発散する構文の DA-001 の定数性を決める位置で判定し、決める位置に定数でない値があれば違反なし、決める位置が無いか定数だけなら FAIL、決める位置を評価できなければ UNKNOWN になることを確認する
+    /// @vtest.intent 失敗として発散する構文の DA-001 の定数性を決める位置で判定し、決める位置に定数でない値があれば違反なし、決める位置が無いか定数だけなら FAIL、決める位置を評価できないか #[should_panic] の下にあれば UNKNOWN になることを確認する
     #[test]
     fn da_001_decides_a_divergence_by_its_deciding_positions() {
         let da_001 = |body: &str| {
@@ -7855,6 +7886,17 @@ fn real_check() {
             "    if false {\n        panic!(\"{}\", y);\n    }\n",
         ] {
             assert!(matches!(da_001(body), DaVerdict::Fail(_)), "{body}");
+        }
+        // Under `#[should_panic]` a divergence on every path passes whatever the
+        // target returns, so a non-constant deciding position does not decide it.
+        for body in [
+            "    if double(2) != 4 {\n        panic!(\"a\");\n    } else {\n        panic!(\"b\");\n    }\n",
+            "    match double(2) {\n        4 => panic!(\"a\"),\n        _ => panic!(\"b\"),\n    }\n",
+        ] {
+            let text = format!("#[should_panic]\n#[test]\nfn t() {{\n{body}}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(matches!(analysis.da_001, DaVerdict::Unknown(_)), "{body}");
+            assert!(!compose(&analysis).0 && compose(&analysis).1, "{body}");
         }
         for body in [
             "    while c() {\n        break;\n    }\n    todo!();\n",

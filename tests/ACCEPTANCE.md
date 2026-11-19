@@ -235,6 +235,7 @@ DA-001 judges `panic!`, `unreachable!`, `todo!`, `unimplemented!` and
 | Clause | Gap | Status |
 |---|---|---|
 | DS-1950 | A divergence that is not reached while one of its deciding positions is not constant (`while false { if r != 4 { panic!() } }`, `for _ in 0..0 { .. }`, after an unconditional `return`) is constant; DA-001 reports `UNKNOWN`. | NOT_CHECKED |
+| DS-1950 | Under `#[should_panic]`, a divergence with a non-constant deciding position is not constant by DS-1950, yet one on every path (`if double(2) != 4 { panic!() } else { panic!() }`) passes whatever the target returns; DA-001 reports `UNKNOWN` for every such divergence, also where some path avoids them. | NOT_CHECKED |
 | DS-1950 | An unconditional `return Err(..)` (DS-1951) is not counted by DA-001, which still reads only assert macros, so it is not reported as a constant assertion. | NOT_CHECKED |
 | DS-1947 | A guard that reads a name its arm binds (`x if x == 4`) is not traced to the scrutinee, so DA-003 reports `UNKNOWN`. | NOT_CHECKED |
 | DS-1947 | A pattern identifier starting with an uppercase letter, a struct / tuple-struct / fixed-length slice pattern before the arm, a literal-only guard or condition whose value is not evaluated, and a `for` over another literal value leave the reach undecided, so DA-003 and DA-001 report `UNKNOWN`. | NOT_CHECKED |
