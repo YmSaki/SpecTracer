@@ -1626,14 +1626,19 @@ fn statement_completion(statement: &syn::Stmt) -> Completion {
     }
 }
 
-/// Whether a statement holds a labeled block outside closures, `async` blocks and
-/// items: `statement_completion` reads a `break` to it as leaving the statement.
-fn holds_labeled_block(statement: &syn::Stmt) -> bool {
+/// Whether a statement holds, outside closures, `async` blocks and items, a labeled
+/// block (`statement_completion` reads a `break` to it as leaving the statement) or a
+/// `cfg` / `cfg_attr` attribute (the part it marks may not be compiled, which syntax
+/// does not decide).
+fn holds_labeled_block_or_cfg(statement: &syn::Stmt) -> bool {
     struct Finder(bool);
     impl<'ast> Visit<'ast> for Finder {
         fn visit_expr_block(&mut self, node: &'ast syn::ExprBlock) {
             self.0 |= node.label.is_some();
             syn::visit::visit_expr_block(self, node);
+        }
+        fn visit_attribute(&mut self, node: &'ast syn::Attribute) {
+            self.0 |= is_cfg_attribute(node);
         }
         fn visit_expr_closure(&mut self, _node: &'ast syn::ExprClosure) {}
         fn visit_expr_async(&mut self, _node: &'ast syn::ExprAsync) {}
@@ -1642,6 +1647,10 @@ fn holds_labeled_block(statement: &syn::Stmt) -> bool {
     let mut finder = Finder(false);
     finder.visit_stmt(statement);
     finder.0
+}
+
+fn is_cfg_attribute(attribute: &syn::Attribute) -> bool {
+    attribute.path().is_ident("cfg") || attribute.path().is_ident("cfg_attr")
 }
 
 fn macro_completion(node: &syn::Macro) -> Completion {
@@ -2205,10 +2214,10 @@ impl<'a> Visit<'a> for DivergenceCollector<'a> {
             }
             // A statement after one that leaves on every path never runs (derivation
             // from DS-1983, which reads the exits before a construct). A `break` to a
-            // labeled block that the statement holds may end that block only, so such
-            // a statement is not read.
+            // labeled block that the statement holds may end that block only, and a
+            // part under `cfg` may not be compiled, so such a statement is not read.
             if statement_completion(statement) == Completion::Leaves
-                && !holds_labeled_block(statement)
+                && !holds_labeled_block_or_cfg(statement)
             {
                 self.context.dead = true;
             }
@@ -2393,7 +2402,9 @@ impl<'a> Visit<'a> for DivergenceCollector<'a> {
                     } else {
                         later
                     };
-                after_irrefutable |= later == DivergenceReach::NotCounted;
+                // An arm under `cfg` may not be compiled.
+                after_irrefutable |=
+                    later == DivergenceReach::NotCounted && !arm.attrs.iter().any(is_cfg_attribute);
                 reach = reach.max(later);
             }
         }
@@ -8907,7 +8918,8 @@ mod tests {
     /// The other side: an assert-equivalent that may run stays a destination, also
     /// under a condition decided at run time (DS-1935 reads the flow of the value),
     /// before an unconditional `return`, after a conditional `return`, after a
-    /// labeled block left by `break`, and beside one that never runs.
+    /// labeled block left by `break`, after an exit or an arm under `cfg`, and beside
+    /// one that never runs.
     /// @vtest.id TEST-ORACLE-DA-003-ASSERT-THAT-MAY-RUN-IS-REACHED
     /// @vtest.covers VO-ORACLE-DIVERGENCE-AFTER-EXIT, VO-ORACLE-DIVERGENCE-UNDER-CONSTANT-FALSE, VO-ORACLE-DIVERGENCE-AFTER-IRREFUTABLE-ARM, VO-ORACLE-DA-003-COUNTED-POSITIONS
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
@@ -8927,6 +8939,10 @@ mod tests {
             "if 1 + 1 == 3 { assert_eq!(double(2), 4); }",
             "assert_eq!(double(2), 4); return; assert_eq!(double(3), 6);",
             "let x = double(2); if c() { return; } if x != 4 { panic!(); }",
+            "#[cfg(windows)] return; assert_eq!(double(2), 4);",
+            "#[cfg(windows)] { return; } assert_eq!(double(2), 4);",
+            "#[cfg(windows)] panic!(); double(2).unwrap();",
+            "match k() { #[cfg(windows)] _ => {} _ => { assert_eq!(double(2), 4); } }",
         ] {
             assert_eq!(da_003_of(body), DaVerdict::NoViolation, "{body}");
         }
