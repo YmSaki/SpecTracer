@@ -215,3 +215,23 @@ so no observation depends on `cargo-llvm-cov`.
 | DS-1875 | `the_mcp_tools_return_what_the_cli_prints` (`acceptance_18_3_14.rs`) | PASS |
 | DS-1876 | `the_mcp_tools_return_what_the_cli_prints` (`acceptance_18_3_14.rs`) | PASS |
 | DS-1877 | `show_reports_the_latest_evidence_and_prints_every_field_as_text` (`acceptance_18_3_14.rs`) | PASS |
+
+## Issue #294: DA-001 constancy of a failure divergence
+
+`rust-cargo` reads `unreachable!` / `todo!` / `unimplemented!` (DS-1951) for
+DA-001 by whether they run (DS-1950). Of DS-1950's constant divergences, only
+one with no deciding position that is a statement directly in the function's
+own block, with no earlier statement that may leave the function, is reported
+as a constant assertion
+(`TEST-ORACLE-DA-001-UNCONDITIONAL-DIVERGENCE-IS-CONSTANT`). Any other
+divergence makes DA-001 `UNKNOWN`
+(`TEST-ORACLE-DA-001-CONDITIONAL-DIVERGENCE-IS-UNKNOWN`).
+
+| Clause | Gap | Status |
+|---|---|---|
+| DS-1950 | A divergence whose deciding positions (DS-1947, DS-1983) are all constant (`if true { unreachable!() }`) is a constant assertion; DA-001 reports `UNKNOWN`. | NOT_CHECKED |
+| DS-1950 | A divergence reached only through irrefutable arms or blocks (`match r { _ => unreachable!() }`, `{ unreachable!() }`) is a constant assertion; DA-001 reports `UNKNOWN`. | NOT_CHECKED |
+| DS-1950 | A divergence with no deciding position that is not a statement of its own (`let x: i32 = todo!();`) is a constant assertion; DA-001 reports `UNKNOWN`. | NOT_CHECKED |
+| DS-1951 | A `?` or `return Err(..)` before a divergence is read as an exit, so DA-001 reports `UNKNOWN` where DS-1951 reads a constant assertion. | NOT_CHECKED |
+| DS-1950 | A divergence under a non-constant deciding position is not constant; DA-001 reports `UNKNOWN` when no other assert-equivalent decides. | NOT_CHECKED |
+| DS-1950 | `panic!` is still judged by its message arguments, not by its deciding positions. | NOT_CHECKED |
