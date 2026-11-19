@@ -129,7 +129,9 @@
 //!   condition (`if true { .. }`), one whose deciding positions are all constant,
 //!   one in an arm that cannot be refuted (`match r { _ => unreachable!() }`), one
 //!   in a `let` initializer (`let x: i32 = todo!();`) and one in an inner block
-//!   (`{ unreachable!() }`).
+//!   (`{ unreachable!() }`). A `?` or a `return` (also `return Err(..)`) before the
+//!   divergence is read as an exit, so DA-001 is `Unknown` there too, also where
+//!   DS-1951 reads the divergence as a constant assertion.
 //! - `debug_assert!` / `debug_assert_eq!` / `debug_assert_ne!` are not
 //!   assert-equivalents, also when the config lists them (DS-1954): they make
 //!   DA-003 and DA-006 `Unknown` where they are the only check.
@@ -803,8 +805,20 @@ fn da_003_result_unverified(
     }
     // A FAIL proven for one target decides before another target's UNKNOWN, as
     // `analyze` composes (DS-623, DS-1680): with no assert-equivalent construct and
-    // no other call to delegate to, an unverified result reaches none.
-    if any_unverified && assert_spans.is_empty() && !has_non_target_call(text, target_symbols) {
+    // no other call to delegate to, an unverified result reaches none. A target
+    // whose call or result this analysis cannot follow (a method call matched by
+    // name only, a binding or macro it does not read, a result handed to another
+    // target, a mutable reference) may still carry a result there, so those keep
+    // their UNKNOWN (DS-1680).
+    if any_unverified
+        && !(any_unidentified
+            || any_ambiguous
+            || any_binding_uncertain
+            || any_into_target
+            || any_macro_opaque)
+        && assert_spans.is_empty()
+        && !has_non_target_call(text, target_symbols)
+    {
         return DaVerdict::Fail(
             "a declared target's call result reaches no assert-equivalent construct, \
              and no #[should_panic] is present (DS-623)",
@@ -5116,7 +5130,7 @@ fn real_check() {
     /// @vtest.id TEST-ORACLE-DA-003-FAIL-OF-ONE-TARGET-DECIDES
     /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
-    /// @vtest.intent 宣言 target が複数あり、1 つの結果が debug_assert にだけ流れて UNKNOWN、もう 1 つの結果がどこにも届かず FAIL のとき、DA-003 が FAIL になることを確認する
+    /// @vtest.intent 宣言 target が複数あり、1 つの結果が debug_assert にだけ流れて UNKNOWN、もう 1 つの結果がどこにも届かず FAIL のとき、DA-003 が FAIL になり、名前でしか照合できないメソッド呼出があるときは UNKNOWN のままであることを確認する
     #[test]
     fn a_fail_of_one_target_decides_over_another_targets_unknown() {
         let targets = ["double".to_owned(), "triple".to_owned()];
@@ -5125,6 +5139,31 @@ fn real_check() {
             analyze(text, &targets, &[]).da_003,
             DaVerdict::Fail(_)
         ));
+        let targets_with_check = ["double".to_owned(), "check".to_owned()];
+        for (targets, body) in [
+            (
+                &targets_with_check,
+                "    let a = double(2);\n    v.check(a);\n",
+            ),
+            (
+                &targets_with_check,
+                "    let a = double(2);\n    v.check(&a);\n",
+            ),
+            (
+                &targets,
+                "    let a = double(2);\n    let mut b = 0;\n    x.triple(&mut b, a);\n",
+            ),
+            (
+                &targets,
+                "    let a = double(2);\n    let b = x.triple(2);\n",
+            ),
+        ] {
+            let text = format!("#[test]\nfn t() {{\n{body}}}\n");
+            assert!(
+                matches!(analyze(&text, targets, &[]).da_003, DaVerdict::Unknown(_)),
+                "{text}"
+            );
+        }
         let one = "#[test]\nfn t() {\n    let a = double(2);\n    debug_assert_eq!(a, 4);\n}\n";
         assert!(matches!(
             analyze(one, &targets, &[]).da_003,
