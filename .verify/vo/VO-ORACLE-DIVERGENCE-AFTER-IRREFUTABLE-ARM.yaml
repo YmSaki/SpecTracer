@@ -1,0 +1,11 @@
+id: VO-ORACLE-DIVERGENCE-AFTER-IRREFUTABLE-ARM
+parent: null
+derives_from:
+- doc: DS-1952
+claim: '`rust-cargo`で、反駁不能なパターンとは、ワイルドカード（`_`、`..`）、単独の束縛（下位パターンが反駁不能な`x @ p`を含む）、反駁不能な選択肢を1つ以上含むorパターン（`4 | _`など）、およびそれらだけからなるタプル・タプル構造体・構造体・参照・スライスのパターン（`(_, _)`、`S { .. }`、`&_`、`[..]`など）をいい、それ以外のパターンを反駁可能とする。パターンが反駁不能で、ガードが無いかガードがDA-001の定数判定で真となる腕を反駁不能な腕といい、失敗として発散する腕より前に反駁不能な腕がある場合と、`if let` / `let ... else`のパターンが反駁不能な場合のelse側にある失敗としての発散は、到達に数えない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-19T00:00:00Z
+updated: 2026-11-19T00:00:00Z
