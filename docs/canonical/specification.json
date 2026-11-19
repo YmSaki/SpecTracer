@@ -28840,7 +28840,7 @@
         },
         {
           "id": "DS-1887",
-          "statement": "`go`の失敗の報告と`panic(...)`について、DA-001・DA-003・DA-004が見るassert相当の引数は、その呼出しが実行されるかどうかを決める位置（DS-1947）とし、`go`では次の式をいう。(1) Test関数の本体の中でその呼出しを囲む`if`文の、その呼出しを含む枝の条件式と、同じ`if` / `else if`の連なりでそれより前の枝の条件式。(2) その呼出しを囲む`switch`文の、その呼出しを含む節（前の節の最後の文が`fallthrough`である場合は、その前の節も含め、さかのぼって同じとする）とそれより前の節のcase式、および`switch`文のtag式。それらの節に`default`節が含まれる場合は、すべての節のcase式とする。",
+          "statement": "`go`の失敗の報告と`panic(...)`について、DA-001・DA-003・DA-004が見るassert相当の引数は、その呼出しが実行されるかどうかを決める位置（DS-1947）とし、`go`では次の式をいう。(1) Test関数の本体の中でその呼出しを囲む`if`文の、その呼出しを含む枝の条件式と、同じ`if` / `else if`の連なりでそれより前の枝の条件式。(2) その呼出しを囲む`switch`文の、その呼出しを含む節（前の節の最後の文が`fallthrough`である場合は、その前の節も含め、さかのぼって同じとする）とそれより前の節のcase式、および`switch`文のtag式。それらの節に`default`節が含まれる場合は、すべての節のcase式とする。(3) DS-1983により加わる、その呼出しより前で条件付きで抜けうる文の条件式。",
           "description": "前身の文は「囲む`if`文の条件式と`switch`文のtag式・case式のすべて」で、その呼出しを含む節より後ろの節の case 式も数え、`switch 1 { case 1: t.Error(); case target(): }` で DA-003 が違反なしになりえた。DS-1947 の決める位置（その腕と、それより前の腕）に揃えた。PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。",
           "derives_from": [
             "SPEC-486"
@@ -28856,7 +28856,8 @@
         },
         {
           "id": "DS-1928",
-          "statement": "`go`の失敗の報告または`panic(...)`を囲む`if`文・`switch`文がない場合、そのassert相当の引数は無く、DA-001はそのassert相当を定数アサーションとして扱う。",
+          "statement": "`go`の失敗の報告または`panic(...)`を囲む`if`文・`switch`文がなく、DS-1983により加わる条件式も無い場合、そのassert相当の引数は無く、DA-001はそのassert相当を定数アサーションとして扱う。",
+          "description": "DS-1983 の条件式を加えたのは、PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。",
           "derives_from": [
             "SPEC-486"
           ],
@@ -29018,6 +29019,23 @@
           }
         },
         {
+          "id": "DS-1982",
+          "statement": "`go`で、`panic(...)`を直接含む関数本体（Test関数の本体と、DS-1933により本体の続きとして読む関数リテラルの本体は、それぞれ別の関数本体とする）に、`recover()`を呼ぶ関数リテラルを渡す`defer`文、または関数リテラル以外を呼ぶ`defer`文がある場合、その`panic(...)`は失敗としての発散（DS-1973）にも、DA-001〜DA-006で数えるassert相当にも、DA-003の到達先にも数えない。派生した値がそれらにだけ到達する場合はDA-003を、関数内のassert相当がそれらだけである場合はDA-001とDA-006を、FAILではなくUNKNOWNとする。失敗の報告（DS-1884）は本条の対象としない。",
+          "description": "`recover()` は同じ関数の `panic` を握りつぶすため、`defer func() { recover() }()` の後の `if got != 4 { panic(\"x\") }` を照合と数えると、DA-003 が違反なしになる（偽 PASS）。それを塞ぐ。関数リテラル以外を呼ぶ `defer`（`defer cleanup()`）を含めたのは、その関数が `recover()` を呼ぶかどうかを構文から確定できないため（後片付けだけの `defer` でも `panic` が UNKNOWN になる）。`t.Run` の関数リテラルは別の goroutine で動き、外の関数の `defer` はその中の `panic` を回収しないため、別の関数本体とした。失敗の報告は `recover()` で取り消せない（`t.Fatal*` は `runtime.Goexit` で抜け、`t.Error*` は失敗を記録する）。PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。根拠は DS-615・DS-1680（違反なしと推測しない）だが、同じ層の参照は辺にしない規則のため `derives_from` には入れない。",
+          "derives_from": [
+            "ROOT-054",
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
           "id": "DS-1890",
           "statement": "`javascript`のassert相当の構文はDA-001〜DA-006で共通に用いる。",
           "description": "`expect(...)`に続くmatcherの呼出し、`assert(...)` / `assert.<name>(...)`、`throw`文、configの`assertion_macros`に列挙した呼出し、の4分類の総称。",
@@ -29125,7 +29143,7 @@
         },
         {
           "id": "DS-1897",
-          "statement": "`javascript`の`throw`文と`assert.fail(..)`について、DA-001・DA-003・DA-004が見るassert相当の引数は、その文・呼出しが実行されるかどうかを決める位置（DS-1947）とし、`javascript`では次の式をいう。(1) Test constructの本体の中でそれを囲む`if`文の、それを含む枝の条件式と、同じ`if` / `else if`の連なりでそれより前の枝の条件式。(2) それを囲む`switch`文の、それを含む節（前の節が`break`・`return`・`throw`・`continue`の文で終わらない場合は、その前の節も含め、さかのぼって同じとする）とそれより前の節のcase式、および`switch`文の判別式。それらの節に`default`節が含まれる場合は、すべての節のcase式とする。",
+          "statement": "`javascript`の`throw`文と`assert.fail(..)`について、DA-001・DA-003・DA-004が見るassert相当の引数は、その文・呼出しが実行されるかどうかを決める位置（DS-1947）とし、`javascript`では次の式をいう。(1) Test constructの本体の中でそれを囲む`if`文の、それを含む枝の条件式と、同じ`if` / `else if`の連なりでそれより前の枝の条件式。(2) それを囲む`switch`文の、それを含む節（前の節が`break`・`return`・`throw`・`continue`の文で終わらない場合は、その前の節も含め、さかのぼって同じとする）とそれより前の節のcase式、および`switch`文の判別式。それらの節に`default`節が含まれる場合は、すべての節のcase式とする。(3) DS-1983により加わる、それより前で条件付きで抜けうる文の条件式。",
           "description": "前身の文は「囲む`if`文の条件式と`switch`文の判別式・case式のすべて」で、それを含む節より後ろの節の case 式も数えていた。DS-1947 の決める位置（その腕と、それより前の腕）に揃え、`switch` の節が続けて実行される形（break の無い節）を含めた。`assert.fail(..)` を加えたのは DS-1974 で失敗としての発散に数えるため。PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。",
           "derives_from": [
             "SPEC-487"
@@ -29141,7 +29159,8 @@
         },
         {
           "id": "DS-1929",
-          "statement": "`javascript`の`throw`文または`assert.fail(..)`を囲む`if`文・`switch`文がない場合、そのassert相当の引数は無く、DA-001はそのassert相当を定数アサーションとして扱う。",
+          "statement": "`javascript`の`throw`文または`assert.fail(..)`を囲む`if`文・`switch`文がなく、DS-1983により加わる条件式も無い場合、そのassert相当の引数は無く、DA-001はそのassert相当を定数アサーションとして扱う。",
+          "description": "DS-1983 の条件式を加えたのは、PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。",
           "derives_from": [
             "SPEC-487"
           ],
@@ -29312,6 +29331,23 @@
           "description": "`rust-cargo` の DS-1967 に当たる `javascript` の規定。DS-1967 は `rust-cargo` の構文を名前で挙げるため、汎用にせず言語ごとに置いた。名前で判定するため、失敗しない `assert` や `expect` を利用者が定義・import する形では DA-001 / DA-003 が違反なしになりうる（残る偽 PASS）。PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。",
           "derives_from": [
             "ROOT-053",
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1981",
+          "statement": "`javascript`で、`catch`句を持つ`try`文の`try`ブロックの中にある`throw`文・`assert.fail(..)`と、照合が偽のとき例外を投げるassert相当（`expect(...)`とmatcher、`assert(...)`・`assert.<name>(...)`、`assertion_macros`に列挙された呼出し）は、失敗としての発散（DS-1974）にも、DA-001〜DA-006で数えるassert相当にも、DA-003の到達先にも数えない。派生した値がそれらにだけ到達する場合はDA-003を、関数内のassert相当がそれらだけである場合はDA-001とDA-006を、FAILではなくUNKNOWNとする。",
+          "description": "`catch` 句は `try` ブロックの中で投げた例外を握りつぶすため、`try { expect(target()).toBe(4) } catch {}` を照合と数えると、DA-003 が違反なしになる（偽 PASS）。それを塞ぐ。`catch` 句の無い `try ... finally` は例外を握りつぶさないため対象外とする。`catch` 句の中で投げ直す形も、`try` ブロックの中のものは数えず、UNKNOWN 側に倒れる。PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。根拠は DS-615・DS-1680（違反なしと推測しない）だが、同じ層の参照は辺にしない規則のため `derives_from` には入れない。",
+          "derives_from": [
+            "ROOT-054",
             "SPEC-487"
           ],
           "source": {
@@ -29534,6 +29570,22 @@
           "id": "DS-1950",
           "statement": "DA-001で、失敗として発散する構文（`rust-cargo`ではDS-1951）の定数性は、そのメッセージ引数ではなく、その構文が実行されるかどうかを決める位置（DS-1947）で判定する。決める位置が1つも無い構文（反駁不能なパターン（`rust-cargo`ではDS-1952）だけの腕にあり、支配する条件式とガードが無いものを含む）と、決める位置がすべてDA-001の定数判定で確定する構文は、定数アサーションとする。",
           "description": "Owner の承認（Issue #300 の提案 (2)、ROOT-054）から導いた帰結であり（PM の判断）、提案 (2) そのものではない。DS-621 での `panic!(\"msg\")` の扱いを明文にする。反駁不能性の判定を DA-003（DS-1952）と揃えたのはレビュー指摘 B3 による（`#[should_panic]` の下の `match double(2) { _ => panic!() }` は定数アサーションになる）。ただし DS-621 は関数内の assert 相当がすべて定数のときだけ FAIL とするため、関係のない非定数の assert 相当を 1 つ足すと DA-001 は違反なしになり、`#[should_panic]` の Test では DA-003 も FAIL にならない（DS-623）。この組合せは残る偽 PASS である。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
+            ]
+          }
+        },
+        {
+          "id": "DS-1983",
+          "statement": "DA-001・DA-003で、失敗として発散する構文（`rust-cargo`ではDS-1951、`go`ではDS-1973、`javascript`ではDS-1974）の決める位置（DS-1947。`go`ではDS-1887、`javascript`ではDS-1897）には、その構文を囲む条件式のほか、同じ関数本体の中でその構文より前にあり、失敗として発散しない抜け方（`return`、`break`、`continue`と、DS-1951・DS-1973・DS-1974が失敗に数えない抜け方）で、その構文に達する前に条件付きで抜けうる文について、その抜ける枝を選ぶ条件式・ガード・パターンが検査する位置を、DS-1947と同じ規則で含める。抜ける枝を選ぶ条件を構文から確定できない場合（`goto`・ラベル付きの`break` / `continue`で抜ける場合と、ループの本体の中から抜ける場合を含む）は、その失敗として発散する構文について、DA-001の定数アサーションとせず、DA-003で到達しないことを理由にFAILとせず、どちらもUNKNOWNとする。",
+          "description": "DS-1947 の「支配する条件式」は、その構文を囲む条件式とも、前にある早期の `return` の条件とも読め、決まっていなかった。囲む条件式だけと読むと、`if got == 4 { return }; t.Fatal()`（`go`）や `if x == 4 { return; } panic!()`（`rust-cargo`）で、失敗として発散する構文の決める位置が無くなり、DS-1950 により定数アサーション（DA-001 の FAIL）になり、DA-003 も到達なしで FAIL になる（誤った FAIL。DS-1680）。`rust-cargo` にも同じ形があるため、言語共通の文とした。ループの本体の中から抜ける形（`for _, v := range xs { if v == 4 { return } }; t.Fatal()`）は、抜ける条件が繰り返しにわたるため構文から確定せず、UNKNOWN にする。PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。根拠は DS-615・DS-1680（違反なしと推測しない）だが、同じ層の参照は辺にしない規則のため `derives_from` には入れない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
           "derives_from": [
             "ROOT-054"
           ],
