@@ -130,8 +130,20 @@
 //!   `r.f = double(3); assert_eq!(r.f, 6)` is `Unknown` where DS-1956 reads `r.f` as
 //!   derived. A compound assignment keeps its position derived (DS-1956) unless a
 //!   plain assignment is made to a path that is a prefix of its path or has it as a
-//!   prefix, where the order would decide. Each of these narrowings only keeps a
-//!   verdict `Unknown`.
+//!   prefix, where the order would decide. A compound assignment whose value
+//!   absorbs (`r.b &= false`, `r.b |= true`) counts as a plain assignment (DS-1948).
+//!   After a projection assignment, a read of the binding in an arm of a branch
+//!   expression (`if`, `if let`, `match`) in an assert is `Unknown`: DS-1940 derives
+//!   such a value only when every arm does, and the arms are not compared here. Each
+//!   of these narrowings only keeps a verdict `Unknown`. Field names are compared
+//!   unraw (`r.r#f` and `r.f` are one position). Not covered: DS-1940 for a branch
+//!   that does not read such a binding (`if c() { 5 } else { x }` reaches the assert
+//!   through its `x` arm), and a binding name spelled raw in one place and plain in
+//!   another (`let r#r = ..; r.f`), which is matched by its spelling.
+//! - DS-1939's per-position derivation is not applied to a binding without a
+//!   projection assignment: a binding of a literal that holds the target's result
+//!   in one element reaches the assert through any element (`let t = (double(2),
+//!   1); assert_eq!(t.1, 1)` is `NoViolation`), a remaining false PASS (#315).
 //! - DS-1964 is recognized only where the receiver's variant is fixed by syntax
 //!   in the narrowest form: a constructor call (`Some(..).unwrap()`,
 //!   `Err(..).unwrap_err()`, `Ok(..)?`), or a name bound exactly once by a plain,
@@ -988,8 +1000,9 @@ fn da_003_result_unverified(
              bound again, a `let mut` binding is changed through a dereference, a path not \
              fixed by syntax, `&mut`, a `ref mut` pattern, a method call, a closure or a \
              macro (DS-1959), the assert reads a position that a projection assignment \
-             may have overwritten (DS-1956, DS-1966) or a value holding one as a method \
-             receiver or through an index that is not an integer literal (DS-1939), or it \
+             may have overwritten (DS-1956, DS-1966), a value holding one other than as a \
+             value compared whole or through an index that is not an integer literal \
+             (DS-1939), or the binding in an arm of a branch expression (DS-1940), or it \
              appears in tokens this capability does not parse), so the result reaching the \
              assert is neither proven nor refuted (DS-1680)"
                 .to_owned(),
@@ -1225,8 +1238,8 @@ fn binding_reach(
     };
     // DS-1956 keeps the other positions derived only for a value whose positions
     // are all derived to begin with (DS-1939); a binding of a literal that holds the
-    // result in one element is not followed through an assignment.
-    let tracked = !changes.whole && (changes.overwrites.is_empty() || binding.whole_result);
+    // result in one element is not followed through an assignment, plain or compound.
+    let tracked = !changes.whole && (!changes.projected || binding.whole_result);
     let overwrites: &[Vec<PlaceStep>] = if tracked { &changes.overwrites } else { &[] };
     let reaches = |outcome: &BindingReach| matches!(outcome, BindingReach::Reaches);
     let outcomes: Vec<BindingReach> = assert_spans
@@ -1352,7 +1365,7 @@ fn span_binding_reach(
     // an assigned position, whose value is not followed (DS-1956, DS-1966).
     // A use that flows to the compared value decides before a use handed to a
     // delegation target (DS-623, DS-1962).
-    if visitor.opaque || visitor.probe_rebound {
+    if visitor.opaque || visitor.probe_rebound || visitor.probe_in_branch {
         BindingReach::Uncertain
     } else if visitor.probe_flows {
         BindingReach::Reaches
@@ -1745,6 +1758,12 @@ struct CheckedCallVisitor<'a> {
     /// `probe` is read where it flows, but the read value is not shown derived
     /// (`read_is_derived`).
     probe_overwritten: bool,
+    /// `probe`, after a projection assignment, is read where it flows in an arm of
+    /// a branch expression (`if`, `if let`, `match`), whose arms may differ in
+    /// derivation (DS-1940).
+    probe_in_branch: bool,
+    /// The expression is in an arm of a branch expression.
+    in_branch: bool,
     /// The expression is a value that `assert_eq!` / `assert_ne!` or `==` / `!=`
     /// compares whole, through parentheses, references and projections only.
     in_compared: bool,
@@ -1767,12 +1786,18 @@ enum Projection<'e> {
 impl Projection<'_> {
     fn place_step(&self) -> PlaceStep {
         match self {
-            Projection::Member(syn::Member::Named(name)) => PlaceStep::Field(name.to_string()),
+            Projection::Member(syn::Member::Named(name)) => PlaceStep::Field(field_name(name)),
             Projection::Member(syn::Member::Unnamed(index)) => PlaceStep::Tuple(index.index),
             Projection::Index(Some(index)) => PlaceStep::Index(*index),
             Projection::Index(None) => PlaceStep::Undetermined,
         }
     }
+}
+
+/// A field name as a position: `r#f` and `f` name the same field (DS-1956).
+fn field_name(ident: &syn::Ident) -> String {
+    use syn::ext::IdentExt;
+    ident.unraw().to_string()
 }
 
 /// One step of the path of a place or a read (DS-1956): a field name, a tuple
@@ -1860,10 +1885,20 @@ impl<'a> CheckedCallVisitor<'a> {
             probe_rebound: false,
             probe_overwrites: &[],
             probe_overwritten: false,
+            probe_in_branch: false,
+            in_branch: false,
             in_compared: false,
             path_unknown: false,
             init_mode: false,
         }
+    }
+
+    /// Visits `visit` as an arm of a branch expression.
+    fn branch_arm(&mut self, visit: impl FnOnce(&mut Self)) {
+        let outer = self.in_branch;
+        self.in_branch = true;
+        visit(self);
+        self.in_branch = outer;
     }
 
     /// Records a read of `probe` that projects the path `steps` (innermost first)
@@ -1874,6 +1909,11 @@ impl<'a> CheckedCallVisitor<'a> {
             path.push(PlaceStep::Undetermined);
         }
         let derived = read_is_derived(self.probe_overwrites, &path, self.in_compared);
+        // DS-1940 reads each arm's derivation; it is not compared across arms here,
+        // so after a projection assignment a read in an arm is not shown derived.
+        if self.in_branch && self.flows && !self.probe_overwrites.is_empty() {
+            self.probe_in_branch = true;
+        }
         if !derived && self.flows && !self.delegating {
             self.probe_overwritten = true;
         } else if self.flows && self.delegating {
@@ -2321,10 +2361,12 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
 
     fn visit_expr_if(&mut self, node: &'ast syn::ExprIf) {
         self.dropping(|visitor| visitor.visit_expr(&node.cond));
-        self.visit_block(&node.then_branch);
-        if let Some((_, other)) = &node.else_branch {
-            self.visit_expr(other);
-        }
+        self.branch_arm(|visitor| {
+            visitor.visit_block(&node.then_branch);
+            if let Some((_, other)) = &node.else_branch {
+                visitor.visit_expr(other);
+            }
+        });
     }
 
     fn visit_expr_match(&mut self, node: &'ast syn::ExprMatch) {
@@ -2334,7 +2376,7 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
             if let Some((_, guard)) = &arm.guard {
                 self.dropping(|visitor| visitor.visit_expr(guard));
             }
-            self.visit_expr(&arm.body);
+            self.branch_arm(|visitor| visitor.visit_expr(&arm.body));
         }
     }
 
@@ -2743,6 +2785,9 @@ struct PlaceChanges {
     /// (DS-1956), and those of compound assignments whose order against such an
     /// assignment would decide their derivation.
     overwrites: Vec<Vec<PlaceStep>>,
+    /// A projection assignment or a compound assignment with a path fixed by
+    /// syntax is made, whether or not it is listed in `overwrites`.
+    projected: bool,
 }
 
 /// The changes the function makes to the `let mut` binding `name` through a place.
@@ -2761,12 +2806,9 @@ struct PlaceChanges {
 /// - borrowed mutably (`&mut r`, `&mut r.0`, `&raw mut r`, or a `ref mut` pattern
 ///   whose matched value is `r`: `let (ref mut a, _) = r`, `match r { .. }`,
 ///   `if let .. = r`),
-/// - the receiver of a method call outside an assert (`r.clear()`): whether the
-///   method takes `&mut self` is not decided by this capability, so every method
-///   call on the `let mut` binding counts. A receiver inside `assert!` /
-///   `assert_eq!` / `assert_ne!` is not read as a change made before the assert's
-///   comparison; one inside `panic!` / `unreachable!` / `todo!` / `unimplemented!`
-///   counts, or
+/// - the receiver of a method call (`r.clear()`), also inside the arguments of an
+///   assert (DS-1959): whether the method takes `&mut self` is not decided by this
+///   capability, so every method call on the `let mut` binding counts, or
 /// - assigned as the plain name (`r = ..`, `r += ..`, also in a closure) inside a
 ///   macro's arguments, which `count_rebindings` does not read.
 ///
@@ -2818,7 +2860,19 @@ fn place_changes(text: &str, name: &str, assert_spans: &[(usize, usize)]) -> Pla
         fn visit_expr_binary(&mut self, node: &'ast syn::ExprBinary) {
             if is_compound_assignment(node.op) {
                 if let Some(path) = self.fixed_projection(&node.left) {
-                    self.compound.push(path);
+                    // DS-1948: `p &= false` / `p |= true` fixes `p` whatever its
+                    // original value, so `p` holds the literal, as after `p = e`.
+                    let absorbed = match node.op {
+                        syn::BinOp::BitAndAssign(_) => Some(false),
+                        syn::BinOp::BitOrAssign(_) => Some(true),
+                        _ => None,
+                    }
+                    .is_some_and(|absorbing| !operand_flows(&node.right, absorbing));
+                    if absorbed {
+                        self.assigned.push(path);
+                    } else {
+                        self.compound.push(path);
+                    }
                 } else {
                     self.found |= assigned_place_roots_at(&node.left, self.name, false)
                         || (self.in_macro > 0 && is_assignment_to(&node.left, self.name));
@@ -2845,12 +2899,8 @@ fn place_changes(text: &str, name: &str, assert_spans: &[(usize, usize)]) -> Pla
         }
 
         fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
-            let offset = span_offset(node.method.span().start(), self.text);
-            let in_assert = self
-                .assert_spans
-                .iter()
-                .any(|&(start, end)| offset >= start && offset < end);
-            self.found |= !in_assert && place_roots_at(&node.receiver, self.name);
+            // DS-1959: a receiver counts inside the arguments of an assert too.
+            self.found |= place_roots_at(&node.receiver, self.name);
             syn::visit::visit_expr_method_call(self, node);
         }
 
@@ -2978,6 +3028,7 @@ fn place_changes(text: &str, name: &str, assert_spans: &[(usize, usize)]) -> Pla
         compound: Vec::new(),
     };
     changes.visit_item_fn(&function);
+    let projected = !changes.assigned.is_empty() || !changes.compound.is_empty();
     let related = |a: &[PlaceStep], b: &[PlaceStep]| a.starts_with(b) || b.starts_with(a);
     let mut overwrites = changes.assigned.clone();
     overwrites.extend(changes.compound.into_iter().filter(|path| {
@@ -2989,6 +3040,7 @@ fn place_changes(text: &str, name: &str, assert_spans: &[(usize, usize)]) -> Pla
     PlaceChanges {
         whole: changes.found,
         overwrites,
+        projected,
     }
 }
 
@@ -3001,7 +3053,7 @@ fn fixed_place_path(expression: &syn::Expr, name: &str) -> Option<Vec<PlaceStep>
         syn::Expr::Field(field) => {
             let mut path = fixed_place_path(&field.base, name)?;
             path.push(match &field.member {
-                syn::Member::Named(ident) => PlaceStep::Field(ident.to_string()),
+                syn::Member::Named(ident) => PlaceStep::Field(field_name(ident)),
                 syn::Member::Unnamed(index) => PlaceStep::Tuple(index.index),
             });
             Some(path)
@@ -4591,15 +4643,15 @@ mod tests {
     /// @vtest.id TEST-ORACLE-DA-003-UNCHANGED-BINDING-STAYS-NO-VIOLATION
     /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
-    /// @vtest.intent `let` の束縛、変更のない `let mut` の束縛、assert の中だけで受け手になる `let mut` の束縛が assert に届く Test は、違反なしのままであることを確認する
+    /// @vtest.intent `let` の束縛と、変更のない `let mut` の束縛が assert に届く Test は、違反なしのままであることを確認する
     #[test]
     fn a_binding_that_is_only_read_stays_no_violation() {
         for body in [
             "let r = double(2); assert_eq!(r.0, 4);",
             "let r = double(2); let n = r.len(); assert_eq!(r, n);",
+            "let r = double(2); assert_eq!(r.len(), 4);",
             "let mut r = double(2); assert_eq!(r, 4);",
             "let mut r = double(2); assert_eq!(r.0, 4);",
-            "let mut r = double(2); assert_eq!(r.len(), 4);",
             "let mut r = double(2); let mut v = other(); v.0 = 1; assert_eq!(r, 4);",
             "let mut r = double(2); v[r] = 1; assert_eq!(r, 4);",
             "let mut r = double(2); let c = &r; assert_eq!(r, 4);",
@@ -4640,8 +4692,10 @@ mod tests {
             "let mut r = double(2); r.f.g = 5; assert_eq!(r.f.h, 4);",
             "let mut r = double(2); r.f.g = 5; assert_eq!(r.h, 4);",
             "let mut r = double(2); r[0][1] = 5; assert_eq!(r[0][0], 4);",
-            "let mut r = double(2); r.f = 5; assert_eq!(r.g.len(), 4);",
+            "let mut r = double(2); r.r#f = 5; assert_eq!(r.g, 4);",
             "let mut r = double(2); r.f = 5; assert_eq!(Some(&r.g), Some(&4));",
+            "let mut r = double(2); r.b &= x(); assert_eq!(r.b, true);",
+            "let mut r = double(2); r.b |= false; assert_eq!(r.b, true);",
             "let mut r = double(2); r.f = 5; assert_eq!(r.g, 4, \"{}\", r.f);",
             "let mut r = double(2); r.f = 5; assert_eq!(r.g, 4); assert_eq!(r.f, 5);",
             "let mut r = double(2).clone(); r.f = 5; assert_eq!(r.g, 4);",
@@ -4773,9 +4827,96 @@ mod tests {
             "let mut r = double(2); if c() { r.f = 5; } assert_eq!(r, R { f: 5, g: 4 });",
             "let mut r = double(2); r.f = 5; assert!(r == R { f: 5, g: 4 });",
             "let mut r = double(2); r.f = 5; assert_ne!(&r, &R { f: 5, g: 3 });",
-            "let mut r = double(2); r.f = 5; assert!(r.g.is_ok());",
         ] {
             assert_eq!(da_003_of(body), DaVerdict::NoViolation, "{body}");
+        }
+    }
+
+    /// DS-1959: a `let mut` binding that is a method receiver, also inside the
+    /// arguments of an assert, is not shown to keep the target's result.
+    /// @vtest.id TEST-ORACLE-DA-003-LET-MUT-RECEIVER-INSIDE-ASSERT-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-003-BINDING-MUTATION-UNKNOWN
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::place_changes
+    /// @vtest.intent `let mut` の束縛（射影代入の有無を問わない）を assert の引数の中でメソッドの受け手にする Test は、DA-003 が UNKNOWN になることを確認する
+    #[test]
+    fn a_let_mut_receiver_inside_an_assert_is_a_change() {
+        for body in [
+            "let mut r = double(2); assert!({ r.clear(); true }); assert_eq!(r, vec![]);",
+            "let mut r = double(2); assert_eq!(r.len(), 4);",
+            "let mut r = double(2); r.f = 5; assert!({ r.g.clear(); true }); assert_eq!(r.g, vec![]);",
+            "let mut r = double(2); r.f = 5; assert_eq!(r.g.len(), 4);",
+            "let mut r = double(2); r.f = 5; assert!(r.g.is_ok());",
+        ] {
+            assert!(
+                matches!(da_003_of(body), DaVerdict::Unknown(_)),
+                "{body}: {:?}",
+                da_003_of(body)
+            );
+        }
+    }
+
+    /// DS-1939: a literal that holds the target's result in one element is not a
+    /// value whose positions are all derived, also after a compound assignment only.
+    /// @vtest.id TEST-ORACLE-DA-003-LITERAL-BINDING-WITH-COMPOUND-ASSIGNMENT-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-003-PER-POSITION-DERIVATION
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::binding_reach
+    /// @vtest.intent target の値を一つの要素に持つタプル・構造体・配列の構築式の束縛に複合代入だけをしたあと、target の値でない要素を読む Test が違反なしにならないことを確認する
+    #[test]
+    fn a_literal_binding_with_a_compound_assignment_is_unknown() {
+        for body in [
+            "let mut t = (double(2), 1); t.1 += 1; assert_eq!(t.1, 2);",
+            "let mut t = S { a: double(2), b: 1 }; t.b += 1; assert_eq!(t.b, 2);",
+            "let mut t = [double(2), 1]; t[1] += 1; assert_eq!(t[1], 2);",
+        ] {
+            assert!(
+                matches!(da_003_of(body), DaVerdict::Unknown(_)),
+                "{body}: {:?}",
+                da_003_of(body)
+            );
+        }
+    }
+
+    /// DS-1940: a branch whose arms differ in derivation is not derived. After a
+    /// projection assignment, a read of the binding in an arm is not shown derived.
+    /// @vtest.id TEST-ORACLE-DA-003-BRANCH-ARMS-AFTER-PROJECTION-ASSIGNMENT-ARE-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-003-BRANCH-ARM-DERIVATION
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::span_binding_reach
+    /// @vtest.intent 射影代入したあと、assert の中の `if`・`if let`・`match` の腕で、代入した位置と代入していない位置を読み分ける Test が違反なしにならないことを確認する
+    #[test]
+    fn a_branch_whose_arms_mix_assigned_positions_is_unknown() {
+        for body in [
+            "let mut r = double(2); r.f = 5; assert_eq!(if c() { r.f } else { r.g[0] }, 5);",
+            "let mut r = double(2); r.f = 5; assert_eq!(if let Some(_) = o() { r.f } else { r.g }, 5);",
+            "let mut r = double(2); r.f = 5; assert_eq!(match k() { 1 => r.f, _ => r.g }, 5);",
+        ] {
+            assert!(
+                matches!(da_003_of(body), DaVerdict::Unknown(_)),
+                "{body}: {:?}",
+                da_003_of(body)
+            );
+        }
+    }
+
+    /// DS-1948: a compound assignment whose value absorbs fixes the position to the
+    /// literal, so it is not derived; DS-1956: a raw field name is the same position.
+    /// @vtest.id TEST-ORACLE-DA-003-ABSORBING-OR-RAW-PROJECTION-IS-NOT-PASS
+    /// @vtest.covers VO-ORACLE-DA-003-LITERAL-ABSORBED-OPERAND-NOT-FLOWING, VO-ORACLE-DA-003-PROJECTION-ASSIGNMENT
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::place_changes
+    /// @vtest.intent `r.b &= false`・`r.b |= true` の複合代入をした位置を読む Test と、生識別子 `r#f` で射影代入した位置を `f` で読む Test（その逆も）が違反なしにならないことを確認する
+    #[test]
+    fn an_absorbing_or_raw_projection_assignment_is_not_pass() {
+        for body in [
+            "let mut r = double(2); r.b &= false; assert_eq!(r.b, false);",
+            "let mut r = double(2); r.b |= true; assert_eq!(r.b, true);",
+            "let mut r = double(2); r.b |= (true); assert!(r.b);",
+            "let mut r = double(2); r.r#f = 5; assert_eq!(r.f, 5);",
+            "let mut r = double(2); r.f = 5; assert_eq!(r.r#f, 5);",
+        ] {
+            assert!(
+                matches!(da_003_of(body), DaVerdict::Unknown(_)),
+                "{body}: {:?}",
+                da_003_of(body)
+            );
         }
     }
 

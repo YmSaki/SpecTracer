@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-003-BRANCH-ARM-DERIVATION
+parent: null
+derives_from:
+- doc: DS-1940
+claim: '`rust-cargo`のDA-003のデータフロー解析は、少なくとも分岐式（`if`・`match`・`if let`）の値を追跡し、その値の各位置を、失敗として発散する腕（DS-1951で失敗としての発散に数える腕）を除くすべての腕の値でその位置が派生であれば派生、どの腕でも派生でなければ派生でないものとし、それ以外はUNKNOWNとする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-19T00:00:00Z
+updated: 2026-11-19T00:00:00Z
