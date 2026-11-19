@@ -296,7 +296,17 @@
 //!   name fixes (`(y, _) if y == 4` over `(4, ..)`), a pattern that earlier arms
 //!   cover only pairwise (`Some(5)` after `Some(_)`), a `match` arm after a pattern
 //!   that its type may refute, and code after a call of a function named `exit`:
-//!   remaining false PASSes.
+//!   remaining false PASSes. So does code after a form the DS-1983 narrowings above
+//!   leave undecided, which is not read as never running: a `return` / `break` /
+//!   `continue` in a loop or in a macro whose expansion is not read, a `for` over
+//!   anything but a range of two integer literals or an array literal
+//!   (`for _ in [0; 0]`), a `macro_rules!` macro that expands to `return`,
+//!   `continue 'o`, and `let _: i32 = loop { return; };`.
+//! - Over-wide `Unknown` of the rule above: DS-1952 reads a single binding as
+//!   irrefutable, so a lowercase pattern identifier that names a constant
+//!   (`match 5 { four => {}, _ => assert_eq!(..) }`, `if let four = 5 { return; }`)
+//!   is read as irrefutable, the later arms and the statements after it are read as
+//!   never running, and DA-003 is `Unknown` where the assert may run.
 //! - Remaining false PASSes of DS-1947 / DS-1983 read as written: conditions that
 //!   complement each other (`if c {} else if !c {} else { panic!() }`) are not
 //!   compared, so the last `else` counts as reached; and an exit decided by the
