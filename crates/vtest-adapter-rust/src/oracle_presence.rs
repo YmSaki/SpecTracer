@@ -174,8 +174,11 @@
 //!   fixed-length slice) is not fixed, so DA-001 does not report a real check of a
 //!   variant as `Fail` (derivation from DS-1680 toward `NoViolation`: DS-1965's text
 //!   names every DS-1952 irrefutable pattern, so one that no type refutes stays a
-//!   false PASS); `matches!(x, Some(4))` and a guard that is not fixed stay
-//!   non-constant. An operand made only of literals
+//!   false PASS). A lone identifier (`x`, `ref x`, `mut x`) is not fixed either: it
+//!   may name a lowercase constant, which syntax does not tell from a binding, so
+//!   `matches!(x, y)` stays `NoViolation` as before, a remaining false PASS
+//!   (`x @ _` and `_` are fixed). `matches!(x, Some(4))` and a guard that is not
+//!   fixed stay non-constant. An operand made only of literals
 //!   counts as the value it has: `!`, `^`, `==` / `!=` of `bool` literals and the
 //!   comparisons of two literals of one kind (integer, string, char) are
 //!   evaluated (`X || 1 == 1` is constant). Float literals are not compared, since
@@ -4440,6 +4443,9 @@ fn irrefutable_whatever_the_type(pattern: &syn::Pat) -> bool {
     match pattern {
         syn::Pat::Or(or) => or.cases.iter().any(irrefutable_whatever_the_type),
         syn::Pat::Paren(inner) => irrefutable_whatever_the_type(&inner.pat),
+        // A lone identifier (`x`, `ref x`, `mut x`) may name a lowercase constant, which
+        // syntax does not tell from a binding: not fixed, as with `may_be_refuted_by_type`.
+        syn::Pat::Ident(ident) if ident.subpat.is_none() => false,
         other => is_irrefutable(other) && !may_be_refuted_by_type(other),
     }
 }
@@ -7523,20 +7529,20 @@ mod tests {
     /// @vtest.id TEST-ORACLE-DA-001-IRREFUTABLE-MATCHES-IS-CONSTANT
     /// @vtest.covers VO-ORACLE-DA-001-IRREFUTABLE-MATCHES-IS-CONSTANT
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::matches_value
-    /// @vtest.intent 反駁不能なパターンでガードが無いか定数で真の matches!、ガードが定数で偽の matches!、それらの否定と、それを X || や && false の吸収の形で含む引数だけを持つ assert 相当は DA-001 の定数アサーションになって合成結果が FAIL になり、Some(4) や 4 などの反駁可能なパターン、Some(_)、定数でないガード、反駁可能なパターンと定数で真のガードの組は定数アサーションにならず違反なしのままで、列挙子や構造体やスライスの型で反駁されうるパターンも FAIL にならず違反なしのままで、X || matches!(x, _) は X || true と同じく DA-003 で UNKNOWN になることを確認する
+    /// @vtest.intent 反駁不能なパターンでガードが無いか定数で真の matches!、ガードが定数で偽の matches!、それらの否定と、それを X || や && false の吸収の形で含む引数だけを持つ assert 相当は DA-001 の定数アサーションになって合成結果が FAIL になり、Some(4) や 4 などの反駁可能なパターン、Some(_)、単独の識別子（定数かもしれない four、ref four、mut four）、定数でないガード、反駁可能なパターンと定数で真のガードの組は定数アサーションにならず違反なしのままで、列挙子や構造体やスライスの型で反駁されうるパターンも FAIL にならず違反なしのままで、X || matches!(x, _) は X || true と同じく DA-003 で UNKNOWN になることを確認する
     #[test]
     fn a_matches_that_its_pattern_and_guard_fix_is_a_constant_assertion() {
         for body in [
             "assert!(matches!(double(2), _));",
             "assert!(matches!(double(2), _,));",
-            "assert!(matches!(double(2), x));",
+            "assert!(matches!(double(2), x @ _));",
             "assert!(matches!(double(2), (_, _)));",
             "assert!(matches!(double(2), &_));",
             "assert!(matches!(double(2), 4 | _));",
             "assert!(matches!(double(2), Some(_) | _));",
             "assert!(matches!(double(2), [..]));",
             "assert!(matches!(double(2), _ if true));",
-            "assert!(matches!(double(2), x if 1 == 1));",
+            "assert!(matches!(double(2), x @ _ if 1 == 1));",
             "assert!(matches!(double(2), _ if double(2) == 4 || true));",
             "assert!(matches!(double(2), _ if false));",
             "assert!(matches!(double(2), Some(4) if false));",
@@ -7552,7 +7558,7 @@ mod tests {
             "assert_eq!(matches!(double(2), _), true);",
             "match ok { _ if matches!(ok, _) => {}, _ => panic!() }",
             "assert!(matches!(double(2), _), \"message\");",
-            "assert!(matches!(double(2), x), \"{}\", 1);",
+            "assert!(matches!(double(2), x @ _), \"{}\", 1);",
         ] {
             let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
@@ -7565,6 +7571,11 @@ mod tests {
         }
         for body in [
             "assert!(matches!(double(2), Some(4)));",
+            "assert!(matches!(double(2), four));",
+            "assert!(!matches!(double(2), four));",
+            "assert!(matches!(double(2), ref four));",
+            "assert!(matches!(double(2), mut four));",
+            "assert!(matches!(double(2), four if true));",
             "assert!(matches!(double(2), Some(_)));",
             "assert!(matches!(double(2), Ok(_)));",
             "assert!(matches!(double(2), 4));",
