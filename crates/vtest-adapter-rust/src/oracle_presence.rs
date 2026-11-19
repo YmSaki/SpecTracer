@@ -76,7 +76,8 @@
 //!   assert's checked argument or in a `let` binding that reaches one (DS-641,
 //!   DS-1960): a function call other than a value conversion (`Some` / `Ok` / `Err`,
 //!   `Box::new`, `String::from`, DS-1961) or a declared target, or a method call
-//!   whose argument is the result. DA-003 is then `Unknown` (DS-648, DS-652), even
+//!   whose argument is the result (not DS-619's `.expect(..)` / `.expect_err(..)`,
+//!   whose argument is a message, DS-1935). DA-003 is then `Unknown` (DS-648, DS-652), even
 //!   when another path verifies the result. A delegation target that the result
 //!   does not flow into (`assert_eq!(double(2), expected())`) is not recognized,
 //!   which DS-641 reads more widely ("assert相当の引数…に現れる関数呼出"). For DA-006 it only recognizes
@@ -166,12 +167,7 @@ pub fn analyze(
     target_symbols: &[String],
     extra_assertion_macros: &[String],
 ) -> OraclePresenceAnalysis {
-    let macros: Vec<&str> = STANDARD_ASSERTION_MACROS
-        .iter()
-        .copied()
-        .chain(extra_assertion_macros.iter().map(String::as_str))
-        .collect();
-    let assert_spans = find_assert_spans(construct_text, &macros);
+    let assert_spans = find_assert_spans(construct_text, &assertion_macros(extra_assertion_macros));
     let syntax = RustFunctionSyntax::parse(construct_text);
     let has_should_panic = syntax
         .as_ref()
@@ -193,6 +189,7 @@ pub fn analyze(
         da_003: da_003_result_unverified(
             construct_text,
             target_symbols,
+            target_symbols,
             &assert_spans,
             has_should_panic,
         ),
@@ -200,6 +197,36 @@ pub fn analyze(
         da_005: da_005_empty_test(construct_text),
         da_006: da_006_no_verification_syntax(has_verification_syntax, has_call),
     }
+}
+
+/// DA-003 for one declared target `symbol` of a Test whose declared targets are
+/// `all_targets` (DS-630's per-target report): the other targets' calls are not
+/// delegation targets (DS-1960), as in `analyze`.
+fn analyze_da_003_for(
+    construct_text: &str,
+    symbol: &str,
+    all_targets: &[String],
+    extra_assertion_macros: &[String],
+) -> DaVerdict {
+    let assert_spans = find_assert_spans(construct_text, &assertion_macros(extra_assertion_macros));
+    let has_should_panic = RustFunctionSyntax::parse(construct_text)
+        .as_ref()
+        .is_some_and(RustFunctionSyntax::has_should_panic);
+    da_003_result_unverified(
+        construct_text,
+        &[symbol.to_owned()],
+        all_targets,
+        &assert_spans,
+        has_should_panic,
+    )
+}
+
+fn assertion_macros(extra_assertion_macros: &[String]) -> Vec<&str> {
+    STANDARD_ASSERTION_MACROS
+        .iter()
+        .copied()
+        .chain(extra_assertion_macros.iter().map(String::as_str))
+        .collect()
 }
 
 /// `vtest_adapter_api::StaticAnalysisAdapter` 実装（DES-408、本冊 §5.2
@@ -326,14 +353,12 @@ impl StaticAnalysisAdapter for RustCargoStaticAnalysisAdapter {
                 ),
             );
             let da_003 = match target {
-                TargetRef::Locator(locator) => {
-                    analyze(
-                        input.construct_text,
-                        &[target_symbol(locator)],
-                        input.extra_assertion_macros,
-                    )
-                    .da_003
-                }
+                TargetRef::Locator(locator) => analyze_da_003_for(
+                    input.construct_text,
+                    &target_symbol(locator),
+                    &symbols,
+                    input.extra_assertion_macros,
+                ),
                 TargetRef::SrcId(_) => DaVerdict::Unknown(
                     "a SrcId target is not resolved to a call symbol by this analysis".to_owned(),
                 ),
@@ -494,9 +519,12 @@ fn classify_constancy(arguments: &str) -> Constancy {
 // DA-003 (DS-623): result unverified
 // ---------------------------------------------------------------------------
 
+/// DA-003 for the calls of `target_symbols`. `all_targets` is every declared
+/// target of the Test, whose calls are not delegation targets (DS-1960).
 fn da_003_result_unverified(
     text: &str,
     target_symbols: &[String],
+    all_targets: &[String],
     assert_spans: &[(usize, usize)],
     has_should_panic: bool,
 ) -> DaVerdict {
@@ -519,7 +547,7 @@ fn da_003_result_unverified(
     let mut any_macro_opaque = false;
     let mut any_delegated = false;
     for symbol in target_symbols {
-        match target_call_result_is_verified(text, symbol, target_symbols, assert_spans) {
+        match target_call_result_is_verified(text, symbol, all_targets, assert_spans) {
             TargetCallVerification::NotCalled => {}
             TargetCallVerification::Delegated => {
                 any_call_found = true;
@@ -1480,20 +1508,21 @@ impl<'a> CheckedCallVisitor<'a> {
 
     /// Whether the value of `local`'s initializer reaches the tail expression of
     /// its block: a single name bound once, used where the tail expression flows,
-    /// and not assigned or bound again in the statements after it.
-    fn local_reaches_tail(&self, local: &syn::Local, rest: &[syn::Stmt]) -> bool {
+    /// and not assigned or bound again in the statements after it. `Delegated`
+    /// when the tail hands the name to a delegation target (DS-1960).
+    fn local_reaches_tail(&self, local: &syn::Local, rest: &[syn::Stmt]) -> TailReach {
         let mut pattern = &local.pat;
         while let syn::Pat::Type(typed) = pattern {
             pattern = &typed.pat;
         }
         let syn::Pat::Ident(binding) = pattern else {
-            return false;
+            return TailReach::No;
         };
         let Some((tail, statements)) = rest.split_last() else {
-            return false;
+            return TailReach::No;
         };
         let syn::Stmt::Expr(tail, None) = tail else {
-            return false;
+            return TailReach::No;
         };
         // A mutable binding may be changed before the tail expression reads it.
         if binding.by_ref.is_some()
@@ -1504,7 +1533,7 @@ impl<'a> CheckedCallVisitor<'a> {
                 .as_ref()
                 .is_none_or(|init| init.diverge.is_some())
         {
-            return false;
+            return TailReach::No;
         }
         let name = binding.ident.to_string();
         let mut probe = CheckedCallVisitor::new(None, Some(&name), self.targets);
@@ -1514,8 +1543,24 @@ impl<'a> CheckedCallVisitor<'a> {
         }
         probe.flows = true;
         probe.visit_expr(tail);
-        probe.probe_flows && !probe.probe_rebound
+        if probe.probe_rebound {
+            TailReach::No
+        } else if probe.probe_delegated {
+            TailReach::Delegated
+        } else if probe.probe_flows {
+            TailReach::Flows
+        } else {
+            TailReach::No
+        }
     }
+}
+
+/// How the name of a block-local `let` reaches the tail expression of its block.
+enum TailReach {
+    No,
+    Flows,
+    /// The tail hands the name to a delegation target (DS-1960).
+    Delegated,
 }
 
 impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
@@ -1585,7 +1630,13 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
         }
         // DS-1937: the receiver flows to the method's value.
         self.visit_expr(&node.receiver);
-        let flow = if self.is_declared_target(&node.method) {
+        if let Some(turbofish) = &node.turbofish {
+            self.dropping(|visitor| visitor.visit_angle_bracketed_generic_arguments(turbofish));
+        }
+        // DS-619's `.expect(..)` / `.expect_err(..)` is an assert-equivalent, not a
+        // delegation target (DS-641), and its argument is a message (DS-1935).
+        let is_assert_equivalent = node.method == "expect" || node.method == "expect_err";
+        let flow = if is_assert_equivalent || self.is_declared_target(&node.method) {
             ArgumentFlow::Dropped
         } else {
             ArgumentFlow::Delegated
@@ -1643,18 +1694,29 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
 
     fn visit_block(&mut self, node: &'ast syn::Block) {
         let outer = self.flows;
+        let outer_delegating = self.delegating;
         for (index, statement) in node.stmts.iter().enumerate() {
+            let mut delegates = false;
             self.flows = outer
                 && match statement {
                     syn::Stmt::Expr(_, None) => index + 1 == node.stmts.len(),
                     syn::Stmt::Local(local) => {
-                        self.local_reaches_tail(local, &node.stmts[index + 1..])
+                        match self.local_reaches_tail(local, &node.stmts[index + 1..]) {
+                            TailReach::Flows => true,
+                            TailReach::Delegated => {
+                                delegates = true;
+                                true
+                            }
+                            TailReach::No => false,
+                        }
                     }
                     syn::Stmt::Expr(_, Some(_)) | syn::Stmt::Item(_) | syn::Stmt::Macro(_) => false,
                 };
+            self.delegating = outer_delegating || delegates;
             self.visit_stmt(statement);
         }
         self.flows = outer;
+        self.delegating = outer_delegating;
     }
 
     fn visit_expr_if(&mut self, node: &'ast syn::ExprIf) {
@@ -4120,6 +4182,8 @@ mod tests {
             "assert!(check(double(3)));\n    let r = double(2);\n    assert_eq!(r, 4);",
             "assert_eq!(double(2), 4);\n    assert!(check(double(3)));",
             "assert!(check(double(3)));\n    assert_eq!(double(2), 4);",
+            "assert!({ let r = double(2); r == 4 && check(r) });",
+            "assert_eq!({ let r = double(2); check(r) }, true);",
         ] {
             let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
@@ -4129,6 +4193,19 @@ mod tests {
                 panic!("{body}: {:?}", analysis.da_003);
             };
             assert!(reason.contains("DS-1960"), "{body}: {reason}");
+        }
+        // A call in a method's turbofish is not carried to the method's value.
+        for body in [
+            "assert!({ x.f::<{ double(2) }>(); true });",
+            "assert!(x.f::<{ double(2) }>() || true);",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{body}: {:?}",
+                analysis.da_003
+            );
         }
         // The arguments of a declared target's call are not a value conversion
         // either (DS-1960), so the inner target's result is not carried there; it
@@ -4178,6 +4255,68 @@ mod tests {
                 matches!(analysis.da_003, DaVerdict::NoViolation),
                 "{body}: {:?}",
                 analysis.da_003
+            );
+        }
+    }
+
+    /// DS-1935: a message argument (of an assert macro, and of DS-619's
+    /// `.expect(..)` / `.expect_err(..)`) is not a position the value flows
+    /// through, so a call there neither verifies the target nor is a delegation
+    /// target (DS-641 names only calls outside the assert-equivalents).
+    /// @vtest.id TEST-ORACLE-DA-003-MESSAGE-ARGUMENT-IS-NOT-A-FLOWING-POSITION
+    /// @vtest.covers VO-ORACLE-DA-003-MESSAGE-ARGUMENT-NOT-FLOWING
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.intent target の結果が assert のメッセージ引数、または expect / expect_err の引数にだけ現れる Test は DA-003 が違反なしにならず、検査される引数で結果が届く Test はメッセージ引数の関数呼出があっても違反なしのままであることを確認する
+    #[test]
+    fn a_message_argument_is_not_a_flowing_position() {
+        for body in [
+            "assert!(other() > 0, \"{}\", double(2));",
+            "assert!(true, \"{}\", double(2));",
+            "let r = double(2);\n    assert!(other() > 0, \"{}\", r);",
+            "assert_eq!(x.expect(&describe(double(2))), 4);",
+            "let r = double(2);\n    assert_eq!(x.expect(&describe(r)), 4);",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            let (_, _, basis) = compose(&analysis);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{body}: {:?} {basis:?}",
+                analysis.da_003
+            );
+        }
+        for body in [
+            "assert_eq!(double(2), 4, \"{}\", describe(double(3)));",
+            "let r = double(2);\n    assert_eq!(r, 4, \"{}\", describe(r));",
+            "let r = double(2);\n    assert_eq!(r.checked().expect(&describe(r)), 4);",
+            "assert_eq!(double(2).expect_err(&describe(x)), e);",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::NoViolation),
+                "{body}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// The per-target DA-003 of `audit_rules` excludes every declared target from
+    /// the delegation targets, as `analyze` does.
+    /// @vtest.id TEST-ORACLE-DA-003-PER-TARGET-AGREES-WITH-ANALYZE
+    /// @vtest.covers VO-ORACLE-DA-003-DELEGATE-FUNCTION-ARGS
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::analyze_da_003_for
+    /// @vtest.intent 宣言 target が 2 つある Test で、一方の結果が他方の target の呼出の引数に渡る形を、target ごとの DA-003 が委譲と読まず、analyze の DA-003 と同じ判定になることを確認する
+    #[test]
+    fn the_per_target_da_003_does_not_read_another_target_as_a_delegation_target() {
+        let targets = ["a".to_owned(), "b".to_owned()];
+        let text = "#[test]\nfn t() {\n    assert_eq!(a(1), 2);\n    assert!(b(a(3)) == 4);\n}\n";
+        assert_eq!(analyze(text, &targets, &[]).da_003, DaVerdict::NoViolation);
+        for symbol in &targets {
+            assert_eq!(
+                analyze_da_003_for(text, symbol, &targets, &[]),
+                DaVerdict::NoViolation,
+                "{symbol}"
             );
         }
     }
