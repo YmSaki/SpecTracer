@@ -1,0 +1,11 @@
+id: VO-ORACLE-DEBUG-ASSERT-NOT-ASSERT-EQUIVALENT
+parent: null
+derives_from:
+- doc: DS-1954
+claim: '`rust-cargo`で、`debug_assert!` / `debug_assert_eq!` / `debug_assert_ne!`はassert相当に含めない。これはDS-617の`assertion_macros`に列挙された場合も同じとし、DS-626、DS-642、DS-647より優先する。target呼出結果から派生した値が`debug_assert*`の引数へ流れ、他のどのassert相当にも到達しない場合はDA-003を、関数内に`debug_assert*`のほかにassert相当が無い場合はDA-006を、FAILではなくUNKNOWNとする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-19T00:00:00Z
+updated: 2026-11-19T00:00:00Z
