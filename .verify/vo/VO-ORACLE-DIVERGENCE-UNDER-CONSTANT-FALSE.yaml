@@ -1,0 +1,11 @@
+id: VO-ORACLE-DIVERGENCE-UNDER-CONSTANT-FALSE
+parent: null
+derives_from:
+- doc: DS-1953
+claim: '`rust-cargo`で、それを含む腕のガード、またはそれを支配する条件式が、DA-001と同じ定数判定で偽となる失敗としての発散は、到達に数えない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-19T00:00:00Z
+updated: 2026-11-19T00:00:00Z

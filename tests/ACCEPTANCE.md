@@ -218,20 +218,24 @@ so no observation depends on `cargo-llvm-cov`.
 
 ## Issue #294: DA-001 constancy of a failure divergence
 
-`rust-cargo` reads `unreachable!` / `todo!` / `unimplemented!` (DS-1951) for
-DA-001 by whether they run (DS-1950). Of DS-1950's constant divergences, only
-one with no deciding position that is a statement directly in the function's
-own block, with no earlier statement that may leave the function, is reported
-as a constant assertion
-(`TEST-ORACLE-DA-001-UNCONDITIONAL-DIVERGENCE-IS-CONSTANT`). Any other
-divergence makes DA-001 `UNKNOWN`
-(`TEST-ORACLE-DA-001-CONDITIONAL-DIVERGENCE-IS-UNKNOWN`).
+`rust-cargo` collects each failure divergence (DS-1951) with the positions that
+decide whether it runs (DS-1947, DS-1983). DA-003 counts a target result that
+flows to one of them (`TEST-ORACLE-DIVERGENCE-DECIDING-POSITION-REACH`,
+`TEST-ORACLE-FAILURE-DIVERGENCE-CONSTRUCTS-COUNT`), except after an irrefutable
+arm (DS-1952, `TEST-ORACLE-DIVERGENCE-AFTER-IRREFUTABLE-ARM-NOT-REACHED`), under
+a constant `false` (DS-1953, `TEST-ORACLE-DIVERGENCE-UNDER-CONSTANT-FALSE-NOT-REACHED`),
+where syntax does not fix the reach (DS-1963,
+`TEST-ORACLE-DIVERGENCE-REACH-UNDECIDABLE-IS-UNKNOWN`), and where an earlier exit
+leaves it undecided (DS-1983, `TEST-ORACLE-DIVERGENCE-AFTER-EXIT-DECIDED-BY-EXIT`).
+DA-001 judges `panic!`, `unreachable!`, `todo!`, `unimplemented!` and
+`assert!(<fixed false>)` by those positions (DS-1950,
+`TEST-ORACLE-DA-001-DIVERGENCE-CONSTANCY-BY-DECIDER`,
+`TEST-ORACLE-DA-001-UNCONDITIONAL-DIVERGENCE-IS-CONSTANT`).
 
 | Clause | Gap | Status |
 |---|---|---|
-| DS-1950 | A divergence whose deciding positions (DS-1947, DS-1983) are all constant (`if true { unreachable!() }`) is a constant assertion; DA-001 reports `UNKNOWN`. | NOT_CHECKED |
-| DS-1950 | A divergence reached only through irrefutable arms or blocks (`match r { _ => unreachable!() }`, `{ unreachable!() }`) is a constant assertion; DA-001 reports `UNKNOWN`. | NOT_CHECKED |
-| DS-1950 | A divergence with no deciding position that is not a statement of its own (`let x: i32 = todo!();`) is a constant assertion; DA-001 reports `UNKNOWN`. | NOT_CHECKED |
-| DS-1951 | A `?` or `return Err(..)` before a divergence is read as an exit, so DA-001 reports `UNKNOWN` where DS-1951 reads a constant assertion. | NOT_CHECKED |
-| DS-1950 | A divergence under a non-constant deciding position is not constant; DA-001 reports `UNKNOWN` when no other assert-equivalent decides. | NOT_CHECKED |
-| DS-1950 | `panic!` is still judged by its message arguments, not by its deciding positions. | NOT_CHECKED |
+| DS-1950 | A divergence that is not reached while one of its deciding positions is not constant (`while false { if r != 4 { panic!() } }`, `for _ in 0..0 { .. }`, after an unconditional `return`) is constant; DA-001 reports `UNKNOWN`. | NOT_CHECKED |
+| DS-1950 | An unconditional `return Err(..)` (DS-1951) is not counted by DA-001, which still reads only assert macros, so it is not reported as a constant assertion. | NOT_CHECKED |
+| DS-1947 | A guard that reads a name its arm binds (`x if x == 4`) is not traced to the scrutinee, so DA-003 reports `UNKNOWN`. | NOT_CHECKED |
+| DS-1947 | A pattern identifier starting with an uppercase letter, a struct / tuple-struct / fixed-length slice pattern before the arm, a literal-only guard or condition whose value is not evaluated, and a `for` over another literal value leave the reach undecided, so DA-003 and DA-001 report `UNKNOWN`. | NOT_CHECKED |
+| DS-1983 | Any method call in a loop body is read as changing what the loop condition reads, so the reach is undecided and DA-003 reports `UNKNOWN`. | NOT_CHECKED |

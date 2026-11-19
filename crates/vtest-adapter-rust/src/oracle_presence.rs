@@ -205,20 +205,43 @@
 //!   beside any other expression flows (`X || false`, `X || ok`); an absorption
 //!   that is not by literals (`X || always_true()`, `X * 0`) is not seen, which
 //!   DS-1948 leaves as a false PASS.
-//! - DA-001 reads `unreachable!` / `todo!` / `unimplemented!` (DS-1951) by whether
-//!   they run, not by their arguments (DS-1950). One that is a statement of the
-//!   function's own block with no earlier statement that may leave the function is
-//!   a constant assertion. Any other one has positions that decide whether it
-//!   runs (DS-1947, DS-1983), which this analysis does not evaluate, so DA-001 is
-//!   `Unknown` when it decides the verdict (DS-621's escape). This is narrower
-//!   than DS-1950 for a divergence under a non-constant condition (no violation
-//!   there) and for these, each a constant assertion there: one under a constant
-//!   condition (`if true { .. }`), one whose deciding positions are all constant,
-//!   one in an arm that cannot be refuted (`match r { _ => unreachable!() }`), one
-//!   in a `let` initializer (`let x: i32 = todo!();`) and one in an inner block
-//!   (`{ unreachable!() }`). A `?` or a `return` (also `return Err(..)`) before the
-//!   divergence is read as an exit, so DA-001 is `Unknown` there too, also where
-//!   DS-1951 reads the divergence as a constant assertion.
+//! - Failure divergences (DS-1951: `panic!` / `unreachable!` / `todo!` /
+//!   `unimplemented!`, `assert!` of a fixed `false`, and `return Err(..)` from a Test
+//!   that returns `Result`) are collected with the positions that decide whether
+//!   they run (DS-1947, DS-1983): enclosing conditions and guards, the pattern
+//!   checks of a scrutinee, `while` conditions, `for` iterated values, and the
+//!   positions deciding an earlier `return` / `?` / `exit`. A target result that
+//!   flows to one of a divergence that is reached counts as verified for DA-003.
+//!   A divergence is not reached after an irrefutable arm (DS-1952) or under a
+//!   constant `false` (DS-1953), nor after an exit that only constants decide.
+//!   Its reach is undecided, and it counts for nothing, in a closure, an `async`
+//!   block or a nested item (DS-1962), in the cases of DS-1963 (1) / (2), after a
+//!   `return` / `break` / `continue` in a loop or a macro whose expansion is not
+//!   read (DS-1983), in a loop whose body assigns a name its condition or iterated
+//!   value reads, on the right side of `&&` / `||`, and beside an exit in one
+//!   expression.
+//! - These narrow DS-1947 / DS-1963 / DS-1983 (each a derivation, toward `Unknown`):
+//!   a pattern identifier that starts with an uppercase letter may name a constant
+//!   or a variant, so it is undecided; a tuple-struct, struct or fixed-length slice
+//!   pattern read as irrefutable may be refuted by its type, so the arms after it
+//!   are undecided; a condition or guard made only of literals whose value is not
+//!   evaluated (`1 + 1 == 2`) is undecided; a `for` over a literal value other than
+//!   a range of two integer literals or an array literal is undecided; a guard that
+//!   reads a name its arm binds is a decider whose name the flow does not track;
+//!   any method call in a loop body is read as a change of what the condition
+//!   reads; a `?` is an exit whose operand decides it; and the variant check of a
+//!   sub-position of a binding that holds the result only in part is not read.
+//! - DA-001 reads a failure divergence by its deciding positions, not by its
+//!   arguments (DS-1950): one with no deciding position, or whose deciding positions
+//!   DA-001's classifier all fixes, is a constant assertion (`if true { .. }`,
+//!   `match r { _ => unreachable!() }`, `let x: i32 = todo!();`, `{ unreachable!()
+//!   }`, an unconditional `panic!("{}", x)`). One with a non-constant deciding
+//!   position of a reached divergence is not constant. One whose reach is
+//!   undecided, or that is not reached while a deciding position is not constant
+//!   (`while false { if r != 4 { panic!() } }`), is not decided, so DA-001 is
+//!   `Unknown` when it decides the verdict (DS-621's escape). DA-001 still counts
+//!   only assert macros: an unconditional `return Err(..)` alone is not a constant
+//!   assertion here, and `assert_eq!(1, 2)` is classified by its arguments.
 //! - `debug_assert!` / `debug_assert_eq!` / `debug_assert_ne!` are not
 //!   assert-equivalents, also when the config lists them (DS-1954): they make
 //!   DA-003 and DA-006 `Unknown` where they are the only check.
@@ -277,8 +300,8 @@ const STANDARD_ASSERTION_MACROS: &[&str] = &[
 ];
 
 /// DS-1951's failure divergences among DS-617's macros other than `panic!`. DA-001
-/// judges their constancy by whether they run (DS-1950), not by their message
-/// arguments (`da_001_constant_assertion`).
+/// judges their constancy by their deciding positions (DS-1950), not by their
+/// message arguments (`da_001_constant_assertion`).
 const DIVERGING_MACROS: &[&str] = &["unreachable", "todo", "unimplemented"];
 
 /// DS-1954: not assert-equivalents, even when the config lists them.
@@ -591,10 +614,8 @@ fn da_001_constant_assertion(
         return DaVerdict::NoViolation;
     }
     // DS-1950: the constancy of a DS-1951 divergence is decided by the positions
-    // that decide whether it runs, never by its message arguments. One that runs
-    // whenever the body reaches it has no such position and is a constant
-    // assertion. Any other has positions this classifier does not evaluate
-    // (DS-1947, DS-1983), so its constancy is DS-621's "定数性を確定できない式".
+    // that decide whether it runs (DS-1947, DS-1983), never by its message
+    // arguments (`divergence_constancy`).
     //
     // DS-621 fails only when every assert-equivalent is constant, and DS-616 counts
     // DS-619's `.unwrap()` / `.expect(..)` / `?` among them. Such a method or `?` is
@@ -606,26 +627,47 @@ fn da_001_constant_assertion(
     if method_or_try == MethodOrTry::Counted {
         return DaVerdict::NoViolation;
     }
-    let unconditional = unconditional_divergence_starts(text);
+    let function = syn::parse_str::<syn::ItemFn>(text).ok();
+    let divergences = function
+        .as_ref()
+        .map(|function| collect_divergences(text, function))
+        .unwrap_or_default();
     let mut undetermined = false;
     let mut undetermined_argument = false;
     for &(start, end) in assert_spans {
-        if macro_name_before(text, start).is_some_and(is_diverging_macro) {
-            undetermined |= !unconditional.contains(&start);
+        let constancy = if let Some(divergence) = divergences
+            .iter()
+            .find(|divergence| divergence.start == Some(start))
+        {
+            divergence_constancy(divergence)
+        } else if macro_name_before(text, start)
+            .is_some_and(|name| name == "panic" || is_diverging_macro(name))
+        {
+            // A divergence that the syntax tree walk does not reach (in the tokens of
+            // another macro) has deciding positions that are not read (DS-1950).
+            Constancy::Undetermined
         } else {
             match classify_constancy(&text[start..end]) {
-                Constancy::NotAllLiteral => return DaVerdict::NoViolation,
-                Constancy::Undetermined => undetermined_argument = true,
-                Constancy::AllLiteral => {}
+                Constancy::Undetermined => {
+                    undetermined_argument = true;
+                    Constancy::AllLiteral
+                }
+                other => other,
             }
+        };
+        match constancy {
+            Constancy::NotAllLiteral => return DaVerdict::NoViolation,
+            Constancy::Undetermined => undetermined = true,
+            Constancy::AllLiteral => {}
         }
     }
     if undetermined {
         return DaVerdict::Unknown(
-            "every other assert-equivalent call is constant, and an `unreachable!` / `todo!` / \
-             `unimplemented!` is not a statement of the function's own block before any exit \
-             (it is in a condition, an arm, a loop, an inner block or an expression, or after \
-             an exit), and this analysis does not decide its constancy there (DS-621, DS-1950)"
+            "every other assert-equivalent call is constant, and whether a failure divergence \
+             runs is not fixed by syntax (an exit before it whose condition is not fixed, a \
+             loop that may change its condition, a pattern that may name a variant or a \
+             constant, a branch of `&&` / `||`, a closure, an `async` block or a nested item), \
+             so its constancy is not decided (DS-621, DS-1950, DS-1983)"
                 .to_owned(),
         );
     }
@@ -652,97 +694,1265 @@ fn da_001_constant_assertion(
     DaVerdict::Fail("every assert-equivalent call's arguments are all literal/constant (DS-621)")
 }
 
-/// The argument starts (as in `find_assert_spans`) of the DS-1951 divergences in
-/// `DIVERGING_MACROS` that run whenever the body runs: a statement of the
-/// function's own block (not nested in a branch, a loop, a closure or an inner
-/// block) with no earlier statement of that block that may leave the function
-/// first. Derivation from DS-1950 and DS-1983: such a divergence has no position
-/// that decides whether it runs.
+// ---------------------------------------------------------------------------
+// Failure divergences and the positions that decide whether they run
+// (DS-1947, DS-1950-DS-1953, DS-1963, DS-1983)
+// ---------------------------------------------------------------------------
+
+/// One step from a position to a part of its value, as a pattern reads it.
+#[derive(Clone, Debug)]
+enum PatternStep {
+    Member(syn::Member),
+    Index(usize),
+}
+
+/// How a deciding position is checked.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DeciderKind {
+    /// A condition, a guard, a literal pattern, or a `Some` / `None` / `Ok` / `Err`
+    /// pattern over a value whose variant is not fixed by syntax.
+    Value,
+    /// Only a range pattern, or a path or variant pattern other than `Some` /
+    /// `None` / `Ok` / `Err` (DS-1963 (1)).
+    Opaque,
+    /// The variant of a value fixed by syntax (a constructor, or a name bound by a
+    /// `let` to one: DS-1947, DS-1964), which no derived value decides.
+    FixedVariant,
+}
+
+/// A position that decides whether a failure divergence runs (DS-1947, DS-1983):
+/// the value of `base` projected by `steps`.
+#[derive(Clone, Debug)]
+struct Decider<'a> {
+    base: &'a syn::Expr,
+    steps: Vec<PatternStep>,
+    kind: DeciderKind,
+}
+
+impl<'a> Decider<'a> {
+    fn value(base: &'a syn::Expr) -> Self {
+        Self {
+            base,
+            steps: Vec::new(),
+            kind: DeciderKind::Value,
+        }
+    }
+}
+
+/// Whether a failure divergence is reached. The order is the order in which one
+/// state overrides another.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum DivergenceReach {
+    /// It runs when its deciding positions say so.
+    Counted,
+    /// It never runs (DS-1952, DS-1953).
+    NotCounted,
+    /// Whether it runs is not fixed by syntax (DS-1962, DS-1963 (2), DS-1983).
+    Undecided,
+}
+
+/// A failure divergence of a Test body (DS-1951) with its deciding positions.
+#[derive(Debug)]
+struct Divergence<'a> {
+    /// The start of the macro's arguments, as `find_assert_spans` records it;
+    /// `None` for a `return Err(..)`.
+    start: Option<usize>,
+    deciders: Vec<Decider<'a>>,
+    reach: DivergenceReach,
+}
+
+/// An exit that is not a failure divergence (`return`, `?`, `break`, `continue`, a
+/// call of `exit`, a macro whose expansion is not read: DS-1951, DS-1983).
+#[derive(Debug)]
+struct Exit<'a> {
+    deciders: Vec<Decider<'a>>,
+    reach: DivergenceReach,
+}
+
+#[derive(Clone, Debug)]
+struct DivergenceContext<'a> {
+    deciders: Vec<Decider<'a>>,
+    reach: DivergenceReach,
+    in_loop: bool,
+}
+
+/// The failure divergences of `function` (DS-1951) with what decides whether they
+/// run.
 ///
-/// An earlier statement may leave when it contains `return`, `?`, `break`,
-/// `continue`, a call of a function named `exit`, or a macro other than the
-/// assert, `debug_assert*`, divergence and printing macros named here, whose
-/// expansion is not read (DS-1983's exits; a macro is read fail-closed, DS-615).
-fn unconditional_divergence_starts(text: &str) -> Vec<usize> {
-    let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
-        return Vec::new();
+/// Derivation from DS-1947, DS-1952, DS-1953, DS-1963 and DS-1983: the walk descends
+/// only through statements, `if` / `if let` chains, `match`, `let ... else`,
+/// `while` / `while let` / `for` / `loop` and blocks, and through expressions that
+/// evaluate their parts in any order. Every other place makes a divergence in it
+/// `Undecided`: the right side of `&&` / `||`, a closure, an `async` block and a
+/// nested item (DS-1962), an expression that holds both an exit and a divergence
+/// (its order is not read), and a pattern with an identifier that may name a unit
+/// variant or a constant (`A`: Rust names bindings in lower case, so DS-1952's
+/// binding is not told from a path by syntax).
+fn collect_divergences<'a>(text: &'a str, function: &'a syn::ItemFn) -> Vec<Divergence<'a>> {
+    let mut constructed = ConstructorLets(Vec::new());
+    constructed.visit_item_fn(function);
+    let returns_result = matches!(
+        &function.sig.output,
+        syn::ReturnType::Type(_, ty) if matches!(
+            ty.as_ref(),
+            syn::Type::Path(path) if path.path.segments.last().is_some_and(|segment| segment.ident == "Result")
+        )
+    );
+    let mut collector = DivergenceCollector {
+        text,
+        returns_result,
+        constructed: constructed.0,
+        context: DivergenceContext {
+            deciders: Vec::new(),
+            reach: DivergenceReach::Counted,
+            in_loop: false,
+        },
+        nested: false,
+        divergences: Vec::new(),
+        exits: Vec::new(),
     };
-    let mut starts = Vec::new();
-    for statement in &function.block.stmts {
-        let mac = match statement {
-            syn::Stmt::Macro(node) => Some(&node.mac),
-            syn::Stmt::Expr(syn::Expr::Macro(node), _) => Some(&node.mac),
-            _ => None,
-        };
-        if let Some(mac) = mac {
-            if mac
-                .path
-                .segments
-                .last()
-                .is_some_and(|segment| is_diverging_macro(&segment.ident.to_string()))
-            {
-                if let Some(start) = macro_argument_start(text, mac) {
-                    starts.push(start);
-                }
+    collector.visit_block(&function.block);
+    collector.divergences
+}
+
+/// The names bound by any `let` to `Some(..)`, `Ok(..)`, `Err(..)` or `None`.
+struct ConstructorLets(Vec<String>);
+
+impl<'ast> Visit<'ast> for ConstructorLets {
+    fn visit_local(&mut self, node: &'ast syn::Local) {
+        let mut pattern = &node.pat;
+        while let syn::Pat::Type(typed) = pattern {
+            pattern = &typed.pat;
+        }
+        if let (syn::Pat::Ident(binding), Some(init)) = (pattern, &node.init) {
+            if literal_variant(&init.expr).is_some() {
+                self.0.push(binding.ident.to_string());
             }
         }
-        let mut exits = ExitVisitor { found: false };
-        exits.visit_stmt(statement);
-        if exits.found {
-            break;
+        syn::visit::visit_local(self, node);
+    }
+}
+
+/// The variant a constructor call `Some(..)` / `Ok(..)` / `Err(..)` or the path
+/// `None` builds, through parentheses and references.
+fn literal_variant(expression: &syn::Expr) -> Option<String> {
+    match strip_place(expression) {
+        syn::Expr::Call(call) => constructor_name(call),
+        syn::Expr::Path(path)
+            if path.qself.is_none()
+                && path
+                    .path
+                    .segments
+                    .last()
+                    .is_some_and(|segment| segment.ident == "None") =>
+        {
+            Some("None".to_owned())
+        }
+        _ => None,
+    }
+}
+
+/// The expression inside parentheses and references.
+fn strip_place(expression: &syn::Expr) -> &syn::Expr {
+    match expression {
+        syn::Expr::Paren(inner) => strip_place(&inner.expr),
+        syn::Expr::Group(inner) => strip_place(&inner.expr),
+        syn::Expr::Reference(inner) => strip_place(&inner.expr),
+        other => other,
+    }
+}
+
+struct DivergenceCollector<'a> {
+    text: &'a str,
+    returns_result: bool,
+    constructed: Vec<String>,
+    context: DivergenceContext<'a>,
+    /// Inside a closure, an `async` block or a nested item, whose `return` does
+    /// not leave the Test function.
+    nested: bool,
+    divergences: Vec<Divergence<'a>>,
+    exits: Vec<Exit<'a>>,
+}
+
+impl<'a> DivergenceCollector<'a> {
+    fn within(
+        &mut self,
+        deciders: Vec<Decider<'a>>,
+        reach: DivergenceReach,
+        in_loop: bool,
+        visit: impl FnOnce(&mut Self),
+    ) {
+        let outer = self.context.clone();
+        self.context.deciders.extend(deciders);
+        self.context.reach = self.context.reach.max(reach);
+        self.context.in_loop |= in_loop;
+        visit(self);
+        self.context = outer;
+    }
+
+    fn nesting(&mut self, visit: impl FnOnce(&mut Self)) {
+        let outer = self.nested;
+        self.nested = true;
+        self.within(Vec::new(), DivergenceReach::Undecided, false, visit);
+        self.nested = outer;
+    }
+
+    fn record_divergence(&mut self, start: Option<usize>) {
+        self.divergences.push(Divergence {
+            start,
+            deciders: self.context.deciders.clone(),
+            reach: self.context.reach,
+        });
+    }
+
+    /// Records an exit taken where the current context says. DS-1983: one in a loop
+    /// body is not decided by syntax.
+    fn record_exit(&mut self, extra: Option<Decider<'a>>) {
+        if self.nested {
+            return;
+        }
+        let mut deciders = self.context.deciders.clone();
+        deciders.extend(extra);
+        let reach = if self.context.in_loop {
+            DivergenceReach::Undecided
+        } else {
+            self.context.reach
+        };
+        self.exits.push(Exit { deciders, reach });
+    }
+
+    fn record_undecided_exit(&mut self) {
+        if !self.nested {
+            self.exits.push(Exit {
+                deciders: Vec::new(),
+                reach: DivergenceReach::Undecided,
+            });
         }
     }
-    starts
+
+    /// What the exits recorded from `mark` on add to the code that runs after them
+    /// (DS-1983). An exit that never runs adds nothing.
+    fn exits_since(&self, mark: usize) -> (Vec<Decider<'a>>, DivergenceReach) {
+        let mut deciders = Vec::new();
+        let mut reach = DivergenceReach::Counted;
+        for exit in &self.exits[mark..] {
+            match exit.reach {
+                DivergenceReach::Counted => deciders.extend(exit.deciders.iter().cloned()),
+                DivergenceReach::NotCounted => {}
+                DivergenceReach::Undecided => reach = DivergenceReach::Undecided,
+            }
+        }
+        (deciders, reach)
+    }
+
+    /// The positions a pattern's refutable parts check in `scrutinee` (DS-1947).
+    fn pattern_deciders(
+        &self,
+        pattern: &syn::Pat,
+        scrutinee: &'a syn::Expr,
+    ) -> (Vec<Decider<'a>>, DivergenceReach) {
+        let mut deciders = Vec::new();
+        self.pattern_checks(pattern, scrutinee, Vec::new(), &mut deciders);
+        let reach = if has_variant_like_ident(pattern)
+            || (is_irrefutable(pattern) && may_be_refuted_by_type(pattern))
+        {
+            DivergenceReach::Undecided
+        } else {
+            DivergenceReach::Counted
+        };
+        (deciders, reach)
+    }
+
+    fn pattern_checks(
+        &self,
+        pattern: &syn::Pat,
+        base: &'a syn::Expr,
+        steps: Vec<PatternStep>,
+        out: &mut Vec<Decider<'a>>,
+    ) {
+        if is_irrefutable(pattern) {
+            return;
+        }
+        let opaque = |out: &mut Vec<Decider<'a>>, steps: Vec<PatternStep>| {
+            out.push(Decider {
+                base,
+                steps,
+                kind: DeciderKind::Opaque,
+            });
+        };
+        match pattern {
+            syn::Pat::Lit(_) => out.push(Decider {
+                base,
+                steps,
+                kind: DeciderKind::Value,
+            }),
+            syn::Pat::Ident(ident) => match &ident.subpat {
+                Some((_, sub)) => self.pattern_checks(sub, base, steps, out),
+                None if ident.ident == "None" => {
+                    self.variant_check("None", base, steps, out);
+                }
+                None => opaque(out, steps),
+            },
+            syn::Pat::Path(path)
+                if path.qself.is_none()
+                    && path
+                        .path
+                        .segments
+                        .last()
+                        .is_some_and(|segment| segment.ident == "None") =>
+            {
+                self.variant_check("None", base, steps, out);
+            }
+            syn::Pat::Or(or) => {
+                for case in &or.cases {
+                    self.pattern_checks(case, base, steps.clone(), out);
+                }
+            }
+            syn::Pat::Paren(inner) => self.pattern_checks(&inner.pat, base, steps, out),
+            syn::Pat::Reference(inner) => self.pattern_checks(&inner.pat, base, steps, out),
+            syn::Pat::Type(inner) => self.pattern_checks(&inner.pat, base, steps, out),
+            syn::Pat::Tuple(tuple) => self.element_checks(&tuple.elems, true, base, &steps, out),
+            syn::Pat::TupleStruct(node) => {
+                match option_or_result_variant(&node.path) {
+                    Some(name) => {
+                        if !self.variant_check(name, base, steps.clone(), out) {
+                            return;
+                        }
+                    }
+                    None => opaque(out, steps.clone()),
+                }
+                self.element_checks(&node.elems, true, base, &steps, out);
+            }
+            syn::Pat::Struct(node) => {
+                opaque(out, steps.clone());
+                for field in &node.fields {
+                    let (base, steps) =
+                        descend(base, &steps, PatternStep::Member(field.member.clone()));
+                    self.pattern_checks(&field.pat, base, steps, out);
+                }
+            }
+            syn::Pat::Slice(slice) => self.element_checks(&slice.elems, false, base, &steps, out),
+            // A range, a path other than `None`, a constant block, a macro: DS-1963 (1).
+            _ => opaque(out, steps),
+        }
+    }
+
+    /// The checks of the elements of a tuple, tuple-struct or slice pattern. An
+    /// element after `..` is at a position fixed only when the value is a literal.
+    fn element_checks(
+        &self,
+        elements: &syn::punctuated::Punctuated<syn::Pat, syn::Token![,]>,
+        tuple: bool,
+        base: &'a syn::Expr,
+        steps: &[PatternStep],
+        out: &mut Vec<Decider<'a>>,
+    ) {
+        let rest = elements
+            .iter()
+            .position(|element| matches!(element, syn::Pat::Rest(_)));
+        let literal_length = steps.is_empty().then(|| match strip_place(base) {
+            syn::Expr::Tuple(literal) if tuple => Some(literal.elems.len()),
+            syn::Expr::Array(literal) if !tuple => Some(literal.elems.len()),
+            _ => None,
+        });
+        for (index, element) in elements.iter().enumerate() {
+            if Some(index) == rest || is_irrefutable(element) {
+                continue;
+            }
+            let position = match rest {
+                Some(rest) if index > rest => literal_length
+                    .flatten()
+                    .and_then(|length| length.checked_sub(elements.len() - index)),
+                _ => Some(index),
+            };
+            let Some(position) = position else {
+                out.push(Decider {
+                    base,
+                    steps: steps.to_vec(),
+                    kind: DeciderKind::Opaque,
+                });
+                continue;
+            };
+            let step = if tuple {
+                PatternStep::Member(syn::Member::Unnamed(syn::Index {
+                    index: u32::try_from(position).unwrap_or(u32::MAX),
+                    span: proc_macro2::Span::call_site(),
+                }))
+            } else {
+                PatternStep::Index(position)
+            };
+            let (base, steps) = descend(base, steps, step);
+            self.pattern_checks(element, base, steps, out);
+        }
+    }
+
+    /// Records the check of the variant `name` at a position. Returns whether the
+    /// sub-patterns may match: not when a constructor of another variant is there.
+    fn variant_check(
+        &self,
+        name: &str,
+        base: &'a syn::Expr,
+        steps: Vec<PatternStep>,
+        out: &mut Vec<Decider<'a>>,
+    ) -> bool {
+        if steps.is_empty() {
+            let fixed = literal_variant(base).or_else(|| match strip_place(base) {
+                syn::Expr::Path(path) if path.qself.is_none() => path
+                    .path
+                    .get_ident()
+                    .filter(|ident| self.constructed.iter().any(|bound| *ident == bound))
+                    .map(|_| String::new()),
+                _ => None,
+            });
+            if let Some(variant) = fixed {
+                out.push(Decider {
+                    base,
+                    steps,
+                    kind: DeciderKind::FixedVariant,
+                });
+                return variant.is_empty() || variant == name;
+            }
+        }
+        out.push(Decider {
+            base,
+            steps,
+            kind: DeciderKind::Value,
+        });
+        true
+    }
 }
 
-/// Whether a statement contains a way to leave the function before the next one.
-struct ExitVisitor {
-    found: bool,
+/// `Some`, `Ok` or `Err` when a path names that variant by its final segment
+/// (DS-1963, DS-1967).
+fn option_or_result_variant(path: &syn::Path) -> Option<&'static str> {
+    let last = path.segments.last()?;
+    ["Some", "Ok", "Err"]
+        .into_iter()
+        .find(|name| last.ident == name)
 }
 
-impl<'ast> Visit<'ast> for ExitVisitor {
-    fn visit_expr_return(&mut self, _node: &'ast syn::ExprReturn) {
-        self.found = true;
+/// The position one `step` below (`base`, `steps`), through a literal tuple, array,
+/// struct or `Some` / `Ok` / `Err` constructor when it is one.
+fn descend<'a>(
+    base: &'a syn::Expr,
+    steps: &[PatternStep],
+    step: PatternStep,
+) -> (&'a syn::Expr, Vec<PatternStep>) {
+    if steps.is_empty() {
+        let element = match (strip_place(base), &step) {
+            (syn::Expr::Tuple(literal), PatternStep::Member(syn::Member::Unnamed(index))) => {
+                literal.elems.iter().nth(index.index as usize)
+            }
+            (syn::Expr::Array(literal), PatternStep::Index(index)) => {
+                literal.elems.iter().nth(*index)
+            }
+            (syn::Expr::Struct(literal), PatternStep::Member(member)) => literal
+                .fields
+                .iter()
+                .find(|field| field.member == *member)
+                .map(|field| &field.expr),
+            (syn::Expr::Call(call), PatternStep::Member(syn::Member::Unnamed(index)))
+                if index.index == 0 && call.args.len() == 1 && constructor_name(call).is_some() =>
+            {
+                call.args.first()
+            }
+            _ => None,
+        };
+        if let Some(element) = element {
+            return (element, Vec::new());
+        }
+    }
+    let mut steps = steps.to_vec();
+    steps.push(step);
+    (base, steps)
+}
+
+/// DS-1952's irrefutable pattern. An identifier written like a unit variant or a
+/// constant (`None`, `A`) is not read as a binding (`has_variant_like_ident`).
+fn is_irrefutable(pattern: &syn::Pat) -> bool {
+    match pattern {
+        syn::Pat::Wild(_) | syn::Pat::Rest(_) => true,
+        syn::Pat::Ident(ident) => match &ident.subpat {
+            Some((_, sub)) => is_irrefutable(sub),
+            None => !is_variant_like(&ident.ident),
+        },
+        syn::Pat::Or(or) => or.cases.iter().any(is_irrefutable),
+        syn::Pat::Paren(inner) => is_irrefutable(&inner.pat),
+        syn::Pat::Reference(inner) => is_irrefutable(&inner.pat),
+        syn::Pat::Type(inner) => is_irrefutable(&inner.pat),
+        syn::Pat::Tuple(tuple) => tuple.elems.iter().all(is_irrefutable),
+        syn::Pat::Slice(slice) => slice.elems.iter().all(is_irrefutable),
+        syn::Pat::TupleStruct(node) => {
+            option_or_result_variant(&node.path).is_none() && node.elems.iter().all(is_irrefutable)
+        }
+        syn::Pat::Struct(node) => {
+            option_or_result_variant(&node.path).is_none()
+                && node.fields.iter().all(|field| is_irrefutable(&field.pat))
+        }
+        _ => false,
+    }
+}
+
+fn is_variant_like(ident: &syn::Ident) -> bool {
+    ident == "None"
+        || ident
+            .to_string()
+            .starts_with(|c: char| c.is_ascii_uppercase())
+}
+
+/// Whether a pattern holds an identifier other than `None` written like a unit
+/// variant or a constant, which may be a path pattern or a binding.
+fn has_variant_like_ident(pattern: &syn::Pat) -> bool {
+    struct Finder(bool);
+    impl<'ast> Visit<'ast> for Finder {
+        fn visit_pat_ident(&mut self, node: &'ast syn::PatIdent) {
+            self.0 |= node.subpat.is_none() && node.ident != "None" && is_variant_like(&node.ident);
+            syn::visit::visit_pat_ident(self, node);
+        }
+    }
+    let mut finder = Finder(false);
+    finder.visit_pat(pattern);
+    finder.0
+}
+
+/// Whether a pattern that DS-1952 reads as irrefutable may still be refuted by its
+/// type: a tuple-struct or struct pattern whose path may name an enum variant, or a
+/// slice pattern that fixes a length. DS-1952 reads them as irrefutable so that the
+/// divergence after them is not reached; DA-001 would then read one in their scope
+/// as constant, which their type may make false (DS-1680), so it is undecided.
+fn may_be_refuted_by_type(pattern: &syn::Pat) -> bool {
+    struct Finder(bool);
+    impl<'ast> Visit<'ast> for Finder {
+        fn visit_pat_tuple_struct(&mut self, node: &'ast syn::PatTupleStruct) {
+            self.0 = true;
+            syn::visit::visit_pat_tuple_struct(self, node);
+        }
+        fn visit_pat_struct(&mut self, node: &'ast syn::PatStruct) {
+            self.0 = true;
+            syn::visit::visit_pat_struct(self, node);
+        }
+        fn visit_pat_slice(&mut self, node: &'ast syn::PatSlice) {
+            let rest_only = node.elems.len() == 1
+                && node.elems.iter().all(|element| match element {
+                    syn::Pat::Rest(_) => true,
+                    syn::Pat::Ident(ident) => {
+                        matches!(&ident.subpat, Some((_, sub)) if matches!(sub.as_ref(), syn::Pat::Rest(_)))
+                    }
+                    _ => false,
+                });
+            self.0 |= !rest_only;
+            syn::visit::visit_pat_slice(self, node);
+        }
+    }
+    let mut finder = Finder(false);
+    finder.visit_pat(pattern);
+    finder.0
+}
+
+/// Which branches of a condition may run: (the `true` branch, the `false` branch).
+/// DS-1953: a branch that a constant condition never takes is not reached. A
+/// condition made only of literals whose value is not evaluated here (`1 + 1 == 3`,
+/// `Fixed::Literal`), or holding a macro whose expansion is not read, may be either,
+/// and a `let` chain is not read, so both are undecided.
+fn condition_reach(condition: &syn::Expr) -> (DivergenceReach, DivergenceReach) {
+    if contains_let(condition) {
+        return (DivergenceReach::Undecided, DivergenceReach::Undecided);
+    }
+    match fixed_value(condition) {
+        Fixed::Value(true) => (DivergenceReach::Counted, DivergenceReach::NotCounted),
+        Fixed::Value(false) => (DivergenceReach::NotCounted, DivergenceReach::Counted),
+        Fixed::Literal | Fixed::Opaque => (DivergenceReach::Undecided, DivergenceReach::Undecided),
+        Fixed::Constant | Fixed::Open => (DivergenceReach::Counted, DivergenceReach::Counted),
+    }
+}
+
+/// Whether the body of `for .. in iterated` may run. A range of two integer
+/// literals and an array literal are evaluated; another value made only of
+/// literals is not, so it is undecided. Derivation from DS-1953 and DS-1983: a loop
+/// that a constant never runs does not run its body.
+fn loop_reach(iterated: &syn::Expr) -> DivergenceReach {
+    let integer =
+        |expression: &Option<Box<syn::Expr>>| match expression.as_deref().map(unwrap_parens) {
+            Some(syn::Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Int(literal),
+                ..
+            })) => literal.base10_parse::<i128>().ok(),
+            _ => None,
+        };
+    match unwrap_parens(iterated) {
+        syn::Expr::Range(range) => match (integer(&range.start), integer(&range.end)) {
+            (Some(start), Some(end)) => {
+                let empty = match range.limits {
+                    syn::RangeLimits::HalfOpen(_) => start >= end,
+                    syn::RangeLimits::Closed(_) => start > end,
+                };
+                if empty {
+                    DivergenceReach::NotCounted
+                } else {
+                    DivergenceReach::Counted
+                }
+            }
+            _ if matches!(argument_constancy(iterated), Constancy::NotAllLiteral) => {
+                DivergenceReach::Counted
+            }
+            _ => DivergenceReach::Undecided,
+        },
+        syn::Expr::Array(array) if array.elems.is_empty() => DivergenceReach::NotCounted,
+        syn::Expr::Array(_) => DivergenceReach::Counted,
+        other => match argument_constancy(other) {
+            Constancy::NotAllLiteral => DivergenceReach::Counted,
+            Constancy::AllLiteral | Constancy::Undetermined => DivergenceReach::Undecided,
+        },
+    }
+}
+
+/// What a pattern checks at one position, for DS-1963 (2).
+#[derive(PartialEq, Eq)]
+enum PatternAtom {
+    Opaque,
+    Bool(bool),
+    Variant(&'static str),
+    Literal(String),
+}
+
+/// DS-1963 (2): whether the arms without a guard before a failure divergence's arm
+/// may already match every value at one position.
+fn arms_may_exhaust(arms: &[syn::Arm]) -> bool {
+    let mut atoms: Vec<(Vec<String>, PatternAtom)> = Vec::new();
+    for arm in arms.iter().filter(|arm| arm.guard.is_none()) {
+        pattern_atoms(&arm.pat, &mut Vec::new(), &mut atoms);
+    }
+    let mut positions: Vec<&Vec<String>> = atoms.iter().map(|(position, _)| position).collect();
+    positions.sort();
+    positions.dedup();
+    positions.into_iter().any(|position| {
+        let at: Vec<&PatternAtom> = atoms
+            .iter()
+            .filter(|(other, _)| other == position)
+            .map(|(_, atom)| atom)
+            .collect();
+        let has = |atom: &PatternAtom| at.contains(&atom);
+        let mut literals: Vec<&String> = at
+            .iter()
+            .filter_map(|atom| match atom {
+                PatternAtom::Literal(literal) => Some(literal),
+                _ => None,
+            })
+            .collect();
+        literals.sort();
+        literals.dedup();
+        has(&PatternAtom::Opaque)
+            || (has(&PatternAtom::Bool(true)) && has(&PatternAtom::Bool(false)))
+            || (has(&PatternAtom::Variant("Some")) && has(&PatternAtom::Variant("None")))
+            || (has(&PatternAtom::Variant("Ok")) && has(&PatternAtom::Variant("Err")))
+            || literals.len() >= 256
+    })
+}
+
+fn pattern_atoms(
+    pattern: &syn::Pat,
+    position: &mut Vec<String>,
+    out: &mut Vec<(Vec<String>, PatternAtom)>,
+) {
+    let mut push = |atom: PatternAtom, position: &Vec<String>| out.push((position.clone(), atom));
+    match pattern {
+        syn::Pat::Wild(_) | syn::Pat::Rest(_) => {}
+        syn::Pat::Lit(literal) => match &literal.lit {
+            syn::Lit::Bool(value) => push(PatternAtom::Bool(value.value), position),
+            other => push(
+                PatternAtom::Literal(other.to_token_stream().to_string()),
+                position,
+            ),
+        },
+        syn::Pat::Ident(ident) => match &ident.subpat {
+            Some((_, sub)) => pattern_atoms(sub, position, out),
+            None if ident.ident == "None" => push(PatternAtom::Variant("None"), position),
+            None if is_variant_like(&ident.ident) => push(PatternAtom::Opaque, position),
+            None => {}
+        },
+        syn::Pat::Path(path)
+            if path.qself.is_none()
+                && path
+                    .path
+                    .segments
+                    .last()
+                    .is_some_and(|segment| segment.ident == "None") =>
+        {
+            push(PatternAtom::Variant("None"), position);
+        }
+        syn::Pat::Or(or) => {
+            for case in &or.cases {
+                pattern_atoms(case, position, out);
+            }
+        }
+        syn::Pat::Paren(inner) => pattern_atoms(&inner.pat, position, out),
+        syn::Pat::Reference(inner) => pattern_atoms(&inner.pat, position, out),
+        syn::Pat::Type(inner) => pattern_atoms(&inner.pat, position, out),
+        syn::Pat::Tuple(tuple) => element_atoms(&tuple.elems, ".", position, out),
+        syn::Pat::TupleStruct(node) => {
+            match option_or_result_variant(&node.path) {
+                Some(name) => push(PatternAtom::Variant(name), position),
+                None => push(PatternAtom::Opaque, position),
+            }
+            element_atoms(&node.elems, ".", position, out);
+        }
+        syn::Pat::Struct(node) => {
+            push(PatternAtom::Opaque, position);
+            for field in &node.fields {
+                position.push(format!(".{}", field.member.to_token_stream()));
+                pattern_atoms(&field.pat, position, out);
+                position.pop();
+            }
+        }
+        syn::Pat::Slice(slice) => element_atoms(&slice.elems, "[", position, out),
+        _ => push(PatternAtom::Opaque, position),
+    }
+}
+
+fn element_atoms(
+    elements: &syn::punctuated::Punctuated<syn::Pat, syn::Token![,]>,
+    kind: &str,
+    position: &mut Vec<String>,
+    out: &mut Vec<(Vec<String>, PatternAtom)>,
+) {
+    let mut after_rest = false;
+    for (index, element) in elements.iter().enumerate() {
+        if matches!(element, syn::Pat::Rest(_)) {
+            after_rest = true;
+            continue;
+        }
+        // An element after `..` is keyed by its place from the end.
+        let from_end = elements.len() - index;
+        position.push(if after_rest {
+            format!("{kind}-{from_end}")
+        } else {
+            format!("{kind}{index}")
+        });
+        pattern_atoms(element, position, out);
+        position.pop();
+    }
+}
+
+/// Whether `body` assigns to, takes `&mut` of, or calls a method on a variable that
+/// `read` names (DS-1983: the loop's repeating is then not fixed by syntax). A
+/// method call is counted because it may take `&mut self`.
+fn assigns_read_names(body: &syn::Block, read: &syn::Expr) -> bool {
+    struct Names(Vec<syn::Ident>);
+    impl<'ast> Visit<'ast> for Names {
+        fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
+            if let (None, Some(ident)) = (&node.qself, node.path.get_ident()) {
+                self.0.push(ident.clone());
+            }
+        }
+    }
+    struct Changes<'n> {
+        names: &'n [syn::Ident],
+        found: bool,
+    }
+    impl Changes<'_> {
+        fn roots_at_name(&self, place: &syn::Expr) -> bool {
+            self.names
+                .iter()
+                .any(|name| place_roots_at(place, &name.to_string()))
+        }
+    }
+    impl<'ast> Visit<'ast> for Changes<'_> {
+        fn visit_expr_assign(&mut self, node: &'ast syn::ExprAssign) {
+            self.found |= self.roots_at_name(&node.left);
+            syn::visit::visit_expr_assign(self, node);
+        }
+        fn visit_expr_binary(&mut self, node: &'ast syn::ExprBinary) {
+            self.found |= is_compound_assignment(node.op) && self.roots_at_name(&node.left);
+            syn::visit::visit_expr_binary(self, node);
+        }
+        fn visit_expr_reference(&mut self, node: &'ast syn::ExprReference) {
+            self.found |= node.mutability.is_some() && self.roots_at_name(&node.expr);
+            syn::visit::visit_expr_reference(self, node);
+        }
+        fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
+            self.found |= self.roots_at_name(&node.receiver);
+            syn::visit::visit_expr_method_call(self, node);
+        }
+        fn visit_macro(&mut self, node: &'ast syn::Macro) {
+            self.found |= self
+                .names
+                .iter()
+                .any(|name| tokens_mention_ident(node.tokens.clone(), &name.to_string()));
+        }
+    }
+    let mut names = Names(Vec::new());
+    names.visit_expr(read);
+    if names.0.is_empty() {
+        return false;
+    }
+    let mut changes = Changes {
+        names: &names.0,
+        found: false,
+    };
+    changes.visit_block(body);
+    changes.found
+}
+
+/// Whether an expression holds a `let` (a `let` chain in a condition).
+fn contains_let(expression: &syn::Expr) -> bool {
+    struct Finder(bool);
+    impl<'ast> Visit<'ast> for Finder {
+        fn visit_expr_let(&mut self, _node: &'ast syn::ExprLet) {
+            self.0 = true;
+        }
+        fn visit_expr_closure(&mut self, _node: &'ast syn::ExprClosure) {}
+    }
+    let mut finder = Finder(false);
+    finder.visit_expr(expression);
+    finder.0
+}
+
+/// DS-1951's failure divergence among macros: `panic!` / `unreachable!` / `todo!` /
+/// `unimplemented!`, and an `assert!` whose condition literals fix to `false`.
+fn is_failure_divergence_macro(node: &syn::Macro) -> bool {
+    let Some(name) = node
+        .path
+        .segments
+        .last()
+        .map(|segment| segment.ident.to_string())
+    else {
+        return false;
+    };
+    name == "panic"
+        || is_diverging_macro(&name)
+        || (name == "assert"
+            && macro_arguments(node)
+                .and_then(|arguments| arguments.checked.first().map(fixed_value))
+                == Some(Fixed::Value(false)))
+}
+
+/// Whether a macro may leave the function: one whose expansion is not read here, or
+/// one of those named here whose tokens hold an exit (DS-1983, DS-615).
+fn macro_may_exit(node: &syn::Macro) -> bool {
+    let known = node.path.segments.last().is_some_and(|segment| {
+        let name = segment.ident.to_string();
+        STANDARD_ASSERTION_MACROS.contains(&format!("{name}!").as_str())
+            || is_debug_assert(&name)
+            || matches!(
+                name.as_str(),
+                "format" | "print" | "println" | "eprint" | "eprintln" | "vec" | "matches"
+            )
+    });
+    !known || tokens_may_exit(node.tokens.clone())
+}
+
+impl<'a> Visit<'a> for DivergenceCollector<'a> {
+    fn visit_block(&mut self, node: &'a syn::Block) {
+        let outer = self.context.clone();
+        for statement in &node.stmts {
+            let mark = self.exits.len();
+            let known = self.context.deciders.len();
+            self.visit_stmt(statement);
+            // DS-1983: an exit in a statement decides whether the later ones run. One
+            // that is reached and that only constant conditions of its own decide
+            // (DS-1953) leaves the rest of the block unreached.
+            let unconditional = self.exits[mark..].iter().any(|exit| {
+                exit.reach == DivergenceReach::Counted
+                    && exit.deciders.iter().skip(known).all(|decider| {
+                        decider.steps.is_empty()
+                            && matches!(fixed_value(decider.base), Fixed::Value(_))
+                    })
+            });
+            let (deciders, reach) = self.exits_since(mark);
+            self.context.deciders.extend(deciders);
+            self.context.reach = self.context.reach.max(reach);
+            if unconditional {
+                self.context.reach = self.context.reach.max(DivergenceReach::NotCounted);
+            }
+        }
+        self.context = outer;
     }
 
-    fn visit_expr_try(&mut self, _node: &'ast syn::ExprTry) {
-        self.found = true;
+    fn visit_expr(&mut self, node: &'a syn::Expr) {
+        let structured = matches!(
+            node,
+            syn::Expr::If(_)
+                | syn::Expr::Match(_)
+                | syn::Expr::While(_)
+                | syn::Expr::ForLoop(_)
+                | syn::Expr::Loop(_)
+                | syn::Expr::Block(_)
+                | syn::Expr::Unsafe(_)
+                | syn::Expr::Const(_)
+                | syn::Expr::Closure(_)
+                | syn::Expr::Async(_)
+                | syn::Expr::Return(_)
+                | syn::Expr::Break(_)
+                | syn::Expr::Continue(_)
+                | syn::Expr::Try(_)
+                | syn::Expr::Macro(_)
+                | syn::Expr::Paren(_)
+                | syn::Expr::Group(_)
+        ) || matches!(node, syn::Expr::Binary(binary) if matches!(binary.op, syn::BinOp::And(_) | syn::BinOp::Or(_)));
+        if structured {
+            return syn::visit::visit_expr(self, node);
+        }
+        // The order in which an expression evaluates its parts is not read, so a
+        // divergence beside an exit in it is not decided.
+        let (divergences, exits) = (self.divergences.len(), self.exits.len());
+        syn::visit::visit_expr(self, node);
+        if self.exits[exits..]
+            .iter()
+            .any(|exit| exit.reach != DivergenceReach::NotCounted)
+        {
+            for divergence in &mut self.divergences[divergences..] {
+                divergence.reach = DivergenceReach::Undecided;
+            }
+        }
     }
 
-    fn visit_expr_break(&mut self, _node: &'ast syn::ExprBreak) {
-        self.found = true;
+    fn visit_expr_if(&mut self, node: &'a syn::ExprIf) {
+        let mark = self.exits.len();
+        let (deciders, then_reach, else_reach) = match unwrap_parens(&node.cond) {
+            syn::Expr::Let(binding) => {
+                self.visit_expr(&binding.expr);
+                let (deciders, reach) = self.pattern_deciders(&binding.pat, &binding.expr);
+                let else_reach = if is_irrefutable(&binding.pat) {
+                    reach.max(DivergenceReach::NotCounted)
+                } else {
+                    reach
+                };
+                (deciders, reach, else_reach)
+            }
+            condition => {
+                self.visit_expr(condition);
+                let (then_reach, else_reach) = condition_reach(condition);
+                (vec![Decider::value(condition)], then_reach, else_reach)
+            }
+        };
+        let (mut exit_deciders, exit_reach) = self.exits_since(mark);
+        exit_deciders.extend(deciders);
+        self.within(
+            exit_deciders.clone(),
+            then_reach.max(exit_reach),
+            false,
+            |visitor| visitor.visit_block(&node.then_branch),
+        );
+        if let Some((_, other)) = &node.else_branch {
+            self.within(
+                exit_deciders,
+                else_reach.max(exit_reach),
+                false,
+                |visitor| {
+                    visitor.visit_expr(other);
+                },
+            );
+        }
     }
 
-    fn visit_expr_continue(&mut self, _node: &'ast syn::ExprContinue) {
-        self.found = true;
+    fn visit_expr_match(&mut self, node: &'a syn::ExprMatch) {
+        let mark = self.exits.len();
+        self.visit_expr(&node.expr);
+        let (mut deciders, mut reach) = self.exits_since(mark);
+        for (index, arm) in node.arms.iter().enumerate() {
+            let (checks, pattern_reach) = self.pattern_deciders(&arm.pat, &node.expr);
+            deciders.extend(checks);
+            reach = reach.max(pattern_reach);
+            let mut arm_reach = reach;
+            if let Some((_, guard)) = &arm.guard {
+                deciders.push(Decider::value(guard));
+                arm_reach = arm_reach.max(condition_reach(guard).0);
+            }
+            if arms_may_exhaust(&node.arms[..index]) {
+                arm_reach = DivergenceReach::Undecided;
+            }
+            self.within(deciders.clone(), arm_reach, false, |visitor| {
+                if let Some((_, guard)) = &arm.guard {
+                    visitor.visit_expr(guard);
+                }
+                visitor.visit_expr(&arm.body);
+            });
+            // DS-1952: the arms after an irrefutable arm never run. A pattern read as
+            // irrefutable that the type may refute, or a guard made of literals whose
+            // value is not evaluated, leaves the later arms undecided.
+            if is_irrefutable(&arm.pat) {
+                let later = match arm.guard.as_ref().map(|(_, guard)| fixed_value(guard)) {
+                    None | Some(Fixed::Value(true)) => DivergenceReach::NotCounted,
+                    Some(Fixed::Literal | Fixed::Opaque) => DivergenceReach::Undecided,
+                    Some(Fixed::Value(false) | Fixed::Constant | Fixed::Open) => {
+                        DivergenceReach::Counted
+                    }
+                };
+                let later =
+                    if later == DivergenceReach::NotCounted && may_be_refuted_by_type(&arm.pat) {
+                        DivergenceReach::Undecided
+                    } else {
+                        later
+                    };
+                reach = reach.max(later);
+            }
+        }
     }
 
-    // DS-1951 names `process::exit` among the exits; any callee named `exit` is
-    // read as one.
-    fn visit_expr_call(&mut self, node: &'ast syn::ExprCall) {
+    fn visit_expr_while(&mut self, node: &'a syn::ExprWhile) {
+        let mark = self.exits.len();
+        let (deciders, reach, read) = match unwrap_parens(&node.cond) {
+            syn::Expr::Let(binding) => {
+                self.visit_expr(&binding.expr);
+                let (deciders, reach) = self.pattern_deciders(&binding.pat, &binding.expr);
+                (deciders, reach, binding.expr.as_ref())
+            }
+            condition => {
+                self.visit_expr(condition);
+                let (reach, _) = condition_reach(condition);
+                (vec![Decider::value(condition)], reach, condition)
+            }
+        };
+        let reach = if assigns_read_names(&node.body, read) {
+            DivergenceReach::Undecided
+        } else {
+            reach
+        };
+        let (mut exit_deciders, exit_reach) = self.exits_since(mark);
+        exit_deciders.extend(deciders);
+        self.within(exit_deciders, reach.max(exit_reach), true, |visitor| {
+            visitor.visit_block(&node.body);
+        });
+    }
+
+    fn visit_expr_for_loop(&mut self, node: &'a syn::ExprForLoop) {
+        let mark = self.exits.len();
+        self.visit_expr(&node.expr);
+        let reach = if assigns_read_names(&node.body, &node.expr) {
+            DivergenceReach::Undecided
+        } else {
+            loop_reach(&node.expr)
+        };
+        let (mut deciders, exit_reach) = self.exits_since(mark);
+        deciders.push(Decider::value(&node.expr));
+        self.within(deciders, reach.max(exit_reach), true, |visitor| {
+            visitor.visit_block(&node.body);
+        });
+    }
+
+    fn visit_expr_loop(&mut self, node: &'a syn::ExprLoop) {
+        self.within(Vec::new(), DivergenceReach::Counted, true, |visitor| {
+            visitor.visit_block(&node.body);
+        });
+    }
+
+    fn visit_expr_closure(&mut self, node: &'a syn::ExprClosure) {
+        self.nesting(|visitor| syn::visit::visit_expr_closure(visitor, node));
+    }
+
+    fn visit_expr_async(&mut self, node: &'a syn::ExprAsync) {
+        self.nesting(|visitor| syn::visit::visit_expr_async(visitor, node));
+    }
+
+    fn visit_item(&mut self, node: &'a syn::Item) {
+        self.nesting(|visitor| syn::visit::visit_item(visitor, node));
+    }
+
+    fn visit_local(&mut self, node: &'a syn::Local) {
+        let Some(init) = &node.init else {
+            return;
+        };
+        let mark = self.exits.len();
+        self.visit_expr(&init.expr);
+        if let Some((_, diverge)) = &init.diverge {
+            let (mut deciders, reach) = self.pattern_deciders(&node.pat, &init.expr);
+            // DS-1952: the `else` of an irrefutable pattern never runs.
+            let reach = if is_irrefutable(&node.pat) {
+                reach.max(DivergenceReach::NotCounted)
+            } else {
+                reach
+            };
+            let (exit_deciders, exit_reach) = self.exits_since(mark);
+            deciders.extend(exit_deciders);
+            self.within(deciders, reach.max(exit_reach), false, |visitor| {
+                visitor.visit_expr(diverge);
+            });
+        }
+    }
+
+    fn visit_expr_binary(&mut self, node: &'a syn::ExprBinary) {
+        if matches!(node.op, syn::BinOp::And(_) | syn::BinOp::Or(_)) {
+            self.visit_expr(&node.left);
+            self.within(Vec::new(), DivergenceReach::Undecided, false, |visitor| {
+                visitor.visit_expr(&node.right);
+            });
+        } else {
+            syn::visit::visit_expr_binary(self, node);
+        }
+    }
+
+    fn visit_expr_return(&mut self, node: &'a syn::ExprReturn) {
+        if let Some(value) = &node.expr {
+            self.visit_expr(value);
+        }
+        // DS-1951 (DS-620): `return Err(..)` from a Test that returns `Result` is a
+        // failure divergence; any other `return` is an exit (DS-1983).
+        let returns_err = self.returns_result
+            && node.expr.as_deref().is_some_and(|value| {
+                matches!(unwrap_parens(value), syn::Expr::Call(call) if constructor_name(call).as_deref() == Some("Err"))
+            });
+        if returns_err && !self.nested {
+            self.record_divergence(None);
+        } else {
+            self.record_exit(None);
+        }
+    }
+
+    fn visit_expr_break(&mut self, node: &'a syn::ExprBreak) {
+        syn::visit::visit_expr_break(self, node);
+        self.record_undecided_exit();
+    }
+
+    fn visit_expr_continue(&mut self, _node: &'a syn::ExprContinue) {
+        self.record_undecided_exit();
+    }
+
+    /// `?` leaves the function when its operand is an `Err` / `None`.
+    fn visit_expr_try(&mut self, node: &'a syn::ExprTry) {
+        self.visit_expr(&node.expr);
+        self.record_exit(Some(Decider::value(&node.expr)));
+    }
+
+    // DS-1951 names `process::exit` among the exits; any callee named `exit` is read
+    // as one.
+    fn visit_expr_call(&mut self, node: &'a syn::ExprCall) {
+        syn::visit::visit_expr_call(self, node);
         if let syn::Expr::Path(path) = node.func.as_ref() {
-            self.found |= path
+            if path
                 .path
                 .segments
                 .last()
-                .is_some_and(|segment| segment.ident == "exit");
+                .is_some_and(|segment| segment.ident == "exit")
+            {
+                self.record_exit(None);
+            }
         }
-        syn::visit::visit_expr_call(self, node);
     }
 
-    fn visit_macro(&mut self, node: &'ast syn::Macro) {
-        let known = node.path.segments.last().is_some_and(|segment| {
-            let name = segment.ident.to_string();
-            STANDARD_ASSERTION_MACROS.contains(&format!("{name}!").as_str())
-                || is_debug_assert(&name)
-                || matches!(
-                    name.as_str(),
-                    "format" | "print" | "println" | "eprint" | "eprintln" | "vec" | "matches"
-                )
-        });
-        // An argument of a known macro may still hold an exit.
-        self.found |= !known || tokens_may_exit(node.tokens.clone());
+    fn visit_macro(&mut self, node: &'a syn::Macro) {
+        if is_failure_divergence_macro(node) {
+            if let Some(start) = macro_argument_start(self.text, node) {
+                self.record_divergence(Some(start));
+            }
+        } else if macro_may_exit(node) {
+            self.record_undecided_exit();
+        }
     }
+}
+
+/// DS-1950: a failure divergence is constant when DA-001's classifier fixes every
+/// position that decides whether it runs, none included. One that never runs
+/// (DS-1952, DS-1953) is constant only then; a non-constant position of it is not
+/// shown to make it non-constant, as it does not run. One whose running is not
+/// fixed by syntax is not decided (DS-1983).
+fn divergence_constancy(divergence: &Divergence<'_>) -> Constancy {
+    if divergence.reach == DivergenceReach::Undecided {
+        return Constancy::Undetermined;
+    }
+    let mut constancy = Constancy::AllLiteral;
+    for decider in &divergence.deciders {
+        match argument_constancy(decider.base) {
+            Constancy::AllLiteral => {}
+            Constancy::Undetermined => {
+                if matches!(constancy, Constancy::AllLiteral) {
+                    constancy = Constancy::Undetermined;
+                }
+            }
+            Constancy::NotAllLiteral => {
+                return if divergence.reach == DivergenceReach::Counted {
+                    Constancy::NotAllLiteral
+                } else {
+                    Constancy::Undetermined
+                };
+            }
+        }
+    }
+    constancy
+}
+
+/// Visits the value at a deciding position with `visitor`.
+fn visit_decider(visitor: &mut CheckedCallVisitor<'_>, decider: &Decider<'_>) {
+    if decider.steps.is_empty() {
+        visitor.visit_expr(decider.base);
+        return;
+    }
+    let steps: Vec<Projection<'_>> = decider
+        .steps
+        .iter()
+        .map(|step| match step {
+            PatternStep::Member(member) => Projection::Member(member),
+            PatternStep::Index(index) => Projection::Index(Some(*index)),
+        })
+        .collect();
+    visitor.visit_projected(decider.base, &steps);
+}
+
+/// The deciding positions of the divergences that may run when they say
+/// (DS-1947), checked so that a derived value there decides: `Value` positions.
+fn counted_deciders<'d, 'a>(
+    divergences: &'d [Divergence<'a>],
+) -> impl Iterator<Item = &'d Decider<'a>> {
+    divergences
+        .iter()
+        .filter(|divergence| divergence.reach == DivergenceReach::Counted)
+        .flat_map(|divergence| &divergence.deciders)
+        .filter(|decider| decider.kind == DeciderKind::Value)
+}
+
+/// How calls of the target reach the deciding positions of the failure divergences
+/// (DS-1947), read as `CheckedCallVisitor` reads an assert's checked argument.
+#[derive(Default)]
+struct DecidedCalls {
+    path: bool,
+    method: bool,
+    delegated: bool,
+}
+
+fn divergence_target_reach(
+    divergences: &[Divergence<'_>],
+    names: &NameUse<'_>,
+    targets: &[String],
+) -> DecidedCalls {
+    let mut reach = DecidedCalls::default();
+    for decider in counted_deciders(divergences) {
+        let mut visitor = CheckedCallVisitor::new(Some(names), None, targets);
+        visit_decider(&mut visitor, decider);
+        reach.path |= visitor.path;
+        reach.method |= visitor.method;
+        reach.delegated |= visitor.delegated;
+    }
+    reach
+}
+
+/// How a binding reaches the deciding positions of the failure divergences
+/// (DS-1947), one outcome per position. A pattern that checks a part of a binding
+/// that is not the target's result as a whole is not shown to read a derived part
+/// (DS-1939), so it is `Uncertain`.
+fn divergence_binding_reach(
+    divergences: &[Divergence<'_>],
+    binding: &DerivedBinding,
+    targets: &[String],
+    overwrites: &[Vec<PlaceStep>],
+) -> Vec<BindingReach> {
+    let name = binding.name.as_str();
+    counted_deciders(divergences)
+        .map(|decider| {
+            let mut visitor = CheckedCallVisitor::new(None, Some(name), targets);
+            visitor.probe_overwrites = overwrites;
+            visit_decider(&mut visitor, decider);
+            let outcome = probe_reach(&visitor);
+            let projects_binding = !decider.steps.is_empty()
+                && matches!(strip_place(decider.base), syn::Expr::Path(path) if path.qself.is_none() && path.path.is_ident(name));
+            if projects_binding
+                && !binding.whole_result
+                && !matches!(outcome, BindingReach::NotReached)
+            {
+                BindingReach::Uncertain
+            } else {
+                outcome
+            }
+        })
+        .collect()
 }
 
 /// Whether macro tokens hold `?`, `return`, `break` or `continue` outside literals.
@@ -1234,6 +2444,7 @@ fn binding_reach(
     binding: &DerivedBinding,
     targets: &[String],
     assert_spans: &[(usize, usize)],
+    divergences: &[Divergence<'_>],
 ) -> BindingReach {
     let name = binding.name.as_str();
     let changes = if binding.mutable {
@@ -1247,7 +2458,7 @@ fn binding_reach(
     let tracked = !changes.whole && (!changes.projected || binding.whole_result);
     let overwrites: &[Vec<PlaceStep>] = if tracked { &changes.overwrites } else { &[] };
     let reaches = |outcome: &BindingReach| matches!(outcome, BindingReach::Reaches);
-    let outcomes: Vec<BindingReach> = assert_spans
+    let mut outcomes: Vec<BindingReach> = assert_spans
         .iter()
         .map(|&(start, end)| {
             span_binding_reach(
@@ -1259,6 +2470,14 @@ fn binding_reach(
             )
         })
         .collect();
+    // DS-1947: a deciding position of a failure divergence is reached as an
+    // assert's checked argument is.
+    outcomes.extend(divergence_binding_reach(
+        divergences,
+        binding,
+        targets,
+        overwrites,
+    ));
     // A name bound again or changed in place is not shown to mean this binding,
     // whether it reaches an assert directly or through a delegation target.
     let name_uncertain = || count_rebindings(text, name) > 1 || !tracked;
@@ -1364,12 +2583,18 @@ fn span_binding_reach(
         visitor.in_compared = compares;
         visitor.visit_expr(argument);
     }
-    // A use of the name where its value is dropped (`{ r; true }`, `let _ = r`, a
-    // closure body, a `match` scrutinee) does not carry it to the compared value,
-    // which is not shown to be verified either: UNKNOWN (DS-615). So does a read of
-    // an assigned position, whose value is not followed (DS-1956, DS-1966).
-    // A use that flows to the compared value decides before a use handed to a
-    // delegation target (DS-623, DS-1962).
+    probe_reach(&visitor)
+}
+
+/// How the probed name reaches the value `visitor` has visited.
+///
+/// A use of the name where its value is dropped (`{ r; true }`, `let _ = r`, a
+/// closure body, a `match` scrutinee) does not carry it to the compared value,
+/// which is not shown to be verified either: UNKNOWN (DS-615). So does a read of
+/// an assigned position, whose value is not followed (DS-1956, DS-1966).
+/// A use that flows to the compared value decides before a use handed to a
+/// delegation target (DS-623, DS-1962).
+fn probe_reach(visitor: &CheckedCallVisitor<'_>) -> BindingReach {
     if visitor.opaque || visitor.probe_rebound || visitor.probe_in_branch {
         BindingReach::Uncertain
     } else if visitor.probe_flows {
@@ -3162,11 +4387,24 @@ fn target_call_result_is_verified(
 ) -> TargetCallVerification {
     let call_sites = find_call_sites(text, symbol);
     let macro_use = macro_target_use(text, symbol, targets);
+    let function = syn::parse_str::<syn::ItemFn>(text).ok();
+    let divergences = function
+        .as_ref()
+        .map(|function| collect_divergences(text, function))
+        .unwrap_or_default();
+    // DS-1947: a call whose value flows to a position that decides whether a
+    // failure divergence runs reaches it, as a call in an assert's checked argument
+    // reaches the assert.
+    let decided = function
+        .as_ref()
+        .map_or_else(DecidedCalls::default, |function| {
+            divergence_target_reach(&divergences, &NameUse::new(text, symbol, function), targets)
+        });
     let bindings: Vec<(DerivedBinding, BindingReach)> =
         find_let_bindings_containing_call(text, symbol, targets)
             .into_iter()
             .map(|binding| {
-                let reach = binding_reach(text, &binding, targets, assert_spans);
+                let reach = binding_reach(text, &binding, targets, assert_spans, &divergences);
                 (binding, reach)
             })
             .collect();
@@ -3177,6 +4415,7 @@ fn target_call_result_is_verified(
     // assert-equivalent directly decides DA-003, and only when none does is a path
     // through a delegation target judged by §7.2.1.
     let delegated = macro_use.delegated
+        || decided.delegated
         || bindings.iter().any(|(binding, reach)| {
             matches!(reach, BindingReach::Delegated)
                 || (binding.delegated
@@ -3186,7 +4425,10 @@ fn target_call_result_is_verified(
         // Derivation (#282): a call read inside an assert verifies the target only
         // when no call outside a macro exists, so reading macro tokens never
         // clears a call that stays unverified (DS-615: it only moves toward UNKNOWN).
-        return if macro_use.verified_path || (macro_use.verified_method && !macro_use.opaque) {
+        return if macro_use.verified_path
+            || decided.path
+            || ((macro_use.verified_method || decided.method) && !macro_use.opaque)
+        {
             TargetCallVerification::Verified
         } else if delegated {
             TargetCallVerification::Delegated
@@ -3204,8 +4446,8 @@ fn target_call_result_is_verified(
     // call sites in the function does not change that. Only when no call is
     // verified this way does a call inside a loop make the outcome
     // ambiguous.
-    let mut path_verified = false;
-    let mut method_verified = false;
+    let mut path_verified = decided.path;
+    let mut method_verified = decided.method;
     for site in &call_sites {
         let call_start = site.callee_start;
         if assert_spans
@@ -6414,35 +7656,213 @@ fn real_check() {
         }
     }
 
-    /// @vtest.id TEST-ORACLE-DA-001-CONDITIONAL-DIVERGENCE-IS-UNKNOWN
-    /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_001_constant_assertion
-    /// @vtest.intent 条件・分岐・先行する return / ? / exit の後にある unreachable! は、決める位置を評価しないため DA-001 が FAIL でも違反なしでもなく UNKNOWN になり、識別子を含む assert が他にあれば違反なしになることを確認する
-    #[test]
-    fn a_divergence_under_a_condition_or_after_an_exit_is_unknown_for_da_001() {
-        for body in [
-            "    let x = double(2);\n    if x != 4 {\n        unreachable!();\n    }\n",
-            "    if true {\n        unreachable!(\"{}\", y);\n    }\n",
-            "    match double(2) {\n        4 => {}\n        _ => unreachable!(),\n    }\n",
-            "    if double(2) == 4 {\n        return;\n    }\n    unreachable!();\n",
-            "    while c() {\n        break;\n    }\n    todo!();\n",
-            "    my_macro!();\n    unimplemented!();\n",
-            "    if double(2) != 4 {\n        std::process::exit(1);\n    }\n    unreachable!();\n",
-        ] {
-            let text = format!("#[test]\nfn t() {{\n{body}}}\n");
-            let analysis = analyze(&text, &["double".to_owned()], &[]);
-            assert!(
-                matches!(analysis.da_001, DaVerdict::Unknown(_)),
-                "{text}: {:?}",
-                analysis.da_001
+    /// The composed oracle_presence state of a Test whose body is `body`, with the
+    /// targets `double`, `double_opt` and `kind`.
+    fn divergence_state(head: &str, signature: &str, body: &str) -> &'static str {
+        let text = format!("{head}#[test]\nfn t() {signature}{{\n{body}}}\n");
+        let targets = [
+            "double".to_owned(),
+            "double_opt".to_owned(),
+            "kind".to_owned(),
+        ];
+        let (fail, unknown, _) = compose(&analyze(&text, &targets, &[]));
+        if fail {
+            "FAIL"
+        } else if unknown {
+            "UNKNOWN"
+        } else {
+            "PASS"
+        }
+    }
+
+    fn assert_divergence_states(cases: &[(&str, &str, &str, &str)]) {
+        for (expected, head, signature, body) in cases {
+            assert_eq!(
+                divergence_state(head, signature, body),
+                *expected,
+                "{head}fn t() {signature}{{\n{body}}}"
             );
         }
-        let with_assert =
-            "#[test]\nfn t() {\n    let x = double(2);\n    assert_eq!(x, 4);\n    unreachable!();\n}\n";
-        assert!(matches!(
-            analyze(with_assert, &["double".to_owned()], &[]).da_001,
-            DaVerdict::NoViolation
+    }
+
+    /// @vtest.id TEST-ORACLE-DIVERGENCE-DECIDING-POSITION-REACH
+    /// @vtest.covers VO-ORACLE-DIVERGENCE-DECIDING-POSITION
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::target_call_result_is_verified
+    /// @vtest.intent target の結果が、失敗として発散する構文の実行を決める位置（条件式・ガード・scrutinee のパターン検査・while の条件・for の反復対象）に流れれば PASS になり、決める位置に派生でない値しか無いか、結果がメッセージ引数にしか流れなければ PASS にならないことを確認する
+    #[test]
+    fn a_result_in_a_deciding_position_of_a_divergence_is_verified() {
+        assert_divergence_states(&[
+            ("PASS", "", "", "    if double(2) != 4 {\n        panic!(\"bad\");\n    }\n"),
+            ("PASS", "", "", "    if double(2) == 4 {\n    } else {\n        panic!(\"bad\");\n    }\n"),
+            ("PASS", "", "", "    let r = double(2);\n    if r != 4 {\n        panic!(\"bad: {}\", r);\n    }\n"),
+            ("PASS", "", "", "    match double(2) {\n        4 => {}\n        _ => panic!(\"bad\"),\n    }\n"),
+            ("PASS", "", "", "    let Some(_v) = double_opt(2) else {\n        panic!(\"bad\");\n    };\n"),
+            ("PASS", "", "", "    if let Some(4) = double_opt(2) {\n    } else {\n        panic!(\"bad\");\n    }\n"),
+            ("PASS", "", "", "    while double(2) != 4 {\n        panic!(\"bad\");\n    }\n"),
+            ("PASS", "", "", "    for v in vec![double(2)] {\n        if v != 4 {\n            panic!(\"bad\");\n        }\n    }\n"),
+            ("PASS", "", "", "    let r = double_opt(2);\n    if !matches!(r, Some(4)) {\n        panic!(\"{:?}\", r);\n    }\n"),
+            ("PASS", "", "", "    match (double(2), 1) {\n        (4, _) => {}\n        _ => panic!(\"bad\"),\n    }\n"),
+            ("PASS", "", "", "    match Some(double(2)) {\n        Some(4) => {}\n        _ => panic!(\"bad\"),\n    }\n"),
+            ("PASS", "", "", "    let r = double(2);\n    if r == 4 {\n    } else if r > 0 {\n        panic!(\"bad\");\n    } else {\n        unreachable!();\n    }\n"),
+            ("UNKNOWN", "", "", "    let _r = double(2);\n    if !flag() {\n        panic!(\"bad\");\n    }\n"),
+            ("UNKNOWN", "", "", "    let r = double(2);\n    let k = 4;\n    if k != 4 {\n        panic!(\"{}\", r);\n    }\n"),
+            ("UNKNOWN", "", "", "    if !is_four(double(2)) {\n        panic!(\"bad\");\n    }\n"),
+            ("UNKNOWN", "", "", "    match double(2) {\n        x if x == 4 => {}\n        _ => panic!(\"bad\"),\n    }\n"),
+            ("UNKNOWN", "", "", "    match Some(double(2)) {\n        Some(_) => {}\n        None => panic!(\"bad\"),\n    }\n"),
+            ("UNKNOWN", "", "", "    let t = (double(2), 1);\n    match t {\n        (_, 1) => {}\n        _ => panic!(\"bad\"),\n    }\n"),
+            ("UNKNOWN", "", "", "    let r = double(2);\n    let _f = || {\n        if r != 4 {\n            panic!(\"bad\")\n        }\n    };\n"),
+            ("UNKNOWN", "", "", "    let r = double(2);\n    let _ = flag() && {\n        if r != 4 {\n            panic!(\"bad\");\n        }\n        true\n    };\n"),
+        ]);
+    }
+
+    /// @vtest.id TEST-ORACLE-FAILURE-DIVERGENCE-CONSTRUCTS-COUNT
+    /// @vtest.covers VO-ORACLE-FAILURE-DIVERGENCE-CONSTRUCTS
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::collect_divergences
+    /// @vtest.intent panic!・unreachable!・todo!・unimplemented!・assert!(false)・Result を返す Test の return Err(..) を失敗としての発散に数えて PASS にし、発散しない println! や return Ok(..) だけの分岐は PASS にしないことを確認する
+    #[test]
+    fn the_failure_divergence_constructs_are_counted_and_others_are_not() {
+        let mut cases = Vec::new();
+        let bodies: Vec<String> = [
+            "panic!(\"bad\")",
+            "unreachable!()",
+            "todo!()",
+            "unimplemented!()",
+            "assert!(false)",
+        ]
+        .iter()
+        .map(|divergence| format!("    if double(2) != 4 {{\n        {divergence};\n    }}\n"))
+        .collect();
+        for body in &bodies {
+            cases.push(("PASS", "", "", body.as_str()));
+        }
+        cases.push((
+            "PASS",
+            "",
+            "-> Result<(), String> ",
+            "    if double(2) != 4 {\n        return Err(\"bad\".to_string());\n    }\n    Ok(())\n",
         ));
+        cases.push((
+            "FAIL",
+            "",
+            "",
+            "    if double(2) != 4 {\n        println!(\"bad\");\n    }\n",
+        ));
+        // `Ok(..)` is a call that is not a target, so DA-003 is not FAIL either.
+        cases.push((
+            "UNKNOWN",
+            "",
+            "-> Result<(), String> ",
+            "    if double(2) != 4 {\n        return Ok(());\n    }\n    Ok(())\n",
+        ));
+        assert_divergence_states(&cases);
+    }
+
+    /// @vtest.id TEST-ORACLE-DIVERGENCE-AFTER-IRREFUTABLE-ARM-NOT-REACHED
+    /// @vtest.covers VO-ORACLE-DIVERGENCE-AFTER-IRREFUTABLE-ARM
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::collect_divergences
+    /// @vtest.intent 反駁不能な腕（_・束縛・反駁不能な if let）の後の発散は到達を数えず PASS にならず、反駁可能な腕の後なら PASS になり、型によって反駁されうる構造体パターンや判定しないガードの後は UNKNOWN になることを確認する
+    #[test]
+    fn a_divergence_after_an_irrefutable_arm_is_not_reached() {
+        assert_divergence_states(&[
+            ("FAIL", "", "", "    match double(2) {\n        _ => {}\n        _ => panic!(\"bad\"),\n    }\n"),
+            ("FAIL", "", "", "    match double(2) {\n        x => {\n            let _ = x;\n        }\n        _ => panic!(\"bad\"),\n    }\n"),
+            ("FAIL", "", "", "    if let x = double(2) {\n        let _ = x;\n    } else {\n        panic!(\"bad\");\n    }\n"),
+            ("FAIL", "", "", "    match (double(2), 1) {\n        (_, 1) => {}\n        _ => panic!(\"bad\"),\n    }\n"),
+            ("PASS", "", "", "    match double(2) {\n        4 => {}\n        _ => panic!(\"bad\"),\n    }\n"),
+            ("UNKNOWN", "", "", "    match kind(2) {\n        S { .. } => {}\n        _ => panic!(\"bad\"),\n    }\n"),
+            ("UNKNOWN", "", "", "    match double(2) {\n        _ if 1 + 1 == 2 => {}\n        _ => panic!(\"bad\"),\n    }\n"),
+        ]);
+    }
+
+    /// @vtest.id TEST-ORACLE-DIVERGENCE-UNDER-CONSTANT-FALSE-NOT-REACHED
+    /// @vtest.covers VO-ORACLE-DIVERGENCE-UNDER-CONSTANT-FALSE
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::collect_divergences
+    /// @vtest.intent 定数 false のガード・条件・while の条件や空の範囲の for の下の発散は到達を数えず PASS にならず、ガードが定数でなければ到達を数えることを確認する
+    #[test]
+    fn a_divergence_under_a_constant_false_is_not_reached() {
+        assert_divergence_states(&[
+            ("FAIL", "", "", "    match double(2) {\n        _ if false => panic!(\"bad\"),\n        _ => {}\n    }\n"),
+            ("FAIL", "", "", "    if false && double(2) != 4 {\n        panic!(\"bad\");\n    }\n"),
+            ("FAIL", "", "", "    let r = double(2);\n    if false {\n        panic!(\"{}\", r);\n    }\n"),
+            ("UNKNOWN", "", "", "    let r = double(2);\n    while false {\n        if r != 4 {\n            panic!(\"bad\");\n        }\n    }\n"),
+            ("UNKNOWN", "", "", "    let r = double(2);\n    for _ in 0..0 {\n        if r != 4 {\n            panic!(\"bad\");\n        }\n    }\n"),
+            ("PASS", "", "", "    for _ in 0..1 {\n        if double(2) != 4 {\n            panic!(\"bad\");\n        }\n    }\n"),
+            ("PASS", "", "", "    let r = double(2);\n    match r {\n        _ if r != 4 => panic!(\"bad\"),\n        _ => {}\n    }\n"),
+        ]);
+    }
+
+    /// @vtest.id TEST-ORACLE-DIVERGENCE-REACH-UNDECIDABLE-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DIVERGENCE-REACH-UNDECIDABLE
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::collect_divergences
+    /// @vtest.intent 決める位置が範囲パターンや Some / None / Ok / Err 以外の列挙子だけで検査されるか、前の腕が true と false・Some と None を両方検査するとき UNKNOWN になり、Some / None で検査される target の結果なら PASS になることを確認する
+    #[test]
+    fn a_divergence_whose_reach_is_not_decided_by_syntax_is_unknown() {
+        assert_divergence_states(&[
+            ("UNKNOWN", "", "", "    match double(2) {\n        0..=4 => {}\n        _ => panic!(\"bad\"),\n    }\n"),
+            ("UNKNOWN", "", "", "    match kind(2) {\n        Kind::A(_) => {}\n        _ => panic!(\"bad\"),\n    }\n"),
+            ("UNKNOWN", "", "", "    match kind(2) {\n        Kind::A(4) => {}\n        _ => panic!(\"bad\"),\n    }\n"),
+            ("UNKNOWN", "", "", "    const FOUR: i32 = 4;\n    match double(2) {\n        FOUR => {}\n        _ => panic!(\"bad\"),\n    }\n"),
+            ("UNKNOWN", "", "", "    match double(2) == 4 {\n        true => {}\n        false => {}\n        _ => unreachable!(),\n    }\n"),
+            ("UNKNOWN", "", "", "    match double_opt(2) {\n        Some(_) => {}\n        None => {}\n        _ => unreachable!(),\n    }\n"),
+            ("PASS", "", "", "    match double_opt(2) {\n        Some(_) => {}\n        None => panic!(\"bad\"),\n    }\n"),
+        ]);
+    }
+
+    /// @vtest.id TEST-ORACLE-DIVERGENCE-AFTER-EXIT-DECIDED-BY-EXIT
+    /// @vtest.covers VO-ORACLE-DIVERGENCE-AFTER-EXIT
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::collect_divergences
+    /// @vtest.intent 発散より前の return / ? の実行を target の結果が決めれば PASS になり、無条件か定数条件の return の後の発散は PASS にならず、ループの中の return・break・continue、展開を読まないマクロ、ループ本体で代入される条件の後は UNKNOWN になることを確認する
+    #[test]
+    fn an_exit_before_a_divergence_decides_its_reach() {
+        assert_divergence_states(&[
+            ("PASS", "", "", "    if double(2) == 4 {\n        return;\n    }\n    panic!(\"bad\");\n"),
+            ("PASS", "", "-> Result<(), ()> ", "    let v: i32 = \"4\".parse().map_err(|_| ())?;\n    if double(2) != v {\n        panic!(\"bad\");\n    }\n    Ok(())\n"),
+            ("UNKNOWN", "", "", "    let r = double(2);\n    return;\n    if r != 4 {\n        panic!(\"bad\");\n    }\n"),
+            ("UNKNOWN", "", "", "    let r = double(2);\n    if true {\n        return;\n    }\n    if r != 4 {\n        panic!(\"bad\");\n    }\n"),
+            ("UNKNOWN", "", "", "    loop {\n        if double(2) == 4 {\n            break;\n        }\n        panic!(\"bad\");\n    }\n"),
+            ("UNKNOWN", "", "", "    for v in [1] {\n        if v + double(2) == 5 {\n            return;\n        }\n    }\n    panic!(\"bad\");\n"),
+            ("UNKNOWN", "", "", "    'outer: for _ in 0..1 {\n        if double(2) == 4 {\n            continue 'outer;\n        }\n        panic!(\"bad\");\n    }\n"),
+            ("UNKNOWN", "", "", "    let mut i = 0;\n    while i != double(2) {\n        i += 1;\n        if i > 10 {\n            panic!(\"bad\");\n        }\n    }\n"),
+            ("UNKNOWN", "", "", "    dbg!(1);\n    if double(2) != 4 {\n        panic!(\"bad\");\n    }\n"),
+            ("UNKNOWN", "", "", "    let r = double(2);\n    let _ = (if r == 4 { return } else { 1 }, if r != 4 { panic!(\"bad\") } else { 2 });\n"),
+        ]);
+    }
+
+    /// @vtest.id TEST-ORACLE-DA-001-DIVERGENCE-CONSTANCY-BY-DECIDER
+    /// @vtest.covers VO-ORACLE-DIVERGENCE-CONSTANCY-BY-DECIDING-POSITION
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_001_constant_assertion
+    /// @vtest.intent 失敗として発散する構文の DA-001 の定数性を決める位置で判定し、決める位置に定数でない値があれば違反なし、決める位置が無いか定数だけなら FAIL、決める位置を評価できなければ UNKNOWN になることを確認する
+    #[test]
+    fn da_001_decides_a_divergence_by_its_deciding_positions() {
+        let da_001 = |body: &str| {
+            let text = format!("#[test]\nfn t() {{\n{body}}}\n");
+            analyze(&text, &["double".to_owned()], &[]).da_001
+        };
+        for body in [
+            "    let x = double(2);\n    if x != 4 {\n        unreachable!();\n    }\n",
+            "    match double(2) {\n        4 => {}\n        _ => unreachable!(),\n    }\n",
+            "    if double(2) == 4 {\n        return;\n    }\n    unreachable!();\n",
+            "    if double(2) != 4 {\n        std::process::exit(1);\n    }\n    unreachable!();\n",
+            "    let x = double(2);\n    assert_eq!(x, 4);\n    unreachable!();\n",
+        ] {
+            assert!(matches!(da_001(body), DaVerdict::NoViolation), "{body}");
+        }
+        for body in [
+            "    if true {\n        unreachable!(\"{}\", y);\n    }\n",
+            "    match r {\n        _ => unreachable!(),\n    }\n",
+            "    {\n        unreachable!()\n    }\n",
+            "    let x: i32 = todo!();\n",
+            "    if false {\n        panic!(\"{}\", y);\n    }\n",
+        ] {
+            assert!(matches!(da_001(body), DaVerdict::Fail(_)), "{body}");
+        }
+        for body in [
+            "    while c() {\n        break;\n    }\n    todo!();\n",
+            "    my_macro!();\n    unimplemented!();\n",
+            "    match double(2) {\n        0..=4 => {}\n        _ => unreachable!(),\n    }\n",
+        ] {
+            assert!(matches!(da_001(body), DaVerdict::Unknown(_)), "{body}");
+        }
     }
 
     /// @vtest.id TEST-ORACLE-DA-001-DIVERGENCE-WITH-UNWRAP-IS-NOT-CONSTANT
