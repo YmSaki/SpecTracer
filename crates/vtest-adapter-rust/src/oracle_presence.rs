@@ -625,7 +625,8 @@ impl StaticAnalysisAdapter for RustCargoStaticAnalysisAdapter {
             .test
             .targets
             .iter()
-            .map(|_| TargetReach {
+            .map(|target| TargetReach {
+                target: target.clone(),
                 outcome: ReachOutcome::Unknown,
                 reason: "static target reachability (DA-002) is not implemented by rust-cargo; \
                          only runtime measurement can establish it (DS-612/DS-613)"
@@ -668,19 +669,23 @@ impl StaticAnalysisAdapter for RustCargoStaticAnalysisAdapter {
             });
         };
         push(&mut out, "DA-001", None, &whole.da_001);
-        let reach = self.target_reach(input);
-        for (target, reach) in input.test.targets.iter().zip(reach) {
-            let label = match target {
+        for TargetReach {
+            target,
+            outcome,
+            reason,
+        } in self.target_reach(input)
+        {
+            let label = match &target {
                 TargetRef::Locator(locator) => locator.value.clone(),
                 TargetRef::SrcId(src_id) => src_id.as_str().to_owned(),
             };
             out.push(RuleVerdict {
                 rule: "DA-002".to_owned(),
                 target: Some(label.clone()),
-                outcome: reach.outcome.into(),
-                reason: reach.reason,
+                outcome: outcome.into(),
+                reason,
             });
-            let da_003 = match target {
+            let da_003 = match &target {
                 TargetRef::Locator(locator) => analyze_da_003_for(
                     input.construct_text,
                     &target_symbol(locator),

@@ -575,8 +575,9 @@ pub struct AdapterDescriptor {
 ///
 /// `file_text` is the whole text of the file that holds the Test construct,
 /// read from the same bytes as `construct_text` (`test.location.byte_range`
-/// places the construct in it). DA-002 searches the helpers that file defines
-/// (DS-622, DS-659). It is `None` when the file is not valid UTF-8 as a whole;
+/// places the construct in it). DES-408's input list does not name it; it is
+/// derived from DS-622 and DS-659, under which DA-002 searches the helpers that
+/// file defines. It is `None` when the file is not valid UTF-8 as a whole;
 /// an adapter then proves no reach through a helper.
 #[derive(Clone, Copy, Debug)]
 pub struct StaticAnalysisInput<'a> {
@@ -611,9 +612,11 @@ impl From<ReachOutcome> for RuleOutcome {
 }
 
 /// DS-630/DS-671: DA-002's verdict for one declared target, reported in the
-/// order of `test.targets`.
+/// order of `test.targets`. `target` names the target it is for, so a caller
+/// can check that no verdict is taken for another target (DS-1363).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TargetReach {
+    pub target: TargetRef,
     pub outcome: ReachOutcome,
     pub reason: String,
 }
@@ -681,15 +684,17 @@ pub trait StaticAnalysisAdapter {
     }
 
     /// DS-622/DS-671/DS-675: DA-002, one verdict per declared target in the
-    /// order of `input.test.targets`. `target_binding` and `audit static`
-    /// both read it. The default proves no reach: every target is `Unknown`
-    /// (DS-612), which leaves reach to runtime measurement (DS-613).
+    /// order of `input.test.targets`, read by `target_binding`. An adapter
+    /// that reports DA-002 in `audit_rules` takes those rows from here, so the
+    /// two do not differ. The default proves no reach: every target is
+    /// `Unknown` (DS-612), which leaves reach to runtime measurement (DS-613).
     fn target_reach(&self, input: StaticAnalysisInput<'_>) -> Vec<TargetReach> {
         input
             .test
             .targets
             .iter()
-            .map(|_| TargetReach {
+            .map(|target| TargetReach {
+                target: target.clone(),
                 outcome: ReachOutcome::Unknown,
                 reason: "this adapter does not analyze static target reachability (DA-002); \
                          only runtime measurement can establish it (DS-612/DS-613)"

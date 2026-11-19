@@ -1,0 +1,11 @@
+id: VO-VERIFY-TARGET-REACH-PER-TARGET-NOT-CONFUSED
+parent: null
+derives_from:
+  - doc: DS-1363
+claim: '到達判定はtarget別に行い、AとBのstatic verdictを取り違えない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-20T12:00:00+09:00
+updated: 2026-11-20T12:00:00+09:00
