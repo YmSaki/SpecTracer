@@ -531,14 +531,9 @@ pub fn bundle(
                 targets.push(entry);
             }
             let static_analysis = match registry.static_analysis(test.execution.adapter.as_str()) {
-                Some(analyzer) => match source_text(root, &test.location) {
-                    Some(text) => {
-                        let rules = analyzer.audit_rules(vtest_adapter_api::StaticAnalysisInput {
-                            test,
-                            construct_text: &text,
-                            content_hash: &test.content_hash,
-                            extra_assertion_macros: &[],
-                        });
+                Some(analyzer) => match vtest_verify::read_test_source(root, &test.location) {
+                    Some(source) => {
+                        let rules = analyzer.audit_rules(source.input(test, &[]));
                         json!({"rules": rules.iter().map(|rule| json!({
                             "rule": rule.rule,
                             "target": rule.target,

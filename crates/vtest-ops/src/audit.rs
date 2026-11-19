@@ -11,7 +11,7 @@
 
 use std::path::Path;
 
-use vtest_adapter_api::{AdapterRegistry, StaticAnalysisInput};
+use vtest_adapter_api::AdapterRegistry;
 use vtest_model::{Diagnostic, TestEntity};
 use vtest_scan::{ScanResult, TestIdLookup};
 use vtest_store::VerifyLayout;
@@ -202,7 +202,7 @@ fn audit_one(
         rules: Vec::new(),
         not_analyzed: None,
     };
-    let Some(text) = vtest_verify::read_construct_text(root, &test.location) else {
+    let Some(source) = vtest_verify::read_test_source(root, &test.location) else {
         audit.not_analyzed = Some("the Test construct's source bytes could not be read".to_owned());
         return audit;
     };
@@ -210,12 +210,7 @@ fn audit_one(
         .get(adapter_id)
         .cloned()
         .unwrap_or_default();
-    let verdicts = analyzer.audit_rules(StaticAnalysisInput {
-        test,
-        construct_text: &text,
-        content_hash: &test.content_hash,
-        extra_assertion_macros: &extra,
-    });
+    let verdicts = analyzer.audit_rules(source.input(test, &extra));
     if verdicts.is_empty() {
         audit.not_analyzed = Some("adapter reports no rule-level verdicts".to_owned());
     }
