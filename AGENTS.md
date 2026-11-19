@@ -235,7 +235,7 @@ adapter はコンポジションルート（`crates/vtest-ops/src/registry.rs` �
 3. `AdapterRegistry::register` の `Err`（adapter ID の重複、宣言した capability と実装の不一致）は、黙殺せず呼び出し元へ伝播させ、`E-ADAPTER-001` の usage failure にする。
 4. 登録の順序は出力に影響させない。`vtest-scan` が adapter ID の辞書順に正規化する（DES-231）。
 5. 言語を追加する PR は、登録行と自分の言語のファイルだけを変える（第 9 節）。登録行の競合は統合担当が解消する。
-6. 正典の範囲外の adapter（現在は `rust-cargo` 以外の言語 adapter。REQ-264、SPEC-218、SPEC-361、SPEC-458）を production として扱うには、先に spec PR が必要です。実験的に登録するときは `docs/adapters/` に実験的であることを書く。
+6. 正典の範囲外の adapter（現在は `rust-cargo`、`go`、`javascript` 以外の言語 adapter。REQ-264、SPEC-218、SPEC-361、SPEC-458）を production として扱うには、先に spec PR が必要です。実験的に登録するときは `docs/adapters/` に実験的であることを書く。
 
 ### 4.4 境界を越えるデータのスキーマ
 
@@ -415,7 +415,7 @@ crates/<crate>/
 
 | 関心事 | 内容 | 配置 |
 | --- | --- | --- |
-| 正典の範囲 | `rust-cargo` 以外の production adapter は v0.1 の範囲外（REQ-264 など）。実験的として扱うか、先に spec PR を出すかを Owner に確認する | `kind/decision` の Issue |
+| 正典の範囲 | production adapter は `rust-cargo`、`go`、`javascript` の 3 つで、ほかの言語は v0.1 の範囲外（REQ-264 など）。実験的として扱うか、先に spec PR を出すかを Owner に確認する | `kind/decision` の Issue |
 | 言語固有の処理 | Go のコメントと文字列の構文、関数と本文の範囲、名前と scope を読み、`FileItems` を返す | `crates/vtest-adapter-lexical/src/go.rs`（他の言語のファイルを変えない） |
 | 意味が同じ処理 | `@vtest.` の文法、括弧の対応付け、コメントと次の construct の結び付け | 既存の `annotation.rs`、`shared.rs` を呼ぶ。足りなければ第 9.3 節の手順で比較してから足す |
 | adapter の登録 | `vtest_adapter_lexical::go::adapter()` を登録する | コンポジションルート（`vtest-ops/src/registry.rs`）の 1 行 |
