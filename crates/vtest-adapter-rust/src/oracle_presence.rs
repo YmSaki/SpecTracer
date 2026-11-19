@@ -381,7 +381,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use quote::ToTokens;
 use syn::{spanned::Spanned, visit::Visit};
 use vtest_adapter_api::{
-    RuleOutcome, RuleVerdict, StaticAnalysisAdapter, StaticAnalysisInput, StaticAnalysisVerdict,
+    ReachOutcome, RuleOutcome, RuleVerdict, StaticAnalysisAdapter, StaticAnalysisInput,
+    StaticAnalysisVerdict, TargetReach,
 };
 use vtest_model::{Diagnostic, Locator, TargetRef};
 
@@ -616,13 +617,28 @@ impl StaticAnalysisAdapter for RustCargoStaticAnalysisAdapter {
         }
     }
 
-    /// SPEC-387/DS-1208: DA-001/004/005/006 are Test-scoped; DA-002 and
-    /// DA-003 are reported once per declared target (DS-630).
-    ///
     /// DA-002 (static reachability, DS-622) is not implemented by this
     /// adapter, so every target reports `UNKNOWN` for it — the analysis
-    /// boundary, never "not called" (DS-612). `SrcId` targets are not
-    /// resolved to a symbol here, so their DA-003 is `UNKNOWN` too.
+    /// boundary, never "not called" (DS-612).
+    fn target_reach(&self, input: StaticAnalysisInput<'_>) -> Vec<TargetReach> {
+        input
+            .test
+            .targets
+            .iter()
+            .map(|_| TargetReach {
+                outcome: ReachOutcome::Unknown,
+                reason: "static target reachability (DA-002) is not implemented by rust-cargo; \
+                         only runtime measurement can establish it (DS-612/DS-613)"
+                    .to_owned(),
+            })
+            .collect()
+    }
+
+    /// SPEC-387/DS-1208: DA-001/004/005/006 are Test-scoped; DA-002 and
+    /// DA-003 are reported once per declared target (DS-630). DA-002 comes
+    /// from `target_reach`, the verdict `target_binding` reads (DS-675).
+    /// `SrcId` targets are not resolved to a symbol here, so their DA-003 is
+    /// `UNKNOWN`.
     fn audit_rules(&self, input: StaticAnalysisInput<'_>) -> Vec<RuleVerdict> {
         let symbols: Vec<String> = input
             .test
@@ -652,21 +668,18 @@ impl StaticAnalysisAdapter for RustCargoStaticAnalysisAdapter {
             });
         };
         push(&mut out, "DA-001", None, &whole.da_001);
-        for target in &input.test.targets {
+        let reach = self.target_reach(input);
+        for (target, reach) in input.test.targets.iter().zip(reach) {
             let label = match target {
                 TargetRef::Locator(locator) => locator.value.clone(),
                 TargetRef::SrcId(src_id) => src_id.as_str().to_owned(),
             };
-            push(
-                &mut out,
-                "DA-002",
-                Some(label.clone()),
-                &DaVerdict::Unknown(
-                    "static target reachability (DA-002) is not implemented by rust-cargo; only \
-                     runtime measurement can establish it (DS-612/DS-613)"
-                        .to_owned(),
-                ),
-            );
+            out.push(RuleVerdict {
+                rule: "DA-002".to_owned(),
+                target: Some(label.clone()),
+                outcome: reach.outcome.into(),
+                reason: reach.reason,
+            });
             let da_003 = match target {
                 TargetRef::Locator(locator) => analyze_da_003_for(
                     input.construct_text,
@@ -10628,6 +10641,7 @@ mod tests {
             RustCargoStaticAnalysisAdapter::new().analyze(StaticAnalysisInput {
                 test: &test,
                 construct_text: construct,
+                file_text: Some(construct),
                 content_hash: &hash,
                 extra_assertion_macros: &[],
             })

@@ -572,12 +572,50 @@ pub struct AdapterDescriptor {
 /// 引き回さない。「選択adapterの現在config」は config namespace の型
 /// （本 PR 範囲外）を新設せず、現在の唯一の消費対象（DS-617
 /// `assertion_macros`）だけをプレーンな `Vec<String>` として渡す。
-#[derive(Debug)]
+///
+/// `file_text` is the whole text of the file that holds the Test construct,
+/// read from the same bytes as `construct_text` (`test.location.byte_range`
+/// places the construct in it). DA-002 searches the helpers that file defines
+/// (DS-622, DS-659). It is `None` when the file is not valid UTF-8 as a whole;
+/// an adapter then proves no reach through a helper.
+#[derive(Clone, Copy, Debug)]
 pub struct StaticAnalysisInput<'a> {
     pub test: &'a TestEntity,
     pub construct_text: &'a str,
+    pub file_text: Option<&'a str>,
     pub content_hash: &'a ContentHash,
     pub extra_assertion_macros: &'a [String],
+}
+
+/// DS-666/DS-676/DS-678: one declared target's DA-002 verdict. `Pass` is
+/// "the call is confirmed within the analysis boundary"; `Unknown` only means
+/// the boundary does not prove reach (DS-612), never that the target is not
+/// called.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ReachOutcome {
+    Pass,
+    Fail,
+    Unknown,
+}
+
+impl From<ReachOutcome> for RuleOutcome {
+    /// DA-002's rule-level form for `audit static` (DS-1074/DS-1075): a target
+    /// whose call is confirmed has no "対象未呼出" violation.
+    fn from(outcome: ReachOutcome) -> Self {
+        match outcome {
+            ReachOutcome::Pass => Self::NoViolation,
+            ReachOutcome::Fail => Self::Fail,
+            ReachOutcome::Unknown => Self::Unknown,
+        }
+    }
+}
+
+/// DS-630/DS-671: DA-002's verdict for one declared target, reported in the
+/// order of `test.targets`.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TargetReach {
+    pub outcome: ReachOutcome,
+    pub reason: String,
 }
 
 /// DS-606/607/608 が合成する `oracle_presence` の3値判定。
@@ -640,6 +678,24 @@ pub trait StaticAnalysisAdapter {
     fn audit_rules(&self, input: StaticAnalysisInput<'_>) -> Vec<RuleVerdict> {
         let _ = input;
         Vec::new()
+    }
+
+    /// DS-622/DS-671/DS-675: DA-002, one verdict per declared target in the
+    /// order of `input.test.targets`. `target_binding` and `audit static`
+    /// both read it. The default proves no reach: every target is `Unknown`
+    /// (DS-612), which leaves reach to runtime measurement (DS-613).
+    fn target_reach(&self, input: StaticAnalysisInput<'_>) -> Vec<TargetReach> {
+        input
+            .test
+            .targets
+            .iter()
+            .map(|_| TargetReach {
+                outcome: ReachOutcome::Unknown,
+                reason: "this adapter does not analyze static target reachability (DA-002); \
+                         only runtime measurement can establish it (DS-612/DS-613)"
+                    .to_owned(),
+            })
+            .collect()
     }
 }
 
