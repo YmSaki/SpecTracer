@@ -301,6 +301,13 @@
 //! - `debug_assert!` / `debug_assert_eq!` / `debug_assert_ne!` are not
 //!   assert-equivalents, also when the config lists them (DS-1954): they make
 //!   DA-003 and DA-006 `Unknown` where they are the only check.
+//! - DA-003 counts a target call and an assert-equivalent only at DS-1962's counted
+//!   positions: outside the closures, `async` blocks and nested items of the Test
+//!   body. An assert, a `.unwrap()` / `.expect(..)` / `?` chain or a binding in one of
+//!   those never verifies the target. A target call there makes DA-003 `Unknown`
+//!   when no result of a counted call reaches an assert-equivalent, and an
+//!   assert-equivalent there keeps DA-003 from `Fail`, since a derived value may flow
+//!   into it (DS-1944). DA-001 and DA-006 still read every assert macro.
 
 use quote::ToTokens;
 use syn::{spanned::Spanned, visit::Visit};
@@ -389,7 +396,8 @@ pub fn analyze(
     target_symbols: &[String],
     extra_assertion_macros: &[String],
 ) -> OraclePresenceAnalysis {
-    let assert_spans = find_assert_spans(construct_text, &assertion_macros(extra_assertion_macros));
+    let macros = assertion_macros(extra_assertion_macros);
+    let assert_spans = find_assert_spans(construct_text, &macros);
     let syntax = RustFunctionSyntax::parse(construct_text);
     let has_should_panic = syntax
         .as_ref()
@@ -419,7 +427,7 @@ pub fn analyze(
             construct_text,
             target_symbols,
             target_symbols,
-            &assert_spans,
+            &macros,
             has_should_panic,
         ),
         da_004: da_004_self_comparison(construct_text),
@@ -437,7 +445,6 @@ fn analyze_da_003_for(
     all_targets: &[String],
     extra_assertion_macros: &[String],
 ) -> DaVerdict {
-    let assert_spans = find_assert_spans(construct_text, &assertion_macros(extra_assertion_macros));
     let has_should_panic = RustFunctionSyntax::parse(construct_text)
         .as_ref()
         .is_some_and(RustFunctionSyntax::has_should_panic);
@@ -445,7 +452,7 @@ fn analyze_da_003_for(
         construct_text,
         &[symbol.to_owned()],
         all_targets,
-        &assert_spans,
+        &assertion_macros(extra_assertion_macros),
         has_should_panic,
     )
 }
@@ -2638,9 +2645,20 @@ fn da_003_result_unverified(
     text: &str,
     target_symbols: &[String],
     all_targets: &[String],
-    assert_spans: &[(usize, usize)],
+    macros: &[&str],
     has_should_panic: bool,
 ) -> DaVerdict {
+    let every_assert = find_assert_spans(text, macros);
+    // DS-1962: only an assert-equivalent at a counted position is a destination of
+    // DA-003. One in a closure, an `async` block or a nested item still keeps DA-003
+    // from failing below, since a derived value may flow there (DS-1944).
+    let regions = non_counted_regions(text);
+    let counted_asserts: Vec<(usize, usize)> = every_assert
+        .iter()
+        .copied()
+        .filter(|&(start, _)| !in_regions(start, &regions))
+        .collect();
+    let assert_spans = counted_asserts.as_slice();
     if target_symbols.is_empty() {
         // No declared target to check a call against; DA-003 has no
         // subject. (This capability only reaches Tests with at least one
@@ -2661,9 +2679,14 @@ fn da_003_result_unverified(
     let mut any_delegated = false;
     let mut any_into_target = false;
     let mut any_debug_assert = false;
+    let mut any_not_counted = false;
     for symbol in target_symbols {
-        match target_call_result_is_verified(text, symbol, all_targets, assert_spans) {
+        match target_call_result_is_verified(text, symbol, all_targets, assert_spans, &regions) {
             TargetCallVerification::NotCalled => {}
+            TargetCallVerification::NotCounted => {
+                any_call_found = true;
+                any_not_counted = true;
+            }
             TargetCallVerification::Delegated => {
                 any_call_found = true;
                 any_delegated = true;
@@ -2719,8 +2742,9 @@ fn da_003_result_unverified(
             || any_ambiguous
             || any_binding_uncertain
             || any_into_target
-            || any_macro_opaque)
-        && assert_spans.is_empty()
+            || any_macro_opaque
+            || any_not_counted)
+        && every_assert.is_empty()
         && !has_non_target_call(text, target_symbols)
     {
         return DaVerdict::Fail(
@@ -2793,6 +2817,17 @@ fn da_003_result_unverified(
                 .to_owned(),
         );
     }
+    if any_not_counted {
+        // DS-1962, DS-1944: a call in a closure that is not tracked, an `async` block
+        // or a nested item may run or not, and its result flows nowhere counted.
+        return DaVerdict::Unknown(
+            "a declared target is called only where DS-1962 does not count a call (in a \
+             closure that DS-1941 does not track, an `async` block or a nested item), and no \
+             result of a call at a counted position reaches an assert-equivalent, so the \
+             result is neither shown verified nor shown unverified (DS-1944, DS-1962)"
+                .to_owned(),
+        );
+    }
     if any_unidentified {
         // Derivation (not stated in DS-1680 / DS-615 / DS-623): a method call is
         // matched to the target by name only; the receiver's type is not
@@ -2858,7 +2893,7 @@ fn da_003_result_unverified(
         // delegation target, which differs from this reading (cf. DS-650's
         // self-delegation).
         // The case with no other call returned FAIL above.
-        if assert_spans.is_empty() {
+        if every_assert.is_empty() {
             return DaVerdict::Unknown(
                 "a call other than the declared target is a delegation target of this Test \
                  (DS-642) and its termination (§7.2.1) is not confirmed, so the result is \
@@ -2928,6 +2963,9 @@ impl<'ast> Visit<'ast> for NonTargetCallVisitor<'_> {
 
 enum TargetCallVerification {
     NotCalled,
+    /// No call at a counted position reaches an assert-equivalent, and the target is
+    /// called where DS-1962 does not count a call.
+    NotCounted,
     Verified,
     Unverified,
     Ambiguous,
@@ -3232,6 +3270,9 @@ struct MacroUse {
     /// A call whose value flows into a delegation target in a checked argument of
     /// an assert (DS-1960).
     delegated: bool,
+    /// A use of the name in the tokens of a macro where DS-1962 does not count a call
+    /// (in a closure, an `async` block or a nested item).
+    non_counted: bool,
 }
 
 /// Derivation (not stated in DS-615 / DS-651 / DS-1680): a macro's tokens are not
@@ -3249,7 +3290,12 @@ struct MacroUse {
 /// a call outside a macro that stays unverified, and a verified method call
 /// (matched by name only) does not clear an `opaque` name that may be a
 /// function call.
-fn macro_target_use(text: &str, symbol: &str, targets: &[String]) -> MacroUse {
+fn macro_target_use(
+    text: &str,
+    symbol: &str,
+    targets: &[String],
+    regions: &[(usize, usize)],
+) -> MacroUse {
     let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
         return MacroUse::default();
     };
@@ -3257,6 +3303,7 @@ fn macro_target_use(text: &str, symbol: &str, targets: &[String]) -> MacroUse {
     let mut visitor = MacroUseVisitor {
         names: &names,
         targets,
+        regions,
         found: MacroUse::default(),
     };
     visitor.visit_item_fn(&function);
@@ -3433,12 +3480,21 @@ impl<'ast> Visit<'ast> for ValueUseVisitor<'_> {
 struct MacroUseVisitor<'a> {
     names: &'a NameUse<'a>,
     targets: &'a [String],
+    /// DS-1962's regions that are not counted.
+    regions: &'a [(usize, usize)],
     found: MacroUse,
 }
 
 impl<'ast> Visit<'ast> for MacroUseVisitor<'_> {
     fn visit_macro(&mut self, node: &'ast syn::Macro) {
         if !self.names.tokens_use_name(node.tokens.clone()) {
+            return;
+        }
+        if in_regions(
+            span_offset(node.span().start(), self.names.text),
+            self.regions,
+        ) {
+            self.found.non_counted = true;
             return;
         }
         let is_assert = node.path.segments.last().is_some_and(|segment| {
@@ -4997,9 +5053,16 @@ fn target_call_result_is_verified(
     symbol: &str,
     targets: &[String],
     assert_spans: &[(usize, usize)],
+    regions: &[(usize, usize)],
 ) -> TargetCallVerification {
-    let call_sites = find_call_sites(text, symbol);
-    let macro_use = macro_target_use(text, symbol, targets);
+    // DS-1962: a call in a closure that is not tracked, an `async` block or a nested
+    // item is not counted. It never verifies the target, and when no counted call
+    // does, it makes DA-003 UNKNOWN rather than FAIL.
+    let (non_counted_sites, call_sites): (Vec<CallSite>, Vec<CallSite>) =
+        find_call_sites(text, symbol)
+            .into_iter()
+            .partition(|site| in_regions(site.callee_start, regions));
+    let macro_use = macro_target_use(text, symbol, targets, regions);
     let function = syn::parse_str::<syn::ItemFn>(text).ok();
     let divergences = function
         .as_ref()
@@ -5014,7 +5077,7 @@ fn target_call_result_is_verified(
             divergence_target_reach(&divergences, &NameUse::new(text, symbol, function), targets)
         });
     let bindings: Vec<(DerivedBinding, BindingReach)> =
-        find_let_bindings_containing_call(text, symbol, targets)
+        find_let_bindings_containing_call(text, symbol, targets, regions)
             .into_iter()
             .map(|binding| {
                 let reach = binding_reach(text, &binding, targets, assert_spans, &divergences);
@@ -5049,6 +5112,8 @@ fn target_call_result_is_verified(
             // A verified method call is matched by name only: it does not clear a
             // call that a macro may make as a function.
             TargetCallVerification::MacroOpaque
+        } else if !non_counted_sites.is_empty() || macro_use.non_counted {
+            TargetCallVerification::NotCounted
         } else {
             TargetCallVerification::NotCalled
         };
@@ -5121,6 +5186,9 @@ fn target_call_result_is_verified(
     }
     if macro_use.opaque {
         return TargetCallVerification::MacroOpaque;
+    }
+    if !non_counted_sites.is_empty() || macro_use.non_counted {
+        return TargetCallVerification::NotCounted;
     }
     let loop_bodies = loop_body_spans(text);
     if call_sites.iter().any(|site| {
@@ -5236,6 +5304,49 @@ fn loop_body_spans(text: &str) -> Vec<(usize, usize)> {
 struct LoopBodyVisitor<'a> {
     text: &'a str,
     spans: Vec<(usize, usize)>,
+}
+
+/// The byte spans of the closures, `async` blocks and nested items of the Test body:
+/// DS-1962's positions that are not counted.
+fn non_counted_regions(text: &str) -> Vec<(usize, usize)> {
+    struct Regions<'a> {
+        text: &'a str,
+        spans: Vec<(usize, usize)>,
+    }
+    impl Regions<'_> {
+        fn record(&mut self, span: proc_macro2::Span) {
+            self.spans.push((
+                span_offset(span.start(), self.text),
+                span_offset(span.end(), self.text),
+            ));
+        }
+    }
+    impl<'ast> Visit<'ast> for Regions<'_> {
+        fn visit_expr_closure(&mut self, node: &'ast syn::ExprClosure) {
+            self.record(node.span());
+        }
+        fn visit_expr_async(&mut self, node: &'ast syn::ExprAsync) {
+            self.record(node.span());
+        }
+        fn visit_item(&mut self, node: &'ast syn::Item) {
+            self.record(node.span());
+        }
+    }
+    let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
+        return Vec::new();
+    };
+    let mut regions = Regions {
+        text,
+        spans: Vec::new(),
+    };
+    regions.visit_block(&function.block);
+    regions.spans
+}
+
+fn in_regions(offset: usize, regions: &[(usize, usize)]) -> bool {
+    regions
+        .iter()
+        .any(|&(start, end)| offset >= start && offset < end)
 }
 
 impl LoopBodyVisitor<'_> {
@@ -5359,6 +5470,7 @@ fn find_let_bindings_containing_call(
     text: &str,
     symbol: &str,
     targets: &[String],
+    regions: &[(usize, usize)],
 ) -> Vec<DerivedBinding> {
     let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
         return Vec::new();
@@ -5370,6 +5482,11 @@ fn find_let_bindings_containing_call(
         bindings: Vec::new(),
     };
     visitor.visit_item_fn(&function);
+    // DS-1962: a `let` that is not at a counted position holds a call that is not
+    // counted, which `target_call_result_is_verified` reads as such.
+    visitor
+        .bindings
+        .retain(|binding| !in_regions(binding.offset, regions));
     visitor.bindings
 }
 
@@ -5389,6 +5506,8 @@ struct DerivedBinding {
     /// The initializer is the target's result as a whole, so every position of the
     /// binding is derived (DS-1939).
     whole_result: bool,
+    /// Byte offset of the binding statement.
+    offset: usize,
 }
 
 /// Whether `expression` is a call of the target, or a method chain, `?`, `.await` or
@@ -5428,6 +5547,7 @@ impl<'ast> Visit<'ast> for LetBindingVisitor<'_> {
                     delegated: calls.delegated,
                     mutable: pattern.mutability.is_some(),
                     whole_result: is_whole_result(&init.expr, self.names.symbol),
+                    offset: span_offset(node.span().start(), self.names.text),
                 });
             }
         }
@@ -8861,5 +8981,49 @@ fn real_check() {
         let analysis = analyze(checked, &["double".to_owned()], &[]);
         assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
         assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
+    }
+
+    /// DA-003 of a Test whose declared targets are `double` and `maybe`.
+    fn da_003_of_two(body: &str) -> DaVerdict {
+        let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+        analyze(&text, &["double".to_owned(), "maybe".to_owned()], &[]).da_003
+    }
+
+    /// DS-1962 / DS-1944: a call and an assert-equivalent in a closure that is not
+    /// tracked, an `async` block or a nested item are not counted. Such a call makes
+    /// DA-003 UNKNOWN, never FAIL or no violation, unless a counted call's result
+    /// reaches a counted assert-equivalent.
+    /// @vtest.id TEST-ORACLE-DA-003-COUNTED-POSITIONS
+    /// @vtest.covers VO-ORACLE-DA-003-COUNTED-POSITIONS, VO-ORACLE-DA-003-UNTRACKED-CLOSURE-UNKNOWN
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent 呼ばれないクロージャ・関数へ渡すクロージャ・async ブロック・入れ子の関数の中の target 呼出と assert 相当（`?` を含む）では DA-003 が違反なしにも FAIL にもならず UNKNOWN になり、数える位置の呼出の結果が数える位置の assert に届けば、数える位置にない呼出があっても違反なしになることを確認する
+    #[test]
+    fn only_calls_and_asserts_at_counted_positions_decide_da_003() {
+        for body in [
+            "let _check = || assert_eq!(double(2), 4);",
+            "let r = double(2); let _check = || assert_eq!(r, 4);",
+            "let r: Option<()> = None::<i32>.map(|x| assert_eq!(double(x), 4)); let _ = r;",
+            "let f = || -> Option<i32> { let v = maybe(2)?; Some(v) }; let _ = f();",
+            "let _g = || double(2);",
+            "let _fut = async { assert_eq!(double(2), 4) };",
+            "fn inner() { assert_eq!(double(2), 4); } inner();",
+            "[2].iter().for_each(|&x| assert_eq!(double(x), 4));",
+        ] {
+            assert!(
+                matches!(da_003_of_two(body), DaVerdict::Unknown(_)),
+                "{body}: {:?}",
+                da_003_of_two(body)
+            );
+        }
+        for body in [
+            "let r = double(2); assert_eq!(r, 4); let _g = || double(3);",
+            "assert_eq!(double(2), 4); let _fut = async { double(3) };",
+        ] {
+            assert_eq!(da_003_of_two(body), DaVerdict::NoViolation, "{body}");
+        }
+        assert!(matches!(
+            da_003_of_two("let _ = double(2);"),
+            DaVerdict::Fail(_)
+        ));
     }
 }

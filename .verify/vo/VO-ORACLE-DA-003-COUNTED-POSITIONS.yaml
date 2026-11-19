@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-003-COUNTED-POSITIONS
+parent: null
+derives_from:
+- doc: DS-1962
+claim: '`rust-cargo`で、DA-002の呼出の存在として数えるtarget呼出と、DA-003の到達先として数えるassert相当は、数える位置にあるものに限る。数える位置とは、Test本体の中で、入れ子のクロージャ・asyncブロック・入れ子の項目の外にあり、マクロの中ではDS-617のマクロ・`vec!`・`matches!`の式の引数のうちメッセージ引数（DS-1935）でないものの中だけにある位置をいう。DS-1941により追跡するクロージャの本体と、DA-002ではDS-622の探索で到達する呼出先helperの本体は、そのクロージャ・helperを数える位置で呼ぶ場合に限り、その本体の中で同じ条件を満たす位置を数える位置に含める。helperの本体からさらに探索する呼出先にも同じ条件を当てる。数える位置にないtarget呼出は、DA-002で「呼出なし」の根拠にしない。DA-003は数える位置にあるtarget呼出の結果で判定し、その結果のうち1つ以上がassert相当に到達すれば、数える位置にない呼出があることだけを理由にUNKNOWNとしない。数える位置にあるtarget呼出の結果がどれも到達せず、数える位置にないtarget呼出がある場合は、DA-003をFAILではなくUNKNOWNとする。数える位置にあるtarget呼出が無く、数える位置にないtarget呼出だけがある場合は、DA-002とDA-003をどちらもUNKNOWNとする。派生した値が数える位置にないassert相当へ流れる場合は、DA-003をFAILではなくUNKNOWNとする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-20T00:00:00Z
+updated: 2026-11-20T00:00:00Z
