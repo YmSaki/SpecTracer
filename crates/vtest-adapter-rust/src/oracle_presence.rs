@@ -125,8 +125,11 @@
 //!   runs (DS-1947, DS-1983), which this analysis does not evaluate, so DA-001 is
 //!   `Unknown` when it decides the verdict (DS-621's escape). This is narrower
 //!   than DS-1950 for a divergence under a non-constant condition (no violation
-//!   there) and under a constant one (`if true { .. }`, a constant assertion
-//!   there).
+//!   there) and for these, each a constant assertion there: one under a constant
+//!   condition (`if true { .. }`), one whose deciding positions are all constant,
+//!   one in an arm that cannot be refuted (`match r { _ => unreachable!() }`), one
+//!   in a `let` initializer (`let x: i32 = todo!();`) and one in an inner block
+//!   (`{ unreachable!() }`).
 //! - `debug_assert!` / `debug_assert_eq!` / `debug_assert_ne!` are not
 //!   assert-equivalents, also when the config lists them (DS-1954): they make
 //!   DA-003 and DA-006 `Unknown` where they are the only check.
@@ -530,8 +533,9 @@ fn da_001_constant_assertion(
     if undetermined {
         return DaVerdict::Unknown(
             "every other assert-equivalent call is constant, and an `unreachable!` / `todo!` / \
-             `unimplemented!` runs under a condition, a branch, a loop or an earlier exit whose \
-             constancy this analysis does not decide (DS-621, DS-1950)"
+             `unimplemented!` is not a statement of the function's own block before any exit \
+             (it is in a condition, an arm, a loop, an inner block or an expression, or after \
+             an exit), and this analysis does not decide its constancy there (DS-621, DS-1950)"
                 .to_owned(),
         );
     }
@@ -550,9 +554,9 @@ fn da_001_constant_assertion(
 /// that decides whether it runs.
 ///
 /// An earlier statement may leave when it contains `return`, `?`, `break`,
-/// `continue`, a call of a function named `exit`, or a macro other than the assert, `debug_assert*`, divergence and
-/// printing macros named here, whose expansion is not read (DS-1983's exits; a
-/// macro is read fail-closed, DS-615).
+/// `continue`, a call of a function named `exit`, or a macro other than the
+/// assert, `debug_assert*`, divergence and printing macros named here, whose
+/// expansion is not read (DS-1983's exits; a macro is read fail-closed, DS-615).
 fn unconditional_divergence_starts(text: &str) -> Vec<usize> {
     let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
         return Vec::new();
@@ -797,6 +801,15 @@ fn da_003_result_unverified(
         // oracle_presence). DA-003 only fires once a call exists.
         return DaVerdict::NoViolation;
     }
+    // A FAIL proven for one target decides before another target's UNKNOWN, as
+    // `analyze` composes (DS-623, DS-1680): with no assert-equivalent construct and
+    // no other call to delegate to, an unverified result reaches none.
+    if any_unverified && assert_spans.is_empty() && !has_non_target_call(text, target_symbols) {
+        return DaVerdict::Fail(
+            "a declared target's call result reaches no assert-equivalent construct, \
+             and no #[should_panic] is present (DS-623)",
+        );
+    }
     if any_delegated {
         // DS-641 / DS-1960: no result of a declared target's call reaches an
         // assert-equivalent other than through a delegation target (see
@@ -921,20 +934,14 @@ fn da_003_result_unverified(
         // discards the target stays FAIL. DA-006 counts the target as a
         // delegation target, which differs from this reading (cf. DS-650's
         // self-delegation).
+        // The case with no other call returned FAIL above.
         if assert_spans.is_empty() {
-            return if has_non_target_call(text, target_symbols) {
-                DaVerdict::Unknown(
-                    "a call other than the declared target is a delegation target of this Test \
-                     (DS-642) and its termination (§7.2.1) is not confirmed, so the result is \
-                     neither a violation nor its absence (DS-652)"
-                        .to_owned(),
-                )
-            } else {
-                DaVerdict::Fail(
-                    "a declared target's call result reaches no assert-equivalent construct, \
-                     and no #[should_panic] is present (DS-623)",
-                )
-            };
+            return DaVerdict::Unknown(
+                "a call other than the declared target is a delegation target of this Test \
+                 (DS-642) and its termination (§7.2.1) is not confirmed, so the result is \
+                 neither a violation nor its absence (DS-652)"
+                    .to_owned(),
+            );
         }
         return DaVerdict::Unknown(
             "a declared target's call could not be traced into any of the function's \
@@ -2195,11 +2202,15 @@ fn count_rebindings_in(function: &syn::ItemFn, name: &str) -> usize {
 ///   element of a destructuring assignment),
 /// - borrowed mutably (`&mut r`, `&mut r.0`, `&raw mut r`, or a `ref mut` pattern
 ///   whose matched value is `r`: `let (ref mut a, _) = r`, `match r { .. }`,
-///   `if let .. = r`), or
+///   `if let .. = r`),
 /// - the receiver of a method call outside an assert (`r.clear()`): whether the
 ///   method takes `&mut self` is not decided by this capability, so every method
-///   call on the `let mut` binding counts. A receiver inside an assert is not read
-///   as a change made before the assert's comparison.
+///   call on the `let mut` binding counts. A receiver inside `assert!` /
+///   `assert_eq!` / `assert_ne!` is not read as a change made before the assert's
+///   comparison; one inside `panic!` / `unreachable!` / `todo!` / `unimplemented!`
+///   counts, or
+/// - assigned as the plain name (`r = ..`, `r += ..`, also in a closure) inside a
+///   macro's arguments, which `count_rebindings` does not read.
 ///
 /// Macro arguments of `matches!`, `format!`, `vec!` and the assert macros are read
 /// as expressions. DS-629 reads dataflow inside a macro expansion as UNKNOWN, so
@@ -2214,17 +2225,22 @@ fn is_changed_through_place(text: &str, name: &str, assert_spans: &[(usize, usiz
         text: &'a str,
         name: &'a str,
         assert_spans: &'a [(usize, usize)],
+        /// Depth of macro arguments being visited, where `count_rebindings` does not
+        /// see an assignment to the plain name.
+        in_macro: usize,
         found: bool,
     }
     impl<'ast> Visit<'ast> for Changes<'_> {
         fn visit_expr_assign(&mut self, node: &'ast syn::ExprAssign) {
-            self.found |= assigned_place_roots_at(&node.left, self.name, false);
+            self.found |= assigned_place_roots_at(&node.left, self.name, false)
+                || (self.in_macro > 0 && is_assignment_to(&node.left, self.name));
             syn::visit::visit_expr_assign(self, node);
         }
 
         fn visit_expr_binary(&mut self, node: &'ast syn::ExprBinary) {
             self.found |= is_compound_assignment(node.op)
-                && assigned_place_roots_at(&node.left, self.name, false);
+                && (assigned_place_roots_at(&node.left, self.name, false)
+                    || (self.in_macro > 0 && is_assignment_to(&node.left, self.name)));
             syn::visit::visit_expr_binary(self, node);
         }
 
@@ -2272,6 +2288,13 @@ fn is_changed_through_place(text: &str, name: &str, assert_spans: &[(usize, usiz
         }
 
         fn visit_macro(&mut self, node: &'ast syn::Macro) {
+            self.in_macro += 1;
+            self.visit_macro_tokens(node);
+            self.in_macro -= 1;
+        }
+    }
+    impl Changes<'_> {
+        fn visit_macro_tokens(&mut self, node: &syn::Macro) {
             let offset = span_offset(node.path.span().start(), self.text);
             let in_assert = self
                 .assert_spans
@@ -2338,17 +2361,22 @@ fn is_changed_through_place(text: &str, name: &str, assert_spans: &[(usize, usiz
     let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
         return false;
     };
-    // A change inside the arguments of `unreachable!` / `todo!` / `unimplemented!`
-    // is not exempted as one inside an assert is: it counts (DS-1959, DS-615).
+    // The arguments of `panic!` / `unreachable!` / `todo!` / `unimplemented!` are
+    // checked like the body: a method receiver or an unread macro there counts as a
+    // change, as these macros compare nothing (DS-1959, DS-615).
     let assert_spans: Vec<(usize, usize)> = assert_spans
         .iter()
         .copied()
-        .filter(|&(start, _)| !macro_name_before(text, start).is_some_and(is_diverging_macro))
+        .filter(|&(start, _)| {
+            !macro_name_before(text, start)
+                .is_some_and(|name| name == "panic" || is_diverging_macro(name))
+        })
         .collect();
     let mut changes = Changes {
         text,
         name,
         assert_spans: &assert_spans,
+        in_macro: 0,
         found: false,
     };
     changes.visit_item_fn(&function);
@@ -5030,6 +5058,78 @@ fn real_check() {
                 "{changed}"
             );
         }
+    }
+
+    /// @vtest.id TEST-ORACLE-CHANGE-INSIDE-DIVERGENCE-ARGUMENTS-IS-A-CHANGE
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::is_changed_through_place
+    /// @vtest.intent panic! / unreachable! / todo! / unimplemented! の引数の中で let mut の束縛を代入・複合代入・クロージャ内の代入・&mut・メソッドの受け手・読まないマクロで変えると DA-003 が UNKNOWN になり、読むだけなら違反なしのままであることを確認する
+    #[test]
+    fn a_change_inside_a_divergence_argument_keeps_da_003_unknown() {
+        let wrap = |inner: &str| {
+            format!(
+                "#[test]\nfn t() {{\n    let mut r = double(2);\n{inner}    assert_eq!(r, 4);\n}}\n"
+            )
+        };
+        for name in ["panic", "unreachable", "todo", "unimplemented"] {
+            for inner in [
+                format!("    loop {{\n        {name}!(\"{{:?}}\", {{ r = 4; break; }});\n    }}\n"),
+                format!(
+                    "    for _ in 0..1 {{\n        {name}!(\"{{:?}}\", {{ r = 4; continue; }});\n    }}\n"
+                ),
+                format!("    if c() {{\n        {name}!(\"{{:?}}\", r += 0);\n    }}\n"),
+                format!("    if c() {{\n        {name}!(\"{{:?}}\", (|| r = 4)());\n    }}\n"),
+                format!("    if c() {{\n        {name}!(\"{{:?}}\", {{ let p = &mut r; *p = 4; }});\n    }}\n"),
+                format!("    if c() {{\n        {name}!(\"{{}}\", r.pow(2));\n    }}\n"),
+                format!("    if c() {{\n        {name}!(\"{{:?}}\", reset!(r));\n    }}\n"),
+                format!("    if c() {{\n        {name}!(\"{{:?}}\", r +);\n    }}\n"),
+                format!("    if c() {{\n        {name}!(\"{{:?}}\", format!(\"{{}}\", {{ r = 4; r }}));\n    }}\n"),
+            ] {
+                let text = wrap(&inner);
+                assert!(
+                    matches!(
+                        analyze(&text, &["double".to_owned()], &[]).da_003,
+                        DaVerdict::Unknown(_)
+                    ),
+                    "{text}"
+                );
+            }
+            let read = wrap(&format!(
+                "    if c() {{\n        {name}!(\"{{}}\", r);\n    }}\n"
+            ));
+            assert!(
+                matches!(
+                    analyze(&read, &["double".to_owned()], &[]).da_003,
+                    DaVerdict::NoViolation
+                ),
+                "{read}"
+            );
+        }
+        // The plain name assigned inside an assert's argument is a change too.
+        let in_assert = wrap("    assert!({ r = 4; true });\n");
+        assert!(matches!(
+            analyze(&in_assert, &["double".to_owned()], &[]).da_003,
+            DaVerdict::Unknown(_)
+        ));
+    }
+
+    /// @vtest.id TEST-ORACLE-DA-003-FAIL-OF-ONE-TARGET-DECIDES
+    /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent 宣言 target が複数あり、1 つの結果が debug_assert にだけ流れて UNKNOWN、もう 1 つの結果がどこにも届かず FAIL のとき、DA-003 が FAIL になることを確認する
+    #[test]
+    fn a_fail_of_one_target_decides_over_another_targets_unknown() {
+        let targets = ["double".to_owned(), "triple".to_owned()];
+        let text = "#[test]\nfn t() {\n    let a = double(2);\n    let b = triple(2);\n    debug_assert_eq!(a, 4);\n}\n";
+        assert!(matches!(
+            analyze(text, &targets, &[]).da_003,
+            DaVerdict::Fail(_)
+        ));
+        let one = "#[test]\nfn t() {\n    let a = double(2);\n    debug_assert_eq!(a, 4);\n}\n";
+        assert!(matches!(
+            analyze(one, &targets, &[]).da_003,
+            DaVerdict::Unknown(_)
+        ));
     }
 
     /// @vtest.id TEST-ORACLE-DA-001-UNCONDITIONAL-DIVERGENCE-IS-CONSTANT
