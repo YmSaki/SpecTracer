@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-003-UNTRACKED-CLOSURE-UNKNOWN
+parent: null
+derives_from:
+- doc: DS-1944
+claim: '`rust-cargo`で、DS-1941により追跡するクロージャ以外のクロージャ（再束縛したもの、`mut`で束縛したもの、その場で呼ぶもの、関数・メソッドへ渡すもの（`map`などの引数を含む）、一度も呼ばないもの、数える位置にない位置からだけ呼ぶもの）の本体の中の値の経路は派生として数えず、そこへ派生した値が流れる場合と、その本体の中にtarget呼出がある場合は、DA-002 / DA-003をFAILではなくUNKNOWNとする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-20T00:00:00Z
+updated: 2026-11-20T00:00:00Z

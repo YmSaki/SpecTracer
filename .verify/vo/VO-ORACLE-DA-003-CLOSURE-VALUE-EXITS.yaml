@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-003-CLOSURE-VALUE-EXITS
+parent: null
+derives_from:
+- doc: DS-1942
+claim: '`rust-cargo`で、クロージャ本体の値は本体の末尾式と、そのクロージャ自身から返る`return`式の値だけから流れ、失敗として発散する出口（DS-1951）を除くすべての出口の値が派生であるときに限り派生とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-20T00:00:00Z
+updated: 2026-11-20T00:00:00Z

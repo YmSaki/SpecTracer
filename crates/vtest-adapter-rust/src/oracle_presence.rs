@@ -301,6 +301,30 @@
 //! - `debug_assert!` / `debug_assert_eq!` / `debug_assert_ne!` are not
 //!   assert-equivalents, also when the config lists them (DS-1954): they make
 //!   DA-003 and DA-006 `Unknown` where they are the only check.
+//! - DA-003 counts a target call and an assert-equivalent only at DS-1962's counted
+//!   positions: outside the closures, `async` blocks and nested items of the Test
+//!   body. An assert, a `.unwrap()` / `.expect(..)` / `?` chain or a binding in one of
+//!   those never verifies the target. A target call there makes DA-003 `Unknown`
+//!   when no result of a counted call reaches an assert-equivalent, and an
+//!   assert-equivalent there keeps DA-003 from `Fail`, since a derived value may flow
+//!   into it (DS-1944). DA-001 and DA-006 still read every assert macro.
+//! - A name bound by a `match` arm, `if let` / `while let`, `let ... else` or a
+//!   destructuring `let` takes the derivation of the position it extracts from the
+//!   scrutinee (DS-1938, DS-1939). The scrutinee is read by syntax: a target call's
+//!   result is derived at every position, a tuple, array, struct literal and
+//!   `Some` / `Ok` / `Err` keep one derivation per position, and a name bound once by a
+//!   plain `let` has its initializer's. A name whose position syntax does not fix
+//!   over positions of different derivations, or that an or-pattern binds from such
+//!   positions, makes DA-003 `Unknown` where it is used.
+//! - DA-003 reads a call `f(..)` of a closure bound by `let f = |..| body;` at a
+//!   counted position as the execution of its body (DS-1941): before the rules run,
+//!   such a call is replaced by a block that binds the parameters to the arguments and
+//!   runs the body (`inline_tracked_closures`). A call whose value is used is replaced
+//!   only when the body's value comes from its tail alone, not from a `return` or a
+//!   branch (DS-1942). Any other closure stays as it is and DS-1944 holds for it. The
+//!   other rules read the Test as written.
+
+use std::collections::{BTreeMap, BTreeSet};
 
 use quote::ToTokens;
 use syn::{spanned::Spanned, visit::Visit};
@@ -389,7 +413,8 @@ pub fn analyze(
     target_symbols: &[String],
     extra_assertion_macros: &[String],
 ) -> OraclePresenceAnalysis {
-    let assert_spans = find_assert_spans(construct_text, &assertion_macros(extra_assertion_macros));
+    let macros = assertion_macros(extra_assertion_macros);
+    let assert_spans = find_assert_spans(construct_text, &macros);
     let syntax = RustFunctionSyntax::parse(construct_text);
     let has_should_panic = syntax
         .as_ref()
@@ -419,7 +444,7 @@ pub fn analyze(
             construct_text,
             target_symbols,
             target_symbols,
-            &assert_spans,
+            &macros,
             has_should_panic,
         ),
         da_004: da_004_self_comparison(construct_text),
@@ -437,7 +462,6 @@ fn analyze_da_003_for(
     all_targets: &[String],
     extra_assertion_macros: &[String],
 ) -> DaVerdict {
-    let assert_spans = find_assert_spans(construct_text, &assertion_macros(extra_assertion_macros));
     let has_should_panic = RustFunctionSyntax::parse(construct_text)
         .as_ref()
         .is_some_and(RustFunctionSyntax::has_should_panic);
@@ -445,7 +469,7 @@ fn analyze_da_003_for(
         construct_text,
         &[symbol.to_owned()],
         all_targets,
-        &assert_spans,
+        &assertion_macros(extra_assertion_macros),
         has_should_panic,
     )
 }
@@ -2638,9 +2662,23 @@ fn da_003_result_unverified(
     text: &str,
     target_symbols: &[String],
     all_targets: &[String],
-    assert_spans: &[(usize, usize)],
+    macros: &[&str],
     has_should_panic: bool,
 ) -> DaVerdict {
+    // DS-1941: a call of a tracked closure is read as the execution of its body.
+    let inlined = inline_tracked_closures(text);
+    let text = inlined.as_deref().unwrap_or(text);
+    let every_assert = find_assert_spans(text, macros);
+    // DS-1962: only an assert-equivalent at a counted position is a destination of
+    // DA-003. One in a closure, an `async` block or a nested item still keeps DA-003
+    // from failing below, since a derived value may flow there (DS-1944).
+    let regions = non_counted_regions(text);
+    let counted_asserts: Vec<(usize, usize)> = every_assert
+        .iter()
+        .copied()
+        .filter(|&(start, _)| !in_regions(start, &regions))
+        .collect();
+    let assert_spans = counted_asserts.as_slice();
     if target_symbols.is_empty() {
         // No declared target to check a call against; DA-003 has no
         // subject. (This capability only reaches Tests with at least one
@@ -2661,9 +2699,14 @@ fn da_003_result_unverified(
     let mut any_delegated = false;
     let mut any_into_target = false;
     let mut any_debug_assert = false;
+    let mut any_not_counted = false;
     for symbol in target_symbols {
-        match target_call_result_is_verified(text, symbol, all_targets, assert_spans) {
+        match target_call_result_is_verified(text, symbol, all_targets, assert_spans, &regions) {
             TargetCallVerification::NotCalled => {}
+            TargetCallVerification::NotCounted => {
+                any_call_found = true;
+                any_not_counted = true;
+            }
             TargetCallVerification::Delegated => {
                 any_call_found = true;
                 any_delegated = true;
@@ -2719,8 +2762,9 @@ fn da_003_result_unverified(
             || any_ambiguous
             || any_binding_uncertain
             || any_into_target
-            || any_macro_opaque)
-        && assert_spans.is_empty()
+            || any_macro_opaque
+            || any_not_counted)
+        && every_assert.is_empty()
         && !has_non_target_call(text, target_symbols)
     {
         return DaVerdict::Fail(
@@ -2793,6 +2837,17 @@ fn da_003_result_unverified(
                 .to_owned(),
         );
     }
+    if any_not_counted {
+        // DS-1962, DS-1944: a call in a closure that is not tracked, an `async` block
+        // or a nested item may run or not, and its result flows nowhere counted.
+        return DaVerdict::Unknown(
+            "a declared target is called only where DS-1962 does not count a call (in a \
+             closure that DS-1941 does not track, an `async` block or a nested item), and no \
+             result of a call at a counted position reaches an assert-equivalent, so the \
+             result is neither shown verified nor shown unverified (DS-1944, DS-1962)"
+                .to_owned(),
+        );
+    }
     if any_unidentified {
         // Derivation (not stated in DS-1680 / DS-615 / DS-623): a method call is
         // matched to the target by name only; the receiver's type is not
@@ -2858,7 +2913,7 @@ fn da_003_result_unverified(
         // delegation target, which differs from this reading (cf. DS-650's
         // self-delegation).
         // The case with no other call returned FAIL above.
-        if assert_spans.is_empty() {
+        if every_assert.is_empty() {
             return DaVerdict::Unknown(
                 "a call other than the declared target is a delegation target of this Test \
                  (DS-642) and its termination (§7.2.1) is not confirmed, so the result is \
@@ -2928,6 +2983,9 @@ impl<'ast> Visit<'ast> for NonTargetCallVisitor<'_> {
 
 enum TargetCallVerification {
     NotCalled,
+    /// No call at a counted position reaches an assert-equivalent, and the target is
+    /// called where DS-1962 does not count a call.
+    NotCounted,
     Verified,
     Unverified,
     Ambiguous,
@@ -3232,6 +3290,9 @@ struct MacroUse {
     /// A call whose value flows into a delegation target in a checked argument of
     /// an assert (DS-1960).
     delegated: bool,
+    /// A use of the name in the tokens of a macro where DS-1962 does not count a call
+    /// (in a closure, an `async` block or a nested item).
+    non_counted: bool,
 }
 
 /// Derivation (not stated in DS-615 / DS-651 / DS-1680): a macro's tokens are not
@@ -3249,7 +3310,12 @@ struct MacroUse {
 /// a call outside a macro that stays unverified, and a verified method call
 /// (matched by name only) does not clear an `opaque` name that may be a
 /// function call.
-fn macro_target_use(text: &str, symbol: &str, targets: &[String]) -> MacroUse {
+fn macro_target_use(
+    text: &str,
+    symbol: &str,
+    targets: &[String],
+    regions: &[(usize, usize)],
+) -> MacroUse {
     let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
         return MacroUse::default();
     };
@@ -3257,6 +3323,7 @@ fn macro_target_use(text: &str, symbol: &str, targets: &[String]) -> MacroUse {
     let mut visitor = MacroUseVisitor {
         names: &names,
         targets,
+        regions,
         found: MacroUse::default(),
     };
     visitor.visit_item_fn(&function);
@@ -3433,12 +3500,21 @@ impl<'ast> Visit<'ast> for ValueUseVisitor<'_> {
 struct MacroUseVisitor<'a> {
     names: &'a NameUse<'a>,
     targets: &'a [String],
+    /// DS-1962's regions that are not counted.
+    regions: &'a [(usize, usize)],
     found: MacroUse,
 }
 
 impl<'ast> Visit<'ast> for MacroUseVisitor<'_> {
     fn visit_macro(&mut self, node: &'ast syn::Macro) {
         if !self.names.tokens_use_name(node.tokens.clone()) {
+            return;
+        }
+        if in_regions(
+            span_offset(node.span().start(), self.names.text),
+            self.regions,
+        ) {
+            self.found.non_counted = true;
             return;
         }
         let is_assert = node.path.segments.last().is_some_and(|segment| {
@@ -4609,6 +4685,18 @@ fn count_rebindings_in(function: &syn::ItemFn, name: &str) -> usize {
             syn::visit::visit_pat_ident(self, node);
         }
 
+        // The cases of an or-pattern bind the same names once (DS-1938).
+        fn visit_pat_or(&mut self, node: &'ast syn::PatOr) {
+            let before = self.count;
+            let mut most = 0;
+            for case in &node.cases {
+                self.count = 0;
+                self.visit_pat(case);
+                most = most.max(self.count);
+            }
+            self.count = before + most;
+        }
+
         fn visit_expr_assign(&mut self, node: &'ast syn::ExprAssign) {
             if is_assignment_to(&node.left, self.name) {
                 self.count += 1;
@@ -4997,9 +5085,16 @@ fn target_call_result_is_verified(
     symbol: &str,
     targets: &[String],
     assert_spans: &[(usize, usize)],
+    regions: &[(usize, usize)],
 ) -> TargetCallVerification {
-    let call_sites = find_call_sites(text, symbol);
-    let macro_use = macro_target_use(text, symbol, targets);
+    // DS-1962: a call in a closure that is not tracked, an `async` block or a nested
+    // item is not counted. It never verifies the target, and when no counted call
+    // does, it makes DA-003 UNKNOWN rather than FAIL.
+    let (non_counted_sites, call_sites): (Vec<CallSite>, Vec<CallSite>) =
+        find_call_sites(text, symbol)
+            .into_iter()
+            .partition(|site| in_regions(site.callee_start, regions));
+    let macro_use = macro_target_use(text, symbol, targets, regions);
     let function = syn::parse_str::<syn::ItemFn>(text).ok();
     let divergences = function
         .as_ref()
@@ -5014,10 +5109,18 @@ fn target_call_result_is_verified(
             divergence_target_reach(&divergences, &NameUse::new(text, symbol, function), targets)
         });
     let bindings: Vec<(DerivedBinding, BindingReach)> =
-        find_let_bindings_containing_call(text, symbol, targets)
+        find_let_bindings_containing_call(text, symbol, targets, regions)
             .into_iter()
+            .chain(find_pattern_bindings(text, symbol, regions))
             .map(|binding| {
                 let reach = binding_reach(text, &binding, targets, assert_spans, &divergences);
+                // DS-1939: a binding whose position is not fixed by syntax over a value
+                // whose positions differ is UNKNOWN wherever it is used.
+                let reach = if binding.uncertain && !matches!(reach, BindingReach::NotReached) {
+                    BindingReach::Uncertain
+                } else {
+                    reach
+                };
                 (binding, reach)
             })
             .collect();
@@ -5049,6 +5152,8 @@ fn target_call_result_is_verified(
             // A verified method call is matched by name only: it does not clear a
             // call that a macro may make as a function.
             TargetCallVerification::MacroOpaque
+        } else if !non_counted_sites.is_empty() || macro_use.non_counted {
+            TargetCallVerification::NotCounted
         } else {
             TargetCallVerification::NotCalled
         };
@@ -5121,6 +5226,9 @@ fn target_call_result_is_verified(
     }
     if macro_use.opaque {
         return TargetCallVerification::MacroOpaque;
+    }
+    if !non_counted_sites.is_empty() || macro_use.non_counted {
+        return TargetCallVerification::NotCounted;
     }
     let loop_bodies = loop_body_spans(text);
     if call_sites.iter().any(|site| {
@@ -5236,6 +5344,49 @@ fn loop_body_spans(text: &str) -> Vec<(usize, usize)> {
 struct LoopBodyVisitor<'a> {
     text: &'a str,
     spans: Vec<(usize, usize)>,
+}
+
+/// The byte spans of the closures, `async` blocks and nested items of the Test body:
+/// DS-1962's positions that are not counted.
+fn non_counted_regions(text: &str) -> Vec<(usize, usize)> {
+    struct Regions<'a> {
+        text: &'a str,
+        spans: Vec<(usize, usize)>,
+    }
+    impl Regions<'_> {
+        fn record(&mut self, span: proc_macro2::Span) {
+            self.spans.push((
+                span_offset(span.start(), self.text),
+                span_offset(span.end(), self.text),
+            ));
+        }
+    }
+    impl<'ast> Visit<'ast> for Regions<'_> {
+        fn visit_expr_closure(&mut self, node: &'ast syn::ExprClosure) {
+            self.record(node.span());
+        }
+        fn visit_expr_async(&mut self, node: &'ast syn::ExprAsync) {
+            self.record(node.span());
+        }
+        fn visit_item(&mut self, node: &'ast syn::Item) {
+            self.record(node.span());
+        }
+    }
+    let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
+        return Vec::new();
+    };
+    let mut regions = Regions {
+        text,
+        spans: Vec::new(),
+    };
+    regions.visit_block(&function.block);
+    regions.spans
+}
+
+fn in_regions(offset: usize, regions: &[(usize, usize)]) -> bool {
+    regions
+        .iter()
+        .any(|&(start, end)| offset >= start && offset < end)
 }
 
 impl LoopBodyVisitor<'_> {
@@ -5359,6 +5510,7 @@ fn find_let_bindings_containing_call(
     text: &str,
     symbol: &str,
     targets: &[String],
+    regions: &[(usize, usize)],
 ) -> Vec<DerivedBinding> {
     let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
         return Vec::new();
@@ -5370,6 +5522,11 @@ fn find_let_bindings_containing_call(
         bindings: Vec::new(),
     };
     visitor.visit_item_fn(&function);
+    // DS-1962: a `let` that is not at a counted position holds a call that is not
+    // counted, which `target_call_result_is_verified` reads as such.
+    visitor
+        .bindings
+        .retain(|binding| !in_regions(binding.offset, regions));
     visitor.bindings
 }
 
@@ -5389,6 +5546,10 @@ struct DerivedBinding {
     /// The initializer is the target's result as a whole, so every position of the
     /// binding is derived (DS-1939).
     whole_result: bool,
+    /// Byte offset of the binding statement.
+    offset: usize,
+    /// The binding is neither shown derived nor shown underived (DS-1939).
+    uncertain: bool,
 }
 
 /// Whether `expression` is a call of the target, or a method chain, `?`, `.await` or
@@ -5428,11 +5589,619 @@ impl<'ast> Visit<'ast> for LetBindingVisitor<'_> {
                     delegated: calls.delegated,
                     mutable: pattern.mutability.is_some(),
                     whole_result: is_whole_result(&init.expr, self.names.symbol),
+                    offset: span_offset(node.span().start(), self.names.text),
+                    uncertain: false,
                 });
             }
         }
         syn::visit::visit_local(self, node);
     }
+}
+
+/// The derivation of the positions of a value (DS-1939), read from the syntax of a
+/// pattern's scrutinee.
+#[derive(Clone, Debug)]
+enum Shape {
+    /// No position is derived.
+    Plain,
+    /// Every position is derived: a target call's result, from a function call of the
+    /// target (`path`) or a method call (`method`).
+    Derived { path: bool, method: bool },
+    /// A tuple or an array (`vec![..]` included) literal: one shape per element.
+    Elements(Vec<Shape>),
+    /// A struct literal: the last segment of its path, the shape of each named field,
+    /// and of the fields its base expression gives.
+    Struct(Option<String>, Vec<(String, Shape)>, Box<Shape>),
+    /// A constructor that syntax fixes (`Some` / `Ok` / `Err`, DS-1960): its variant is
+    /// not derived (DS-1939).
+    Variant(String, Vec<Shape>),
+    /// The positions are not fixed by syntax and are not all alike.
+    Unknown,
+}
+
+impl Shape {
+    /// One derivation for the value as a whole (DS-1939): derived when every
+    /// position is, underived when none is, and `Unknown` otherwise.
+    fn summary(&self) -> Shape {
+        let parts: Vec<Shape> = match self {
+            Shape::Elements(elements) => elements.iter().map(Shape::summary).collect(),
+            Shape::Struct(_, fields, rest) => fields
+                .iter()
+                .map(|(_, shape)| shape.summary())
+                .chain([rest.summary()])
+                .collect(),
+            Shape::Variant(_, elements) => elements
+                .iter()
+                .map(Shape::summary)
+                .chain([Shape::Plain])
+                .collect(),
+            other => return other.clone(),
+        };
+        join_shapes(parts)
+    }
+
+    /// The shape of the element `index` of `count` elements, or of the field `name`.
+    fn element(&self, index: usize) -> Shape {
+        match self {
+            Shape::Elements(elements) | Shape::Variant(_, elements) => {
+                elements.get(index).cloned().unwrap_or(Shape::Unknown)
+            }
+            Shape::Plain | Shape::Derived { .. } => self.clone(),
+            Shape::Struct(..) | Shape::Unknown => Shape::Unknown,
+        }
+    }
+
+    fn field(&self, name: &str) -> Shape {
+        match self {
+            Shape::Struct(_, fields, rest) => fields
+                .iter()
+                .find(|(field, _)| field == name)
+                .map_or_else(|| (**rest).clone(), |(_, shape)| shape.clone()),
+            Shape::Elements(_) => name
+                .parse::<usize>()
+                .map_or(Shape::Unknown, |index| self.element(index)),
+            Shape::Plain | Shape::Derived { .. } => self.clone(),
+            Shape::Variant(..) | Shape::Unknown => Shape::Unknown,
+        }
+    }
+}
+
+/// Whether an identifier pattern may be a constant or a unit variant rather than a
+/// binding: Rust reads a name in scope as an item, and `None`, constants and unit
+/// variants are written like a variant (`is_variant_like`).
+fn pattern_ident_may_be_path(ident: &syn::PatIdent) -> bool {
+    ident.subpat.is_none()
+        && ident.by_ref.is_none()
+        && ident.mutability.is_none()
+        && is_variant_like(&ident.ident)
+}
+
+/// One derivation for several summaries: `Plain` when none is derived (or there is
+/// none), `Derived` when every one is, and `Unknown` otherwise.
+fn join_shapes(parts: impl IntoIterator<Item = Shape>) -> Shape {
+    let mut joined: Option<Shape> = None;
+    for part in parts {
+        joined = Some(match (joined, part) {
+            (None, part) => part,
+            (Some(Shape::Plain), Shape::Plain) => Shape::Plain,
+            (Some(Shape::Derived { path, method }), Shape::Derived { path: p, method: m }) => {
+                Shape::Derived {
+                    path: path || p,
+                    method: method || m,
+                }
+            }
+            _ => Shape::Unknown,
+        });
+    }
+    joined.unwrap_or(Shape::Plain)
+}
+
+/// How the derivation of a scrutinee is read: the target's symbol and the `let`
+/// bindings whose name is followed to its initializer.
+struct ShapeReader<'a> {
+    symbol: &'a str,
+    /// A name bound once in the function, by a plain `let` that is not `mut`, with its
+    /// initializer (DS-1939: the variable bound to a value has its derivation).
+    lets: Vec<(String, &'a syn::Expr)>,
+    /// Every name bound by a `let` whose initializer mentions the target.
+    mentioning: Vec<String>,
+}
+
+/// The deepest chain of `let` names `ShapeReader` follows.
+const SHAPE_DEPTH: usize = 8;
+
+impl<'a> ShapeReader<'a> {
+    fn new(function: &'a syn::ItemFn, symbol: &'a str) -> Self {
+        struct Lets<'a> {
+            all: Vec<(String, &'a syn::Expr, bool)>,
+        }
+        impl<'a> Visit<'a> for Lets<'a> {
+            fn visit_local(&mut self, node: &'a syn::Local) {
+                let mut pattern = &node.pat;
+                while let syn::Pat::Type(typed) = pattern {
+                    pattern = &typed.pat;
+                }
+                if let (syn::Pat::Ident(ident), Some(init)) = (pattern, &node.init) {
+                    let plain = ident.by_ref.is_none()
+                        && ident.mutability.is_none()
+                        && ident.subpat.is_none()
+                        && init.diverge.is_none();
+                    self.all
+                        .push((ident.ident.to_string(), init.expr.as_ref(), plain));
+                }
+                syn::visit::visit_local(self, node);
+            }
+        }
+        let mut lets = Lets { all: Vec::new() };
+        lets.visit_block(&function.block);
+        let mut reader = Self {
+            symbol,
+            lets: Vec::new(),
+            mentioning: Vec::new(),
+        };
+        for (name, init, plain) in &lets.all {
+            if *plain && count_rebindings_in(function, name) == 1 {
+                reader.lets.push((name.clone(), init));
+            }
+        }
+        // A name mentions the target when its initializer does, through other names
+        // too; the chain is followed as deep as `SHAPE_DEPTH`.
+        for _ in 0..SHAPE_DEPTH {
+            for (name, init, _) in &lets.all {
+                if !reader.mentioning.contains(name) && reader.mentions(init) {
+                    reader.mentioning.push(name.clone());
+                }
+            }
+        }
+        reader
+    }
+
+    /// Whether `expression` holds a call of the target or a name whose initializer
+    /// does, in its syntax tree or in macro tokens.
+    fn mentions(&self, expression: &syn::Expr) -> bool {
+        fn tokens_mention(reader: &ShapeReader<'_>, tokens: proc_macro2::TokenStream) -> bool {
+            tokens_mention_ident(tokens.clone(), reader.symbol)
+                || reader
+                    .mentioning
+                    .iter()
+                    .any(|name| tokens_mention_ident(tokens.clone(), name))
+        }
+        struct Finder<'r, 'a> {
+            reader: &'r ShapeReader<'a>,
+            found: bool,
+        }
+        impl<'ast> Visit<'ast> for Finder<'_, '_> {
+            fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
+                self.found |= node.path.segments.last().is_some_and(|segment| {
+                    segment.ident == self.reader.symbol
+                        || self
+                            .reader
+                            .mentioning
+                            .iter()
+                            .any(|name| segment.ident == name)
+                });
+            }
+            fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
+                self.found |= node.method == self.reader.symbol;
+                syn::visit::visit_expr_method_call(self, node);
+            }
+            fn visit_macro(&mut self, node: &'ast syn::Macro) {
+                self.found |= tokens_mention(self.reader, node.tokens.clone());
+            }
+        }
+        let mut finder = Finder {
+            reader: self,
+            found: false,
+        };
+        finder.visit_expr(expression);
+        finder.found
+    }
+
+    /// The shape of `expression`.
+    ///
+    /// Derivation from DS-1939 and DS-1960: a target call's result, through a method
+    /// chain, `?`, `.await`, a reference or parentheses, is derived at every position;
+    /// a tuple, array, struct literal and `Some` / `Ok` / `Err` keep a shape per
+    /// position; `Box::new` / `String::from` carry their argument's derivation as a
+    /// whole; a name bound once by a plain `let` has its initializer's shape; a field
+    /// access and an integer-literal index take one position. Anything else that
+    /// mentions the target (a function call, which DS-1960 reads as a delegation
+    /// target, a method with a derived argument, an operator) is `Unknown`, and an
+    /// expression that does not mention it is `Plain`.
+    fn shape(&self, expression: &syn::Expr, depth: usize) -> Shape {
+        if depth > SHAPE_DEPTH {
+            return Shape::Unknown;
+        }
+        let expression = strip_place(expression);
+        if is_whole_result(expression, self.symbol) {
+            return Shape::Derived {
+                path: whole_result_is_path(expression, self.symbol),
+                method: !whole_result_is_path(expression, self.symbol),
+            };
+        }
+        let whole = |shape: Shape| match shape.summary() {
+            summary @ (Shape::Plain | Shape::Derived { .. }) => summary,
+            _ => Shape::Unknown,
+        };
+        match expression {
+            syn::Expr::Tuple(tuple) => Shape::Elements(
+                tuple
+                    .elems
+                    .iter()
+                    .map(|element| self.shape(element, depth + 1))
+                    .collect(),
+            ),
+            syn::Expr::Array(array) => Shape::Elements(
+                array
+                    .elems
+                    .iter()
+                    .map(|element| self.shape(element, depth + 1))
+                    .collect(),
+            ),
+            syn::Expr::Macro(node) if node.mac.path.is_ident("vec") => {
+                match macro_arguments(&node.mac) {
+                    Some(arguments) => Shape::Elements(
+                        arguments
+                            .checked
+                            .iter()
+                            .map(|element| self.shape(element, depth + 1))
+                            .collect(),
+                    ),
+                    None if self.mentions(expression) => Shape::Unknown,
+                    None => Shape::Plain,
+                }
+            }
+            syn::Expr::Struct(literal) => {
+                let fields = literal
+                    .fields
+                    .iter()
+                    .map(|field| {
+                        let name = match &field.member {
+                            syn::Member::Named(name) => field_name(name),
+                            syn::Member::Unnamed(index) => index.index.to_string(),
+                        };
+                        (name, self.shape(&field.expr, depth + 1))
+                    })
+                    .collect();
+                let rest = literal
+                    .rest
+                    .as_ref()
+                    .map_or(Shape::Plain, |rest| whole(self.shape(rest, depth + 1)));
+                let path = literal
+                    .path
+                    .segments
+                    .last()
+                    .map(|segment| segment.ident.to_string());
+                Shape::Struct(path, fields, Box::new(rest))
+            }
+            syn::Expr::Call(call) => {
+                let syn::Expr::Path(callee) = call.func.as_ref() else {
+                    return self.unknown_if_mentioned(expression);
+                };
+                let last = callee
+                    .path
+                    .segments
+                    .last()
+                    .map(|segment| segment.ident.to_string());
+                match last.as_deref() {
+                    Some(variant @ ("Some" | "Ok" | "Err")) => Shape::Variant(
+                        variant.to_owned(),
+                        call.args
+                            .iter()
+                            .map(|argument| self.shape(argument, depth + 1))
+                            .collect(),
+                    ),
+                    _ if is_value_conversion(&callee.path) && call.args.len() == 1 => {
+                        whole(self.shape(&call.args[0], depth + 1))
+                    }
+                    _ => self.unknown_if_mentioned(expression),
+                }
+            }
+            syn::Expr::Path(path) if path.qself.is_none() => {
+                let Some(name) = path.path.get_ident() else {
+                    return self.unknown_if_mentioned(expression);
+                };
+                match self.lets.iter().find(|(bound, _)| name == bound) {
+                    Some((_, init)) => self.shape(init, depth + 1),
+                    None => self.unknown_if_mentioned(expression),
+                }
+            }
+            syn::Expr::Field(field) => {
+                let name = match &field.member {
+                    syn::Member::Named(name) => field_name(name),
+                    syn::Member::Unnamed(index) => index.index.to_string(),
+                };
+                self.shape(&field.base, depth + 1).field(&name)
+            }
+            syn::Expr::Index(index) => match index.index.as_ref() {
+                syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Int(literal),
+                    ..
+                }) if !self.mentions(&index.index) => match literal.base10_parse::<usize>() {
+                    Ok(position) => match self.shape(&index.expr, depth + 1) {
+                        elements @ Shape::Elements(_) => elements.element(position),
+                        whole @ (Shape::Plain | Shape::Derived { .. }) => whole,
+                        _ => Shape::Unknown,
+                    },
+                    Err(_) => Shape::Unknown,
+                },
+                _ => self.unknown_if_mentioned(expression),
+            },
+            syn::Expr::Try(node) => whole(self.shape(&node.expr, depth + 1)),
+            syn::Expr::Await(node) => whole(self.shape(&node.base, depth + 1)),
+            // A block that is not labeled has the value of its tail expression.
+            syn::Expr::Block(node) if node.label.is_none() => match node.block.stmts.last() {
+                Some(syn::Stmt::Expr(tail, None)) => self.shape(tail, depth + 1),
+                _ => self.unknown_if_mentioned(expression),
+            },
+            syn::Expr::MethodCall(call) if !call.args.iter().any(|arg| self.mentions(arg)) => {
+                // DS-1937 / DS-1939: a method over a receiver whose positions are all
+                // alike carries its derivation; any other receiver is UNKNOWN.
+                whole(self.shape(&call.receiver, depth + 1))
+            }
+            _ => self.unknown_if_mentioned(expression),
+        }
+    }
+
+    fn unknown_if_mentioned(&self, expression: &syn::Expr) -> Shape {
+        if self.mentions(expression) {
+            Shape::Unknown
+        } else {
+            Shape::Plain
+        }
+    }
+}
+
+/// Whether a value that `is_whole_result` accepts comes from a function call of the
+/// target rather than from a method call.
+fn whole_result_is_path(expression: &syn::Expr, symbol: &str) -> bool {
+    match unwrap_parens(expression) {
+        syn::Expr::Call(_) => true,
+        syn::Expr::MethodCall(call) => {
+            is_whole_result(&call.receiver, symbol) && whole_result_is_path(&call.receiver, symbol)
+        }
+        syn::Expr::Try(node) => whole_result_is_path(&node.expr, symbol),
+        syn::Expr::Await(node) => whole_result_is_path(&node.base, symbol),
+        _ => false,
+    }
+}
+
+/// One name a pattern binds, with the derivation of the position it takes.
+struct PatternBinding {
+    name: String,
+    shape: Shape,
+    /// `mut` or `ref mut`: the binding may be changed afterwards (DS-1959).
+    mutable: bool,
+}
+
+/// The names `pattern` binds from a value of shape `shape` (DS-1938, DS-1939): each
+/// takes the position it extracts. A position that syntax does not fix (a variant or
+/// struct pattern over a value whose positions are not all alike, an arity that does
+/// not match) is `Unknown`. A name bound by every case of an or-pattern is derived
+/// only when every case derives it, underived when none does, and `Unknown`
+/// otherwise (as DS-1940 joins the arms of a branch).
+fn pattern_bindings(pattern: &syn::Pat, shape: &Shape, out: &mut Vec<PatternBinding>) {
+    let elements = |patterns: &syn::punctuated::Punctuated<syn::Pat, syn::Token![,]>,
+                    shape: &Shape,
+                    out: &mut Vec<PatternBinding>| {
+        let count = patterns.len();
+        let rest = patterns
+            .iter()
+            .position(|element| matches!(element, syn::Pat::Rest(_)));
+        let known = match shape {
+            Shape::Elements(values) | Shape::Variant(_, values) => Some(values.len()),
+            _ => None,
+        };
+        for (index, element) in patterns.iter().enumerate() {
+            let position = match (rest, known) {
+                (Some(rest), Some(len)) if index > rest => (len + index).checked_sub(count),
+                (None, Some(len)) if len != count => None,
+                _ => Some(index),
+            };
+            let element_shape = position.map_or(Shape::Unknown, |position| shape.element(position));
+            pattern_bindings(element, &element_shape, out);
+        }
+    };
+    match pattern {
+        // A name that may be a constant or a unit variant (`None`, `K`) compares the
+        // value and binds nothing.
+        syn::Pat::Ident(ident) if pattern_ident_may_be_path(ident) => {}
+        syn::Pat::Ident(ident) => {
+            out.push(PatternBinding {
+                name: ident.ident.to_string(),
+                shape: shape.summary(),
+                // `mut x` and `ref mut x` both carry the `mut` token.
+                mutable: ident.mutability.is_some(),
+            });
+            if let Some((_, sub)) = &ident.subpat {
+                pattern_bindings(sub, shape, out);
+            }
+        }
+        syn::Pat::Type(typed) => pattern_bindings(&typed.pat, shape, out),
+        syn::Pat::Paren(inner) => pattern_bindings(&inner.pat, shape, out),
+        syn::Pat::Reference(inner) => pattern_bindings(&inner.pat, shape, out),
+        syn::Pat::Tuple(tuple) => {
+            let shape = match shape {
+                Shape::Elements(_) | Shape::Plain | Shape::Derived { .. } => shape.clone(),
+                _ => Shape::Unknown,
+            };
+            elements(&tuple.elems, &shape, out);
+        }
+        syn::Pat::Slice(slice) => {
+            let shape = match shape {
+                Shape::Elements(_) | Shape::Plain | Shape::Derived { .. } => shape.clone(),
+                _ => Shape::Unknown,
+            };
+            elements(&slice.elems, &shape, out);
+        }
+        syn::Pat::TupleStruct(node) => {
+            let name = node
+                .path
+                .segments
+                .last()
+                .map(|segment| segment.ident.to_string());
+            let shape = match shape {
+                Shape::Variant(variant, _) if name.as_deref() == Some(variant.as_str()) => {
+                    shape.clone()
+                }
+                // Another variant never matches the value, so its names take nothing.
+                Shape::Variant(..) => Shape::Plain,
+                Shape::Plain | Shape::Derived { .. } => shape.clone(),
+                _ => Shape::Unknown,
+            };
+            elements(&node.elems, &shape, out);
+        }
+        syn::Pat::Struct(node) => {
+            let name = node
+                .path
+                .segments
+                .last()
+                .map(|segment| segment.ident.to_string());
+            // A struct pattern of another variant never matches the literal, so its
+            // names take nothing.
+            let other_variant = matches!(
+                shape,
+                Shape::Struct(Some(literal), ..) if name.as_deref() != Some(literal.as_str())
+            );
+            for field in &node.fields {
+                if other_variant {
+                    pattern_bindings(&field.pat, &Shape::Plain, out);
+                    continue;
+                }
+                let name = match &field.member {
+                    syn::Member::Named(name) => field_name(name),
+                    syn::Member::Unnamed(index) => index.index.to_string(),
+                };
+                let field_shape = match shape {
+                    Shape::Struct(..) | Shape::Plain | Shape::Derived { .. } => shape.field(&name),
+                    _ => Shape::Unknown,
+                };
+                pattern_bindings(&field.pat, &field_shape, out);
+            }
+        }
+        syn::Pat::Or(node) => {
+            let cases: Vec<Vec<PatternBinding>> = node
+                .cases
+                .iter()
+                .map(|case| {
+                    let mut bound = Vec::new();
+                    pattern_bindings(case, shape, &mut bound);
+                    bound
+                })
+                .collect();
+            let Some((first, others)) = cases.split_first() else {
+                return;
+            };
+            for binding in first {
+                let mut joined = binding.shape.clone();
+                let mut mutable = binding.mutable;
+                for case in others {
+                    let other = case.iter().find(|other| other.name == binding.name);
+                    joined = match (joined, other.map(|other| &other.shape)) {
+                        (Shape::Plain, Some(Shape::Plain)) => Shape::Plain,
+                        (
+                            Shape::Derived { path, method },
+                            Some(Shape::Derived { path: p, method: m }),
+                        ) => Shape::Derived {
+                            path: path || *p,
+                            method: method || *m,
+                        },
+                        _ => Shape::Unknown,
+                    };
+                    mutable |= other.is_some_and(|other| other.mutable);
+                }
+                out.push(PatternBinding {
+                    name: binding.name.clone(),
+                    shape: joined,
+                    mutable,
+                });
+            }
+        }
+        // A literal, a range, a path, `_` and `..` bind nothing; a macro's pattern is not
+        // read, so the names it may bind are not derived.
+        _ => {}
+    }
+}
+
+/// The names bound by the patterns of `match` arms, `if let` / `while let` and of
+/// `let` statements other than a single name (`let ... else` included), whose
+/// position in the scrutinee is derived from the target's result or not fixed by
+/// syntax (DS-1938, DS-1939). Only those at DS-1962's counted positions are read.
+fn find_pattern_bindings(
+    text: &str,
+    symbol: &str,
+    regions: &[(usize, usize)],
+) -> Vec<DerivedBinding> {
+    struct Finder<'r, 'a> {
+        reader: &'r ShapeReader<'a>,
+        text: &'a str,
+        regions: &'a [(usize, usize)],
+        bindings: Vec<DerivedBinding>,
+    }
+    impl Finder<'_, '_> {
+        fn bind(&mut self, pattern: &syn::Pat, scrutinee: &syn::Expr, at: proc_macro2::Span) {
+            let offset = span_offset(at.start(), self.text);
+            if in_regions(offset, self.regions) || !self.reader.mentions(scrutinee) {
+                return;
+            }
+            let shape = self.reader.shape(scrutinee, 0);
+            let mut bound = Vec::new();
+            pattern_bindings(pattern, &shape, &mut bound);
+            for binding in bound {
+                let (path, method, uncertain) = match binding.shape {
+                    Shape::Derived { path, method } => (path, method, false),
+                    Shape::Plain => continue,
+                    _ => (false, false, true),
+                };
+                self.bindings.push(DerivedBinding {
+                    name: binding.name,
+                    has_path_call: path,
+                    has_method_call: method,
+                    delegated: false,
+                    mutable: binding.mutable,
+                    whole_result: !uncertain,
+                    offset,
+                    uncertain,
+                });
+            }
+        }
+    }
+    impl<'ast> Visit<'ast> for Finder<'_, '_> {
+        fn visit_local(&mut self, node: &'ast syn::Local) {
+            let mut pattern = &node.pat;
+            while let syn::Pat::Type(typed) = pattern {
+                pattern = &typed.pat;
+            }
+            // A single name is `LetBindingVisitor`'s.
+            let single = matches!(pattern, syn::Pat::Ident(ident) if ident.subpat.is_none());
+            if let (false, Some(init)) = (single, &node.init) {
+                self.bind(&node.pat, &init.expr, node.span());
+            }
+            syn::visit::visit_local(self, node);
+        }
+        fn visit_expr_let(&mut self, node: &'ast syn::ExprLet) {
+            self.bind(&node.pat, &node.expr, node.span());
+            syn::visit::visit_expr_let(self, node);
+        }
+        fn visit_expr_match(&mut self, node: &'ast syn::ExprMatch) {
+            for arm in &node.arms {
+                self.bind(&arm.pat, &node.expr, arm.span());
+            }
+            syn::visit::visit_expr_match(self, node);
+        }
+    }
+    let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
+        return Vec::new();
+    };
+    let reader = ShapeReader::new(&function, symbol);
+    let mut finder = Finder {
+        reader: &reader,
+        text,
+        regions,
+        bindings: Vec::new(),
+    };
+    finder.visit_block(&function.block);
+    finder.bindings
 }
 
 // ---------------------------------------------------------------------------
@@ -5817,6 +6586,845 @@ fn macro_argument_span(text: &str, node: &syn::Macro) -> Option<(usize, usize)> 
 
 fn macro_argument_start(text: &str, node: &syn::Macro) -> Option<usize> {
     macro_argument_span(text, node).map(|(start, _)| start)
+}
+
+// ---------------------------------------------------------------------------
+// DA-003 (DS-1941, DS-1942, DS-1944): calls of a closure bound by `let`
+// ---------------------------------------------------------------------------
+
+/// The macros whose checked arguments are DS-1962's counted positions.
+const COUNTED_MACROS: [&str; 5] = ["assert", "assert_eq", "assert_ne", "vec", "matches"];
+
+/// The most rounds of inlining: a closure called from the body of another tracked
+/// closure is inlined one round after it.
+const INLINE_ROUNDS: usize = 16;
+
+/// `text` with every call that DS-1941 tracks replaced by the body of the closure
+/// it runs, for DA-003 to read the call as the execution of that body.
+///
+/// A closure is tracked when it is bound by `let f = |..| body;` (a plain name, not
+/// `mut`, a closure that is not `async`, `const`, `static` or `for<..>`) and called
+/// as `f(..)` at a counted position, `f` meaning the nearest `let` of that name in
+/// scope (DS-1941). A call `f(a, ..)` becomes `{ let p = a; ..; body }`: each
+/// parameter pattern is bound to its argument once, before the body, as a call
+/// evaluates them, and every name the closure binds is renamed per call so that no
+/// name of the call site is captured. A literal or a name the closure does not bind
+/// replaces a plain parameter directly. The `let f` is removed once every use of `f`
+/// is an inlined call.
+///
+/// A closure is left as it is, and DS-1944 holds for it, when `f` is used other than
+/// by a call (passed, rebound, referenced), bound by another pattern or assigned, or
+/// never called at a counted position. A closure is also left as it is where the
+/// inlined text could not mean the same execution, which DS-1680 reads as `UNKNOWN`:
+/// its body uses a name of the call site that the function binds more than once, or
+/// binds a name other than a parameter that is also bound outside it, may capture a
+/// `mut` binding (DS-1959), or uses `?`; or a call whose value is used runs a body that has its own
+/// `return` or whose tail is a branch, loop or labeled block (DS-1942 makes the value
+/// derived only when every exit's value is; a `return` of a call whose value is
+/// discarded becomes a `break` of the inlined block).
+///
+/// `None` when no call is inlined, and when the rounds do not settle.
+fn inline_tracked_closures(text: &str) -> Option<String> {
+    let mut current = text.to_owned();
+    let mut fresh = 0;
+    let mut inlined = false;
+    for _ in 0..INLINE_ROUNDS {
+        match inline_round(&current, &mut fresh) {
+            Some(next) => {
+                current = next;
+                inlined = true;
+            }
+            None => return inlined.then_some(current),
+        }
+    }
+    None
+}
+
+/// Per name, the places that bind it: patterns (the cases of an or-pattern once),
+/// assignments and compound assignments, also in the checked arguments of a macro
+/// whose grammar is known.
+#[derive(Default)]
+struct BindingCounter {
+    counts: BTreeMap<String, usize>,
+    /// The names bound by a `mut` or `ref mut` pattern.
+    mutable: BTreeSet<String>,
+    /// Where each name is bound.
+    positions: BTreeMap<String, Vec<proc_macro2::LineColumn>>,
+    /// The names of the items (`fn`, `const`, `static`, ..) declared in the body.
+    items: BTreeSet<String>,
+}
+
+impl BindingCounter {
+    fn get(&self, name: &str) -> usize {
+        self.counts.get(name).copied().unwrap_or(0)
+    }
+}
+
+impl<'ast> Visit<'ast> for BindingCounter {
+    fn visit_pat_ident(&mut self, node: &'ast syn::PatIdent) {
+        if pattern_ident_may_be_path(node) {
+            return;
+        }
+        *self.counts.entry(node.ident.to_string()).or_default() += 1;
+        self.positions
+            .entry(node.ident.to_string())
+            .or_default()
+            .push(node.ident.span().start());
+        if node.mutability.is_some() {
+            self.mutable.insert(node.ident.to_string());
+        }
+        syn::visit::visit_pat_ident(self, node);
+    }
+
+    fn visit_item(&mut self, node: &'ast syn::Item) {
+        let name = match node {
+            syn::Item::Fn(item) => Some(&item.sig.ident),
+            syn::Item::Const(item) => Some(&item.ident),
+            syn::Item::Static(item) => Some(&item.ident),
+            syn::Item::Struct(item) => Some(&item.ident),
+            syn::Item::Enum(item) => Some(&item.ident),
+            syn::Item::Macro(item) => item.ident.as_ref(),
+            _ => None,
+        };
+        if let Some(name) = name {
+            self.items.insert(name.to_string());
+        }
+        syn::visit::visit_item(self, node);
+    }
+
+    fn visit_pat_or(&mut self, node: &'ast syn::PatOr) {
+        let mut most: BTreeMap<String, usize> = BTreeMap::new();
+        for case in &node.cases {
+            let mut one = BindingCounter::default();
+            one.visit_pat(case);
+            self.mutable.extend(one.mutable);
+            for (name, at) in one.positions {
+                self.positions.entry(name).or_default().extend(at);
+            }
+            for (name, count) in one.counts {
+                let entry = most.entry(name).or_default();
+                *entry = (*entry).max(count);
+            }
+        }
+        for (name, count) in most {
+            *self.counts.entry(name).or_default() += count;
+        }
+    }
+
+    fn visit_expr_assign(&mut self, node: &'ast syn::ExprAssign) {
+        if let syn::Expr::Path(path) = node.left.as_ref() {
+            if let Some(name) = path.path.get_ident() {
+                *self.counts.entry(name.to_string()).or_default() += 1;
+            }
+        }
+        syn::visit::visit_expr_assign(self, node);
+    }
+
+    fn visit_expr_binary(&mut self, node: &'ast syn::ExprBinary) {
+        if is_compound_assignment(node.op) {
+            if let syn::Expr::Path(path) = node.left.as_ref() {
+                if let Some(name) = path.path.get_ident() {
+                    *self.counts.entry(name.to_string()).or_default() += 1;
+                }
+            }
+        }
+        syn::visit::visit_expr_binary(self, node);
+    }
+
+    fn visit_macro(&mut self, node: &'ast syn::Macro) {
+        if let Some(arguments) = macro_arguments(node) {
+            for argument in &arguments.checked {
+                self.visit_expr(argument);
+            }
+        }
+    }
+}
+
+/// An identifier in macro tokens that may name a variable: not a method or field
+/// after `.`, a lifetime, a macro name, a path segment or a field label.
+struct TokenIdent {
+    name: String,
+    range: (usize, usize),
+    /// Followed by a parenthesized group: written as a call.
+    called: bool,
+}
+
+fn token_idents(
+    tokens: proc_macro2::TokenStream,
+    offset: &dyn Fn(proc_macro2::LineColumn) -> usize,
+    out: &mut Vec<TokenIdent>,
+) {
+    use proc_macro2::{Delimiter, Spacing, TokenTree};
+    let trees: Vec<TokenTree> = tokens.into_iter().collect();
+    let punct = |index: Option<usize>, ch: char| {
+        index
+            .and_then(|index| trees.get(index))
+            .is_some_and(|tree| matches!(tree, TokenTree::Punct(p) if p.as_char() == ch))
+    };
+    for (index, tree) in trees.iter().enumerate() {
+        match tree {
+            TokenTree::Group(group) => token_idents(group.stream(), offset, out),
+            TokenTree::Ident(ident) => {
+                let previous = index.checked_sub(1);
+                let after_dot_or_quote = punct(previous, '.') || punct(previous, '\'');
+                let after_path = punct(previous, ':') && punct(index.checked_sub(2), ':');
+                let before_bang_or_colon = matches!(
+                    trees.get(index + 1),
+                    Some(TokenTree::Punct(p))
+                        if (p.as_char() == '!' && p.spacing() == Spacing::Alone) || p.as_char() == ':'
+                );
+                if after_dot_or_quote || after_path || before_bang_or_colon {
+                    continue;
+                }
+                out.push(TokenIdent {
+                    name: ident.to_string(),
+                    range: (offset(ident.span().start()), offset(ident.span().end())),
+                    called: matches!(
+                        trees.get(index + 1),
+                        Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Parenthesis
+                    ),
+                });
+            }
+            TokenTree::Punct(_) | TokenTree::Literal(_) => {}
+        }
+    }
+}
+
+fn tokens_have_question_mark(tokens: proc_macro2::TokenStream) -> bool {
+    tokens.into_iter().any(|tree| match tree {
+        proc_macro2::TokenTree::Punct(punct) => punct.as_char() == '?',
+        proc_macro2::TokenTree::Group(group) => tokens_have_question_mark(group.stream()),
+        proc_macro2::TokenTree::Ident(_) | proc_macro2::TokenTree::Literal(_) => false,
+    })
+}
+
+/// What inlining a call needs to know about a closure that may be tracked.
+struct ClosureInfo {
+    /// Per parameter: its pattern's range, and its name when it is a plain name.
+    params: Vec<((usize, usize), Option<String>)>,
+    body: (usize, usize),
+    /// Every name the closure binds.
+    bound: BTreeSet<String>,
+    /// The names the closure binds in one place only.
+    once: BTreeSet<String>,
+    /// The ranges of those names, in the parameters and the body.
+    renames: Vec<((usize, usize), String)>,
+    /// The field shorthands among them, written out as `label: name` when renamed.
+    shorthands: Vec<((usize, usize), String)>,
+    /// The ranges of the `return` keywords of the closure's own returns.
+    returns: Vec<(usize, usize)>,
+    /// The tail of the body is a branch, a loop or a labeled block.
+    tail_join: bool,
+}
+
+/// The `ClosureInfo` of `closure`, or `None` when inlining its calls could not mean
+/// the same execution (see `inline_tracked_closures`).
+fn closure_info(
+    closure: &syn::ExprClosure,
+    offset: &dyn Fn(proc_macro2::LineColumn) -> usize,
+    function_counts: &BindingCounter,
+) -> Option<ClosureInfo> {
+    struct Sites<'o> {
+        offset: &'o dyn Fn(proc_macro2::LineColumn) -> usize,
+        bindings: Vec<((usize, usize), String)>,
+        uses: Vec<((usize, usize), String)>,
+        /// Field shorthands (`S { a }`), whose name is a field label as well.
+        shorthands: Vec<((usize, usize), String)>,
+        returns: Vec<(usize, usize)>,
+        question: bool,
+        /// Inside a closure, an `async` block or an item, whose `return` and `?` are
+        /// not the closure's own.
+        nested: usize,
+    }
+    impl Sites<'_> {
+        fn range(&self, span: proc_macro2::Span) -> (usize, usize) {
+            ((self.offset)(span.start()), (self.offset)(span.end()))
+        }
+    }
+    impl<'ast> Visit<'ast> for Sites<'_> {
+        fn visit_pat_ident(&mut self, node: &'ast syn::PatIdent) {
+            if !pattern_ident_may_be_path(node) {
+                self.bindings
+                    .push((self.range(node.ident.span()), node.ident.to_string()));
+            }
+            syn::visit::visit_pat_ident(self, node);
+        }
+        fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
+            if let (None, Some(name)) = (&node.qself, node.path.get_ident()) {
+                self.uses.push((self.range(name.span()), name.to_string()));
+            }
+            syn::visit::visit_expr_path(self, node);
+        }
+        fn visit_field_value(&mut self, node: &'ast syn::FieldValue) {
+            if let (None, syn::Member::Named(name)) = (&node.colon_token, &node.member) {
+                self.shorthands
+                    .push((self.range(name.span()), name.to_string()));
+            }
+            syn::visit::visit_field_value(self, node);
+        }
+        fn visit_field_pat(&mut self, node: &'ast syn::FieldPat) {
+            if let (None, syn::Member::Named(name)) = (&node.colon_token, &node.member) {
+                self.shorthands
+                    .push((self.range(name.span()), name.to_string()));
+            }
+            syn::visit::visit_field_pat(self, node);
+        }
+        fn visit_expr_return(&mut self, node: &'ast syn::ExprReturn) {
+            if self.nested == 0 {
+                self.returns.push(self.range(node.return_token.span));
+            }
+            syn::visit::visit_expr_return(self, node);
+        }
+        fn visit_expr_try(&mut self, node: &'ast syn::ExprTry) {
+            self.question |= self.nested == 0;
+            syn::visit::visit_expr_try(self, node);
+        }
+        fn visit_expr_closure(&mut self, node: &'ast syn::ExprClosure) {
+            self.nested += 1;
+            syn::visit::visit_expr_closure(self, node);
+            self.nested -= 1;
+        }
+        fn visit_expr_async(&mut self, node: &'ast syn::ExprAsync) {
+            self.nested += 1;
+            syn::visit::visit_expr_async(self, node);
+            self.nested -= 1;
+        }
+        fn visit_item(&mut self, node: &'ast syn::Item) {
+            self.nested += 1;
+            syn::visit::visit_item(self, node);
+            self.nested -= 1;
+        }
+        fn visit_macro(&mut self, node: &'ast syn::Macro) {
+            let mut idents = Vec::new();
+            let unparsed = match macro_arguments(node) {
+                Some(arguments) => {
+                    for argument in &arguments.checked {
+                        self.visit_expr(argument);
+                    }
+                    arguments.unchecked
+                }
+                None => vec![node.tokens.clone()],
+            };
+            for tokens in unparsed {
+                // A `?` or `return` in tokens that are not parsed is not seen as an exit:
+                // such a closure is not inlined.
+                if self.nested == 0
+                    && (tokens_mention_ident(tokens.clone(), "return")
+                        || tokens_have_question_mark(tokens.clone()))
+                {
+                    self.question = true;
+                }
+                token_idents(tokens, self.offset, &mut idents);
+            }
+            self.uses
+                .extend(idents.into_iter().map(|ident| (ident.range, ident.name)));
+        }
+    }
+    if closure.lifetimes.is_some()
+        || closure.constness.is_some()
+        || closure.movability.is_some()
+        || closure.asyncness.is_some()
+    {
+        return None;
+    }
+    let mut sites = Sites {
+        offset,
+        bindings: Vec::new(),
+        uses: Vec::new(),
+        shorthands: Vec::new(),
+        returns: Vec::new(),
+        question: false,
+        nested: 0,
+    };
+    for input in &closure.inputs {
+        sites.visit_pat(input);
+    }
+    // A parameter's scope is the whole body, so every use of its name in the closure
+    // means a binding of the closure.
+    let params_bound: BTreeSet<String> = sites
+        .bindings
+        .iter()
+        .map(|(_, name)| name.clone())
+        .collect();
+    sites.visit_expr(&closure.body);
+    if sites.question {
+        return None;
+    }
+    let mut inside = BindingCounter::default();
+    inside.visit_expr_closure(closure);
+    let bound: BTreeSet<String> = sites
+        .bindings
+        .iter()
+        .map(|(_, name)| name.clone())
+        .collect();
+    if bound.iter().any(|name| {
+        !params_bound.contains(name) && function_counts.get(name) > inside.get(name)
+    })
+        // DS-1959: a closure that may capture a `mut` binding mutably changes it where
+        // it runs; that change is not inlined.
+        // DS-1941: a name the body captures must mean, at every call, the binding it
+        // means at the closure: one binding made before the closure, or an item that
+        // no `let` shadows.
+        || sites.uses.iter().any(|(_, name)| {
+            let count = function_counts.get(name);
+            !bound.contains(name)
+                && (count > 1
+                    || function_counts.mutable.contains(name)
+                    || (count == 1 && function_counts.items.contains(name))
+                    || function_counts.positions.get(name).is_some_and(|at| {
+                        at.iter().any(|position| *position >= closure.span().start())
+                    }))
+        })
+    {
+        return None;
+    }
+    let params = closure
+        .inputs
+        .iter()
+        .map(|input| {
+            let mut pattern = input;
+            while let syn::Pat::Type(typed) = pattern {
+                pattern = &typed.pat;
+            }
+            let plain = match pattern {
+                syn::Pat::Ident(ident)
+                    if ident.by_ref.is_none()
+                        && ident.mutability.is_none()
+                        && ident.subpat.is_none() =>
+                {
+                    Some(ident.ident.to_string())
+                }
+                _ => None,
+            };
+            // The type of a parameter is not written on its `let`: DA-003 reads the
+            // binding of a plain name the same with and without one.
+            let typeless = match input {
+                syn::Pat::Type(typed) => typed.pat.as_ref(),
+                other => other,
+            };
+            (sites.range(typeless.span()), plain)
+        })
+        .collect();
+    let renames = sites
+        .bindings
+        .iter()
+        .chain(sites.uses.iter().filter(|(_, name)| bound.contains(name)))
+        .cloned()
+        .collect();
+    let once = bound
+        .iter()
+        .filter(|name| inside.get(name) == 1)
+        .cloned()
+        .collect();
+    let shorthands = sites
+        .shorthands
+        .iter()
+        .filter(|(_, name)| bound.contains(name))
+        .cloned()
+        .collect();
+    Some(ClosureInfo {
+        params,
+        body: sites.range(closure.body.span()),
+        bound,
+        once,
+        renames,
+        shorthands,
+        returns: sites.returns,
+        tail_join: tail_is_join(&closure.body),
+    })
+}
+
+/// Whether the value of `expression` comes from a branch, a loop or a labeled block,
+/// whose exits DS-1942 requires to be read one by one.
+fn tail_is_join(expression: &syn::Expr) -> bool {
+    let block_tail = |block: &syn::Block| match block.stmts.last() {
+        Some(syn::Stmt::Expr(tail, None)) => tail_is_join(tail),
+        _ => false,
+    };
+    match expression {
+        syn::Expr::If(_)
+        | syn::Expr::Match(_)
+        | syn::Expr::Loop(_)
+        | syn::Expr::While(_)
+        | syn::Expr::ForLoop(_) => true,
+        syn::Expr::Block(node) => node.label.is_some() || block_tail(&node.block),
+        syn::Expr::Unsafe(node) => block_tail(&node.block),
+        syn::Expr::Paren(node) => tail_is_join(&node.expr),
+        syn::Expr::Group(node) => tail_is_join(&node.expr),
+        syn::Expr::Reference(node) => tail_is_join(&node.expr),
+        syn::Expr::Unary(node) => tail_is_join(&node.expr),
+        syn::Expr::Cast(node) => tail_is_join(&node.expr),
+        syn::Expr::Field(node) => tail_is_join(&node.base),
+        syn::Expr::Try(node) => tail_is_join(&node.expr),
+        syn::Expr::MethodCall(node) => tail_is_join(&node.receiver),
+        syn::Expr::Binary(node) => tail_is_join(&node.left) || tail_is_join(&node.right),
+        _ => false,
+    }
+}
+
+/// A `let NAME = ..;` of the function, with the range in which `NAME` means it.
+struct LetDef {
+    name: String,
+    range: (usize, usize),
+    scope_end: usize,
+    counted: bool,
+    closure: Option<ClosureInfo>,
+}
+
+/// A call `NAME(..)` of the function.
+struct NameCall {
+    name: String,
+    range: (usize, usize),
+    /// Per argument: its range, and whether it is a literal or a plain name.
+    args: Vec<((usize, usize), bool)>,
+    counted: bool,
+    discarded: bool,
+}
+
+/// One round: the outermost calls that DS-1941 tracks are inlined. `None` when there
+/// is none, or the result does not parse.
+fn inline_round(text: &str, fresh: &mut usize) -> Option<String> {
+    struct Scan<'o> {
+        offset: &'o dyn Fn(proc_macro2::LineColumn) -> usize,
+        counts: &'o BindingCounter,
+        defs: Vec<LetDef>,
+        calls: Vec<NameCall>,
+        uses: Vec<(usize, String)>,
+        discarded: BTreeSet<usize>,
+        noncounted: usize,
+    }
+    impl Scan<'_> {
+        fn range(&self, span: proc_macro2::Span) -> (usize, usize) {
+            ((self.offset)(span.start()), (self.offset)(span.end()))
+        }
+        fn tokens(&mut self, tokens: proc_macro2::TokenStream, calls_allowed: bool) {
+            let mut idents = Vec::new();
+            token_idents(tokens, self.offset, &mut idents);
+            for ident in idents {
+                if calls_allowed && ident.called {
+                    self.calls.push(NameCall {
+                        name: ident.name,
+                        range: ident.range,
+                        args: Vec::new(),
+                        counted: false,
+                        discarded: false,
+                    });
+                } else {
+                    self.uses.push((ident.range.0, ident.name));
+                }
+            }
+        }
+    }
+    impl<'ast> Visit<'ast> for Scan<'_> {
+        fn visit_block(&mut self, node: &'ast syn::Block) {
+            let scope_end = self.range(node.span()).1;
+            for statement in &node.stmts {
+                match statement {
+                    syn::Stmt::Local(local) => {
+                        if let syn::Pat::Ident(ident) = &local.pat {
+                            let closure = match &local.init {
+                                Some(init)
+                                    if init.diverge.is_none()
+                                        && ident.by_ref.is_none()
+                                        && ident.mutability.is_none()
+                                        && ident.subpat.is_none() =>
+                                {
+                                    match init.expr.as_ref() {
+                                        syn::Expr::Closure(closure) => {
+                                            closure_info(closure, self.offset, self.counts)
+                                        }
+                                        _ => None,
+                                    }
+                                }
+                                _ => None,
+                            };
+                            self.defs.push(LetDef {
+                                name: ident.ident.to_string(),
+                                range: self.range(local.span()),
+                                scope_end,
+                                counted: self.noncounted == 0,
+                                closure,
+                            });
+                        }
+                    }
+                    syn::Stmt::Expr(syn::Expr::Call(call), Some(_)) => {
+                        self.discarded.insert(self.range(call.span()).0);
+                    }
+                    _ => {}
+                }
+            }
+            syn::visit::visit_block(self, node);
+        }
+        fn visit_expr_call(&mut self, node: &'ast syn::ExprCall) {
+            let syn::Expr::Path(path) = node.func.as_ref() else {
+                return syn::visit::visit_expr_call(self, node);
+            };
+            let (None, Some(name)) = (&path.qself, path.path.get_ident()) else {
+                return syn::visit::visit_expr_call(self, node);
+            };
+            let range = self.range(node.span());
+            let args = node
+                .args
+                .iter()
+                .map(|argument| {
+                    let simple = match argument {
+                        syn::Expr::Lit(_) => true,
+                        syn::Expr::Path(path) => {
+                            path.qself.is_none() && path.path.get_ident().is_some()
+                        }
+                        _ => false,
+                    };
+                    (self.range(argument.span()), simple)
+                })
+                .collect();
+            self.calls.push(NameCall {
+                name: name.to_string(),
+                range,
+                args,
+                counted: self.noncounted == 0,
+                discarded: self.discarded.contains(&range.0),
+            });
+            for argument in &node.args {
+                self.visit_expr(argument);
+            }
+        }
+        fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
+            if let (None, Some(name)) = (&node.qself, node.path.get_ident()) {
+                self.uses
+                    .push((self.range(name.span()).0, name.to_string()));
+            }
+        }
+        fn visit_expr_closure(&mut self, node: &'ast syn::ExprClosure) {
+            self.noncounted += 1;
+            syn::visit::visit_expr_closure(self, node);
+            self.noncounted -= 1;
+        }
+        fn visit_expr_async(&mut self, node: &'ast syn::ExprAsync) {
+            self.noncounted += 1;
+            syn::visit::visit_expr_async(self, node);
+            self.noncounted -= 1;
+        }
+        fn visit_item(&mut self, node: &'ast syn::Item) {
+            self.noncounted += 1;
+            syn::visit::visit_item(self, node);
+            self.noncounted -= 1;
+        }
+        fn visit_macro(&mut self, node: &'ast syn::Macro) {
+            let name = node
+                .path
+                .segments
+                .last()
+                .map(|segment| segment.ident.to_string());
+            let Some(arguments) = macro_arguments(node) else {
+                return self.tokens(node.tokens.clone(), false);
+            };
+            let counted = name
+                .as_deref()
+                .is_some_and(|name| COUNTED_MACROS.contains(&name));
+            if !counted {
+                self.noncounted += 1;
+            }
+            for argument in &arguments.checked {
+                self.visit_expr(argument);
+            }
+            if !counted {
+                self.noncounted -= 1;
+            }
+            for tokens in arguments.unchecked {
+                self.tokens(tokens, true);
+            }
+        }
+    }
+
+    let function = syn::parse_str::<syn::ItemFn>(text).ok()?;
+    let lines = crate::line_offsets(text);
+    let offset = |at: proc_macro2::LineColumn| {
+        crate::line_column_byte_offset(text, &lines, at.line, at.column).unwrap_or(text.len())
+    };
+    let mut counts = BindingCounter::default();
+    counts.visit_block(&function.block);
+    for input in &function.sig.inputs {
+        counts.visit_fn_arg(input);
+    }
+    let mut scan = Scan {
+        offset: &offset,
+        counts: &counts,
+        defs: Vec::new(),
+        calls: Vec::new(),
+        uses: Vec::new(),
+        discarded: BTreeSet::new(),
+        noncounted: 0,
+    };
+    scan.visit_block(&function.block);
+    let Scan {
+        mut defs,
+        calls,
+        uses,
+        ..
+    } = scan;
+    // DS-1941: a name means the nearest `let` of it whose scope holds the position.
+    let resolve = |defs: &[LetDef], name: &str, at: usize| {
+        defs.iter()
+            .enumerate()
+            .filter(|(_, def)| def.name == name && def.range.1 <= at && at < def.scope_end)
+            .max_by_key(|(_, def)| def.range.1)
+            .map(|(index, _)| index)
+    };
+    // DS-1944: a closure that is used other than by a call, or whose name another
+    // pattern or an assignment binds, is not tracked.
+    for (at, name) in &uses {
+        if let Some(index) = resolve(&defs, name, *at) {
+            defs[index].closure = None;
+        }
+    }
+    for index in 0..defs.len() {
+        let name = defs[index].name.clone();
+        // An item of the same name may be the one a call means in its block.
+        if counts.get(&name) > defs.iter().filter(|def| def.name == name).count()
+            || counts.items.contains(&name)
+        {
+            defs[index].closure = None;
+        }
+    }
+    let mut per_def: BTreeMap<usize, (Vec<&NameCall>, bool)> = BTreeMap::new();
+    for call in &calls {
+        if let Some(index) = resolve(&defs, &call.name, call.range.0) {
+            let entry = per_def.entry(index).or_default();
+            if call.counted && defs[index].counted {
+                entry.0.push(call);
+            } else {
+                entry.1 = true;
+            }
+        }
+    }
+    // Every edit, as (range, replacement, the def it belongs to).
+    let mut edits: Vec<((usize, usize), String, usize)> = Vec::new();
+    for (index, (counted_calls, other_calls)) in &per_def {
+        let Some(info) = &defs[*index].closure else {
+            continue;
+        };
+        if counted_calls.is_empty()
+            || counted_calls.iter().any(|call| {
+                call.args.len() != info.params.len()
+                    || (!call.discarded && (!info.returns.is_empty() || info.tail_join))
+            })
+        {
+            continue;
+        }
+        for call in counted_calls {
+            let replacement = inlined_call(text, info, call, fresh);
+            edits.push((call.range, replacement, *index));
+        }
+        if !other_calls {
+            edits.push((defs[*index].range, String::new(), *index));
+        }
+    }
+    // The outermost edits are made in this round; a def whose edits are not all made
+    // is left to a later round whole, so that its `let` is never removed early.
+    edits.sort_by(|a, b| a.0 .0.cmp(&b.0 .0).then(b.0 .1.cmp(&a.0 .1)));
+    let mut kept = vec![true; edits.len()];
+    loop {
+        let mut end = 0;
+        let mut chosen = vec![false; edits.len()];
+        for (position, edit) in edits.iter().enumerate() {
+            if kept[position] && edit.0 .0 >= end {
+                chosen[position] = true;
+                end = edit.0 .1;
+            }
+        }
+        let mut dropped = false;
+        for position in 0..edits.len() {
+            if kept[position] && !chosen[position] {
+                let def = edits[position].2;
+                for (other, edit) in edits.iter().enumerate() {
+                    if edit.2 == def && kept[other] {
+                        kept[other] = false;
+                        dropped = true;
+                    }
+                }
+            }
+        }
+        if !dropped {
+            break;
+        }
+    }
+    let mut result = text.to_owned();
+    let mut any = false;
+    for (position, edit) in edits.iter().enumerate().rev() {
+        if kept[position] {
+            result.replace_range(edit.0 .0..edit.0 .1, &edit.1);
+            any = true;
+        }
+    }
+    (any && syn::parse_str::<syn::ItemFn>(&result).is_ok()).then_some(result)
+}
+
+/// The block that runs the body of `info` for `call`.
+fn inlined_call(text: &str, info: &ClosureInfo, call: &NameCall, fresh: &mut usize) -> String {
+    while text.contains(&format!("_vtc{fresh}")) || text.contains(&format!("'vtc{fresh}")) {
+        *fresh += 1;
+    }
+    let id = *fresh;
+    *fresh += 1;
+    let mut names: BTreeMap<&str, String> = info
+        .bound
+        .iter()
+        .map(|name| (name.as_str(), format!("{name}_vtc{id}")))
+        .collect();
+    let mut bound_params = Vec::new();
+    for ((pattern, plain), (argument, simple)) in info.params.iter().zip(&call.args) {
+        let argument_text = &text[argument.0..argument.1];
+        // A literal or a name replaces a parameter that the closure binds nowhere else:
+        // every other name the closure binds is renamed, so the name keeps meaning the
+        // call site's binding.
+        match (plain, simple) {
+            (Some(name), true) if info.once.contains(name) => {
+                names.insert(name.as_str(), argument_text.to_owned());
+            }
+            _ => bound_params.push((*pattern, argument_text)),
+        }
+    }
+    let label = format!("'vtc{id}");
+    let rewrite = |range: (usize, usize)| {
+        // A shorthand comes first, so that it wins over the rename of the same name.
+        let mut pieces: Vec<((usize, usize), String)> = info
+            .shorthands
+            .iter()
+            .filter(|(site, _)| site.0 >= range.0 && site.1 <= range.1)
+            .map(|(site, name)| (*site, format!("{name}: {}", names[name.as_str()])))
+            .chain(
+                info.renames
+                    .iter()
+                    .filter(|(site, _)| site.0 >= range.0 && site.1 <= range.1)
+                    .map(|(site, name)| (*site, names[name.as_str()].clone())),
+            )
+            .chain(
+                info.returns
+                    .iter()
+                    .filter(|site| site.0 >= range.0 && site.1 <= range.1)
+                    .map(|site| (*site, format!("break {label}"))),
+            )
+            .collect();
+        pieces.sort_by_key(|(site, _)| std::cmp::Reverse(site.0));
+        pieces.dedup_by_key(|(site, _)| site.0);
+        let mut written = text[range.0..range.1].to_owned();
+        for (site, replacement) in pieces {
+            written.replace_range(site.0 - range.0..site.1 - range.0, &replacement);
+        }
+        written
+    };
+    let mut block = String::new();
+    if !info.returns.is_empty() {
+        block.push_str(&label);
+        block.push_str(": ");
+    }
+    block.push_str("{ ");
+    for (pattern, argument) in bound_params {
+        block.push_str(&format!("let {} = {argument}; ", rewrite(pattern)));
+    }
+    block.push_str(&rewrite(info.body));
+    block.push_str(" }");
+    block
 }
 
 /// Byte offset of a `proc_macro2` position in `text`. The column counts
@@ -7730,7 +9338,9 @@ mod tests {
             "let r = double(2) == 4 || true;\n    assert!(r);",
             "let r = match double(2) { _ => 1 };\n    assert_eq!(r, 1);",
             "let f = |x| { double(x); 1 };\n    assert_eq!(f(2), 1);",
-            "let f = |x| double(x);\n    assert_eq!(f(2), 4);",
+            // DS-1944: a closure bound with `mut` is not tracked (DS-1941 tracks the
+            // same closure bound without it).
+            "let mut f = |x| double(x);\n    assert_eq!(f(2), 4);",
             "let r = ((double(2), 1), 2).0.1;\n    assert_eq!(r, 1);",
             "let r = vec![double(2), 1][1];\n    assert_eq!(r, 1);",
             "let r = [double(2), 1][1];\n    assert_eq!(r, 1);",
@@ -8472,7 +10082,9 @@ fn real_check() {
             ("UNKNOWN", "", "", "    let _r = double(2);\n    if !flag() {\n        panic!(\"bad\");\n    }\n"),
             ("UNKNOWN", "", "", "    let r = double(2);\n    let k = 4;\n    if k != 4 {\n        panic!(\"{}\", r);\n    }\n"),
             ("UNKNOWN", "", "", "    if !is_four(double(2)) {\n        panic!(\"bad\");\n    }\n"),
-            ("UNKNOWN", "", "", "    match double(2) {\n        x if x == 4 => {}\n        _ => panic!(\"bad\"),\n    }\n"),
+            // DS-1938: the arm binds `x` to the whole result, so the guard is derived.
+            ("PASS", "", "", "    match double(2) {\n        x if x == 4 => {}\n        _ => panic!(\"bad\"),\n    }\n"),
+            ("UNKNOWN", "", "", "    match (double(2), 1) {\n        (_, y) if y == 1 => {}\n        _ => panic!(\"bad\"),\n    }\n"),
             ("UNKNOWN", "", "", "    match Some(double(2)) {\n        Some(_) => {}\n        None => panic!(\"bad\"),\n    }\n"),
             ("UNKNOWN", "", "", "    let t = (double(2), 1);\n    match t {\n        (_, 1) => {}\n        _ => panic!(\"bad\"),\n    }\n"),
             ("UNKNOWN", "", "", "    let r = double(2);\n    let _f = || {\n        if r != 4 {\n            panic!(\"bad\")\n        }\n    };\n"),
@@ -8861,5 +10473,168 @@ fn real_check() {
         let analysis = analyze(checked, &["double".to_owned()], &[]);
         assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
         assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
+    }
+
+    /// DA-003 of a Test whose declared targets are `double` and `maybe`.
+    fn da_003_of_two(body: &str) -> DaVerdict {
+        let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+        analyze(&text, &["double".to_owned(), "maybe".to_owned()], &[]).da_003
+    }
+
+    /// DS-1962 / DS-1944: a call and an assert-equivalent in a closure that is not
+    /// tracked, an `async` block or a nested item are not counted. Such a call makes
+    /// DA-003 UNKNOWN, never FAIL or no violation, unless a counted call's result
+    /// reaches a counted assert-equivalent.
+    /// @vtest.id TEST-ORACLE-DA-003-COUNTED-POSITIONS
+    /// @vtest.covers VO-ORACLE-DA-003-COUNTED-POSITIONS, VO-ORACLE-DA-003-UNTRACKED-CLOSURE-UNKNOWN
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent 呼ばれないクロージャ・関数へ渡すクロージャ・async ブロック・入れ子の関数の中の target 呼出と assert 相当（`?` を含む）では DA-003 が違反なしにも FAIL にもならず UNKNOWN になり、数える位置の呼出の結果が数える位置の assert に届けば、数える位置にない呼出があっても違反なしになることを確認する
+    #[test]
+    fn only_calls_and_asserts_at_counted_positions_decide_da_003() {
+        for body in [
+            "let _check = || assert_eq!(double(2), 4);",
+            "let r = double(2); let _check = || assert_eq!(r, 4);",
+            "let r: Option<()> = None::<i32>.map(|x| assert_eq!(double(x), 4)); let _ = r;",
+            "let f = || -> Option<i32> { let v = maybe(2)?; Some(v) }; let _ = f();",
+            "let _g = || double(2);",
+            "let _fut = async { assert_eq!(double(2), 4) };",
+            "fn inner() { assert_eq!(double(2), 4); } inner();",
+            "[2].iter().for_each(|&x| assert_eq!(double(x), 4));",
+        ] {
+            assert!(
+                matches!(da_003_of_two(body), DaVerdict::Unknown(_)),
+                "{body}: {:?}",
+                da_003_of_two(body)
+            );
+        }
+        for body in [
+            "let r = double(2); assert_eq!(r, 4); let _g = || double(3);",
+            "assert_eq!(double(2), 4); let _fut = async { double(3) };",
+        ] {
+            assert_eq!(da_003_of_two(body), DaVerdict::NoViolation, "{body}");
+        }
+        assert!(matches!(
+            da_003_of_two("let _ = double(2);"),
+            DaVerdict::Fail(_)
+        ));
+    }
+
+    /// DS-1938 / DS-1939: a name bound by a `match` arm, `if let`, `let ... else` or a
+    /// destructuring `let` takes the derivation of the position it extracts. A
+    /// derived position that reaches an assert-equivalent verifies the target; a
+    /// name at another position, or one that an or-pattern binds from positions of
+    /// different derivations, does not.
+    /// @vtest.id TEST-ORACLE-DA-003-PATTERN-BINDING-TAKES-ITS-POSITION
+    /// @vtest.covers VO-ORACLE-DA-003-PATTERN-BINDING, VO-ORACLE-DA-003-PER-POSITION-DERIVATION
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent パターンで束縛した名前が target の結果の位置を取り出して assert に届けば違反なしになり、別の位置を取り出した名前や、or パターンで位置の導出が食い違う名前では違反なしにならないことを確認する
+    #[test]
+    fn a_pattern_binding_takes_the_derivation_of_its_position() {
+        for body in [
+            "if let Some(x) = maybe(2) { assert_eq!(x, 4); }",
+            "let Some(x) = maybe(2) else { panic!() }; assert_eq!(x, 4);",
+            "match maybe(2) { Some(x) => assert_eq!(x, 4), None => panic!() }",
+            "let (a, _b) = (double(2), 3); assert_eq!(a, 4);",
+            "match Some((3, double(2))) { Some((_, b)) => assert_eq!(b, 4), _ => {} }",
+            "match Some(double(2)) { Some(v @ 0..=9) => assert_eq!(v, 4), _ => {} }",
+            "match (double(2), double(3)) { (x, _) | (_, x) => assert!(x > 0) }",
+            "let S { a, .. } = S { a: double(2), b: 0 }; assert_eq!(a, 4);",
+            "let t = (double(2), 3); let (a, _) = t; assert_eq!(a, 4);",
+            "let v = double(2); let Some(x) = &v.items[0] else { panic!() }; assert_eq!(x, &4);",
+            "match E::A { x: double(2) } { E::A { x } => assert_eq!(x, 4), _ => {} }",
+        ] {
+            assert_eq!(da_003_of_two(body), DaVerdict::NoViolation, "{body}");
+        }
+        for body in [
+            "let (_a, b) = (double(2), 3); assert_eq!(b, 3);",
+            "match Some((double(2), 3)) { Some((_, b)) => assert_eq!(b, 3), _ => {} }",
+            "match (double(2), 3) { (x, _) | (_, x) => assert_eq!(x, 4) }",
+            "let S { b, .. } = S { a: double(2), b: 0 }; assert_eq!(b, 0);",
+            "match Some(double(2)) { v @ Some(_) => assert_eq!(v, Some(4)), _ => {} }",
+            // A constant or a unit variant in a pattern binds nothing.
+            "match maybe(2) { None => {}, Some(_) => {} } assert_eq!(Option::<i32>::None, None);",
+            "match double(2) { K => {}, _ => {} } assert_eq!(K, 4);",
+            "if let K = double(2) {} assert_eq!(K, 4);",
+            // A struct pattern of another variant never matches the literal.
+            "match (E::A { x: double(2) }) { E::B { x } => assert_eq!(x, 4), _ => {} }",
+        ] {
+            assert_ne!(da_003_of_two(body), DaVerdict::NoViolation, "{body}");
+        }
+    }
+
+    /// DS-1941 / DS-1942: a call `f(..)` of a closure bound by `let f = |..| body;`, at
+    /// a counted position, is the execution of its body, `f` meaning the nearest `let`
+    /// in scope. The value of a call is derived only when every exit of the body other
+    /// than a failure divergence is: a value from a `return` or from a branch whose
+    /// exits are not all derived is not.
+    /// @vtest.id TEST-ORACLE-DA-003-TRACKED-CLOSURE-CALL-RUNS-ITS-BODY
+    /// @vtest.covers VO-ORACLE-DA-003-CLOSURE-CALL-TRACKED, VO-ORACLE-DA-003-CLOSURE-VALUE-EXITS
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent let で束縛したクロージャを数える位置で呼ぶと、その本体の実行として追跡されて target の結果が本体の assert や呼出の値を経て届けば違反なしになり、直近の let を指し、値を使う呼出では return や分岐の出口が派生でない本体なら違反なしにならないことを確認する
+    #[test]
+    fn a_tracked_closure_call_is_the_execution_of_its_body() {
+        for body in [
+            "let check = |v: i32| assert_eq!(v, 4); check(double(2));",
+            "let f = |x| double(x); assert_eq!(f(2), 4);",
+            "let check = |v: i32| assert_eq!(v, 4); check(double(2)); check(double(3));",
+            "let inner = |v| assert_eq!(v, 4); let outer = |v| inner(v); outer(double(2));",
+            "let outer = |v: i32| { let inner = |w| assert_eq!(w, 4); inner(v) }; outer(double(2));",
+            "let check = |v: i32| { if v == 0 { return; } assert_eq!(v, 4); }; check(double(2));",
+            "let check = |v: i32| if v != 4 { panic!() }; check(double(2));",
+            "let check = |v: i32| assert_eq!(v, 4); { let check = |_v: i32| (); check(3); } check(double(2));",
+            "let f = |v: i32| (v, 0); let (a, _) = f(double(2)); assert_eq!(a, 4);",
+            "let f = |a: i32, b: i32| assert_eq!(b - a, 3); let b = 1; f(b, double(2));",
+            "let r = double(2); let get = || r; assert_eq!(get(), 4);",
+            "let f = |a: i32| S { a, b: 0 }; assert_eq!(f(double(2)).a, 4);",
+            "let f = |v: i32| assert_eq!(v, 4, \"{:?}\", v); f(double(2));",
+        ] {
+            assert_eq!(da_003_of_two(body), DaVerdict::NoViolation, "{body}");
+        }
+        for body in [
+            "let f = |v: i32| { if v > 0 { return v; } 0 }; assert_eq!(f(double(2)), 4);",
+            "let f = |v: i32| if v > 0 { v } else { 0 }; assert_eq!(f(double(2)), 4);",
+            "let f = |v: i32| (v, 0); let (_, b) = f(double(2)); assert_eq!(b, 0);",
+            "let r = double(2); let get = || 4; assert_eq!(get(), 4); let _ = r;",
+            // DS-1941: an item, or a binding made after the closure, is not what the
+            // name means at the closure or at the call.
+            "let f = |v: i32| assert_eq!(v, 4); { fn f(_v: i32) {} f(double(2)); }",
+            "fn r() -> i32 { 4 } let get = || r(); let r = || double(2); assert_eq!(get(), 4);",
+            "fn helper(v: i32) -> i32 { v } let g = |v: i32| helper(v); let helper = |v: i32| assert_eq!(v, 4); assert_eq!(g(double(2)), 4);",        ] {
+            assert_ne!(da_003_of_two(body), DaVerdict::NoViolation, "{body}");
+        }
+        assert!(matches!(
+            da_003_of_two("let f = |v: i32| v; f(double(2));"),
+            DaVerdict::Fail(_)
+        ));
+    }
+
+    /// DS-1944 / DS-1943 / DS-1959: a closure that is rebound, bound with `mut`,
+    /// called on the spot, passed, never called or called only where a call is not
+    /// counted is not tracked, and a target call or a derived value in its body makes
+    /// DA-003 UNKNOWN, as does a value that flows into a nested item or an `async`
+    /// block, or a `mut` binding a tracked-looking closure may change.
+    /// @vtest.id TEST-ORACLE-DA-003-UNTRACKED-CLOSURE-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-003-UNTRACKED-CLOSURE-UNKNOWN, VO-ORACLE-DA-003-NESTED-ITEM-ASYNC-NOT-FLOWING, VO-ORACLE-DA-003-BINDING-MUTATION-UNKNOWN
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent 再束縛・mut 束縛・その場呼出・引数渡し・呼ばれない・数える位置にない位置からだけ呼ぶクロージャ、入れ子の項目や async ブロックへ流れる値、クロージャが変えうる mut 束縛では DA-003 が違反なしにも FAIL にもならず UNKNOWN になることを確認する
+    #[test]
+    fn an_untracked_closure_leaves_da_003_unknown() {
+        for body in [
+            "let check = |v: i32| assert_eq!(v, 4); let g = check; g(double(2));",
+            "let mut check = |v: i32| assert_eq!(v, 4); check(double(2));",
+            "(|v: i32| assert_eq!(v, 4))(double(2));",
+            "let check = |v: i32| assert_eq!(v, 4); [double(2)].into_iter().for_each(check);",
+            "let check = |v: i32| assert_eq!(double(v), 4);",
+            "let check = |v: i32| assert_eq!(v, 4); let _later = || check(double(2));",
+            "fn inner() -> i32 { double(2) } assert_eq!(inner(), 4);",
+            "let f = |v: i32| { let _a = async move { assert_eq!(v, 4) }; }; f(double(2));",
+            "let mut r = double(2); let f = || r.f = 5; f(); assert_eq!(r.g, 4);",
+        ] {
+            assert!(
+                matches!(da_003_of_two(body), DaVerdict::Unknown(_)),
+                "{body}: {:?}",
+                da_003_of_two(body)
+            );
+        }
     }
 }
