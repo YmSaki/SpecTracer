@@ -5668,17 +5668,12 @@ impl Shape {
 
 /// Whether an identifier pattern may be a constant or a unit variant rather than a
 /// binding: Rust reads a name in scope as an item, and `None`, constants and unit
-/// variants are written with a leading capital.
+/// variants are written like a variant (`is_variant_like`).
 fn pattern_ident_may_be_path(ident: &syn::PatIdent) -> bool {
     ident.subpat.is_none()
         && ident.by_ref.is_none()
         && ident.mutability.is_none()
-        && ident
-            .ident
-            .to_string()
-            .chars()
-            .next()
-            .is_some_and(char::is_uppercase)
+        && is_variant_like(&ident.ident)
 }
 
 /// One derivation for several summaries: `Plain` when none is derived (or there is
