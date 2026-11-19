@@ -1,4 +1,5 @@
-//! `rust-cargo`'s `oracle_presence` static-analysis capability (DS-605-627).
+//! `rust-cargo`'s `oracle_presence` static-analysis capability (DS-605-627,
+//! DS-1950, DS-1951, DS-1954).
 //!
 //! `oracle_presence`'s question (REQ-073/077/079/080, verified present this
 //! session) is answered by composing five deterministic, adapter-owned
@@ -115,8 +116,20 @@
 //!   combinations of literals; any identifier reference (a `const` item
 //!   included) is treated as non-constant rather than resolved, which can
 //!   only make DA-001 report `NoViolation` where a deeper analysis might
-//!   report `Fail` — never the reverse — so this narrowing cannot manufacture
-//!   a false `Fail`.
+//!   report `Fail`. The classifier reads an assert macro's arguments, and
+//!   `panic!`'s arguments too.
+//! - DA-001 reads `unreachable!` / `todo!` / `unimplemented!` (DS-1951) by whether
+//!   they run, not by their arguments (DS-1950). One that is a statement of the
+//!   function's own block with no earlier statement that may leave the function is
+//!   a constant assertion. Any other one has positions that decide whether it
+//!   runs (DS-1947, DS-1983), which this analysis does not evaluate, so DA-001 is
+//!   `Unknown` when it decides the verdict (DS-621's escape). This is narrower
+//!   than DS-1950 for a divergence under a non-constant condition (no violation
+//!   there) and under a constant one (`if true { .. }`, a constant assertion
+//!   there).
+//! - `debug_assert!` / `debug_assert_eq!` / `debug_assert_ne!` are not
+//!   assert-equivalents, also when the config lists them (DS-1954): they make
+//!   DA-003 and DA-006 `Unknown` where they are the only check.
 
 use quote::ToTokens;
 use syn::{spanned::Spanned, visit::Visit};
@@ -224,7 +237,11 @@ pub fn analyze(
     let has_debug_assert = !debug_assert_macros(construct_text).is_empty();
 
     OraclePresenceAnalysis {
-        da_001: da_001_constant_assertion(construct_text, &assert_spans),
+        da_001: da_001_constant_assertion(
+            construct_text,
+            &assert_spans,
+            has_assert_equivalent_method_or_try,
+        ),
         da_003: da_003_result_unverified(
             construct_text,
             target_symbols,
@@ -472,7 +489,11 @@ pub fn target_symbol(locator: &Locator) -> String {
 // DA-001 (DS-621): constant assertion
 // ---------------------------------------------------------------------------
 
-fn da_001_constant_assertion(text: &str, assert_spans: &[(usize, usize)]) -> DaVerdict {
+fn da_001_constant_assertion(
+    text: &str,
+    assert_spans: &[(usize, usize)],
+    has_method_or_try: bool,
+) -> DaVerdict {
     if assert_spans.is_empty() {
         // No assert-equivalent macro call at all: DA-001's own subject
         // (an assert whose arguments are constant) does not occur, so
@@ -485,6 +506,18 @@ fn da_001_constant_assertion(text: &str, assert_spans: &[(usize, usize)]) -> DaV
     // whenever the body reaches it has no such position and is a constant
     // assertion. Any other has positions this classifier does not evaluate
     // (DS-1947, DS-1983), so its constancy is DS-621's "定数性を確定できない式".
+    //
+    // DS-621 fails only when every assert-equivalent is constant, and DS-616 counts
+    // DS-619's `.unwrap()` / `.expect(..)` / `?` among them. When those divergences
+    // are the only assert macros, such a method or `?` is a non-constant
+    // assert-equivalent (this classifier reads any name as non-constant), so DA-001
+    // has no violation.
+    let only_divergences = assert_spans
+        .iter()
+        .all(|&(start, _)| macro_name_before(text, start).is_some_and(is_diverging_macro));
+    if only_divergences && has_method_or_try {
+        return DaVerdict::NoViolation;
+    }
     let unconditional = unconditional_divergence_starts(text);
     let mut undetermined = false;
     for &(start, end) in assert_spans {
@@ -517,7 +550,7 @@ fn da_001_constant_assertion(text: &str, assert_spans: &[(usize, usize)]) -> DaV
 /// that decides whether it runs.
 ///
 /// An earlier statement may leave when it contains `return`, `?`, `break`,
-/// `continue`, or a macro other than the assert, `debug_assert*`, divergence and
+/// `continue`, a call of a function named `exit`, or a macro other than the assert, `debug_assert*`, divergence and
 /// printing macros named here, whose expansion is not read (DS-1983's exits; a
 /// macro is read fail-closed, DS-615).
 fn unconditional_divergence_starts(text: &str) -> Vec<usize> {
@@ -572,6 +605,19 @@ impl<'ast> Visit<'ast> for ExitVisitor {
 
     fn visit_expr_continue(&mut self, _node: &'ast syn::ExprContinue) {
         self.found = true;
+    }
+
+    // DS-1951 names `process::exit` among the exits; any callee named `exit` is
+    // read as one.
+    fn visit_expr_call(&mut self, node: &'ast syn::ExprCall) {
+        if let syn::Expr::Path(path) = node.func.as_ref() {
+            self.found |= path
+                .path
+                .segments
+                .last()
+                .is_some_and(|segment| segment.ident == "exit");
+        }
+        syn::visit::visit_expr_call(self, node);
     }
 
     fn visit_macro(&mut self, node: &'ast syn::Macro) {
@@ -5007,9 +5053,9 @@ fn real_check() {
     }
 
     /// @vtest.id TEST-ORACLE-DA-001-CONDITIONAL-DIVERGENCE-IS-UNKNOWN
-    /// @vtest.covers VO-ORACLE-DIVERGENCE-CONSTANCY-BY-DECIDING-POSITION
+    /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_001_constant_assertion
-    /// @vtest.intent 条件・分岐・先行する return / ? の後にある unreachable! は、メッセージ引数の識別子でも定数でも判定せず DA-001 が UNKNOWN になり、識別子を含む assert が他にあれば違反なしになることを確認する
+    /// @vtest.intent 条件・分岐・先行する return / ? / exit の後にある unreachable! は、決める位置を評価しないため DA-001 が FAIL でも違反なしでもなく UNKNOWN になり、識別子を含む assert が他にあれば違反なしになることを確認する
     #[test]
     fn a_divergence_under_a_condition_or_after_an_exit_is_unknown_for_da_001() {
         for body in [
@@ -5017,8 +5063,9 @@ fn real_check() {
             "    if true {\n        unreachable!(\"{}\", y);\n    }\n",
             "    match double(2) {\n        4 => {}\n        _ => unreachable!(),\n    }\n",
             "    if double(2) == 4 {\n        return;\n    }\n    unreachable!();\n",
-            "    let _ = parse(\"x\")?;\n    todo!();\n",
+            "    while c() {\n        break;\n    }\n    todo!();\n",
             "    my_macro!();\n    unimplemented!();\n",
+            "    if double(2) != 4 {\n        std::process::exit(1);\n    }\n    unreachable!();\n",
         ] {
             let text = format!("#[test]\nfn t() {{\n{body}}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
@@ -5032,6 +5079,28 @@ fn real_check() {
             "#[test]\nfn t() {\n    let x = double(2);\n    assert_eq!(x, 4);\n    unreachable!();\n}\n";
         assert!(matches!(
             analyze(with_assert, &["double".to_owned()], &[]).da_001,
+            DaVerdict::NoViolation
+        ));
+    }
+
+    /// @vtest.id TEST-ORACLE-DA-001-DIVERGENCE-WITH-UNWRAP-IS-NOT-CONSTANT
+    /// @vtest.covers VO-ORACLE-DA-001-CONSTANT-ASSERTION
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_001_constant_assertion
+    /// @vtest.intent assert マクロが unreachable! などだけでも、識別子を受け手にする .unwrap()・.expect(..)・? があれば DA-001 が違反なしになり、assert!(true) だけが他にある本体は違反なしにならないことを確認する
+    #[test]
+    fn a_divergence_beside_an_unwrap_or_try_is_not_a_constant_assertion() {
+        for body in [
+            "    let v = parse(\"x\").unwrap();\n    unreachable!();\n",
+            "    let v = double(2).checked_add(1).expect(\"p\");\n    match v {\n        5 => {}\n        _ => todo!(),\n    }\n",
+            "    let v = parse(\"x\")?;\n    if v != 4 {\n        unimplemented!();\n    }\n",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n{body}}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(matches!(analysis.da_001, DaVerdict::NoViolation), "{text}");
+        }
+        let constant = "#[test]\nfn t() {\n    let v = parse(\"x\").unwrap();\n    assert!(true);\n    unreachable!();\n}\n";
+        assert!(!matches!(
+            analyze(constant, &[], &[]).da_001,
             DaVerdict::NoViolation
         ));
     }
