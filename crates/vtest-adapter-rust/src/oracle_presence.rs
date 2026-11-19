@@ -118,20 +118,26 @@
 //!   `false && X`, the same with `|` / `&`, their negations, and such expressions
 //!   nested in one another, parenthesized or not). An operand made only of literals
 //!   counts as the value it has: `!`, `^`, `==` / `!=` of `bool` literals and the
-//!   comparisons of two literals of one kind (integer, float, string, char) are
-//!   evaluated (`X || 1 == 1` is constant). One whose value is not evaluated
-//!   (`X || 1 + 1 == 2`) may absorb, so DA-001 is `Unknown` for it (DS-621's
-//!   escape). Any other identifier
+//!   comparisons of two literals of one kind (integer, string, char) are
+//!   evaluated (`X || 1 == 1` is constant). Float literals are not compared, since
+//!   the meaning of the comparison (`f32` or `f64`) is not fixed by syntax. A `bool`
+//!   operand made only of literals whose value is not evaluated (`X || 1 + 1 == 2`,
+//!   `X || 0.1f32 == 0.100000001f32`) may absorb, so DA-001 is `Unknown` for it
+//!   (DS-621's escape). Only literals, `!`, the binary operators and parentheses are
+//!   read: another form made only of literals (`if true { .. }`, `{ true }`,
+//!   `matches!(1, 1)`) is not seen as absorbing, so the operand beside it flows.
+//!   Any other identifier
 //!   reference (a `const` item included) is treated as non-constant rather than
 //!   resolved, which can only make DA-001 report `NoViolation` where a deeper
 //!   analysis might report `Fail`. The classifier reads every argument of an
 //!   assert macro, its message arguments included, and `panic!`'s arguments too.
 //!   A `.unwrap()` / `.expect(..)` / `?` that DS-619 counts (DS-1964 aside) is a
 //!   non-constant assert-equivalent, so DA-001 has no violation beside it
-//!   (DS-616, DS-621), but only where it runs whenever the body runs past it: outside a
-//!   closure, an `async` block and a nested item (derivation from the intent of
-//!   DS-1962, which names those positions for DA-002 / DA-003; the canon does not
-//!   name DA-001's positions). One only in such a position is not counted, and
+//!   (DS-616, DS-621), but only outside a closure, an `async` block and a nested
+//!   item. A position in a branch (`if c { x.unwrap(); }`) counts, as in DS-1962
+//!   (derivation from the intent of DS-1962, which names those positions for
+//!   DA-002 / DA-003; the canon does not name DA-001's positions). One only in a
+//!   closure, an `async` block or a nested item is not counted, and
 //!   DA-001 is `Unknown` where it would decide the verdict. A counted one also
 //!   clears a constant assert under `#[should_panic]` (`let r = f().unwrap();
 //!   assert!(false);`), which widens the false PASS DS-1950 / DS-1964 disclose.
@@ -541,7 +547,8 @@ fn da_001_constant_assertion(
     // a non-constant assert-equivalent (this classifier reads any name as
     // non-constant), so DA-001 has no violation beside it, whichever assert macros
     // there are. Derivation from the intent of DS-1962: only one in a position that
-    // runs whenever the body runs past it counts (`MethodOrTry::Counted`).
+    // is outside a closure, an `async` block and a nested item counts, a branch
+    // included as in DS-1962 (`MethodOrTry::Counted`).
     if method_or_try == MethodOrTry::Counted {
         return DaVerdict::NoViolation;
     }
@@ -707,7 +714,8 @@ enum Constancy {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum MethodOrTry {
     None,
-    /// In a position that runs whenever the body runs past it.
+    /// Outside a closure, an `async` block and a nested item; a position in a
+    /// branch counts, as in DS-1962.
     Counted,
     /// Only in a closure, an `async` block or a nested item.
     Uncounted,
@@ -2262,8 +2270,10 @@ enum Fixed {
 
 /// The value literals fix (DS-1949): a `bool` literal; `!` of a fixed value;
 /// `||` / `|` / `&&` / `&` with an absorbing operand (DS-1948) or with both
-/// operands fixed; `^`, `==`, `!=` of fixed `bool`s; a comparison of two literals
-/// of one kind. Parentheses do not change it.
+/// operands fixed; `^`, `==`, `!=` of fixed `bool`s; a comparison of two integer,
+/// string or char literals of one kind (not floats). Parentheses do not change it.
+/// Only literals, `!`, binary operators and parentheses are read; another form made
+/// only of literals (`if true { .. }`, `{ true }`, `matches!(1, 1)`) is `Open`.
 ///
 /// Derivation from DS-621 and DS-1949: an operand fixed this way (`!false`,
 /// `1 == 1`, `(true || ok)`) absorbs as the literal it equals, so `X || 1 == 1` is
@@ -2328,8 +2338,10 @@ fn fixed_value(expression: &syn::Expr) -> Fixed {
     }
 }
 
-/// The value of a comparison of two literals of one kind (integer, float, string,
-/// char), or `None` when it is not one.
+/// The value of a comparison of two literals of one kind (integer, string, char),
+/// or `None` when it is not one. Float literals are not compared: whether the
+/// comparison is in `f32` or `f64` is not fixed by syntax, so such a comparison is
+/// left unevaluated (`Fixed::Literal`).
 fn compare_literals(binary: &syn::ExprBinary) -> Option<bool> {
     use std::cmp::Ordering;
     let literal = |expression: &syn::Expr| match unwrap_parens(expression) {
@@ -2341,10 +2353,6 @@ fn compare_literals(binary: &syn::ExprBinary) -> Option<bool> {
             .base10_parse::<i128>()
             .ok()?
             .cmp(&b.base10_parse::<i128>().ok()?),
-        (syn::Lit::Float(a), syn::Lit::Float(b)) => a
-            .base10_parse::<f64>()
-            .ok()?
-            .partial_cmp(&b.base10_parse::<f64>().ok()?)?,
         (syn::Lit::Str(a), syn::Lit::Str(b)) => a.value().cmp(&b.value()),
         (syn::Lit::Char(a), syn::Lit::Char(b)) => a.value().cmp(&b.value()),
         _ => return None,
@@ -4887,13 +4895,23 @@ mod tests {
         }
         // An operand made only of literals whose value is not evaluated may absorb
         // the rest: DA-001's escape (DS-621).
-        let text = "#[test]\nfn t() {\n    assert!(double(2) == 4 || 1 + 1 == 2);\n}\n";
-        let analysis = analyze(text, &["double".to_owned()], &[]);
-        assert!(
-            matches!(analysis.da_001, DaVerdict::Unknown(_)),
-            "{:?}",
-            analysis.da_001
-        );
+        // Float literals are not compared, as `f32` and `f64` give different answers.
+        for body in [
+            "assert!(double(2) == 4 || 1 + 1 == 2);",
+            "assert!(double(2) == 4 || 0.1f32 == 0.100000001f32);",
+            "assert!(double(2) == 4 && 0.1f32 != 0.100000001f32);",
+            "assert!(double(2) == 4 || 0.5 < 1.5);",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_001, DaVerdict::Unknown(_))
+                    && matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{body}: {:?} / {:?}",
+                analysis.da_001,
+                analysis.da_003
+            );
+        }
     }
 
     /// A `let` outside the assert reaches it only where the name flows to the
