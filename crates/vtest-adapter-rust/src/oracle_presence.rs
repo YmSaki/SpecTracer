@@ -77,8 +77,10 @@
 //!   DS-1960): a function call other than a value conversion (`Some` / `Ok` / `Err`,
 //!   `Box::new`, `String::from`, DS-1961) or a declared target, or a method call
 //!   whose argument is the result (not DS-619's `.expect(..)` / `.expect_err(..)`,
-//!   whose argument is a message, DS-1935). DA-003 is then `Unknown` (DS-648, DS-652), even
-//!   when another path verifies the result. A delegation target that the result
+//!   whose argument is a message, DS-1935). When no result of the target's calls
+//!   reaches an assert-equivalent other than through such a call, DA-003 is
+//!   `Unknown` (DS-648, DS-652); one result that reaches directly decides it, as
+//!   derived from DS-623 and DS-1962. A delegation target that the result
 //!   does not flow into (`assert_eq!(double(2), expected())`) is not recognized,
 //!   which DS-641 reads more widely ("assert相当の引数…に現れる関数呼出"). For DA-006 it only recognizes
 //!   that a delegation target exists: a Test body with no assert-equivalent
@@ -585,12 +587,11 @@ fn da_003_result_unverified(
         return DaVerdict::NoViolation;
     }
     if any_delegated {
-        // DS-641 / DS-1960: the result is handed to a delegation target in an
-        // assert-equivalent's argument or in a binding that reaches one. This
-        // capability does not confirm a delegation target's termination (DS-643),
-        // and the table of §7.2.1 has no row for a delegation target beside another
-        // path that verifies the result, so DA-003 is UNKNOWN (DS-648, DS-651,
-        // DS-652) whatever the other calls show.
+        // DS-641 / DS-1960: no result of a declared target's call reaches an
+        // assert-equivalent other than through a delegation target (see
+        // `target_call_result_is_verified`). This capability does not confirm a
+        // delegation target's termination (DS-643), so DA-003 is UNKNOWN by §7.2.1
+        // (DS-648, DS-651, DS-652).
         return DaVerdict::Unknown(
             "a declared target's result flows into an argument of a function call that is \
              not a value conversion, or of a method call, in an assert-equivalent's checked \
@@ -830,12 +831,8 @@ fn binding_reach(
             )
         })
         .collect();
-    if outcomes
-        .iter()
-        .any(|outcome| matches!(outcome, BindingReach::Delegated))
-    {
-        return BindingReach::Delegated;
-    }
+    // DS-623 / DS-1962: an assert the name reaches directly decides, and a
+    // delegation target in another assert does not make it UNKNOWN.
     if outcomes.iter().any(reaches) {
         return if count_rebindings(text, name) > 1
             || (binding.mutable && is_changed_through_place(text, name, assert_spans))
@@ -844,6 +841,12 @@ fn binding_reach(
         } else {
             BindingReach::Reaches
         };
+    }
+    if outcomes
+        .iter()
+        .any(|outcome| matches!(outcome, BindingReach::Delegated))
+    {
+        return BindingReach::Delegated;
     }
     if outcomes
         .iter()
@@ -916,12 +919,14 @@ fn span_binding_reach(
     // A use of the name where its value is dropped (`{ r; true }`, `let _ = r`, a
     // closure body, a `match` scrutinee) does not carry it to the compared value,
     // which is not shown to be verified either: UNKNOWN (DS-615).
-    if visitor.probe_delegated {
-        BindingReach::Delegated
-    } else if visitor.opaque || visitor.probe_rebound {
+    // A use that flows to the compared value decides before a use handed to a
+    // delegation target (DS-623, DS-1962).
+    if visitor.opaque || visitor.probe_rebound {
         BindingReach::Uncertain
     } else if visitor.probe_flows {
         BindingReach::Reaches
+    } else if visitor.probe_delegated {
+        BindingReach::Delegated
     } else if visitor.probe_dropped {
         BindingReach::Uncertain
     } else {
@@ -1558,10 +1563,11 @@ impl<'a> CheckedCallVisitor<'a> {
         probe.visit_expr(tail);
         if probe.probe_rebound {
             TailReach::No
+        } else if probe.probe_flows {
+            // DS-623 / DS-1962: a use that flows decides before a delegated one.
+            TailReach::Flows
         } else if probe.probe_delegated {
             TailReach::Delegated
-        } else if probe.probe_flows {
-            TailReach::Flows
         } else {
             TailReach::No
         }
@@ -2132,24 +2138,26 @@ fn target_call_result_is_verified(
                 (binding, reach)
             })
             .collect();
-    // DS-641 / DS-1960: a delegation target in an assert's checked argument, or in
-    // a binding that reaches one, decides DA-003 by §7.2.1 whatever else verifies
-    // the result.
-    if macro_use.delegated
+    // Derivation from DS-623 and DS-1962: DA-003 fails only when the result is not
+    // verified at all (DS-623), and one result that reaches an assert-equivalent
+    // keeps the other calls from making it UNKNOWN (DS-1962). A delegation target
+    // (DS-641, DS-1960) is read the same way: a result that reaches an
+    // assert-equivalent directly decides DA-003, and only when none does is a path
+    // through a delegation target judged by §7.2.1.
+    let delegated = macro_use.delegated
         || bindings.iter().any(|(binding, reach)| {
             matches!(reach, BindingReach::Delegated)
                 || (binding.delegated
                     && matches!(reach, BindingReach::Reaches | BindingReach::Uncertain))
-        })
-    {
-        return TargetCallVerification::Delegated;
-    }
+        });
     if call_sites.is_empty() {
         // Derivation (#282): a call read inside an assert verifies the target only
         // when no call outside a macro exists, so reading macro tokens never
         // clears a call that stays unverified (DS-615: it only moves toward UNKNOWN).
         return if macro_use.verified_path || (macro_use.verified_method && !macro_use.opaque) {
             TargetCallVerification::Verified
+        } else if delegated {
+            TargetCallVerification::Delegated
         } else if macro_use.opaque {
             // A verified method call is matched by name only: it does not clear a
             // call that a macro may make as a function.
@@ -2215,6 +2223,9 @@ fn target_call_result_is_verified(
         } else {
             TargetCallVerification::Verified
         };
+    }
+    if delegated {
+        return TargetCallVerification::Delegated;
     }
     if macro_use.opaque {
         return TargetCallVerification::MacroOpaque;
@@ -4168,12 +4179,12 @@ mod tests {
 
     /// DS-1960: a call that is not a value conversion takes the result handed to
     /// its argument as a delegation target (DS-641), whose termination this
-    /// capability does not confirm, so DA-003 is UNKNOWN (DS-652), also beside
-    /// another call that verifies the result.
+    /// capability does not confirm, so DA-003 is UNKNOWN (DS-652) when no result
+    /// reaches an assert-equivalent directly.
     /// @vtest.id TEST-ORACLE-DA-003-RESULT-INTO-DELEGATION-TARGET-IS-UNKNOWN
     /// @vtest.covers VO-ORACLE-DA-003-DELEGATE-FUNCTION-ARGS, VO-ORACLE-DA-003-DELEGATION-NOT-FAIL
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
-    /// @vtest.intent target の結果が、assert の検査される引数またはそこへ届く let 束縛の中で、値の変換でない関数呼出(利用者の関数、クロージャ、タプル構造体、T::new、PathBuf::from)の引数かメソッド呼出の引数へ流れる Test は、別の assert が結果を検証していても DA-003 が委譲(DS-1960)を理由に UNKNOWN になり、合成結果が PASS にならないことを確認する
+    /// @vtest.intent target の結果が、assert の検査される引数またはそこへ届く let 束縛の中で、値の変換でない関数呼出(利用者の関数、クロージャ、タプル構造体、T::new、PathBuf::from)の引数かメソッド呼出の引数へ流れ、assert へ直接届く結果が 1 つもない Test は、DA-003 が委譲(DS-1960)を理由に UNKNOWN になり、合成結果が PASS にならないことを確認する
     #[test]
     fn a_result_flowing_into_a_delegation_target_is_unknown() {
         for body in [
@@ -4189,17 +4200,11 @@ mod tests {
             "assert_eq!(Some(always_3(double(2))), Some(3));",
             "assert_eq!(always_3(double(2)).abs(), 3);",
             "assert!(matches!(always_3(double(2)), 3));",
-            "assert_eq!(c.double(2).max(always_3(c.double(3))), 4);",
             "let r = double(2);\n    assert_eq!(always_3(r), 3);",
             "let r = double(2);\n    assert!(v.contains(&r));",
             "let r = always_3(double(2));\n    assert_eq!(r, 3);",
-            "let r = (double(2), check(double(3)));\n    assert_eq!(r.0, 4);",
-            "let r = double(2);\n    assert_eq!(r, 4);\n    assert!(check(double(3)));",
-            "assert!(check(double(3)));\n    let r = double(2);\n    assert_eq!(r, 4);",
-            "assert_eq!(double(2), 4);\n    assert!(check(double(3)));",
-            "assert!(check(double(3)));\n    assert_eq!(double(2), 4);",
-            "assert!({ let r = double(2); r == 4 && check(r) });",
             "assert_eq!({ let r = double(2); check(r) }, true);",
+            "let r = double(2);\n    assert!(check(r));\n    assert!(check(double(3)));",
         ] {
             let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
@@ -4243,7 +4248,7 @@ mod tests {
     /// @vtest.id TEST-ORACLE-DA-003-VALUE-CONVERSION-STAYS-NO-VIOLATION
     /// @vtest.covers VO-ORACLE-DA-003-DELEGATE-FUNCTION-ARGS, VO-ORACLE-DA-003-RESULT-UNVERIFIED
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::is_value_conversion
-    /// @vtest.intent target の結果が Some / Ok / Err、Box::new、String::from の引数、メソッドの受け手、検証されない位置の外の関数呼出を通って assert に届く Test と、結果が流れ込まない関数呼出やメッセージ引数の関数呼出だけがある Test は、DA-003 が違反なしのままであることを確認する
+    /// @vtest.intent target の結果が Some / Ok / Err、Box::new、String::from の引数、メソッドの受け手、検証されない位置の外の関数呼出を通って assert に届く Test、結果が流れ込まない関数呼出やメッセージ引数の関数呼出だけがある Test、assert へ直接届く結果が 1 つ以上あり別の結果が委譲先へ渡る Test は、DA-003 が違反なしのままであることを確認する
     #[test]
     fn a_result_through_a_value_conversion_or_a_receiver_stays_no_violation() {
         for body in [
@@ -4267,6 +4272,18 @@ mod tests {
             // The inner result is not carried into the target's own call (DS-1960),
             // but the outer result reaches the assert, which is enough (DS-1962).
             "assert_eq!(double(double(2)), 8);",
+            // One result that reaches an assert-equivalent directly decides DA-003;
+            // another result handed to a delegation target does not make it UNKNOWN
+            // (derived from DS-623 and DS-1962).
+            "let r = (double(2), check(double(3)));\n    assert_eq!(r.0, 4);",
+            "let r = double(2);\n    assert_eq!(r, 4);\n    assert!(check(double(3)));",
+            "assert!(check(double(3)));\n    let r = double(2);\n    assert_eq!(r, 4);",
+            "assert_eq!(double(2), 4);\n    assert!(check(double(3)));",
+            "assert!(check(double(3)));\n    assert_eq!(double(2), 4);",
+            "assert!({ let r = double(2); r == 4 && check(r) });",
+            "let r = double(2);\n    assert_eq!(r, 4);\n    assert!(check(r));",
+            "let r = double(2);\n    assert!(r == 4 && check(r));",
+            "assert_eq!(double(2).max(always_3(double(3))), 4);",
         ] {
             let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
