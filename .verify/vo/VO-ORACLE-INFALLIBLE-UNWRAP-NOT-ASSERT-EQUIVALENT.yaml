@@ -1,0 +1,11 @@
+id: VO-ORACLE-INFALLIBLE-UNWRAP-NOT-ASSERT-EQUIVALENT
+parent: null
+derives_from:
+- doc: DS-1964
+claim: '`rust-cargo`で、受け手の列挙子が構文から`Some` / `Ok`と確定できる値（構築式と、それを束縛した変数。DS-1939）に対する`.unwrap()` / `.expect(..)` / `?`と、受け手の列挙子が構文から`Err`と確定できる値に対する`.unwrap_err()` / `.expect_err(..)`は、失敗しえないため、DS-619にかかわらずassert相当に数えない。その戻り値へは、受け手の構成要素の派生が流れる。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-19T00:00:00Z
+updated: 2026-11-19T00:00:00Z
