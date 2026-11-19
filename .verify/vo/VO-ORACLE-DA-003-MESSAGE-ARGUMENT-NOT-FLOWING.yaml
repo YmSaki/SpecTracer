@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-003-MESSAGE-ARGUMENT-NOT-FLOWING
+parent: null
+derives_from:
+- doc: DS-1935
+claim: 'DA-003でtarget呼出結果がassert相当に到達するとは、その値が派生としてassert相当の引数の値へ流れることをいい、target呼出がassert相当の引数の中に字面で現れることだけでは到達としない。assert相当のメッセージ引数（照合の失敗時に表示するための書式文字列と、それに続く引数）は、値が流れる位置に数えない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-19T00:00:00Z
+updated: 2026-11-19T00:00:00Z
