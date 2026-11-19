@@ -2580,8 +2580,10 @@
         },
         {
           "id": "DS-1350",
-          "statement": "委譲先が他ファイル・他クレート・マクロ展開内で同定できないTestは、DA-003 / DA-006が`UNKNOWN`となる。",
-          "derives_from": [],
+          "statement": "委譲先の呼出先を同定できないTest（委譲先が他ファイル・他クレート・マクロ展開内にあり、同定しなかった、または同定できなかったTestを含む）は、DA-003 / DA-006が`UNKNOWN`となる。",
+          "derives_from": [
+            "ROOT-053"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
             "heading": "18.3.3 決定論的静的解析（oracle_presence・target_binding 静的到達）",
@@ -2635,8 +2637,11 @@
         },
         {
           "id": "DS-1354",
-          "statement": "別プロセス・別スレッド・クロージャ・他ファイル等、静的解析の到達境界を越えてtargetを実行するTestは、当該targetのtarget別DA-002 verdictがUNKNOWNになる。",
-          "derives_from": [],
+          "statement": "別プロセス・別スレッド、および静的解析が追跡しなかった、または追跡できなかったクロージャ・他ファイル等、静的解析の到達境界を越えてtargetを実行するTestは、当該targetのtarget別DA-002 verdictがUNKNOWNになる。",
+          "description": "期待値の扱いは Issue #303（DS-1360・BD-284 の「DA-003 PASS」と DS-648・DS-651 の関係）で決まっていない。",
+          "derives_from": [
+            "ROOT-053"
+          ],
           "cites": [
             "本冊 §7.3"
           ],
@@ -2719,8 +2724,11 @@
         },
         {
           "id": "DS-1360",
-          "statement": "他ファイル・他クレートへ呼び出すが戻り値をTest本体内でassertするTestは、DA-002 UNKNOWN・DA-003 PASSとなり、runtime`target_coverage`がPASSでかつ他ルールも違反なしなら`target_binding`は到達充足、`oracle_presence = PASS`になる（runtime救済で実益が出るのはこの型）。",
-          "derives_from": [],
+          "statement": "他ファイル・他クレートへ呼び出し、静的解析がその呼出先を追跡しなかった、または追跡できなかったためにDA-002がUNKNOWNとなるが、戻り値をTest本体内でassertするTestは、DA-003 PASSとなり、runtime`target_coverage`がPASSでかつ他ルールも違反なしなら`target_binding`は到達充足、`oracle_presence = PASS`になる（runtime救済で実益が出るのはこの型）。",
+          "description": "期待値の扱い（特に「DA-003 PASS」と DS-648・DS-651 の関係）は Issue #303 で決まっていない。",
+          "derives_from": [
+            "ROOT-053"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
             "heading": "18.3.3 決定論的静的解析（oracle_presence・target_binding 静的到達）",
@@ -7724,8 +7732,11 @@
         },
         {
           "id": "BD-284",
-          "statement": "fixture は、他ファイル・他クレートへ呼び出すが戻り値を Test 本体内で assert する Test（DA-002 UNKNOWN・DA-003 PASS）を表現できる。",
-          "derives_from": [],
+          "statement": "fixture は、他ファイル・他クレートへ呼び出し、静的解析がその呼出先を追跡しなかった、または追跡できなかったためにDA-002がUNKNOWNになるが、戻り値を Test 本体内で assert する Test（DA-002 UNKNOWN・DA-003 PASS）を表現できる。",
+          "description": "期待値の扱い（特に「DA-003 PASS」と DS-648・DS-651 の関係）は Issue #303 で決まっていない。",
+          "derives_from": [
+            "ROOT-053"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
             "heading": "18.2 共通fixture",
