@@ -250,15 +250,21 @@
 //!   count as reached, though a wrong result may skip it. So do: refuted patterns
 //!   and a later check of one value through another name (`let p = o;` then
 //!   `if let None = p`) or through a method (`o.is_some()` beside `if let
-//!   None = o`); a pattern that only repeats values refuted or matched before it,
-//!   so that its own branch never runs; and an arm or an exit at a non-constant
+//!   None = o`); a pattern whose values earlier refuted patterns cover only
+//!   together (`Some(4) | Some(5)` after arms `Some(4)` and `Some(5)`) or through a range
+//!   (`Some(4)` after `Some(0..=9)`), or that repeats values matched before it
+//!   (inside the `then` of `if let Some(_)`), so that its own branch never runs;
+//!   and an arm or an exit at a non-constant
 //!   position that is not derived (`let k = 1;`) and always matches or always runs.
 //! - The pattern of an `if let` and of a `let ... else` is read by DS-1963 (2) too,
 //!   which the canon names for the arms of a `match` only, and so are the patterns
 //!   refuted on the path to an `if let`, a `let ... else` or a `match` at any depth
-//!   (inside the `else` of an `if let` or a `let ... else`, or inside an arm after
-//!   earlier arms without a guard): where they may together match every value at a
-//!   position, the `else` or the later arms are undecided, also where the value is
+//!   (inside the `else` of an `if let` or a `let ... else`, inside an arm after
+//!   earlier arms without a guard, or after an `if let` whose `then` block or a
+//!   `match` whose unguarded arms leave on every path): where they may together
+//!   match every value at a position, the `else` or the later arms are undecided,
+//!   and a branch whose pattern one refuted pattern over the same scrutinee covers
+//!   (read pairwise: `Some(5)` after `Some(_)`) is undecided too, also where the value is
 //!   not exhausted (`let Some(Kind::A(x)) = f() else { .. }`, whose inner variant
 //!   check is opaque). A refuted pattern over a scrutinee not shown to be the same
 //!   expression (after parentheses, references and a block's tail are removed)
@@ -980,12 +986,32 @@ impl<'a> DivergenceCollector<'a> {
         self.context.refuted.truncate(outer);
     }
 
+    /// Whether one pattern refuted on the path to here (or in `earlier`) over
+    /// `scrutinee` matches every value `pattern` matches, so that its branch never
+    /// runs (derivation from DS-1952 / DS-1963 toward `Unknown`). An irrefutable one
+    /// is left to DS-1952, which does not count what follows it.
+    fn covered_by_refuted(
+        &self,
+        scrutinee: &str,
+        earlier: &[(String, &'a syn::Pat)],
+        pattern: &syn::Pat,
+    ) -> bool {
+        self.context
+            .refuted
+            .iter()
+            .chain(earlier)
+            .any(|(other, refuted)| {
+                other == scrutinee && !is_irrefutable(refuted) && pattern_covers(refuted, pattern)
+            })
+    }
+
     /// DS-1963 (2): whether `patterns` over `scrutinee`, together with the patterns
     /// that did not match on the path to here (at any depth: an `if let`, a
-    /// `let ... else` or a `match` inside the `else` or a later arm of another),
-    /// may match every value, so that a branch for the values they leave may never
-    /// run. A refuted pattern over a scrutinee not shown to be this one may take part
-    /// too, so it counts as one that may.
+    /// `let ... else` or a `match` inside the `else` or a later arm of another, or
+    /// after a statement that leaves for them), may match every value, so that a
+    /// branch for the values they leave may never run. A refuted pattern over a
+    /// scrutinee not shown to be this one may take part too, so it counts as one
+    /// that may.
     fn may_exhaust_with_refuted(
         &self,
         scrutinee: &str,
@@ -1670,6 +1696,99 @@ fn arms_may_exhaust(arms: &[syn::Arm]) -> bool {
     )
 }
 
+/// The patterns a statement refutes for the statements after it: those of an
+/// `if let` whose `then` block leaves on every path, and of the unguarded arms of
+/// a `match` whose bodies do, also inside a block statement (DS-1983).
+fn exit_refuted<'a>(statement: &'a syn::Stmt, refuted: &mut Vec<(String, &'a syn::Pat)>) {
+    if let syn::Stmt::Expr(expression, _) = statement {
+        expression_exit_refuted(expression, refuted);
+    }
+}
+
+fn expression_exit_refuted<'a>(
+    expression: &'a syn::Expr,
+    refuted: &mut Vec<(String, &'a syn::Pat)>,
+) {
+    match expression {
+        syn::Expr::Paren(inner) => expression_exit_refuted(&inner.expr, refuted),
+        syn::Expr::Group(inner) => expression_exit_refuted(&inner.expr, refuted),
+        syn::Expr::Block(block) if block.label.is_none() => {
+            for statement in &block.block.stmts {
+                exit_refuted(statement, refuted);
+            }
+        }
+        syn::Expr::If(node) => {
+            if let syn::Expr::Let(binding) = unwrap_parens(&node.cond) {
+                if block_completion(&node.then_branch) == Completion::Leaves {
+                    refuted.push((scrutinee_key(&binding.expr), &binding.pat));
+                }
+            }
+        }
+        syn::Expr::Match(node) => {
+            for arm in &node.arms {
+                if arm.guard.is_none() && expression_completion(&arm.body) == Completion::Leaves {
+                    refuted.push((scrutinee_key(&node.expr), &arm.pat));
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Whether every value `pattern` matches is matched by `by`, read pairwise from
+/// syntax; any pair this does not read is not covered.
+fn pattern_covers(by: &syn::Pat, pattern: &syn::Pat) -> bool {
+    let strip = |pattern: &syn::Pat| -> syn::Pat {
+        let mut pattern = pattern;
+        loop {
+            pattern = match pattern {
+                syn::Pat::Paren(inner) => &inner.pat,
+                syn::Pat::Reference(inner) => &inner.pat,
+                syn::Pat::Type(inner) => &inner.pat,
+                other => return other.clone(),
+            };
+        }
+    };
+    let (by, pattern) = (strip(by), strip(pattern));
+    let tokens = |pattern: &syn::Pat| pattern.to_token_stream().to_string();
+    let all = |by: &syn::punctuated::Punctuated<syn::Pat, syn::Token![,]>,
+               pattern: &syn::punctuated::Punctuated<syn::Pat, syn::Token![,]>| {
+        by.len() == pattern.len()
+            && by
+                .iter()
+                .chain(pattern)
+                .all(|item| !matches!(item, syn::Pat::Rest(_)))
+            && by
+                .iter()
+                .zip(pattern)
+                .all(|(by, item)| pattern_covers(by, item))
+    };
+    if is_irrefutable(&by) && !may_be_refuted_by_type(&by) {
+        return true;
+    }
+    match (&by, &pattern) {
+        (syn::Pat::Or(by), _) => by.cases.iter().any(|case| pattern_covers(case, &pattern)),
+        (_, syn::Pat::Or(or)) => or.cases.iter().all(|case| pattern_covers(&by, case)),
+        (_, syn::Pat::Ident(ident)) if ident.subpat.is_some() => ident
+            .subpat
+            .as_ref()
+            .is_some_and(|(_, sub)| pattern_covers(&by, sub)),
+        (syn::Pat::Ident(ident), _) if ident.subpat.is_some() => ident
+            .subpat
+            .as_ref()
+            .is_some_and(|(_, sub)| pattern_covers(sub, &pattern)),
+        (syn::Pat::TupleStruct(by), syn::Pat::TupleStruct(other)) => {
+            by.path.to_token_stream().to_string() == other.path.to_token_stream().to_string()
+                && all(&by.elems, &other.elems)
+        }
+        (syn::Pat::Tuple(by), syn::Pat::Tuple(other)) => all(&by.elems, &other.elems),
+        (syn::Pat::Lit(_) | syn::Pat::Path(_) | syn::Pat::Range(_), _) => {
+            tokens(&by) == tokens(&pattern)
+        }
+        _ => false,
+    }
+}
+
 /// DS-1963 (2) over patterns: whether they may together match every value at one
 /// position. It also reads the pattern of an `if let` and of a `let ... else`
 /// (with the patterns refuted on the path to it), whose `else` then may never run.
@@ -1929,6 +2048,7 @@ impl<'a> Visit<'a> for DivergenceCollector<'a> {
                 // positions are decided (DS-1983, DS-615).
                 self.context.reach = self.context.reach.max(DivergenceReach::Undecided);
             }
+            exit_refuted(statement, &mut self.context.refuted);
         }
         self.context = outer;
     }
@@ -1978,6 +2098,11 @@ impl<'a> Visit<'a> for DivergenceCollector<'a> {
                 self.visit_expr(&binding.expr);
                 let (deciders, reach) = self.pattern_deciders(&binding.pat, &binding.expr);
                 let scrutinee = scrutinee_key(&binding.expr);
+                let reach = if self.covered_by_refuted(&scrutinee, &[], &binding.pat) {
+                    DivergenceReach::Undecided
+                } else {
+                    reach
+                };
                 let else_reach = if is_irrefutable(&binding.pat) {
                     reach.max(DivergenceReach::NotCounted)
                 } else if self.may_exhaust_with_refuted(&scrutinee, [&*binding.pat]) {
@@ -2038,11 +2163,12 @@ impl<'a> Visit<'a> for DivergenceCollector<'a> {
                 deciders.push(Decider::value(guard));
                 arm_reach = arm_reach.max(condition_reach(guard).0);
             }
-            if index > 0
+            if (index > 0
                 && self.may_exhaust_with_refuted(
                     &scrutinee,
                     refuted.iter().map(|(_, pattern)| *pattern),
-                )
+                ))
+                || self.covered_by_refuted(&scrutinee, &refuted, &arm.pat)
             {
                 arm_reach = DivergenceReach::Undecided;
             }
@@ -8273,7 +8399,7 @@ fn real_check() {
     /// @vtest.id TEST-ORACLE-DIVERGENCE-EXHAUSTING-PATTERNS-ARE-UNKNOWN
     /// @vtest.covers VO-ORACLE-DIVERGENCE-REACH-UNDECIDABLE
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::collect_divergences
-    /// @vtest.intent if let・let-else・matches! のパターンが、else 側やより後ろの腕の中のどの深さ（文・ブロック・括弧の中）でも経路上で反駁されたパターンと合わせて組の両方を検査するとき、反駁されたパターンの scrutinee が同じと確定できないとき、定数で真のガードの腕が組を検査するとき、Ok と Err を両方検査するとき、256 個以上のリテラルを検査するときは UNKNOWN になり、組を尽くさない else if の連鎖と 255 個のリテラルなら PASS のままであることを確認する
+    /// @vtest.intent if let・let-else・matches! のパターンが、else 側やより後ろの腕の中のどの深さ（文・ブロック・括弧の中）でも経路上で反駁されたパターンと合わせて組の両方を検査するとき、反駁されたパターンの scrutinee が同じと確定できないとき、全経路で抜ける then や腕の後でそのパターンを反駁されたものとして合わせるとき、反駁されたパターンが自分のパターンを覆うとき、定数で真のガードの腕が組を検査するとき、Ok と Err を両方検査するとき、256 個以上のリテラルを検査するときは UNKNOWN になり、組を尽くさない else if の連鎖と 255 個のリテラルなら PASS のままであることを確認する
     #[test]
     fn patterns_that_may_match_every_value_leave_the_divergence_unknown() {
         assert_divergence_states(&[
@@ -8291,6 +8417,12 @@ fn real_check() {
             ("UNKNOWN", "", "", "    let o = double_opt(2);\n    if let Some(_) = o {\n    } else {\n        (if let None = o {\n        } else {\n            panic!(\"bad\");\n        })\n    }\n"),
             ("UNKNOWN", "", "", "    let o = double_opt(2);\n    let Some(_) = o else {\n        let None = o else {\n            panic!(\"bad\");\n        };\n        return;\n    };\n"),
             ("UNKNOWN", "", "", "    let o = double_opt(2);\n    match o {\n        Some(_) => {}\n        _ => {\n            if let None = o {\n            } else {\n                panic!(\"bad\");\n            }\n        }\n    }\n"),
+            ("UNKNOWN", "", "", "    let o = double_opt(2);\n    if let Some(_) = o {\n        return;\n    }\n    if let None = o {\n    } else {\n        panic!(\"bad\");\n    }\n"),
+            ("UNKNOWN", "", "", "    let o = double_opt(2);\n    match o {\n        Some(_) => return,\n        _ => {}\n    }\n    if let None = o {\n    } else {\n        panic!(\"bad\");\n    }\n"),
+            ("UNKNOWN", "", "", "    let o = double_opt(2);\n    if let Some(_) = o {\n    } else {\n        if let Some(5) = o {\n            panic!(\"bad\");\n        }\n    }\n"),
+            ("UNKNOWN", "", "", "    #[allow(unreachable_patterns)]\n    match double_opt(2) {\n        Some(_) => {}\n        Some(5) => panic!(\"bad\"),\n        _ => {}\n    }\n"),
+            ("PASS", "", "", "    let o = double_opt(2);\n    if let Some(9) = o {\n        return;\n    }\n    if let Some(4) = o {\n    } else {\n        panic!(\"bad\");\n    }\n"),
+            ("PASS", "", "", "    match double_opt(2) {\n        Some(4) => {}\n        Some(_) => panic!(\"other\"),\n        None => panic!(\"none\"),\n    }\n"),
             ("PASS", "", "", "    let o = double_opt(2);\n    if let Some(4) = o {\n    } else if let None = o {\n        panic!(\"none\");\n    } else {\n        panic!(\"bad\");\n    }\n"),
             ("PASS", "", "", "    let o = double_opt(2);\n    if let Some(4) = o {\n    } else {\n        let _k = 1;\n        {\n            if let None = o {\n                panic!(\"none\");\n            } else {\n                panic!(\"bad\");\n            }\n        }\n    }\n"),
             ("UNKNOWN", "", "", "    let r = double_opt(2);\n    if !matches!(r, Some(_) | None) {\n        panic!(\"bad\");\n    }\n"),
