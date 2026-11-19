@@ -6584,8 +6584,8 @@ const INLINE_ROUNDS: usize = 16;
 /// never called at a counted position. A closure is also left as it is where the
 /// inlined text could not mean the same execution, which DS-1680 reads as `UNKNOWN`:
 /// its body uses a name of the call site that the function binds more than once, or
-/// binds a name that is also bound outside it, or uses `?`, or a field shorthand of
-/// a renamed name; or a call whose value is used runs a body that has its own
+/// binds a name other than a parameter that is also bound outside it, may capture a
+/// `mut` binding (DS-1959), or uses `?`; or a call whose value is used runs a body that has its own
 /// `return` or whose tail is a branch, loop or labeled block (DS-1942 makes the value
 /// derived only when every exit's value is; a `return` of a call whose value is
 /// discarded becomes a `break` of the inlined block).
@@ -6746,6 +6746,8 @@ struct ClosureInfo {
     once: BTreeSet<String>,
     /// The ranges of those names, in the parameters and the body.
     renames: Vec<((usize, usize), String)>,
+    /// The field shorthands among them, written out as `label: name` when renamed.
+    shorthands: Vec<((usize, usize), String)>,
     /// The ranges of the `return` keywords of the closure's own returns.
     returns: Vec<(usize, usize)>,
     /// The tail of the body is a branch, a loop or a labeled block.
@@ -6763,7 +6765,8 @@ fn closure_info(
         offset: &'o dyn Fn(proc_macro2::LineColumn) -> usize,
         bindings: Vec<((usize, usize), String)>,
         uses: Vec<((usize, usize), String)>,
-        shorthands: Vec<String>,
+        /// Field shorthands (`S { a }`), whose name is a field label as well.
+        shorthands: Vec<((usize, usize), String)>,
         returns: Vec<(usize, usize)>,
         question: bool,
         /// Inside a closure, an `async` block or an item, whose `return` and `?` are
@@ -6789,13 +6792,15 @@ fn closure_info(
         }
         fn visit_field_value(&mut self, node: &'ast syn::FieldValue) {
             if let (None, syn::Member::Named(name)) = (&node.colon_token, &node.member) {
-                self.shorthands.push(name.to_string());
+                self.shorthands
+                    .push((self.range(name.span()), name.to_string()));
             }
             syn::visit::visit_field_value(self, node);
         }
         fn visit_field_pat(&mut self, node: &'ast syn::FieldPat) {
             if let (None, syn::Member::Named(name)) = (&node.colon_token, &node.member) {
-                self.shorthands.push(name.to_string());
+                self.shorthands
+                    .push((self.range(name.span()), name.to_string()));
             }
             syn::visit::visit_field_pat(self, node);
         }
@@ -6890,7 +6895,6 @@ fn closure_info(
     if bound.iter().any(|name| {
         !params_bound.contains(name) && function_counts.get(name) > inside.get(name)
     })
-        || sites.shorthands.iter().any(|name| bound.contains(name))
         // DS-1959: a closure that may capture a `mut` binding mutably changes it where
         // it runs; that change is not inlined.
         || sites.uses.iter().any(|(_, name)| {
@@ -6938,12 +6942,19 @@ fn closure_info(
         .filter(|name| inside.get(name) == 1)
         .cloned()
         .collect();
+    let shorthands = sites
+        .shorthands
+        .iter()
+        .filter(|(_, name)| bound.contains(name))
+        .cloned()
+        .collect();
     Some(ClosureInfo {
         params,
         body: sites.range(closure.body.span()),
         bound,
         once,
         renames,
+        shorthands,
         returns: sites.returns,
         tail_join: tail_is_join(&closure.body),
     })
@@ -7298,11 +7309,18 @@ fn inlined_call(text: &str, info: &ClosureInfo, call: &NameCall, fresh: &mut usi
     }
     let label = format!("'vtc{id}");
     let rewrite = |range: (usize, usize)| {
+        // A shorthand comes first, so that it wins over the rename of the same name.
         let mut pieces: Vec<((usize, usize), String)> = info
-            .renames
+            .shorthands
             .iter()
             .filter(|(site, _)| site.0 >= range.0 && site.1 <= range.1)
-            .map(|(site, name)| (*site, names[name.as_str()].clone()))
+            .map(|(site, name)| (*site, format!("{name}: {}", names[name.as_str()])))
+            .chain(
+                info.renames
+                    .iter()
+                    .filter(|(site, _)| site.0 >= range.0 && site.1 <= range.1)
+                    .map(|(site, name)| (*site, names[name.as_str()].clone())),
+            )
             .chain(
                 info.returns
                     .iter()
@@ -10483,6 +10501,8 @@ fn real_check() {
             "let f = |v: i32| (v, 0); let (a, _) = f(double(2)); assert_eq!(a, 4);",
             "let f = |a: i32, b: i32| assert_eq!(b - a, 3); let b = 1; f(b, double(2));",
             "let r = double(2); let get = || r; assert_eq!(get(), 4);",
+            "let f = |a: i32| S { a, b: 0 }; assert_eq!(f(double(2)).a, 4);",
+            "let f = |v: i32| assert_eq!(v, 4, \"{:?}\", v); f(double(2));",
         ] {
             assert_eq!(da_003_of_two(body), DaVerdict::NoViolation, "{body}");
         }
