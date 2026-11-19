@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-003-PATTERN-BINDING
+parent: null
+derives_from:
+- doc: DS-1938
+claim: '`rust-cargo`のDA-003のデータフロー解析は、少なくとも`match`・`if let`・`let ... else`のパターンが束縛する変数を、scrutineeのうちその変数が取り出す位置が派生であるとき（scrutineeが全体として派生である場合を含む）に派生として追跡する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-20T00:00:00Z
+updated: 2026-11-20T00:00:00Z

@@ -308,6 +308,14 @@
 //!   when no result of a counted call reaches an assert-equivalent, and an
 //!   assert-equivalent there keeps DA-003 from `Fail`, since a derived value may flow
 //!   into it (DS-1944). DA-001 and DA-006 still read every assert macro.
+//! - A name bound by a `match` arm, `if let` / `while let`, `let ... else` or a
+//!   destructuring `let` takes the derivation of the position it extracts from the
+//!   scrutinee (DS-1938, DS-1939). The scrutinee is read by syntax: a target call's
+//!   result is derived at every position, a tuple, array, struct literal and
+//!   `Some` / `Ok` / `Err` keep one derivation per position, and a name bound once by a
+//!   plain `let` has its initializer's. A name whose position syntax does not fix
+//!   over positions of different derivations, or that an or-pattern binds from such
+//!   positions, makes DA-003 `Unknown` where it is used.
 
 use quote::ToTokens;
 use syn::{spanned::Spanned, visit::Visit};
@@ -4665,6 +4673,18 @@ fn count_rebindings_in(function: &syn::ItemFn, name: &str) -> usize {
             syn::visit::visit_pat_ident(self, node);
         }
 
+        // The cases of an or-pattern bind the same names once (DS-1938).
+        fn visit_pat_or(&mut self, node: &'ast syn::PatOr) {
+            let before = self.count;
+            let mut most = 0;
+            for case in &node.cases {
+                self.count = 0;
+                self.visit_pat(case);
+                most = most.max(self.count);
+            }
+            self.count = before + most;
+        }
+
         fn visit_expr_assign(&mut self, node: &'ast syn::ExprAssign) {
             if is_assignment_to(&node.left, self.name) {
                 self.count += 1;
@@ -5079,8 +5099,16 @@ fn target_call_result_is_verified(
     let bindings: Vec<(DerivedBinding, BindingReach)> =
         find_let_bindings_containing_call(text, symbol, targets, regions)
             .into_iter()
+            .chain(find_pattern_bindings(text, symbol, regions))
             .map(|binding| {
                 let reach = binding_reach(text, &binding, targets, assert_spans, &divergences);
+                // DS-1939: a binding whose position is not fixed by syntax over a value
+                // whose positions differ is UNKNOWN wherever it is used.
+                let reach = if binding.uncertain && !matches!(reach, BindingReach::NotReached) {
+                    BindingReach::Uncertain
+                } else {
+                    reach
+                };
                 (binding, reach)
             })
             .collect();
@@ -5508,6 +5536,8 @@ struct DerivedBinding {
     whole_result: bool,
     /// Byte offset of the binding statement.
     offset: usize,
+    /// The binding is neither shown derived nor shown underived (DS-1939).
+    uncertain: bool,
 }
 
 /// Whether `expression` is a call of the target, or a method chain, `?`, `.await` or
@@ -5548,11 +5578,580 @@ impl<'ast> Visit<'ast> for LetBindingVisitor<'_> {
                     mutable: pattern.mutability.is_some(),
                     whole_result: is_whole_result(&init.expr, self.names.symbol),
                     offset: span_offset(node.span().start(), self.names.text),
+                    uncertain: false,
                 });
             }
         }
         syn::visit::visit_local(self, node);
     }
+}
+
+/// The derivation of the positions of a value (DS-1939), read from the syntax of a
+/// pattern's scrutinee.
+#[derive(Clone, Debug)]
+enum Shape {
+    /// No position is derived.
+    Plain,
+    /// Every position is derived: a target call's result, from a function call of the
+    /// target (`path`) or a method call (`method`).
+    Derived { path: bool, method: bool },
+    /// A tuple or an array (`vec![..]` included) literal: one shape per element.
+    Elements(Vec<Shape>),
+    /// A struct literal: the shape of each named field, and of the fields its base
+    /// expression gives.
+    Struct(Vec<(String, Shape)>, Box<Shape>),
+    /// A constructor that syntax fixes (`Some` / `Ok` / `Err`, DS-1960): its variant is
+    /// not derived (DS-1939).
+    Variant(String, Vec<Shape>),
+    /// The positions are not fixed by syntax and are not all alike.
+    Unknown,
+}
+
+impl Shape {
+    /// One derivation for the value as a whole (DS-1939): derived when every
+    /// position is, underived when none is, and `Unknown` otherwise.
+    fn summary(&self) -> Shape {
+        let parts: Vec<Shape> = match self {
+            Shape::Elements(elements) => elements.iter().map(Shape::summary).collect(),
+            Shape::Struct(fields, rest) => fields
+                .iter()
+                .map(|(_, shape)| shape.summary())
+                .chain([rest.summary()])
+                .collect(),
+            Shape::Variant(_, elements) => elements
+                .iter()
+                .map(Shape::summary)
+                .chain([Shape::Plain])
+                .collect(),
+            other => return other.clone(),
+        };
+        join_shapes(parts)
+    }
+
+    /// The shape of the element `index` of `count` elements, or of the field `name`.
+    fn element(&self, index: usize) -> Shape {
+        match self {
+            Shape::Elements(elements) | Shape::Variant(_, elements) => {
+                elements.get(index).cloned().unwrap_or(Shape::Unknown)
+            }
+            Shape::Plain | Shape::Derived { .. } => self.clone(),
+            Shape::Struct(..) | Shape::Unknown => Shape::Unknown,
+        }
+    }
+
+    fn field(&self, name: &str) -> Shape {
+        match self {
+            Shape::Struct(fields, rest) => fields
+                .iter()
+                .find(|(field, _)| field == name)
+                .map_or_else(|| (**rest).clone(), |(_, shape)| shape.clone()),
+            Shape::Elements(_) => name
+                .parse::<usize>()
+                .map_or(Shape::Unknown, |index| self.element(index)),
+            Shape::Plain | Shape::Derived { .. } => self.clone(),
+            Shape::Variant(..) | Shape::Unknown => Shape::Unknown,
+        }
+    }
+}
+
+/// One derivation for several summaries: `Plain` when none is derived (or there is
+/// none), `Derived` when every one is, and `Unknown` otherwise.
+fn join_shapes(parts: impl IntoIterator<Item = Shape>) -> Shape {
+    let mut joined: Option<Shape> = None;
+    for part in parts {
+        joined = Some(match (joined, part) {
+            (None, part) => part,
+            (Some(Shape::Plain), Shape::Plain) => Shape::Plain,
+            (Some(Shape::Derived { path, method }), Shape::Derived { path: p, method: m }) => {
+                Shape::Derived {
+                    path: path || p,
+                    method: method || m,
+                }
+            }
+            _ => Shape::Unknown,
+        });
+    }
+    joined.unwrap_or(Shape::Plain)
+}
+
+/// How the derivation of a scrutinee is read: the target's symbol and the `let`
+/// bindings whose name is followed to its initializer.
+struct ShapeReader<'a> {
+    symbol: &'a str,
+    /// A name bound once in the function, by a plain `let` that is not `mut`, with its
+    /// initializer (DS-1939: the variable bound to a value has its derivation).
+    lets: Vec<(String, &'a syn::Expr)>,
+    /// Every name bound by a `let` whose initializer mentions the target.
+    mentioning: Vec<String>,
+}
+
+/// The deepest chain of `let` names `ShapeReader` follows.
+const SHAPE_DEPTH: usize = 8;
+
+impl<'a> ShapeReader<'a> {
+    fn new(function: &'a syn::ItemFn, symbol: &'a str) -> Self {
+        struct Lets<'a> {
+            all: Vec<(String, &'a syn::Expr, bool)>,
+        }
+        impl<'a> Visit<'a> for Lets<'a> {
+            fn visit_local(&mut self, node: &'a syn::Local) {
+                let mut pattern = &node.pat;
+                while let syn::Pat::Type(typed) = pattern {
+                    pattern = &typed.pat;
+                }
+                if let (syn::Pat::Ident(ident), Some(init)) = (pattern, &node.init) {
+                    let plain = ident.by_ref.is_none()
+                        && ident.mutability.is_none()
+                        && ident.subpat.is_none()
+                        && init.diverge.is_none();
+                    self.all
+                        .push((ident.ident.to_string(), init.expr.as_ref(), plain));
+                }
+                syn::visit::visit_local(self, node);
+            }
+        }
+        let mut lets = Lets { all: Vec::new() };
+        lets.visit_block(&function.block);
+        let mut reader = Self {
+            symbol,
+            lets: Vec::new(),
+            mentioning: Vec::new(),
+        };
+        for (name, init, plain) in &lets.all {
+            if *plain && count_rebindings_in(function, name) == 1 {
+                reader.lets.push((name.clone(), init));
+            }
+        }
+        // A name mentions the target when its initializer does, through other names
+        // too; the chain is followed as deep as `SHAPE_DEPTH`.
+        for _ in 0..SHAPE_DEPTH {
+            for (name, init, _) in &lets.all {
+                if !reader.mentioning.contains(name) && reader.mentions(init) {
+                    reader.mentioning.push(name.clone());
+                }
+            }
+        }
+        reader
+    }
+
+    /// Whether `expression` holds a call of the target or a name whose initializer
+    /// does, in its syntax tree or in macro tokens.
+    fn mentions(&self, expression: &syn::Expr) -> bool {
+        fn tokens_mention(reader: &ShapeReader<'_>, tokens: proc_macro2::TokenStream) -> bool {
+            tokens_mention_ident(tokens.clone(), reader.symbol)
+                || reader
+                    .mentioning
+                    .iter()
+                    .any(|name| tokens_mention_ident(tokens.clone(), name))
+        }
+        struct Finder<'r, 'a> {
+            reader: &'r ShapeReader<'a>,
+            found: bool,
+        }
+        impl<'ast> Visit<'ast> for Finder<'_, '_> {
+            fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
+                self.found |= node.path.segments.last().is_some_and(|segment| {
+                    segment.ident == self.reader.symbol
+                        || self
+                            .reader
+                            .mentioning
+                            .iter()
+                            .any(|name| segment.ident == name)
+                });
+            }
+            fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
+                self.found |= node.method == self.reader.symbol;
+                syn::visit::visit_expr_method_call(self, node);
+            }
+            fn visit_macro(&mut self, node: &'ast syn::Macro) {
+                self.found |= tokens_mention(self.reader, node.tokens.clone());
+            }
+        }
+        let mut finder = Finder {
+            reader: self,
+            found: false,
+        };
+        finder.visit_expr(expression);
+        finder.found
+    }
+
+    /// The shape of `expression`.
+    ///
+    /// Derivation from DS-1939 and DS-1960: a target call's result, through a method
+    /// chain, `?`, `.await`, a reference or parentheses, is derived at every position;
+    /// a tuple, array, struct literal and `Some` / `Ok` / `Err` keep a shape per
+    /// position; `Box::new` / `String::from` carry their argument's derivation as a
+    /// whole; a name bound once by a plain `let` has its initializer's shape; a field
+    /// access and an integer-literal index take one position. Anything else that
+    /// mentions the target (a function call, which DS-1960 reads as a delegation
+    /// target, a method with a derived argument, an operator) is `Unknown`, and an
+    /// expression that does not mention it is `Plain`.
+    fn shape(&self, expression: &syn::Expr, depth: usize) -> Shape {
+        if depth > SHAPE_DEPTH {
+            return Shape::Unknown;
+        }
+        let expression = strip_place(expression);
+        if is_whole_result(expression, self.symbol) {
+            return Shape::Derived {
+                path: whole_result_is_path(expression, self.symbol),
+                method: !whole_result_is_path(expression, self.symbol),
+            };
+        }
+        let whole = |shape: Shape| match shape.summary() {
+            summary @ (Shape::Plain | Shape::Derived { .. }) => summary,
+            _ => Shape::Unknown,
+        };
+        match expression {
+            syn::Expr::Tuple(tuple) => Shape::Elements(
+                tuple
+                    .elems
+                    .iter()
+                    .map(|element| self.shape(element, depth + 1))
+                    .collect(),
+            ),
+            syn::Expr::Array(array) => Shape::Elements(
+                array
+                    .elems
+                    .iter()
+                    .map(|element| self.shape(element, depth + 1))
+                    .collect(),
+            ),
+            syn::Expr::Macro(node) if node.mac.path.is_ident("vec") => {
+                match macro_arguments(&node.mac) {
+                    Some(arguments) => Shape::Elements(
+                        arguments
+                            .checked
+                            .iter()
+                            .map(|element| self.shape(element, depth + 1))
+                            .collect(),
+                    ),
+                    None if self.mentions(expression) => Shape::Unknown,
+                    None => Shape::Plain,
+                }
+            }
+            syn::Expr::Struct(literal) => {
+                let fields = literal
+                    .fields
+                    .iter()
+                    .map(|field| {
+                        let name = match &field.member {
+                            syn::Member::Named(name) => field_name(name),
+                            syn::Member::Unnamed(index) => index.index.to_string(),
+                        };
+                        (name, self.shape(&field.expr, depth + 1))
+                    })
+                    .collect();
+                let rest = literal
+                    .rest
+                    .as_ref()
+                    .map_or(Shape::Plain, |rest| whole(self.shape(rest, depth + 1)));
+                Shape::Struct(fields, Box::new(rest))
+            }
+            syn::Expr::Call(call) => {
+                let syn::Expr::Path(callee) = call.func.as_ref() else {
+                    return self.unknown_if_mentioned(expression);
+                };
+                let last = callee
+                    .path
+                    .segments
+                    .last()
+                    .map(|segment| segment.ident.to_string());
+                match last.as_deref() {
+                    Some(variant @ ("Some" | "Ok" | "Err")) => Shape::Variant(
+                        variant.to_owned(),
+                        call.args
+                            .iter()
+                            .map(|argument| self.shape(argument, depth + 1))
+                            .collect(),
+                    ),
+                    _ if is_value_conversion(&callee.path) && call.args.len() == 1 => {
+                        whole(self.shape(&call.args[0], depth + 1))
+                    }
+                    _ => self.unknown_if_mentioned(expression),
+                }
+            }
+            syn::Expr::Path(path) if path.qself.is_none() => {
+                let Some(name) = path.path.get_ident() else {
+                    return self.unknown_if_mentioned(expression);
+                };
+                match self.lets.iter().find(|(bound, _)| name == bound) {
+                    Some((_, init)) => self.shape(init, depth + 1),
+                    None => self.unknown_if_mentioned(expression),
+                }
+            }
+            syn::Expr::Field(field) => {
+                let name = match &field.member {
+                    syn::Member::Named(name) => field_name(name),
+                    syn::Member::Unnamed(index) => index.index.to_string(),
+                };
+                self.shape(&field.base, depth + 1).field(&name)
+            }
+            syn::Expr::Index(index) => match index.index.as_ref() {
+                syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Int(literal),
+                    ..
+                }) if !self.mentions(&index.index) => match literal.base10_parse::<usize>() {
+                    Ok(position) => match self.shape(&index.expr, depth + 1) {
+                        elements @ Shape::Elements(_) => elements.element(position),
+                        Shape::Plain => Shape::Plain,
+                        _ => Shape::Unknown,
+                    },
+                    Err(_) => Shape::Unknown,
+                },
+                _ => self.unknown_if_mentioned(expression),
+            },
+            syn::Expr::Try(node) => whole(self.shape(&node.expr, depth + 1)),
+            syn::Expr::Await(node) => whole(self.shape(&node.base, depth + 1)),
+            syn::Expr::MethodCall(call) if !call.args.iter().any(|arg| self.mentions(arg)) => {
+                // DS-1937 / DS-1939: a method over a receiver whose positions are all
+                // alike carries its derivation; any other receiver is UNKNOWN.
+                whole(self.shape(&call.receiver, depth + 1))
+            }
+            _ => self.unknown_if_mentioned(expression),
+        }
+    }
+
+    fn unknown_if_mentioned(&self, expression: &syn::Expr) -> Shape {
+        if self.mentions(expression) {
+            Shape::Unknown
+        } else {
+            Shape::Plain
+        }
+    }
+}
+
+/// Whether a value that `is_whole_result` accepts comes from a function call of the
+/// target rather than from a method call.
+fn whole_result_is_path(expression: &syn::Expr, symbol: &str) -> bool {
+    match unwrap_parens(expression) {
+        syn::Expr::Call(_) => true,
+        syn::Expr::MethodCall(call) => {
+            is_whole_result(&call.receiver, symbol) && whole_result_is_path(&call.receiver, symbol)
+        }
+        syn::Expr::Try(node) => whole_result_is_path(&node.expr, symbol),
+        syn::Expr::Await(node) => whole_result_is_path(&node.base, symbol),
+        _ => false,
+    }
+}
+
+/// One name a pattern binds, with the derivation of the position it takes.
+struct PatternBinding {
+    name: String,
+    shape: Shape,
+    /// `mut` or `ref mut`: the binding may be changed afterwards (DS-1959).
+    mutable: bool,
+}
+
+/// The names `pattern` binds from a value of shape `shape` (DS-1938, DS-1939): each
+/// takes the position it extracts. A position that syntax does not fix (a variant or
+/// struct pattern over a value whose positions are not all alike, an arity that does
+/// not match) is `Unknown`. A name bound by every case of an or-pattern is derived
+/// only when every case derives it, underived when none does, and `Unknown`
+/// otherwise (as DS-1940 joins the arms of a branch).
+fn pattern_bindings(pattern: &syn::Pat, shape: &Shape, out: &mut Vec<PatternBinding>) {
+    let elements = |patterns: &syn::punctuated::Punctuated<syn::Pat, syn::Token![,]>,
+                    shape: &Shape,
+                    out: &mut Vec<PatternBinding>| {
+        let count = patterns.len();
+        let rest = patterns
+            .iter()
+            .position(|element| matches!(element, syn::Pat::Rest(_)));
+        let known = match shape {
+            Shape::Elements(values) | Shape::Variant(_, values) => Some(values.len()),
+            _ => None,
+        };
+        for (index, element) in patterns.iter().enumerate() {
+            let position = match (rest, known) {
+                (Some(rest), Some(len)) if index > rest => (len + index).checked_sub(count),
+                (None, Some(len)) if len != count => None,
+                _ => Some(index),
+            };
+            let element_shape = position.map_or(Shape::Unknown, |position| shape.element(position));
+            pattern_bindings(element, &element_shape, out);
+        }
+    };
+    match pattern {
+        syn::Pat::Ident(ident) => {
+            out.push(PatternBinding {
+                name: ident.ident.to_string(),
+                shape: shape.summary(),
+                // `mut x` and `ref mut x` both carry the `mut` token.
+                mutable: ident.mutability.is_some(),
+            });
+            if let Some((_, sub)) = &ident.subpat {
+                pattern_bindings(sub, shape, out);
+            }
+        }
+        syn::Pat::Type(typed) => pattern_bindings(&typed.pat, shape, out),
+        syn::Pat::Paren(inner) => pattern_bindings(&inner.pat, shape, out),
+        syn::Pat::Reference(inner) => pattern_bindings(&inner.pat, shape, out),
+        syn::Pat::Tuple(tuple) => {
+            let shape = match shape {
+                Shape::Elements(_) | Shape::Plain | Shape::Derived { .. } => shape.clone(),
+                _ => Shape::Unknown,
+            };
+            elements(&tuple.elems, &shape, out);
+        }
+        syn::Pat::Slice(slice) => {
+            let shape = match shape {
+                Shape::Elements(_) | Shape::Plain | Shape::Derived { .. } => shape.clone(),
+                _ => Shape::Unknown,
+            };
+            elements(&slice.elems, &shape, out);
+        }
+        syn::Pat::TupleStruct(node) => {
+            let name = node
+                .path
+                .segments
+                .last()
+                .map(|segment| segment.ident.to_string());
+            let shape = match shape {
+                Shape::Variant(variant, _) if name.as_deref() == Some(variant.as_str()) => {
+                    shape.clone()
+                }
+                // Another variant never matches the value, so its names take nothing.
+                Shape::Variant(..) => Shape::Plain,
+                Shape::Plain | Shape::Derived { .. } => shape.clone(),
+                _ => Shape::Unknown,
+            };
+            elements(&node.elems, &shape, out);
+        }
+        syn::Pat::Struct(node) => {
+            for field in &node.fields {
+                let name = match &field.member {
+                    syn::Member::Named(name) => field_name(name),
+                    syn::Member::Unnamed(index) => index.index.to_string(),
+                };
+                let field_shape = match shape {
+                    Shape::Struct(..) | Shape::Plain | Shape::Derived { .. } => shape.field(&name),
+                    _ => Shape::Unknown,
+                };
+                pattern_bindings(&field.pat, &field_shape, out);
+            }
+        }
+        syn::Pat::Or(node) => {
+            let cases: Vec<Vec<PatternBinding>> = node
+                .cases
+                .iter()
+                .map(|case| {
+                    let mut bound = Vec::new();
+                    pattern_bindings(case, shape, &mut bound);
+                    bound
+                })
+                .collect();
+            let Some((first, others)) = cases.split_first() else {
+                return;
+            };
+            for binding in first {
+                let mut joined = binding.shape.clone();
+                let mut mutable = binding.mutable;
+                for case in others {
+                    let other = case.iter().find(|other| other.name == binding.name);
+                    joined = match (joined, other.map(|other| &other.shape)) {
+                        (Shape::Plain, Some(Shape::Plain)) => Shape::Plain,
+                        (
+                            Shape::Derived { path, method },
+                            Some(Shape::Derived { path: p, method: m }),
+                        ) => Shape::Derived {
+                            path: path || *p,
+                            method: method || *m,
+                        },
+                        _ => Shape::Unknown,
+                    };
+                    mutable |= other.is_some_and(|other| other.mutable);
+                }
+                out.push(PatternBinding {
+                    name: binding.name.clone(),
+                    shape: joined,
+                    mutable,
+                });
+            }
+        }
+        // A literal, a range, a path, `_` and `..` bind nothing; a macro's pattern is not
+        // read, so the names it may bind are not derived.
+        _ => {}
+    }
+}
+
+/// The names bound by the patterns of `match` arms, `if let` / `while let` and of
+/// `let` statements other than a single name (`let ... else` included), whose
+/// position in the scrutinee is derived from the target's result or not fixed by
+/// syntax (DS-1938, DS-1939). Only those at DS-1962's counted positions are read.
+fn find_pattern_bindings(
+    text: &str,
+    symbol: &str,
+    regions: &[(usize, usize)],
+) -> Vec<DerivedBinding> {
+    struct Finder<'r, 'a> {
+        reader: &'r ShapeReader<'a>,
+        text: &'a str,
+        regions: &'a [(usize, usize)],
+        bindings: Vec<DerivedBinding>,
+    }
+    impl Finder<'_, '_> {
+        fn bind(&mut self, pattern: &syn::Pat, scrutinee: &syn::Expr, at: proc_macro2::Span) {
+            let offset = span_offset(at.start(), self.text);
+            if in_regions(offset, self.regions) || !self.reader.mentions(scrutinee) {
+                return;
+            }
+            let shape = self.reader.shape(scrutinee, 0);
+            let mut bound = Vec::new();
+            pattern_bindings(pattern, &shape, &mut bound);
+            for binding in bound {
+                let (path, method, uncertain) = match binding.shape {
+                    Shape::Derived { path, method } => (path, method, false),
+                    Shape::Plain => continue,
+                    _ => (false, false, true),
+                };
+                self.bindings.push(DerivedBinding {
+                    name: binding.name,
+                    has_path_call: path,
+                    has_method_call: method,
+                    delegated: false,
+                    mutable: binding.mutable,
+                    whole_result: !uncertain,
+                    offset,
+                    uncertain,
+                });
+            }
+        }
+    }
+    impl<'ast> Visit<'ast> for Finder<'_, '_> {
+        fn visit_local(&mut self, node: &'ast syn::Local) {
+            let mut pattern = &node.pat;
+            while let syn::Pat::Type(typed) = pattern {
+                pattern = &typed.pat;
+            }
+            // A single name is `LetBindingVisitor`'s.
+            let single = matches!(pattern, syn::Pat::Ident(ident) if ident.subpat.is_none());
+            if let (false, Some(init)) = (single, &node.init) {
+                self.bind(&node.pat, &init.expr, node.span());
+            }
+            syn::visit::visit_local(self, node);
+        }
+        fn visit_expr_let(&mut self, node: &'ast syn::ExprLet) {
+            self.bind(&node.pat, &node.expr, node.span());
+            syn::visit::visit_expr_let(self, node);
+        }
+        fn visit_expr_match(&mut self, node: &'ast syn::ExprMatch) {
+            for arm in &node.arms {
+                self.bind(&arm.pat, &node.expr, arm.span());
+            }
+            syn::visit::visit_expr_match(self, node);
+        }
+    }
+    let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
+        return Vec::new();
+    };
+    let reader = ShapeReader::new(&function, symbol);
+    let mut finder = Finder {
+        reader: &reader,
+        text,
+        regions,
+        bindings: Vec::new(),
+    };
+    finder.visit_block(&function.block);
+    finder.bindings
 }
 
 // ---------------------------------------------------------------------------
@@ -8592,7 +9191,9 @@ fn real_check() {
             ("UNKNOWN", "", "", "    let _r = double(2);\n    if !flag() {\n        panic!(\"bad\");\n    }\n"),
             ("UNKNOWN", "", "", "    let r = double(2);\n    let k = 4;\n    if k != 4 {\n        panic!(\"{}\", r);\n    }\n"),
             ("UNKNOWN", "", "", "    if !is_four(double(2)) {\n        panic!(\"bad\");\n    }\n"),
-            ("UNKNOWN", "", "", "    match double(2) {\n        x if x == 4 => {}\n        _ => panic!(\"bad\"),\n    }\n"),
+            // DS-1938: the arm binds `x` to the whole result, so the guard is derived.
+            ("PASS", "", "", "    match double(2) {\n        x if x == 4 => {}\n        _ => panic!(\"bad\"),\n    }\n"),
+            ("UNKNOWN", "", "", "    match (double(2), 1) {\n        (_, y) if y == 1 => {}\n        _ => panic!(\"bad\"),\n    }\n"),
             ("UNKNOWN", "", "", "    match Some(double(2)) {\n        Some(_) => {}\n        None => panic!(\"bad\"),\n    }\n"),
             ("UNKNOWN", "", "", "    let t = (double(2), 1);\n    match t {\n        (_, 1) => {}\n        _ => panic!(\"bad\"),\n    }\n"),
             ("UNKNOWN", "", "", "    let r = double(2);\n    let _f = || {\n        if r != 4 {\n            panic!(\"bad\")\n        }\n    };\n"),
@@ -9025,5 +9626,40 @@ fn real_check() {
             da_003_of_two("let _ = double(2);"),
             DaVerdict::Fail(_)
         ));
+    }
+
+    /// DS-1938 / DS-1939: a name bound by a `match` arm, `if let`, `let ... else` or a
+    /// destructuring `let` takes the derivation of the position it extracts. A
+    /// derived position that reaches an assert-equivalent verifies the target; a
+    /// name at another position, or one that an or-pattern binds from positions of
+    /// different derivations, does not.
+    /// @vtest.id TEST-ORACLE-DA-003-PATTERN-BINDING-TAKES-ITS-POSITION
+    /// @vtest.covers VO-ORACLE-DA-003-PATTERN-BINDING, VO-ORACLE-DA-003-PER-POSITION-DERIVATION
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
+    /// @vtest.intent パターンで束縛した名前が target の結果の位置を取り出して assert に届けば違反なしになり、別の位置を取り出した名前や、or パターンで位置の導出が食い違う名前では違反なしにならないことを確認する
+    #[test]
+    fn a_pattern_binding_takes_the_derivation_of_its_position() {
+        for body in [
+            "if let Some(x) = maybe(2) { assert_eq!(x, 4); }",
+            "let Some(x) = maybe(2) else { panic!() }; assert_eq!(x, 4);",
+            "match maybe(2) { Some(x) => assert_eq!(x, 4), None => panic!() }",
+            "let (a, _b) = (double(2), 3); assert_eq!(a, 4);",
+            "match Some((3, double(2))) { Some((_, b)) => assert_eq!(b, 4), _ => {} }",
+            "match Some(double(2)) { Some(v @ 0..=9) => assert_eq!(v, 4), _ => {} }",
+            "match (double(2), double(3)) { (x, _) | (_, x) => assert!(x > 0) }",
+            "let S { a, .. } = S { a: double(2), b: 0 }; assert_eq!(a, 4);",
+            "let t = (double(2), 3); let (a, _) = t; assert_eq!(a, 4);",
+        ] {
+            assert_eq!(da_003_of_two(body), DaVerdict::NoViolation, "{body}");
+        }
+        for body in [
+            "let (_a, b) = (double(2), 3); assert_eq!(b, 3);",
+            "match Some((double(2), 3)) { Some((_, b)) => assert_eq!(b, 3), _ => {} }",
+            "match (double(2), 3) { (x, _) | (_, x) => assert_eq!(x, 4) }",
+            "let S { b, .. } = S { a: double(2), b: 0 }; assert_eq!(b, 0);",
+            "match Some(double(2)) { v @ Some(_) => assert_eq!(v, Some(4)), _ => {} }",
+        ] {
+            assert_ne!(da_003_of_two(body), DaVerdict::NoViolation, "{body}");
+        }
     }
 }
