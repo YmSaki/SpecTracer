@@ -165,7 +165,17 @@
 //!   combinations of literals, and an argument that is a logical expression whose
 //!   value literals fix (DS-1949: `X || true`, `true || X`, `X && false`,
 //!   `false && X`, the same with `|` / `&`, their negations, and such expressions
-//!   nested in one another, parenthesized or not). An operand made only of literals
+//!   nested in one another, parenthesized or not), and a `matches!` whose value
+//!   DS-1965 fixes: `true` for a pattern that is irrefutable (DS-1952) with no guard
+//!   or a guard fixed to `true`, `false` for a guard fixed to `false`, with their
+//!   negations (`assert!(matches!(double(2), _))` is constant, as is
+//!   `X || matches!(x, _)`, which absorbs like `X || true`). A pattern DS-1952 reads
+//!   as irrefutable that its type may refute (`Shape::Circle(..)`, `S { .. }`, a
+//!   fixed-length slice) is not fixed, so DA-001 does not report a real check of a
+//!   variant as `Fail` (derivation from DS-1680 toward `NoViolation`: DS-1965's text
+//!   names every DS-1952 irrefutable pattern, so one that no type refutes stays a
+//!   false PASS); `matches!(x, Some(4))` and a guard that is not fixed stay
+//!   non-constant. An operand made only of literals
 //!   counts as the value it has: `!`, `^`, `==` / `!=` of `bool` literals and the
 //!   comparisons of two literals of one kind (integer, string, char) are
 //!   evaluated (`X || 1 == 1` is constant). Float literals are not compared, since
@@ -1613,34 +1623,18 @@ fn expression_may_exit(expression: &syn::Expr) -> bool {
 
 /// Whether a condition holds a `matches!(value, pattern)` whose pattern (without a
 /// guard) is irrefutable (DS-1952) or may match every value (DS-1963 (2)): it is
-/// then `true` whatever the value, which DA-001's classifier does not see, so the
-/// branches it decides are undecided.
+/// then `true` whatever the value, so the branches it decides are undecided. A
+/// guarded one is not held here: `fixed_value` fixes it only where DS-1965 does.
 fn holds_matches_that_may_always_match(condition: &syn::Expr) -> bool {
     struct Finder(bool);
     impl<'ast> Visit<'ast> for Finder {
         fn visit_macro(&mut self, node: &'ast syn::Macro) {
-            if node
-                .path
-                .segments
-                .last()
-                .is_none_or(|segment| segment.ident != "matches")
-            {
-                return;
-            }
-            let parsed = node.parse_body_with(|input: syn::parse::ParseStream<'_>| {
-                let _value: syn::Expr = input.parse()?;
-                let _comma: syn::Token![,] = input.parse()?;
-                let pattern = syn::Pat::parse_multi_with_leading_vert(input)?;
-                let guarded = input.peek(syn::Token![if]);
-                let _rest: proc_macro2::TokenStream = input.parse()?;
-                Ok((pattern, guarded))
-            });
-            match parsed {
-                Ok((pattern, false)) => {
+            match parse_matches(node) {
+                None | Some(Ok((_, Some(_)))) => {}
+                Some(Ok((pattern, None))) => {
                     self.0 |= is_irrefutable(&pattern) || patterns_may_exhaust([&pattern]);
                 }
-                Ok((_, true)) => {}
-                Err(_) => self.0 = true,
+                Some(Err(_)) => self.0 = true,
             }
         }
         fn visit_expr_closure(&mut self, _node: &'ast syn::ExprClosure) {}
@@ -4297,6 +4291,7 @@ enum Fixed {
 /// `||` / `|` / `&&` / `&` with an absorbing operand (DS-1948) or with both
 /// operands fixed; `^`, `==`, `!=` of fixed `bool`s; a comparison of two integer,
 /// string or char literals of one kind (not floats). Parentheses do not change it.
+/// A `matches!` is evaluated where DS-1965 fixes it (`matches_value`).
 /// Only literals, `!`, binary operators and parentheses are evaluated; another form
 /// built from literals only (`if true { .. }`, `{ true }`, `matches!(1, 1)`) is
 /// `Fixed::Literal`; one holding another macro is `Fixed::Opaque`.
@@ -4306,6 +4301,11 @@ enum Fixed {
 /// not read as `X` flowing. An operand made only of literals whose value is not
 /// evaluated here (`1 + 1 == 2`) may absorb (`Fixed::Literal`).
 fn fixed_value(expression: &syn::Expr) -> Fixed {
+    if let syn::Expr::Macro(node) = unwrap_parens(expression) {
+        if let Some(fixed) = matches_value(&node.mac) {
+            return fixed;
+        }
+    }
     match unwrap_parens(expression) {
         syn::Expr::Lit(syn::ExprLit {
             lit: syn::Lit::Bool(literal),
@@ -4382,6 +4382,65 @@ fn fixed_value(expression: &syn::Expr) -> Fixed {
                 Fixed::Literal
             }
         }
+    }
+}
+
+/// The pattern and the guard of `matches!(value, pattern)` or
+/// `matches!(value, pattern if guard)`; `None` for another macro, `Some(Err)` when
+/// its tokens are not that grammar.
+fn parse_matches(node: &syn::Macro) -> Option<syn::Result<(syn::Pat, Option<syn::Expr>)>> {
+    if node
+        .path
+        .segments
+        .last()
+        .is_none_or(|segment| segment.ident != "matches")
+    {
+        return None;
+    }
+    Some(node.parse_body_with(|input: syn::parse::ParseStream<'_>| {
+        let _value: syn::Expr = input.parse()?;
+        let _comma: syn::Token![,] = input.parse()?;
+        let pattern = syn::Pat::parse_multi_with_leading_vert(input)?;
+        let guard = if input.peek(syn::Token![if]) {
+            let _if: syn::Token![if] = input.parse()?;
+            Some(input.parse::<syn::Expr>()?)
+        } else {
+            None
+        };
+        let _trailing: Option<syn::Token![,]> = input.parse()?;
+        Ok((pattern, guard))
+    }))
+}
+
+/// The value of a `matches!` that DS-1965 fixes: `true` for a pattern that is
+/// irrefutable (DS-1952) with no guard or a guard fixed to `true`, `false` for a
+/// guard fixed to `false` (DA-001's `fixed_value`), each as `Fixed::Value`.
+///
+/// Derivation from DS-1680 toward `NoViolation`: a pattern DS-1952 reads as
+/// irrefutable that its type may refute (`may_be_refuted_by_type`:
+/// `DaVerdict::Fail(_)`, `S { .. }`, a fixed-length slice) is not fixed, since its
+/// value is `false` for a variant it does not name and `Fail` would reject a real
+/// check. DS-1965's text does not exclude it, which leaves a false PASS for such a
+/// pattern that no type refutes. Any pattern not fixed is `None`, which leaves the
+/// form as `fixed_value` reads any other macro.
+fn matches_value(node: &syn::Macro) -> Option<Fixed> {
+    let (pattern, guard) = parse_matches(node)?.ok()?;
+    match guard.as_ref().map(fixed_value) {
+        Some(Fixed::Value(false)) => Some(Fixed::Value(false)),
+        Some(Fixed::Value(true)) | None if irrefutable_whatever_the_type(&pattern) => {
+            Some(Fixed::Value(true))
+        }
+        _ => None,
+    }
+}
+
+/// Whether a pattern is irrefutable (DS-1952) and no type can refute it: an `or`
+/// pattern is, when one of its alternatives is (`Some(_) | _`).
+fn irrefutable_whatever_the_type(pattern: &syn::Pat) -> bool {
+    match pattern {
+        syn::Pat::Or(or) => or.cases.iter().any(irrefutable_whatever_the_type),
+        syn::Pat::Paren(inner) => irrefutable_whatever_the_type(&inner.pat),
+        other => is_irrefutable(other) && !may_be_refuted_by_type(other),
     }
 }
 
@@ -7456,6 +7515,152 @@ mod tests {
                 analysis.da_001
             );
             assert!(!compose(&analysis).0, "{body}");
+        }
+    }
+
+    /// DS-1965: a `matches!` whose value the pattern and the guard fix is a constant
+    /// expression for DA-001; one that the value can change is not.
+    /// @vtest.id TEST-ORACLE-DA-001-IRREFUTABLE-MATCHES-IS-CONSTANT
+    /// @vtest.covers VO-ORACLE-DA-001-IRREFUTABLE-MATCHES-IS-CONSTANT
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::matches_value
+    /// @vtest.intent 反駁不能なパターンでガードが無いか定数で真の matches!、ガードが定数で偽の matches!、それらの否定と、それを X || や && false の吸収の形で含む引数だけを持つ assert 相当は DA-001 の定数アサーションになって合成結果が FAIL になり、Some(4) や 4 などの反駁可能なパターン、Some(_)、定数でないガード、反駁可能なパターンと定数で真のガードの組は定数アサーションにならず違反なしのままで、列挙子や構造体やスライスの型で反駁されうるパターンも FAIL にならず違反なしのままで、X || matches!(x, _) は X || true と同じく DA-003 で UNKNOWN になることを確認する
+    #[test]
+    fn a_matches_that_its_pattern_and_guard_fix_is_a_constant_assertion() {
+        for body in [
+            "assert!(matches!(double(2), _));",
+            "assert!(matches!(double(2), _,));",
+            "assert!(matches!(double(2), x));",
+            "assert!(matches!(double(2), (_, _)));",
+            "assert!(matches!(double(2), &_));",
+            "assert!(matches!(double(2), 4 | _));",
+            "assert!(matches!(double(2), Some(_) | _));",
+            "assert!(matches!(double(2), [..]));",
+            "assert!(matches!(double(2), _ if true));",
+            "assert!(matches!(double(2), x if 1 == 1));",
+            "assert!(matches!(double(2), _ if double(2) == 4 || true));",
+            "assert!(matches!(double(2), _ if false));",
+            "assert!(matches!(double(2), Some(4) if false));",
+            "assert!(matches!(double(2), x if x == 4 && false));",
+            "assert!(!matches!(double(2), _));",
+            "assert!(!matches!(double(2), Some(4) if false));",
+            "assert!(!!matches!(double(2), _));",
+            "assert!((matches!(double(2), _)));",
+            "assert!(double(2) == 4 || matches!(double(2), _));",
+            "assert!(matches!(double(2), _) || double(2) == 4);",
+            "assert!(double(2) == 4 && matches!(double(2), _ if false));",
+            "assert!(matches!(double(2), _) && matches!(double(3), _));",
+            "assert_eq!(matches!(double(2), _), true);",
+            "match ok { _ if matches!(ok, _) => {}, _ => panic!() }",
+            "assert!(matches!(double(2), _), \"message\");",
+            "assert!(matches!(double(2), x), \"{}\", 1);",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_001, DaVerdict::Fail(_)),
+                "{body}: {:?}",
+                analysis.da_001
+            );
+            assert!(compose(&analysis).0, "{body}");
+        }
+        for body in [
+            "assert!(matches!(double(2), Some(4)));",
+            "assert!(matches!(double(2), Some(_)));",
+            "assert!(matches!(double(2), Ok(_)));",
+            "assert!(matches!(double(2), 4));",
+            "assert!(matches!(double(2), 4 | 5));",
+            "assert!(matches!(double(2), 0..=9));",
+            "assert!(matches!(double(2), None));",
+            "assert!(matches!(double(2), Kind));",
+            "assert!(matches!(double(2), Some(_) | Kind));",
+            "assert!(matches!(double(2), Shape::Circle(..)));",
+            "assert!(matches!(double(2), Shape::Circle { .. }));",
+            "assert!(matches!(double(2), S { .. }));",
+            "assert!(matches!(double(2), [_, _]));",
+            "assert!(matches!(double(2), Some(_) | S { .. }));",
+            "assert!(matches!(double(2), Shape::Circle(..) if true));",
+            "assert!(matches!(double(2), DaVerdict::Fail(_)));",
+            "assert!(matches!(double(2), _ if ok));",
+            "assert!(matches!(double(2), x if x == 4));",
+            "assert!(matches!(double(2), Some(4) if true));",
+            "assert!(matches!(double(2), Some(4) if ok));",
+            "assert!(!matches!(double(2), Some(4)));",
+            "assert!(double(2) == 4 || matches!(double(2), Some(_)));",
+            "assert!(double(2) == 4 && matches!(double(2), _ if ok));",
+            "assert!(matches!(double(2), _) && ok);",
+            "assert_eq!(matches!(double(2), Some(4)), true);",
+            "assert!(matches!(double(2), _));\n    assert!(matches!(double(2), Some(4)));",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_001, DaVerdict::NoViolation),
+                "{body}: {:?}",
+                analysis.da_001
+            );
+            assert!(!compose(&analysis).0, "{body}");
+        }
+        // DS-1951 and DS-1953 read the same classifier: an `assert!` it fixes to
+        // `false` is a failure divergence that a result in its deciding position
+        // verifies (DA-003), and a branch under a `matches!` it fixes is read by
+        // value.
+        for body in [
+            "if double(2) != 4 { assert!(!matches!(ok, _)); }",
+            "if double(2) != 4 { assert!(matches!(ok, _ if false)); }",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::NoViolation),
+                "{body}: {:?}",
+                analysis.da_003
+            );
+        }
+        for body in [
+            "if matches!(ok, _ if false) { panic!(); }",
+            "if matches!(ok, _ if true) { panic!(); }",
+            "match double(2) { x if matches!(ok, _) => {}, _ => panic!() }",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_001, DaVerdict::Fail(_)),
+                "{body}: {:?}",
+                analysis.da_001
+            );
+        }
+        for (body, no_violation) in [
+            (
+                "if matches!(ok, _ if false) { return; }\n    if double(2) != 4 { panic!(); }",
+                true,
+            ),
+            (
+                "if matches!(ok, _ if true) { return; }\n    if double(2) != 4 { panic!(); }",
+                false,
+            ),
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert_eq!(
+                matches!(analysis.da_001, DaVerdict::NoViolation),
+                no_violation,
+                "{body}: {:?}",
+                analysis.da_001
+            );
+            assert!(!matches!(analysis.da_001, DaVerdict::Fail(_)), "{body}");
+        }
+        // The same absorption as `X || true` (DS-1948): the value does not flow.
+        for body in [
+            "assert!(double(2) == 4 || matches!(ok, _));",
+            "assert!(double(2) == 4 || true);",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{body}: {:?}",
+                analysis.da_003
+            );
         }
     }
 
