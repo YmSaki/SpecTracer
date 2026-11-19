@@ -158,7 +158,12 @@
 //!   bound once and not `mut` (its positions are not told apart, as in #315), and a
 //!   chain of such bindings is followed one step for a `let` initializer; and an
 //!   `assert!` whose condition is `false` in one arm (`if c { x == 4 } else { false }`)
-//!   is `Unknown`, as DS-1940 reads the value. The arms of a pattern's scrutinee
+//!   is `Unknown`, as DS-1940 reads the value. A remaining false PASS: an arm read
+//!   whole (not through a projection) counts as derived when a derived value flows
+//!   anywhere in it, so arms whose positions cross (`if c { (x, 1) } else { (5, x) }`
+//!   compared whole) are `NoViolation`, where DS-1940 reads each position; a branch
+//!   read through a reference (`(&if ..).1`) is read whole in the same way. The arms
+//!   of a pattern's scrutinee
 //!   (`ShapeReader`) and of a closure's tail (DS-1942, `tail_is_join`) stay `Unknown` as
 //!   before.
 //! - DS-1939's per-position derivation is not applied to a binding without a
@@ -3237,17 +3242,18 @@ fn span_binding_reach(
 /// A use of the name where its value is dropped (`{ r; true }`, `let _ = r`, a
 /// closure body, a `match` scrutinee) does not carry it to the compared value,
 /// which is not shown to be verified either: UNKNOWN (DS-615). So does a read of
-/// an assigned position, whose value is not followed (DS-1956, DS-1966).
+/// an assigned position, whose value is not followed (DS-1956, DS-1966), and a read
+/// through a branch whose arms differ in derivation (DS-1940).
 /// A use that flows to the compared value decides before a use handed to a
 /// delegation target (DS-623, DS-1962).
 fn probe_reach(visitor: &CheckedCallVisitor<'_>) -> BindingReach {
-    if visitor.opaque || visitor.probe_rebound || visitor.probe_in_branch || visitor.mixed {
+    if visitor.opaque || visitor.probe_rebound || visitor.probe_in_branch {
         BindingReach::Uncertain
     } else if visitor.probe_flows {
         BindingReach::Reaches
     } else if visitor.probe_delegated {
         BindingReach::Delegated
-    } else if visitor.probe_dropped || visitor.probe_overwritten {
+    } else if visitor.probe_dropped || visitor.probe_overwritten || visitor.mixed {
         BindingReach::Uncertain
     } else if visitor.probe_into_target {
         BindingReach::IntoTarget
@@ -3605,7 +3611,9 @@ impl<'ast> Visit<'ast> for MacroUseVisitor<'_> {
 /// `.await` and parentheses; the base of a field access and the base and the index
 /// of an index expression (the index decides the element, as an argument does); the tail
 /// expression of a block; the tail expression of each branch of an `if` or a
-/// `match`; the initializer of a `let` whose single name the tail expression of the
+/// `match`, and the tail of a labeled block, only where every arm or exit other than
+/// a failure divergence is derived (DS-1940, `visit_join`: otherwise `mixed`); the
+/// initializer of a `let` whose single name the tail expression of the
 /// block uses where it flows; and the elements of a tuple, array or struct literal,
 /// except that a literal projected directly (`(a, b).1`, `S { a, b }.b`,
 /// `[a, b][1]`, `vec![a, b][1]`) passes only the element that is projected, and none
@@ -3865,7 +3873,16 @@ impl<'a> CheckedCallVisitor<'a> {
         steps: &[Projection<'_>],
         visit: impl FnOnce(&mut Self),
     ) {
-        if self.arms_all_derived(arms, steps) {
+        let derived = self.arms_all_derived(arms, steps);
+        // A classifying read needs only whether the joined value is derived, which the
+        // arms just told; reading them again would cost twice per nested join.
+        if self.classifying {
+            if derived {
+                self.found_source();
+            }
+            return;
+        }
+        if derived {
             return visit(self);
         }
         let outer = (
@@ -4109,8 +4126,9 @@ impl<'a> CheckedCallVisitor<'a> {
         let Some((first, rest)) = steps.split_first() else {
             return self.visit_expr(base);
         };
-        // DS-1940: the steps select a position of each arm's value. The value is read
-        // whole as before, and its arms are joined at the selected position.
+        // DS-1940: the steps select a position of each arm's value (of a block's tail,
+        // read as one arm, so that a branch in it is joined there too). The value is
+        // read whole as before, and its arms are joined at the selected position.
         let whole = |visitor: &mut Self| visitor.path_unknown(|visitor| visitor.visit_expr(base));
         match base {
             syn::Expr::If(node) => return self.visit_join(&Self::if_arms(node), steps, whole),
@@ -4118,15 +4136,15 @@ impl<'a> CheckedCallVisitor<'a> {
                 let arms: Vec<Arm<'_>> = node.arms.iter().map(|arm| Arm::Expr(&arm.body)).collect();
                 return self.visit_join(&arms, steps, whole);
             }
-            syn::Expr::Block(node) => match &node.label {
-                Some(label) => {
-                    return self.visit_join(&Self::labeled_exits(node, label), steps, whole);
-                }
-                None if self.classifying => return self.visit_block_projected(&node.block, steps),
-                None => {}
-            },
-            syn::Expr::Unsafe(node) if self.classifying => {
-                return self.visit_block_projected(&node.block, steps);
+            syn::Expr::Block(node) => {
+                let arms = match &node.label {
+                    Some(label) => Self::labeled_exits(node, label),
+                    None => vec![Arm::Block(&node.block)],
+                };
+                return self.visit_join(&arms, steps, whole);
+            }
+            syn::Expr::Unsafe(node) => {
+                return self.visit_join(&[Arm::Block(&node.block)], steps, whole);
             }
             _ => {}
         }
@@ -4401,9 +4419,18 @@ fn block_always_fails(block: &syn::Block) -> bool {
         if fails {
             return true;
         }
-        let leaves_by_else = matches!(statement, syn::Stmt::Local(local)
-            if local.init.as_ref().is_some_and(|init| init.diverge.is_some()));
-        if leaves_by_else || statement_completion(statement) != Completion::Falls {
+        // A statement before the divergence that may leave on some path (`if c {
+        // return; }`) lets the arm end without failing.
+        let may_exit = match statement {
+            syn::Stmt::Macro(node) => macro_may_exit(&node.mac),
+            syn::Stmt::Expr(expression, _) => expression_may_exit(expression),
+            syn::Stmt::Local(local) => local
+                .init
+                .as_ref()
+                .is_some_and(|init| init.diverge.is_some() || expression_may_exit(&init.expr)),
+            syn::Stmt::Item(_) => false,
+        };
+        if may_exit || statement_completion(statement) != Completion::Falls {
             return false;
         }
     }
@@ -8838,6 +8865,8 @@ mod tests {
             "let x = double(2); assert_eq!((if c() { (double(3), 1) } else { (double(3), x) }).1, 1);",
             "assert!(if c() { double(2) == 4 } else { false });",
             "if (if c() { double(2) } else { 5 }) != 4 { panic!() }",
+            "let x = double(2); assert_eq!(if a() { x } else { if c() { return; } panic!() }, 4);",
+            "assert_eq!(({ if c() { (double(2), 1) } else { (double(3), 2) } }).1, 1);",
         ] {
             assert!(
                 matches!(da_003_of(body), DaVerdict::Unknown(_)),
@@ -8865,6 +8894,8 @@ mod tests {
             "assert_eq!((if c() { (double(2), 1) } else { (double(3), 2) }).0, 4);",
             "assert_eq!('a: { if c() { break 'a double(2); } double(3) }, 4);",
             "assert_eq!(if a() { if b() { double(2) } else { double(1) } } else { double(3) }, 4);",
+            "assert_eq!(({ if c() { (double(2), 1) } else { (double(3), 2) } }).0, 4);",
+            "let x = double(2); assert!(x == 4 && (if c() { x } else { 5 }) == 5);",
         ] {
             assert!(
                 matches!(da_003_of(body), DaVerdict::NoViolation),
@@ -9324,7 +9355,7 @@ mod tests {
     /// @vtest.id TEST-ORACLE-DA-003-CALL-REACHING-THE-ASSERT-STAYS-NO-VIOLATION
     /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
-    /// @vtest.intent assert の検査される引数の式そのもの、二項演算、メソッドチェーン、フィールド、参照、キャスト、? の被演算子、ブロックの末尾の式、末尾で使われる let の束縛、if と match の各分岐の末尾の式にある target の呼出は、検証済みと数えられ、DA-003 が違反なしのままであることを確認する
+    /// @vtest.intent assert の検査される引数の式そのもの、二項演算、メソッドチェーン、フィールド、参照、キャスト、? の被演算子、ブロックの末尾の式、末尾で使われる let の束縛、失敗として発散する腕を除くすべての腕が派生である if と match の各分岐の末尾の式にある target の呼出は、検証済みと数えられ、DA-003 が違反なしのままであることを確認する
     #[test]
     fn a_call_whose_value_reaches_the_compared_value_inside_an_assert_stays_no_violation() {
         for text in [
@@ -9904,7 +9935,7 @@ mod tests {
     /// @vtest.id TEST-ORACLE-DA-003-LET-INITIALIZER-FLOWING-CALL-STAYS-NO-VIOLATION
     /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::find_let_bindings_containing_call
-    /// @vtest.intent let の初期化式の中で target の値が初期化式の値へ流れる位置(式そのもの、二項演算、メソッドチェーン、? と unwrap、if と match の分岐の末尾、ブロックの末尾、射影された要素、構築子の引数)にあるとき、束縛は結果から派生したものと数えられ、assert に届けば DA-003 が違反なしのままであることを確認する
+    /// @vtest.intent let の初期化式の中で target の値が初期化式の値へ流れる位置(式そのもの、二項演算、メソッドチェーン、? と unwrap、失敗として発散する腕を除くすべての腕が派生である if と match の分岐の末尾、ブロックの末尾、射影された要素、構築子の引数)にあるとき、束縛は結果から派生したものと数えられ、assert に届けば DA-003 が違反なしのままであることを確認する
     #[test]
     fn a_let_initializer_that_carries_the_call_stays_no_violation() {
         for text in [
