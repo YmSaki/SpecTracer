@@ -112,12 +112,26 @@
 //!   `let (o, _) = (Some(f()), 1); o.unwrap();`, or
 //!   `let o = Some(f()); let o = o; o.unwrap();`.
 //! - DA-001's constant-expression classifier only recognizes literals
-//!   (numeric/string/bool/char) and simple arithmetic/comparison
-//!   combinations of literals; any identifier reference (a `const` item
-//!   included) is treated as non-constant rather than resolved, which can
-//!   only make DA-001 report `NoViolation` where a deeper analysis might
-//!   report `Fail`. The classifier reads an assert macro's arguments, and
-//!   `panic!`'s arguments too.
+//!   (numeric/string/bool/char), simple arithmetic/comparison
+//!   combinations of literals, and an argument that is a logical expression whose
+//!   value literals fix (DS-1949: `X || true`, `true || X`, `X && false`,
+//!   `false && X`, the same with `|` / `&`, their negations, and such expressions
+//!   nested in one another, parenthesized or not). Any other identifier
+//!   reference (a `const` item included) is treated as non-constant rather than
+//!   resolved, which can only make DA-001 report `NoViolation` where a deeper
+//!   analysis might report `Fail`. The classifier reads every argument of an
+//!   assert macro, its message arguments included, and `panic!`'s arguments too.
+//!   A `.unwrap()` / `.expect(..)` / `?` that DS-619 counts (DS-1964 aside) is a
+//!   non-constant assert-equivalent, so DA-001 has no violation beside it
+//!   (DS-616, DS-621).
+//! - DA-003 does not count an operand of `||` / `|` / `&&` / `&` as a position the
+//!   value flows from when the other operand fixes the result (DS-1948: `true` for
+//!   `||` / `|`, `false` for `&&` / `&`, a fixed expression as in DA-001 counted as
+//!   the literal it equals). A call there is in a position that drops its value,
+//!   so DA-003 is `Unknown` for it, as for a message argument (DS-1935). An operand
+//!   beside any other expression flows (`X || false`, `X || ok`); an absorption
+//!   that is not by literals (`X || always_true()`, `X * 0`) is not seen, which
+//!   DS-1948 leaves as a false PASS.
 //! - DA-001 reads `unreachable!` / `todo!` / `unimplemented!` (DS-1951) by whether
 //!   they run, not by their arguments (DS-1950). One that is a statement of the
 //!   function's own block with no earlier statement that may leave the function is
@@ -513,14 +527,11 @@ fn da_001_constant_assertion(
     // (DS-1947, DS-1983), so its constancy is DS-621's "定数性を確定できない式".
     //
     // DS-621 fails only when every assert-equivalent is constant, and DS-616 counts
-    // DS-619's `.unwrap()` / `.expect(..)` / `?` among them. When those divergences
-    // are the only assert macros, such a method or `?` is a non-constant
-    // assert-equivalent (this classifier reads any name as non-constant), so DA-001
-    // has no violation.
-    let only_divergences = assert_spans
-        .iter()
-        .all(|&(start, _)| macro_name_before(text, start).is_some_and(is_diverging_macro));
-    if only_divergences && has_method_or_try {
+    // DS-619's `.unwrap()` / `.expect(..)` / `?` among them. Such a method or `?` is
+    // a non-constant assert-equivalent (this classifier reads any name as
+    // non-constant), so DA-001 has no violation beside it, whichever assert macros
+    // there are.
+    if has_method_or_try {
         return DaVerdict::NoViolation;
     }
     let unconditional = unconditional_divergence_starts(text);
@@ -660,12 +671,37 @@ enum Constancy {
 
 /// A conservative literal/constant-expression classifier: recognizes
 /// numeric/string/bool/char literals and their combination with arithmetic/
-/// comparison operators and parentheses/commas/whitespace. Any identifier
-/// (a variable, a function call, a `const` item reference) makes the whole
-/// argument list `NotAllLiteral` — this can only under-report DA-001's
-/// `Fail` (treat a truly-constant `const` reference as non-constant), never
-/// over-report it, per this module's doc comment.
+/// comparison operators and parentheses/commas/whitespace, and a logical
+/// expression whose value literals fix (`literal_bool`, DS-1949) as one argument.
+/// Any other identifier (a variable, a function call, a `const` item reference)
+/// makes the whole argument list `NotAllLiteral` — this can only under-report
+/// DA-001's `Fail` (treat a truly-constant `const` reference as non-constant),
+/// never over-report it, per this module's doc comment.
 fn classify_constancy(arguments: &str) -> Constancy {
+    if let Constancy::AllLiteral = classify_literal_tokens(arguments) {
+        return Constancy::AllLiteral;
+    }
+    let Ok(parsed) = syn::parse::Parser::parse_str(
+        syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated,
+        arguments,
+    ) else {
+        return Constancy::NotAllLiteral;
+    };
+    let all_constant = parsed.iter().all(|argument| {
+        literal_bool(argument).is_some()
+            || matches!(
+                classify_literal_tokens(&argument.to_token_stream().to_string()),
+                Constancy::AllLiteral
+            )
+    });
+    if all_constant {
+        Constancy::AllLiteral
+    } else {
+        Constancy::NotAllLiteral
+    }
+}
+
+fn classify_literal_tokens(arguments: &str) -> Constancy {
     let mut chars = arguments.chars().peekable();
     let mut saw_identifier_like = false;
     while let Some(ch) = chars.next() {
@@ -1533,8 +1569,8 @@ impl<'ast> Visit<'ast> for MacroUseVisitor<'_> {
 /// and only the positions listed here flow; any other position is `dropping` and a
 /// call there is `opaque` (UNKNOWN, DS-615: that the value is verified is not
 /// shown). The listed positions are the argument expression itself; the operand of
-/// a unary or binary operator (not of `||`, whose result a constant operand can
-/// fix, nor of an assignment); the receiver of a method call (DS-1937); the
+/// a unary or binary operator (not of an assignment, nor an operand of `||` / `|` /
+/// `&&` / `&` whose other operand fixes the result, DS-1948); the receiver of a method call (DS-1937); the
 /// arguments of a value conversion (DS-1960, DS-1961: a call whose callee's final
 /// segment is `Some`, `Ok` or `Err`, or `Box::new` / `String::from`); a reference, a cast, `?`,
 /// `.await` and parentheses; the base of a field access and the base and the index
@@ -2080,8 +2116,13 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
                 self.probe_rebound = true;
             }
             self.dropping(|visitor| syn::visit::visit_expr_binary(visitor, node));
-        } else if matches!(node.op, syn::BinOp::Or(_)) {
-            self.dropping(|visitor| syn::visit::visit_expr_binary(visitor, node));
+        } else if let Some(absorbing) = absorbing_literal(node.op) {
+            // DS-1948: an operand whose sibling fixes the result is not a position
+            // the value flows from.
+            for (operand, sibling) in [(&node.left, &node.right), (&node.right, &node.left)] {
+                let flows = literal_bool(sibling) != Some(absorbing);
+                self.visit_element(operand, flows);
+            }
         } else {
             syn::visit::visit_expr_binary(self, node);
         }
@@ -2144,6 +2185,51 @@ fn unwrap_parens(expression: &syn::Expr) -> &syn::Expr {
         syn::Expr::Paren(inner) => unwrap_parens(&inner.expr),
         syn::Expr::Group(inner) => unwrap_parens(&inner.expr),
         other => other,
+    }
+}
+
+/// DS-1948, DS-1949: the literal that fixes the result of `rust-cargo`'s `||` / `|`
+/// (`true`) or `&&` / `&` (`false`) whatever the other operand is.
+fn absorbing_literal(op: syn::BinOp) -> Option<bool> {
+    match op {
+        syn::BinOp::Or(_) | syn::BinOp::BitOr(_) => Some(true),
+        syn::BinOp::And(_) | syn::BinOp::BitAnd(_) => Some(false),
+        _ => None,
+    }
+}
+
+/// The value of a logical expression that literals fix whatever its other operands
+/// are (DS-1949): a `bool` literal, `!` of one, or `||` / `|` / `&&` / `&` with an
+/// absorbing operand (DS-1948) or with both operands fixed. Parentheses do not
+/// change it. `None` for any other expression.
+///
+/// Derivation from DS-621 and DS-1949: an operand fixed this way (`!false`,
+/// `(true || ok)`) absorbs as the literal it equals, so `X || !false` is not read
+/// as `X` flowing.
+fn literal_bool(expression: &syn::Expr) -> Option<bool> {
+    match unwrap_parens(expression) {
+        syn::Expr::Lit(syn::ExprLit {
+            lit: syn::Lit::Bool(literal),
+            ..
+        }) => Some(literal.value),
+        syn::Expr::Unary(syn::ExprUnary {
+            op: syn::UnOp::Not(_),
+            expr,
+            ..
+        }) => literal_bool(expr).map(|value| !value),
+        syn::Expr::Binary(binary) => {
+            let absorbing = absorbing_literal(binary.op)?;
+            let left = literal_bool(&binary.left);
+            let right = literal_bool(&binary.right);
+            if left == Some(absorbing) || right == Some(absorbing) {
+                Some(absorbing)
+            } else if left.is_some() && right.is_some() {
+                Some(!absorbing)
+            } else {
+                None
+            }
+        }
+        _ => None,
     }
 }
 
@@ -2801,8 +2887,8 @@ impl<'ast> Visit<'ast> for CallSiteVisitor<'_> {
 /// Derivation (not stated in DS-615 / DS-623 / DS-628 / DS-1680): a binding is
 /// derived from the target's result (DS-623) only where the call's value can reach
 /// the initializer's value, which is the flow test of `CheckedCallVisitor` applied to
-/// the initializer. A call whose value is dropped there (a block statement, a
-/// short-circuit, a `match` scrutinee, a projection that leaves it out, a closure
+/// the initializer. A call whose value is dropped there (a block statement, an
+/// operand that a literal absorbs (DS-1948), a `match` scrutinee, a projection that leaves it out, a closure
 /// body) leaves the binding underived, so the call stays unverified, UNKNOWN
 /// (DS-615). A closure body is UNKNOWN because DS-629 reads dataflow inside a
 /// closure as UNKNOWN. A `match` scrutinee is outside the range DS-628 gives the
@@ -4369,18 +4455,16 @@ mod tests {
     }
 
     /// Only the listed positions carry a call's value to the compared value: a
-    /// position that is not listed (a short-circuit `||`, a literal's element that a
+    /// position that is not listed (a literal's element that a
     /// projection leaves out or that an unresolved index may leave out, a `match` scrutinee, a `let` that is not
     /// used by the tail) does not.
     /// @vtest.id TEST-ORACLE-DA-003-UNLISTED-POSITION-IN-ASSERT-IS-UNKNOWN
     /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN, VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
-    /// @vtest.intent assert の検査される引数の中で、流れる位置として列挙されていない位置(|| の被演算子、射影で残らない集約リテラルの要素、match の被検査式、ガード、if let、let-else、範囲、ラベル付きブロックの break、可変の束縛、末尾で使われない束縛、matches! のパターン側)にある target の呼出は検証済みと数えず、DA-003 が UNKNOWN になることを確認する
+    /// @vtest.intent assert の検査される引数の中で、流れる位置として列挙されていない位置(射影で残らない集約リテラルの要素、match の被検査式、ガード、if let、let-else、範囲、ラベル付きブロックの break、可変の束縛、末尾で使われない束縛、matches! のパターン側)にある target の呼出は検証済みと数えず、DA-003 が UNKNOWN になることを確認する
     #[test]
     fn a_call_in_a_position_that_is_not_listed_as_flowing_is_unknown() {
         for text in [
-            "assert!(double(2).is_some() || true);",
-            "assert!(true || double(2) == 4);",
             "assert_eq!((double(2), 1).1, 1);",
             "assert_eq!((1, double(2)).0, 1);",
             "assert_eq!(Pair { a: double(2), b: 1 }.b, 1);",
@@ -4445,6 +4529,139 @@ mod tests {
         }
     }
 
+    /// DS-1948: an operand of `||` / `|` / `&&` / `&` that a literal absorbs is not a
+    /// position the value flows from; beside any other operand it flows.
+    /// @vtest.id TEST-ORACLE-DA-003-LITERAL-ABSORBED-OPERAND-DOES-NOT-FLOW
+    /// @vtest.covers VO-ORACLE-DA-003-LITERAL-ABSORBED-OPERAND-NOT-FLOWING
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.intent X || true、true || X、X && false、false && X と | / & の同じ形、その否定、括弧や入れ子でリテラルに値が確定する兄弟の横にある target の呼出と束縛は DA-003 で検証済みと数えず UNKNOWN になり、X || false、X || ok、ok && X、(X || true) && Y の Y、整数の X | 0 のように吸収されない位置では違反なしのままであることを確認する
+    #[test]
+    fn an_operand_that_a_literal_absorbs_does_not_flow_and_any_other_operand_does() {
+        for body in [
+            "assert!(double(2) == 4 || true);",
+            "assert!(true || double(2) == 4);",
+            "assert!(double(2) == 4 && false);",
+            "assert!(false && double(2) == 4);",
+            "assert!((double(2) == 4) | true);",
+            "assert!(true | (double(2) == 4));",
+            "assert!((double(2) == 4) & false);",
+            "assert!(false & (double(2) == 4));",
+            "assert!(!(double(2) == 4 && false));",
+            "assert!(double(2) == 4 || (true));",
+            "assert!(double(2) == 4 || !false);",
+            "assert!(double(2) == 4 || (true || ok));",
+            "assert!((double(2) == 4 || true) && ok);",
+            "assert!(ok && (double(2) == 4 || true));",
+            "assert!((double(2) == 4 && false) || ok);",
+            "assert_eq!(false && double(2) == 4, false);",
+            "assert!(s.double(2) || true);",
+            "let r = double(2);\n    assert!(r == 4 && false);",
+            "let r = double(2);\n    assert!(r == 4 || true);",
+            "let r = double(2) == 4 && false;\n    assert!(r);",
+            "let r = (double(2) == 4) | true;\n    assert!(r);",
+            "assert!({ let r = double(2); r == 4 || true });",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{body}: {:?}",
+                analysis.da_003
+            );
+        }
+        for body in [
+            "assert!(double(2) == 4 || false);",
+            "assert!(false || double(2) == 4);",
+            "assert!(double(2) == 4 && true);",
+            "assert!((double(2) == 4) | false);",
+            "assert!((double(2) == 4) & true);",
+            "assert!(double(2) == 4 || ok);",
+            "assert!(ok || double(2) == 4);",
+            "assert!(ok && double(2) == 4);",
+            "assert!((double(2) == 4) & ok);",
+            "assert!(double(2) == 4 || (false && ok));",
+            "assert!((ok || true) && double(2) == 4);",
+            "assert!((double(3) == 6 || true) && double(2) == 4);",
+            "assert_eq!(double(2) | 0, 4);",
+            "assert_eq!(double(2) & 0, 0);",
+            "assert_eq!(0 | double(2), 4);",
+            "assert!(s.double(2) || false);",
+            "let r = double(2);\n    assert!(r == 4 || ok);",
+            "let r = double(2) == 4 || false;\n    assert!(r);",
+            "assert!({ let r = double(2); r == 4 || false });",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            let (is_fail, is_unknown, basis) = compose(&analysis);
+            assert!(!is_fail && !is_unknown, "{body}: {basis:?}");
+        }
+    }
+
+    /// DS-1949: a logical expression whose value literals fix is a constant
+    /// expression for DA-001; one that an operand can change is not.
+    /// @vtest.id TEST-ORACLE-DA-001-LITERAL-FIXED-LOGIC-IS-CONSTANT
+    /// @vtest.covers VO-ORACLE-DA-001-LITERAL-FIXED-LOGIC-IS-CONSTANT
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::classify_constancy
+    /// @vtest.intent X || true、true || X、X && false、false && X と | / & の同じ形、その否定、括弧や入れ子でリテラルに値が確定する論理式だけを引数に持つ assert 相当は DA-001 の定数アサーションになって合成結果が FAIL になり、X || false、X || ok、(X || true) && ok、(X || true) == true、整数の X | 0 や X & 0、メッセージ引数に識別子がある assert は定数アサーションにならないことを確認する
+    #[test]
+    fn a_logical_expression_that_literals_fix_is_a_constant_assertion() {
+        for body in [
+            "assert!(double(2) == 4 || true);",
+            "assert!(true || double(2) == 4);",
+            "assert!(double(2) == 4 && false);",
+            "assert!(false && double(2) == 4);",
+            "assert!((double(2) == 4) | true);",
+            "assert!(true | (double(2) == 4));",
+            "assert!((double(2) == 4) & false);",
+            "assert!(false & (double(2) == 4));",
+            "assert!(!(double(2) == 4 || true));",
+            "assert!(!(false & (double(2) == 4)));",
+            "assert!(!!(double(2) == 4 || true));",
+            "assert!(double(2) == 4 || ((true)));",
+            "assert!(double(2) == 4 || !false);",
+            "assert!((double(2) == 4 && false) || true);",
+            "assert!(ok || double(2) == 4 || true);",
+            "assert!((double(2) == 4 || true) && (double(3) == 6 || true));",
+            "assert_eq!(double(2) == 4 || true, true);",
+            "assert_ne!(double(2) == 4 && false, true);",
+            "assert!(double(2) == 4 || true, \"message\");",
+            "assert!(double(2).is_some() || true);",
+            "assert!(true && true);",
+            "assert!(!false);",
+            "double(2);\n    assert!(true == false || true);",
+            "assert!(double(2) == 4 || true);\n    assert!(ok || true);",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_001, DaVerdict::Fail(_)),
+                "{body}: {:?}",
+                analysis.da_001
+            );
+            assert!(compose(&analysis).0, "{body}");
+        }
+        for body in [
+            "assert!(double(2) == 4 || false);",
+            "assert!(double(2) == 4 || ok);",
+            "assert!((double(2) == 4 || true) && ok);",
+            "assert!((double(2) == 4 || true) == true);",
+            "assert!(double(2) == 4 || always_true());",
+            "assert_eq!(double(2) | 0, 4);",
+            "assert_eq!(double(2) & 0, 0);",
+            "assert_eq!(double(2) == 4 || true, ok);",
+            "assert!(double(2) == 4 || true, \"{}\", x);",
+            "assert!(double(2) == 4 || true);\n    assert_eq!(double(2), 4);",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_001, DaVerdict::NoViolation),
+                "{body}: {:?}",
+                analysis.da_001
+            );
+        }
+    }
+
     /// A `let` outside the assert reaches it only where the name flows to the
     /// compared value.
     /// @vtest.id TEST-ORACLE-DA-003-BINDING-USE-DROPPED-IN-ASSERT-IS-UNKNOWN
@@ -4458,7 +4675,6 @@ mod tests {
             "let r = double(2);\n    assert!({ r; true });",
             "let r = double(2);\n    assert!((|| { r; true })());",
             "let r = double(2);\n    assert!(match r { _ => true });",
-            "let r = double(2);\n    assert!(r == 4 || true);",
         ] {
             let text = format!("#[test]\nfn t() {{\n    {text}\n}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
@@ -4487,12 +4703,12 @@ mod tests {
 
     /// A `let` outside the assert is derived from the target's result only where the
     /// target's value can flow to the initializer's value; a value dropped inside the
-    /// initializer (a block statement, a short-circuit, a `match` scrutinee, a
+    /// initializer (a block statement, an operand a literal absorbs, a `match` scrutinee, a
     /// projection that leaves it out, a closure body) leaves the binding underived.
     /// @vtest.id TEST-ORACLE-DA-003-LET-INITIALIZER-DROPPING-CALL-IS-UNKNOWN
     /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN, VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::find_let_bindings_containing_call
-    /// @vtest.intent let の初期化式の中で target の値が捨てられる位置(ブロックの文、||、match の被検査式、射影で残らない要素、入れ子の射影、vec! の添字で残らない要素、クロージャの本体)にあるとき、その束縛は target の結果から派生した束縛と数えず、束縛が assert に届いても DA-003 が UNKNOWN になり合成結果が PASS にならないことを確認する
+    /// @vtest.intent let の初期化式の中で target の値が捨てられる位置(ブロックの文、リテラルに吸収される || の被演算子、match の被検査式、射影で残らない要素、入れ子の射影、vec! の添字で残らない要素、クロージャの本体)にあるとき、その束縛は target の結果から派生した束縛と数えず、束縛が assert に届いても DA-003 が UNKNOWN になり合成結果が PASS にならないことを確認する
     #[test]
     fn a_let_initializer_that_drops_the_call_is_unknown_not_pass() {
         for text in [
@@ -5225,22 +5441,26 @@ fn real_check() {
     /// @vtest.id TEST-ORACLE-DA-001-DIVERGENCE-WITH-UNWRAP-IS-NOT-CONSTANT
     /// @vtest.covers VO-ORACLE-DA-001-CONSTANT-ASSERTION
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_001_constant_assertion
-    /// @vtest.intent assert マクロが unreachable! などだけでも、識別子を受け手にする .unwrap()・.expect(..)・? があれば DA-001 が違反なしになり、assert!(true) だけが他にある本体は違反なしにならないことを確認する
+    /// @vtest.intent assert マクロが unreachable! などや定数の assert! だけでも、識別子を受け手にする .unwrap()・.expect(..)・? があれば DA-001 が違反なしになり、失敗しえない Some(..).unwrap() は数えず assert!(true) の本体が FAIL のままであることを確認する
     #[test]
     fn a_divergence_beside_an_unwrap_or_try_is_not_a_constant_assertion() {
         for body in [
             "    let v = parse(\"x\").unwrap();\n    unreachable!();\n",
             "    let v = double(2).checked_add(1).expect(\"p\");\n    match v {\n        5 => {}\n        _ => todo!(),\n    }\n",
             "    let v = parse(\"x\")?;\n    if v != 4 {\n        unimplemented!();\n    }\n",
+            "    let v = parse(\"x\").unwrap();\n    assert!(true);\n    unreachable!();\n",
+            "    let v = double(2).unwrap();\n    assert!(v == 4 || true);\n",
+            "    let v = double(2)?;\n    assert!(v == 4 || true);\n",
         ] {
             let text = format!("#[test]\nfn t() {{\n{body}}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
             assert!(matches!(analysis.da_001, DaVerdict::NoViolation), "{text}");
         }
-        let constant = "#[test]\nfn t() {\n    let v = parse(\"x\").unwrap();\n    assert!(true);\n    unreachable!();\n}\n";
-        assert!(!matches!(
+        // DS-1964: an `.unwrap()` that cannot fail is not an assert-equivalent.
+        let constant = "#[test]\nfn t() {\n    let v = Some(1).unwrap();\n    assert!(true);\n}\n";
+        assert!(matches!(
             analyze(constant, &[], &[]).da_001,
-            DaVerdict::NoViolation
+            DaVerdict::Fail(_)
         ));
     }
 
