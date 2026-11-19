@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-003-DELEGATION-NOT-FAIL
+parent: null
+derives_from:
+- doc: DS-652
+claim: 終端を確認できない委譲先を、違反なし（成立側）としても`FAIL`としても扱わない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-18T17:48:40Z
+updated: 2026-11-18T17:48:40Z

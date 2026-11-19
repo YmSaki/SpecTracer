@@ -7870,8 +7870,10 @@
             },
             {
               "id": "DS-125",
-              "statement": "別プロセス（起動したsubprocess）・別スレッド・クロージャ・他ファイル等、静的解析の到達境界を越えてtargetを実行するTestでは静的に到達を証明できず `UNKNOWN` となる。",
-              "derives_from": [],
+              "statement": "別プロセス（起動したsubprocess）・別スレッド、および静的解析が追跡しなかった、または追跡できなかったクロージャ・他ファイル等、静的解析の到達境界を越えてtargetを実行するTestでは静的に到達を証明できず `UNKNOWN` となる。",
+              "derives_from": [
+                "ROOT-053"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
                 "heading": "5.3 target_binding — 宣言対象の振る舞いの実現",

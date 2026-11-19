@@ -212,7 +212,20 @@ fn tools_list_result() -> Value {
     })
 }
 
+/// A panic inside a tool call is an E-INTERNAL-001 tool error (DS-1690);
+/// the server goes on to the next request.
 fn tools_call_result(root: &Path, params: &Value, mtime_rescan: &mut MtimeRescan) -> Value {
+    guard_tool_call(|| tools_call_body(root, params, mtime_rescan))
+}
+
+fn guard_tool_call(call: impl FnOnce() -> Value) -> Value {
+    match ops::envelope::catch_internal(call) {
+        Ok(result) => result,
+        Err(failure) => tool_result(failure.envelope()),
+    }
+}
+
+fn tools_call_body(root: &Path, params: &Value, mtime_rescan: &mut MtimeRescan) -> Value {
     let Some(params) = params.as_object() else {
         return tool_result(failure_envelope(
             "E-OP-001",
@@ -1653,6 +1666,32 @@ mod tests {
             .and_then(|value| value.to_str())
             .unwrap_or("project");
         vtest_ops::init::execute(root, project_name).0
+    }
+
+    /// @vtest.id TEST-MCP-PANIC-INTERNAL-ERROR
+    /// @vtest.covers VO-INTERNAL-ERROR-CODE-CLI-MCP
+    /// @vtest.target crates/vtest-mcp/src/lib.rs::guard_tool_call
+    /// @vtest.intent a panic inside a tool call is an E-INTERNAL-001 tool error with isError true, no data and no panic payload, and the next tools/call on the same server state still answers normally
+    #[test]
+    fn a_panicking_tool_call_is_an_internal_tool_error_and_the_server_goes_on() {
+        let result = guard_tool_call(|| panic!("secret-payload"));
+        assert_eq!(result["isError"], true);
+        let envelope = &result["structuredContent"];
+        assert_eq!(envelope["ok"], false);
+        assert!(envelope["data"].is_null());
+        assert_eq!(envelope["diagnostics"][0]["code"], "E-INTERNAL-001");
+        assert!(!result.to_string().contains("secret"));
+
+        let root = temp_root("panic-next");
+        assert_eq!(init_fixture(&root), ExitCode::Ok);
+        let mut rescan = MtimeRescan::default();
+        let next = tools_call_result(
+            &root,
+            &json!({"name": "vo_list", "arguments": {}}),
+            &mut rescan,
+        );
+        assert_eq!(next["isError"], false);
+        assert_eq!(next["structuredContent"]["ok"], true);
     }
 
     /// @vtest.id TEST-MCP-CONFIG-IO-INTERNAL
