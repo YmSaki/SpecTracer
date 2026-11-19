@@ -247,15 +247,16 @@
 //!   compared, so the last `else` counts as reached; and an exit decided by the
 //!   target's result beside an unrelated non-constant condition
 //!   (`if double(2) == 99 { return } if flag() { panic!() }`) makes the divergence
-//!   count as reached, though a wrong result may skip it. So do: refuted patterns
-//!   and a later check of one value through another name (`let p = o;` then
-//!   `if let None = p`) or through a method (`o.is_some()` beside `if let
-//!   None = o`); a pattern whose values earlier refuted patterns cover only
-//!   together (`Some(4) | Some(5)` after arms `Some(4)` and `Some(5)`) or through a range
-//!   (`Some(4)` after `Some(0..=9)`), or that repeats values matched before it
-//!   (inside the `then` of `if let Some(_)`), so that its own branch never runs;
-//!   and an arm or an exit at a non-constant
-//!   position that is not derived (`let k = 1;`) and always matches or always runs.
+//!   count as reached, though a wrong result may skip it. So do: a pattern refuted
+//!   by a statement that leaves for it, and a later check of the value through
+//!   another name (`if let Some(_) = o { return }` then `let p = o;` and
+//!   `if let None = p`); a check through a method or a macro (`o.is_some()`,
+//!   `matches!(o, Some(_))` in place of an `if let`), which refutes nothing; a
+//!   pattern whose values several refuted patterns cover only together
+//!   (`Some(4) | Some(5)` after arms `Some(4)` and `Some(5)`), or that repeats
+//!   values matched before it (inside the `then` of `if let Some(_)`), so that its
+//!   own branch never runs; and an arm or an exit at a non-constant position that
+//!   is not derived (`let k = 1;`) and always matches or always runs.
 //! - The pattern of an `if let` and of a `let ... else` is read by DS-1963 (2) too,
 //!   which the canon names for the arms of a `match` only, and so are the patterns
 //!   refuted on the path to an `if let`, a `let ... else` or a `match` at any depth
@@ -266,9 +267,10 @@
 //!   and a branch whose pattern one refuted pattern over the same scrutinee covers
 //!   (read pairwise: `Some(5)` after `Some(_)`) is undecided too, also where the value is
 //!   not exhausted (`let Some(Kind::A(x)) = f() else { .. }`, whose inner variant
-//!   check is opaque). A refuted pattern over a scrutinee not shown to be the same
-//!   expression (after parentheses, references and a block's tail are removed)
-//!   leaves them undecided too.
+//!   check is opaque). A pattern refuted by an enclosing `else` or arm over a
+//!   scrutinee not shown to be the same expression (after parentheses, references
+//!   and a block's tail are removed) leaves them undecided too; one refuted by a
+//!   statement that leaves takes part only over the same scrutinee.
 //! - DA-001 reads a failure divergence by its deciding positions, not by its
 //!   arguments (DS-1950): one with no deciding position, or whose deciding positions
 //!   DA-001's classifier all fixes, is a constant assertion (`if true { .. }`,
@@ -845,6 +847,9 @@ struct DivergenceContext<'a> {
     /// `if let`, the `else` of a `let ... else`, the arms of a `match` after its
     /// earlier arms), with their scrutinees as `scrutinee_key` writes them.
     refuted: Vec<(String, &'a syn::Pat)>,
+    /// The patterns an earlier statement of an enclosing block refuted by leaving
+    /// for them (`exit_refuted`). Only those over the same scrutinee take part.
+    left_for: Vec<(String, &'a syn::Pat)>,
 }
 
 /// The failure divergences of `function` (DS-1951) with what decides whether they
@@ -878,6 +883,7 @@ fn collect_divergences<'a>(text: &'a str, function: &'a syn::ItemFn) -> Vec<Dive
             reach: DivergenceReach::Counted,
             in_loop: false,
             refuted: Vec::new(),
+            left_for: Vec::new(),
         },
         nested: false,
         divergences: Vec::new(),
@@ -999,6 +1005,7 @@ impl<'a> DivergenceCollector<'a> {
         self.context
             .refuted
             .iter()
+            .chain(&self.context.left_for)
             .chain(earlier)
             .any(|(other, refuted)| {
                 other == scrutinee && !is_irrefutable(refuted) && pattern_covers(refuted, pattern)
@@ -1009,9 +1016,9 @@ impl<'a> DivergenceCollector<'a> {
     /// that did not match on the path to here (at any depth: an `if let`, a
     /// `let ... else` or a `match` inside the `else` or a later arm of another, or
     /// after a statement that leaves for them), may match every value, so that a
-    /// branch for the values they leave may never run. A refuted pattern over a
-    /// scrutinee not shown to be this one may take part too, so it counts as one
-    /// that may.
+    /// branch for the values they leave may never run. A pattern refuted by an
+    /// enclosing `else` or arm over a scrutinee not shown to be this one may take
+    /// part too, so it counts as one that may.
     fn may_exhaust_with_refuted(
         &self,
         scrutinee: &str,
@@ -1025,6 +1032,12 @@ impl<'a> DivergenceCollector<'a> {
                 self.context
                     .refuted
                     .iter()
+                    .chain(
+                        self.context
+                            .left_for
+                            .iter()
+                            .filter(|(other, _)| other == scrutinee),
+                    )
                     .map(|(_, pattern)| *pattern)
                     .chain(patterns),
             )
@@ -1698,10 +1711,17 @@ fn arms_may_exhaust(arms: &[syn::Arm]) -> bool {
 
 /// The patterns a statement refutes for the statements after it: those of an
 /// `if let` whose `then` block leaves on every path, and of the unguarded arms of
-/// a `match` whose bodies do, also inside a block statement (DS-1983).
+/// a `match` whose bodies do, also inside a block statement or a `let`
+/// initializer (DS-1983).
 fn exit_refuted<'a>(statement: &'a syn::Stmt, refuted: &mut Vec<(String, &'a syn::Pat)>) {
-    if let syn::Stmt::Expr(expression, _) = statement {
-        expression_exit_refuted(expression, refuted);
+    match statement {
+        syn::Stmt::Expr(expression, _) => expression_exit_refuted(expression, refuted),
+        syn::Stmt::Local(local) => {
+            if let Some(init) = &local.init {
+                expression_exit_refuted(&init.expr, refuted);
+            }
+        }
+        syn::Stmt::Item(_) | syn::Stmt::Macro(_) => {}
     }
 }
 
@@ -2048,7 +2068,7 @@ impl<'a> Visit<'a> for DivergenceCollector<'a> {
                 // positions are decided (DS-1983, DS-615).
                 self.context.reach = self.context.reach.max(DivergenceReach::Undecided);
             }
-            exit_refuted(statement, &mut self.context.refuted);
+            exit_refuted(statement, &mut self.context.left_for);
         }
         self.context = outer;
     }
@@ -8421,7 +8441,9 @@ fn real_check() {
             ("UNKNOWN", "", "", "    let o = double_opt(2);\n    match o {\n        Some(_) => return,\n        _ => {}\n    }\n    if let None = o {\n    } else {\n        panic!(\"bad\");\n    }\n"),
             ("UNKNOWN", "", "", "    let o = double_opt(2);\n    if let Some(_) = o {\n    } else {\n        if let Some(5) = o {\n            panic!(\"bad\");\n        }\n    }\n"),
             ("UNKNOWN", "", "", "    #[allow(unreachable_patterns)]\n    match double_opt(2) {\n        Some(_) => {}\n        Some(5) => panic!(\"bad\"),\n        _ => {}\n    }\n"),
+            ("UNKNOWN", "", "", "    let o = double_opt(2);\n    let _k = if let Some(_) = o { return } else { 1 };\n    if let None = o {\n    } else {\n        panic!(\"bad\");\n    }\n"),
             ("PASS", "", "", "    let o = double_opt(2);\n    if let Some(9) = o {\n        return;\n    }\n    if let Some(4) = o {\n    } else {\n        panic!(\"bad\");\n    }\n"),
+            ("PASS", "", "", "    let o = double_opt(2);\n    let p = double(2);\n    if let Some(9) = o {\n        return;\n    }\n    match p {\n        4 => {}\n        _ => panic!(\"bad\"),\n    }\n"),
             ("PASS", "", "", "    match double_opt(2) {\n        Some(4) => {}\n        Some(_) => panic!(\"other\"),\n        None => panic!(\"none\"),\n    }\n"),
             ("PASS", "", "", "    let o = double_opt(2);\n    if let Some(4) = o {\n    } else if let None = o {\n        panic!(\"none\");\n    } else {\n        panic!(\"bad\");\n    }\n"),
             ("PASS", "", "", "    let o = double_opt(2);\n    if let Some(4) = o {\n    } else {\n        let _k = 1;\n        {\n            if let None = o {\n                panic!(\"none\");\n            } else {\n                panic!(\"bad\");\n            }\n        }\n    }\n"),
