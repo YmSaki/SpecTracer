@@ -126,8 +126,13 @@
 //!   (DS-621's escape). Another form with no variable, call, struct literal, closure
 //!   or identifier in macro tokens (`if true { .. }`, `{ true }`, `1 as u8 == 1`,
 //!   `matches!(1, 1)`) is built from literals only and is not evaluated, so it may
-//!   absorb in the same way. A macro whose tokens hold an identifier (`cfg!(test)`)
-//!   is not literal, which DS-1948 leaves as a false PASS.
+//!   absorb in the same way. A macro other than `matches!` (`m!()`, `env!("X")`,
+//!   `double_m!(2)`) may expand to any code (DS-629), so a form holding one is not
+//!   literal-only: as an operand of `||` / `|` / `&&` / `&` it may absorb, so
+//!   DA-003 does not read its sibling as flowing, and DA-001 does not decide its
+//!   constancy (`Unknown`, never `Fail`). A macro whose tokens hold an identifier
+//!   (`cfg!(test)`, `m!(x)`) counts as non-literal like a call, which DS-1948
+//!   leaves as a false PASS.
 //!   Any other identifier
 //!   reference (a `const` item included) is treated as non-constant rather than
 //!   resolved, which can only make DA-001 report `NoViolation` where a deeper
@@ -2266,6 +2271,10 @@ enum Fixed {
     Literal,
     /// Made only of literals, but not a `bool` by syntax (`0`, `1 + 1`).
     Constant,
+    /// Holds a macro other than `matches!` whose tokens are literals only
+    /// (`m!()`, `four_m!() == 4`): its expansion may run any code (DS-629), so it
+    /// may absorb and its constancy is not decided.
+    Opaque,
     /// Depends on something other than literals.
     Open,
 }
@@ -2276,7 +2285,7 @@ enum Fixed {
 /// string or char literals of one kind (not floats). Parentheses do not change it.
 /// Only literals, `!`, binary operators and parentheses are evaluated; another form
 /// built from literals only (`if true { .. }`, `{ true }`, `matches!(1, 1)`) is
-/// `Fixed::Literal`.
+/// `Fixed::Literal`; one holding another macro is `Fixed::Opaque`.
 ///
 /// Derivation from DS-621 and DS-1949: an operand fixed this way (`!false`,
 /// `1 == 1`, `(true || ok)`) absorbs as the literal it equals, so `X || 1 == 1` is
@@ -2292,7 +2301,7 @@ fn fixed_value(expression: &syn::Expr) -> Fixed {
         syn::Expr::Unary(unary) => match (unary.op, fixed_value(&unary.expr)) {
             (syn::UnOp::Not(_), Fixed::Value(value)) => Fixed::Value(!value),
             (syn::UnOp::Not(_), Fixed::Literal) => Fixed::Literal,
-            (_, Fixed::Open) => Fixed::Open,
+            (_, inner @ (Fixed::Open | Fixed::Opaque)) => inner,
             _ => Fixed::Constant,
         },
         syn::Expr::Binary(binary) => {
@@ -2319,6 +2328,9 @@ fn fixed_value(expression: &syn::Expr) -> Fixed {
             if left == Fixed::Open || right == Fixed::Open {
                 return Fixed::Open;
             }
+            if left == Fixed::Opaque || right == Fixed::Opaque {
+                return Fixed::Opaque;
+            }
             let is_bool = |side: Fixed| matches!(side, Fixed::Value(_) | Fixed::Literal);
             match binary.op {
                 syn::BinOp::Eq(_)
@@ -2340,12 +2352,18 @@ fn fixed_value(expression: &syn::Expr) -> Fixed {
         // Any other form with no variable, call or identifier in macro tokens
         // (`if true { true } else { false }`, `{ true }`, `matches!(1, 1)`) is built
         // from literals only, so it may absorb (DS-1948 leaves only non-literal
-        // constants as a false PASS).
+        // constants as a false PASS). A macro other than `matches!` may expand to
+        // any code (DS-629), so a form holding one is `Opaque`, not a literal.
         other => {
-            let mut finder = NonLiteralFinder { found: false };
+            let mut finder = NonLiteralFinder {
+                found: false,
+                opaque_macro: false,
+            };
             finder.visit_expr(other);
             if finder.found {
                 Fixed::Open
+            } else if finder.opaque_macro {
+                Fixed::Opaque
             } else {
                 Fixed::Literal
             }
@@ -2358,6 +2376,8 @@ fn fixed_value(expression: &syn::Expr) -> Fixed {
 /// identifier other than `true` / `false` in macro tokens.
 struct NonLiteralFinder {
     found: bool,
+    /// A macro other than `matches!` with literal-only tokens.
+    opaque_macro: bool,
 }
 
 impl<'ast> Visit<'ast> for NonLiteralFinder {
@@ -2390,6 +2410,7 @@ impl<'ast> Visit<'ast> for NonLiteralFinder {
             })
         }
         self.found |= has_ident(node.tokens.clone());
+        self.opaque_macro |= !node.path.is_ident("matches");
     }
 }
 
@@ -2429,17 +2450,21 @@ fn compare_literals(binary: &syn::ExprBinary) -> Option<bool> {
 fn operand_flows(sibling: &syn::Expr, absorbing: bool) -> bool {
     match fixed_value(sibling) {
         Fixed::Value(value) => value != absorbing,
-        Fixed::Literal => false,
+        Fixed::Literal | Fixed::Opaque => false,
         Fixed::Constant | Fixed::Open => true,
     }
 }
 
 /// DA-001's constancy of one argument (DS-621, DS-1949): `AllLiteral` when literals
-/// fix it; `Undetermined` when an operand of `||` / `|` / `&&` / `&` in it is made
-/// only of literals whose value is not evaluated, so it may absorb the rest.
+/// fix it; `Undetermined` when it holds a macro whose expansion is not read
+/// (DS-629), or when an operand of `||` / `|` / `&&` / `&` in it is made only of
+/// literals whose value is not evaluated or holds such a macro, so it may absorb
+/// the rest.
 fn argument_constancy(argument: &syn::Expr) -> Constancy {
-    if fixed_value(argument) != Fixed::Open {
-        return Constancy::AllLiteral;
+    match fixed_value(argument) {
+        Fixed::Open => {}
+        Fixed::Opaque => return Constancy::Undetermined,
+        Fixed::Value(_) | Fixed::Literal | Fixed::Constant => return Constancy::AllLiteral,
     }
     let mut finder = UnevaluatedAbsorberFinder { found: false };
     finder.visit_expr(argument);
@@ -2457,8 +2482,9 @@ struct UnevaluatedAbsorberFinder {
 impl<'ast> Visit<'ast> for UnevaluatedAbsorberFinder {
     fn visit_expr_binary(&mut self, node: &'ast syn::ExprBinary) {
         if absorbing_literal(node.op).is_some() {
-            self.found |= fixed_value(&node.left) == Fixed::Literal
-                || fixed_value(&node.right) == Fixed::Literal;
+            let may_absorb =
+                |side: &syn::Expr| matches!(fixed_value(side), Fixed::Literal | Fixed::Opaque);
+            self.found |= may_absorb(&node.left) || may_absorb(&node.right);
         }
         syn::visit::visit_expr_binary(self, node);
     }
@@ -4883,7 +4909,7 @@ mod tests {
     /// @vtest.id TEST-ORACLE-DA-001-LITERAL-FIXED-LOGIC-IS-CONSTANT
     /// @vtest.covers VO-ORACLE-DA-001-LITERAL-FIXED-LOGIC-IS-CONSTANT
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::classify_constancy
-    /// @vtest.intent X || true、true || X、X && false、false && X と | / & の同じ形、その否定、括弧や入れ子でリテラルに値が確定する論理式だけを引数に持つ assert 相当は DA-001 の定数アサーションになって合成結果が FAIL になり、X || false、X || ok、(X || true) && ok、(X || true) == true、整数の X | 0 や X & 0、メッセージ引数に識別子がある assert は定数アサーションにならないことを確認する
+    /// @vtest.intent X || true、true || X、X && false、false && X と | / & の同じ形、その否定、括弧や入れ子でリテラルに値が確定する論理式だけを引数に持つ assert 相当は DA-001 の定数アサーションになって合成結果が FAIL になり、X || false、X || ok、(X || true) && ok、(X || true) == true、整数の X | 0 や X & 0、メッセージ引数に識別子がある assert は定数アサーションにならず、matches! 以外のマクロを含む引数は定数アサーションにならずに FAIL を出さず、X || m!() は DA-001 と DA-003 が UNKNOWN になることを確認する
     #[test]
     fn a_logical_expression_that_literals_fix_is_a_constant_assertion() {
         for body in [
@@ -4960,6 +4986,10 @@ mod tests {
             "assert!(double(2) == 4 || { true });",
             "assert!(double(2) == 4 || matches!(1, 1));",
             "assert!(double(2) == 4 && (1 as u8 == 2));",
+            "assert!(double(2) == 4 || m!());",
+            "assert!(m!() || double(2) == 4);",
+            "assert!(double(2) == 4 || !m!());",
+            "assert!(double(2) == 4 && env!(\"X\") == \"1\");",
         ] {
             let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
@@ -4970,6 +5000,24 @@ mod tests {
                 analysis.da_001,
                 analysis.da_003
             );
+        }
+        // A macro other than `matches!` may expand to any code (DS-629), so an
+        // argument holding one is not a constant expression.
+        for body in [
+            "macro_rules! double_m { ($x:expr) => { double($x) } }\n    assert_eq!(double_m!(2), 4);",
+            "assert_eq!(compute!(2, 3), 5);",
+            "assert!(check_double!());",
+            "assert!(four_m!() == 4);",
+            "assert_eq!(env!(\"X\"), \"1\");",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                !matches!(analysis.da_001, DaVerdict::Fail(_)),
+                "{body}: {:?}",
+                analysis.da_001
+            );
+            assert!(!compose(&analysis).0, "{body}");
         }
     }
 
