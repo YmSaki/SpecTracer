@@ -664,6 +664,19 @@
           4
         ]
       }
+    },
+    {
+      "id": "ROOT-055",
+      "statement": "Owner decision (2026-11-19): option B. Pin the fixture to a cross-crate call and change the expected value to DA-003 UNKNOWN.",
+      "description": "Owner 決定 2026-11-19（Issue #303 の矛盾について、案 B を選んだ）。原文は Issue #303 のコメントに逐語で記録。案 B は Issue #303 本文の「(B) Fix the fixture to a cross-crate call and change the expected value to DA-003 UNKNOWN. We lose DS-1360's example where the runtime rescue makes oracle_presence PASS.」である。適用: DS-1360・BD-284 の fixture を他クレートの関数への呼出の形に固定し、DA-003 の期待値を UNKNOWN に改めた。runtime 救済で `oracle_presence` が PASS になる受入例はなくなる。",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/303#issuecomment-7001993061",
+        "heading": "issuecomment-7001993061",
+        "lines": [
+          1,
+          1
+        ]
+      }
     }
   ],
   "request": [
@@ -43809,7 +43822,6 @@
         {
           "id": "DS-1354",
           "statement": "別プロセス・別スレッド、および静的解析が追跡しなかった、または追跡できなかったクロージャ・他ファイル等、静的解析の到達境界を越えてtargetを実行するTestは、当該targetのtarget別DA-002 verdictがUNKNOWNになる。",
-          "description": "期待値の扱いは Issue #303（DS-1360・BD-284 の「DA-003 PASS」と DS-648・DS-651 の関係）で決まっていない。",
           "derives_from": [
             "ROOT-053"
           ],
@@ -43895,10 +43907,11 @@
         },
         {
           "id": "DS-1360",
-          "statement": "他ファイル・他クレートへ呼び出し、静的解析がその呼出先を追跡しなかった、または追跡できなかったためにDA-002がUNKNOWNとなるが、戻り値をTest本体内でassertするTestは、DA-003 PASSとなり、runtime`target_coverage`がPASSでかつ他ルールも違反なしなら`target_binding`は到達充足、`oracle_presence = PASS`になる（runtime救済で実益が出るのはこの型）。",
-          "description": "期待値の扱い（特に「DA-003 PASS」と DS-648・DS-651 の関係）は Issue #303 で決まっていない。",
+          "statement": "宣言targetではない他クレートの関数をassert相当の引数またはそこへ流れる束縛の中で呼び出し、その戻り値をTest本体内でassertするTestのうち、その関数を宣言targetとするTestが無く、静的解析がその呼出先を追跡しなかった、または追跡できなかったためにDA-002がUNKNOWNとなるものは、その呼出が終端しない照合の委譲先（本冊§7.2.1）となるためDA-003がUNKNOWNとなる。runtime`target_coverage`がPASSなら`target_binding`の到達は充足されるが、`oracle_presence`は`PASS`にならず、他ルールに`FAIL`が無ければ`UNKNOWN`になる（runtime救済の実益は`target_binding`に限られ、`oracle_presence`には及ばない）。",
+          "description": "Owner の決定（Issue #303 の案 B、ROOT-055）により、fixture を他クレートの関数への呼出の形に固定し、DA-003 の期待値を PASS から UNKNOWN に改めた。前身の文は「他ファイル・他クレートへ呼び出し、…戻り値をTest本体内でassertするTestは、DA-003 PASSとなり、…`oracle_presence = PASS`になる（runtime救済で実益が出るのはこの型）」であり、assert相当の引数の中の呼出（`assert_eq!(ext::apply(target, 2), 4)`）が DS-641・DS-1960 により照合の委譲先となり、DS-648・DS-651 により DA-003 が UNKNOWN になることと矛盾していた。「宣言targetではない」と「その関数を宣言targetとするTestが無い」は、Owner の決定の文言には無い導出である。前者は、宣言targetの呼出が DS-1960 で委譲先から除かれるため、後者は、委譲先を宣言targetとする Test の `oracle_presence` がすべて PASS なら DS-643・DS-647 により DA-003 が違反なしになるため、期待値を一意にする fixture の条件として置いた。",
           "derives_from": [
-            "ROOT-053"
+            "ROOT-053",
+            "ROOT-055"
           ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",
@@ -54610,10 +54623,11 @@
         },
         {
           "id": "BD-284",
-          "statement": "fixture は、他ファイル・他クレートへ呼び出し、静的解析がその呼出先を追跡しなかった、または追跡できなかったためにDA-002がUNKNOWNになるが、戻り値を Test 本体内で assert する Test（DA-002 UNKNOWN・DA-003 PASS）を表現できる。",
-          "description": "期待値の扱い（特に「DA-003 PASS」と DS-648・DS-651 の関係）は Issue #303 で決まっていない。",
+          "statement": "fixture は、宣言 target ではない他クレートの関数を assert 相当の引数またはそこへ流れる束縛の中で呼び出し、その戻り値を Test 本体内で assert する Test のうち、その関数を宣言 target とする Test が無く、静的解析がその呼出先を追跡しなかった、または追跡できなかったために DA-002 が UNKNOWN になるもの（DA-002 UNKNOWN・DA-003 UNKNOWN）を表現できる。",
+          "description": "Owner の決定（Issue #303 の案 B、ROOT-055）により、他クレートの関数への呼出の形に固定し、DA-003 の期待値を PASS から UNKNOWN に改めた（DS-1360 と同じ改訂）。前身の文は「他ファイル・他クレートへ呼び出し、…戻り値を Test 本体内で assert する Test（DA-002 UNKNOWN・DA-003 PASS）」だった。「宣言 target ではない」と「その関数を宣言 target とする Test が無い」は、期待値を一意にするための導出である（理由は DS-1360 の description）。",
           "derives_from": [
-            "ROOT-053"
+            "ROOT-053",
+            "ROOT-055"
           ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 別紙C 受入仕様 v0.1.md",

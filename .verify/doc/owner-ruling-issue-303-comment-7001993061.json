@@ -1,0 +1,24 @@
+{
+  "schema_version": "0.1",
+  "root": [
+    {
+      "id": "ROOT-055",
+      "statement": "Owner decision (2026-11-19): option B. Pin the fixture to a cross-crate call and change the expected value to DA-003 UNKNOWN.",
+      "description": "Owner 決定 2026-11-19（Issue #303 の矛盾について、案 B を選んだ）。原文は Issue #303 のコメントに逐語で記録。案 B は Issue #303 本文の「(B) Fix the fixture to a cross-crate call and change the expected value to DA-003 UNKNOWN. We lose DS-1360's example where the runtime rescue makes oracle_presence PASS.」である。適用: DS-1360・BD-284 の fixture を他クレートの関数への呼出の形に固定し、DA-003 の期待値を UNKNOWN に改めた。runtime 救済で `oracle_presence` が PASS になる受入例はなくなる。",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/issues/303#issuecomment-7001993061",
+        "heading": "issuecomment-7001993061",
+        "lines": [
+          1,
+          1
+        ]
+      }
+    }
+  ],
+  "request": [],
+  "require": [],
+  "spec": [],
+  "detailed_spec": [],
+  "basic_design": [],
+  "design": []
+}
