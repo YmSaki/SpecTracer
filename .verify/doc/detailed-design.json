@@ -7891,7 +7891,8 @@
         },
         {
           "id": "DS-1887",
-          "statement": "`go`の失敗の報告と`panic(...)`について、DA-001・DA-003・DA-004が見るassert相当の引数は、Test関数の本体の中でその呼出しを囲む`if`文の条件式と`switch`文のtag式・case式のすべてとする。",
+          "statement": "`go`の失敗の報告と`panic(...)`について、DA-001・DA-003・DA-004が見るassert相当の引数は、その呼出しが実行されるかどうかを決める位置（DS-1947）とし、`go`では次の式をいう。(1) Test関数の本体の中でその呼出しを囲む`if`文の、その呼出しを含む枝の条件式と、同じ`if` / `else if`の連なりでそれより前の枝の条件式。(2) その呼出しを囲む`switch`文の、その呼出しを含む節（前の節の最後の文が`fallthrough`である場合は、その前の節も含め、さかのぼって同じとする）とそれより前の節のcase式、および`switch`文のtag式。それらの節に`default`節が含まれる場合は、すべての節のcase式とする。",
+          "description": "前身の文は「囲む`if`文の条件式と`switch`文のtag式・case式のすべて」で、その呼出しを含む節より後ろの節の case 式も数え、`switch 1 { case 1: t.Error(); case target(): }` で DA-003 が違反なしになりえた。DS-1947 の決める位置（その腕と、それより前の腕）に揃えた。PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。",
           "derives_from": [
             "SPEC-486"
           ],
@@ -7952,7 +7953,7 @@
         {
           "id": "DS-1933",
           "statement": "`go`で、Test関数の本体のうち入れ子の関数リテラル（本条により本体の続きとして読むものを除く）の外にある位置で呼ぶ`t.Run`（`*testing.T`型の引数・変数に対する`Run`の呼出し。`go`文・`defer`文で呼ぶものを除く）の第2引数に直接書いた関数リテラルの本体は、DA-002・DA-003のデータフロー解析ではTest関数の本体の続きとして追跡し、DS-1970の対象としない。関数リテラルの引数と、その本体の中で`:=`または`var`により宣言し直した同名の変数は、関数リテラルのスコープの束縛として扱う。",
-          "description": "導出: R-6・ROOT-051 の「同様に」から、javascript の DS-1900 と同型の規則とした。前身の文は「外すのはDS-629のクロージャとしてのUNKNOWN扱いだけ」で、旧 DS-629（クロージャ内・マクロ展開内は UNKNOWN）からの例外だった。ROOT-053 により DS-629 は構文から確定できる経路だけを派生として数える一般則になり、Test 関数の本体の中の関数リテラルの扱いは DS-1970 に移した（`rust-cargo` の DS-1944・DS-1962 に当たる）。`t.Run` に渡した関数リテラルは Test 関数の本体の中で直接呼ぶ形ではないため、DS-1970 の対象にすると UNKNOWN になる。本条は、それを Test 関数の本体の続きとして追跡することを下限として定め、PR #278 の意図（subtest の本体を Test の本体として扱う）を保つ。develop の取り込み（Issue #304 の M1）で書いた。DS-629 に合わせて書き直すことは PM の方針であり、Owner の裁定ではない。`t.Run` を呼ぶ位置を入れ子の関数リテラルの外に限ることと、`go` 文・`defer` 文で呼ぶものを除くことは、PM の方針に無く、取り込みの時点で足した案である（呼ばれない関数リテラルや goroutine の中の `t.Run` を数えないため。DS-1962 の数える位置と同じ考え方）。PM の確認を待つ。",
+          "description": "導出: R-6・ROOT-051 の「同様に」から、javascript の DS-1900 と同型の規則とした。前身の文は「外すのはDS-629のクロージャとしてのUNKNOWN扱いだけ」で、旧 DS-629（クロージャ内・マクロ展開内は UNKNOWN）からの例外だった。ROOT-053 により DS-629 は構文から確定できる経路だけを派生として数える一般則になり、Test 関数の本体の中の関数リテラルの扱いは DS-1970 に移した（`rust-cargo` の DS-1944・DS-1962 に当たる）。`t.Run` に渡した関数リテラルは Test 関数の本体の中で直接呼ぶ形ではないため、DS-1970 の対象にすると UNKNOWN になる。本条は、それを Test 関数の本体の続きとして追跡することを下限として定め、PR #278 の意図（subtest の本体を Test の本体として扱う）を保つ。develop の取り込み（Issue #304 の M1）で書いた。DS-629 に合わせて書き直すことは PM の方針であり、Owner の裁定ではない。`t.Run` を呼ぶ位置を入れ子の関数リテラルの外に限ることと、`go` 文・`defer` 文で呼ぶものを除くことは、取り込みの時点で足し、PM が採った（呼ばれない関数リテラルや goroutine の中の `t.Run` を数えないため。DS-1962 の数える位置と同じ考え方）。PM の判断であり、Owner の裁定ではない。",
           "derives_from": [
             "SPEC-486"
           ],
@@ -7967,8 +7968,8 @@
         },
         {
           "id": "DS-1968",
-          "statement": "`go`のDA-002 / DA-003のデータフロー解析は、少なくとも`:=`・`var`によるローカル変数への束縛、メソッドチェーン、フィールドアクセスを通る経路を派生として追跡する。",
-          "description": "前身は PR #278 が DS-628 に書いていた `go` の束縛の形（`:=`・`var`）と、メソッドチェーン・フィールドアクセス。ROOT-053 により DS-628 が範囲に上限を置かない一般則になったため、`rust-cargo` の DS-1937 と同じ形の下限として分けた（develop の取り込み、Issue #304 の M1。PM の判断で、Owner の裁定ではない）。メソッドチェーンを派生とするのは前身 DS-628 の範囲のままであり、受け手の値を捨てるメソッドがありうる（例: `target().AlwaysThree()` を照合すると DA-003 が違反なしになりうる。DS-1937 と同じ残る偽 PASS）。",
+          "statement": "`go`のDA-002 / DA-003のデータフロー解析は、少なくとも`:=`・`var`によるローカル変数への束縛、メソッドチェーン、フィールドアクセスを通る経路を派生として追跡する。メソッドの受け手として流れる値は、DS-1936にかかわらず本条による。メソッドに引数として渡す値はDS-1936による。",
+          "description": "前身は PR #278 が DS-628 に書いていた `go` の束縛の形（`:=`・`var`）と、メソッドチェーン・フィールドアクセス。ROOT-053 により DS-628 が範囲に上限を置かない一般則になったため、`rust-cargo` の DS-1937 と同じ形の下限として分けた（develop の取り込み、Issue #304 の M1。PM の判断で、Owner の裁定ではない）。メソッドチェーンを派生とするのは前身 DS-628 の範囲のままであり、受け手の値を捨てるメソッドがありうる（例: `target().AlwaysThree()` を照合すると DA-003 が違反なしになりうる。DS-1937 と同じ残る偽 PASS）。 受け手と引数の分け方は `rust-cargo` の DS-1960 と同じ。PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。",
           "derives_from": [
             "ROOT-053",
             "SPEC-486"
@@ -7985,7 +7986,75 @@
         {
           "id": "DS-1970",
           "statement": "`go`で、Test関数の本体の中の関数リテラルのうち、DS-1933によりTest関数の本体の続きとして追跡するもの以外（変数に束縛したもの、その場で呼ぶもの、関数・メソッドへ渡すもの、`go`文・`defer`文で呼ぶもの、一度も呼ばないものを含む）の本体の中の位置は、DA-002の呼出の存在として数えるtarget呼出の位置にも、DA-003の到達先として数えるassert相当の位置にも含めず、その本体の中の値の経路は派生として数えない。その本体の中のtarget呼出は、DA-002で「呼出なし」の根拠にしない。その本体の中にだけtarget呼出がある場合はDA-002とDA-003をどちらもUNKNOWNとし、本体の外のtarget呼出の結果がどれもassert相当に到達せず、その本体の中にtarget呼出がある場合と、派生した値がその本体の中へ流れ、他のどのassert相当にも到達しない場合は、DA-003をFAILではなくUNKNOWNとする。",
-          "description": "`rust-cargo` の DS-1944・DS-1962 に当たる `go` の規定。旧 DS-629（クロージャ内・マクロ展開内は UNKNOWN）が消えたあと、呼ばれない関数リテラル（`_ = func() { if target() != 4 { t.Error() } }`）や goroutine（`go func() { target() }()`）の中の target 呼出・失敗の報告を DA-002 / DA-003 が数えると、違反なしになりうる（偽 PASS）。それを塞ぐ。DS-1884 は関数リテラルの中の失敗の報告も assert 相当に含めるが、本条の関数リテラルの中のものは DA-003 の到達先に数えない（DA-006 の「assert 相当の存在」には数える）。`rust-cargo` の DS-1941（直接呼ぶ `let` 束縛のクロージャの追跡）に当たる下限は置いていないため、変数に束縛して直接呼ぶ関数リテラルも本条の対象になり UNKNOWN になる。`assert.Panics(t, func() { target() })` のように関数リテラルを渡して照合する形も UNKNOWN になる。develop の取り込み（Issue #304 の M1）で書いた。「数える位置で直接呼ぶクロージャだけを追跡し、それ以外は UNKNOWN」という PM の方針を `go` に当てはめた案で、条文の形は取り込みの時点で足したもの。PM の確認を待つ。Owner の裁定ではない。根拠は DS-615・DS-1680（違反なしと推測しない）だが、同じ層の参照は辺にしない規則のため `derives_from` には入れない。",
+          "description": "`rust-cargo` の DS-1944・DS-1962 に当たる `go` の規定。旧 DS-629（クロージャ内・マクロ展開内は UNKNOWN）が消えたあと、呼ばれない関数リテラル（`_ = func() { if target() != 4 { t.Error() } }`）や goroutine（`go func() { target() }()`）の中の target 呼出・失敗の報告を DA-002 / DA-003 が数えると、違反なしになりうる（偽 PASS）。それを塞ぐ。DS-1884 は関数リテラルの中の失敗の報告も assert 相当に含めるが、本条の関数リテラルの中のものは DA-003 の到達先に数えない（DA-006 の「assert 相当の存在」には数える）。`rust-cargo` の DS-1941（直接呼ぶ `let` 束縛のクロージャの追跡）に当たる下限は置いていないため、変数に束縛して直接呼ぶ関数リテラルも本条の対象になり UNKNOWN になる。`assert.Panics(t, func() { target() })` のように関数リテラルを渡して照合する形も UNKNOWN になる。develop の取り込み（Issue #304 の M1）で書いた。「数える位置で直接呼ぶクロージャだけを追跡し、それ以外は UNKNOWN」という PM の方針を `go` に当てはめたもので、条文の形は取り込みの時点で足し、PM が採った（旧 DS-629 が担っていた fail-closed を `go` で保つため）。PM の判断であり、Owner の裁定ではない。根拠は DS-615・DS-1680（違反なしと推測しない）だが、同じ層の参照は辺にしない規則のため `derives_from` には入れない。",
+          "derives_from": [
+            "ROOT-053",
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1973",
+          "statement": "`go`で、失敗としての発散に数えるのは、失敗の報告（DS-1884の`Error` / `Errorf` / `Fatal` / `Fatalf` / `Fail` / `FailNow`）と`panic(...)`（DS-1885）だけとし、それ以外の`return`、`t.Skip` / `t.Skipf` / `t.SkipNow`、`runtime.Goexit`、`os.Exit`と、`break` / `continue` / `goto`で抜ける腕は数えない。",
+          "description": "`rust-cargo` の DS-1951 に当たる `go` の定義。DS-1947・DS-1950・DS-1940 などの汎用の条項は「失敗として発散する構文」を adapter ごとに定めることを前提にしており、`go` には定義が無かった。数える構文は DS-1884・DS-1885 が assert 相当として挙げる構文から取り、新しい種類は足していない。`Error` / `Errorf` / `Fail` は処理を止めないが、Test を失敗にするため同じく数える。`assertion_macros` に列挙した呼出しは、`rust-cargo` の `assert!` と同じく引数を照合する構文であり（DS-1888）、無条件に失敗する構文ではないため数えない。PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "ROOT-054",
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1975",
+          "statement": "`go`のDA-003で、`x = e`の代入（多値代入と、`:=`のうち既に宣言された変数への代入を含む）の後は、`x`の派生を`e`の派生に置き換え、複合代入`x op= e`と`x++` / `x--`の後は、元の値と`e`のどちらかが派生であれば派生とする。射影への代入（`x.f = e`、`x[i] = e`と、それらの複合代入）の後の`x`の派生はUNKNOWNとする。条件付きで実行される代入（`if`文・`switch`文の一部の枝や節、`for`文の本体の中の代入）の後の合流点では、代入先を、合流するすべての経路（`for`文の本体が一度も実行されない経路を含み、失敗として発散する経路（DS-1973）を除く）で派生であれば派生、どの経路でも派生でなければ派生でないものとし、それ以外はUNKNOWNとする。",
+          "description": "`rust-cargo` の DS-1958・DS-1966 に当たる `go` の規定。`x := target(); x = 4; if x != 4 { t.Error() }` で `x` を派生のまま残すと DA-003 が違反なしになる。射影への代入は、`rust-cargo` の DS-1956 のように上書きした位置だけを置き換えず、`x` 全体を UNKNOWN にした（`r.F = 5; if r.F != 5 { .. }` を塞ぐ最小の形。PM の指示は再代入と合流点であり、射影への代入を UNKNOWN にしたのは取り込みの作業者の判断で、PM の確認を求める）。PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。根拠は DS-615・DS-1680（違反なしと推測しない）だが、同じ層の参照は辺にしない規則のため `derives_from` には入れない。",
+          "derives_from": [
+            "ROOT-054",
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1976",
+          "statement": "`go`で、派生した値を束縛した`x`について、`&x`または`&x.p`（`x`の射影へのポインタ）を作る式、`x`を受け手とするメソッド呼出し、`x`を別の変数・フィールド・要素へ代入する式、`x`を関数・メソッドの引数（assert相当の引数を除く）に渡す式、`x`を参照する関数リテラル（DS-1970の対象のもの）のいずれかを経た後の`x`の派生はUNKNOWNとする。",
+          "description": "`rust-cargo` の DS-1959 に当たる `go` の規定。`&x` の取得は `&mut x` と同じく、別の経路から `x` を書き換えうる。ポインタを受け手とするメソッドは `x` から暗黙に `&x` を作り、スライス・マップ・ポインタの値は代入や引数渡しで別名を作り、関数リテラルは `x` を参照で捕まえる。値の型を構文から決めないため、これらをまとめて UNKNOWN にした。PM の指示は `&x` の取得であり、別名を作るそれ以外の形を加えたのは、同じ偽 PASS（`s := target(); sort.Ints(s)` の後の照合など）を塞ぐためである（取り込みの作業者の判断で、PM の確認を求める）。メソッドチェーンの値そのものは DS-1968 による。PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。根拠は DS-615・DS-1680（違反なしと推測しない）だが、同じ層の参照は辺にしない規則のため `derives_from` には入れない。",
+          "derives_from": [
+            "ROOT-054",
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1979",
+          "statement": "`go`で、DS-629の構文から確定できる経路と、本節の`go`の条項の「構文から確定できる」は、名前だけを根拠とする推定を含めない。ただし、本節の`go`の条項が名前で挙げる構文（DS-1884の`*testing.T` / `testing.TB`と失敗の報告のメソッド名、DS-1885の`panic`、DS-1886の`assertion_macros`、DS-1933の`t.Run`、DS-1968のメソッドチェーン、DS-1973の`t.Skip`などの名前）は、その名前で判定する。",
+          "description": "`rust-cargo` の DS-1967 に当たる `go` の規定。DS-1967 は `rust-cargo` の構文を名前で挙げるため、汎用にせず言語ごとに置いた。名前で判定するため、同じ名前の関数・型を利用者が定義して上書きする形（`panic` を局所の関数で覆い隠すなど）では DA-001 / DA-003 が違反なしになりうる（残る偽 PASS）。PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。",
           "derives_from": [
             "ROOT-053",
             "SPEC-486"
@@ -8092,7 +8161,7 @@
         },
         {
           "id": "DS-1896",
-          "statement": "`javascript`の`assert(...)`・`assert.<name>(...)`と`assertion_macros`に列挙された呼出しについて、DA-001・DA-003・DA-004が見るassert相当の引数は、その呼出しの引数とする。",
+          "statement": "`javascript`の`assert(...)`・`assert.<name>(...)`（`assert.fail(..)`を除く。DS-1897による）と`assertion_macros`に列挙された呼出しについて、DA-001・DA-003・DA-004が見るassert相当の引数は、その呼出しの引数とする（メッセージ引数の扱いはDS-1972による）。",
           "derives_from": [
             "SPEC-487"
           ],
@@ -8107,7 +8176,8 @@
         },
         {
           "id": "DS-1897",
-          "statement": "`javascript`の`throw`文について、DA-001・DA-003・DA-004が見るassert相当の引数は、Test constructの本体の中でその文を囲む`if`文の条件式と`switch`文の判別式・case式のすべてとする。",
+          "statement": "`javascript`の`throw`文と`assert.fail(..)`について、DA-001・DA-003・DA-004が見るassert相当の引数は、その文・呼出しが実行されるかどうかを決める位置（DS-1947）とし、`javascript`では次の式をいう。(1) Test constructの本体の中でそれを囲む`if`文の、それを含む枝の条件式と、同じ`if` / `else if`の連なりでそれより前の枝の条件式。(2) それを囲む`switch`文の、それを含む節（前の節が`break`・`return`・`throw`・`continue`の文で終わらない場合は、その前の節も含め、さかのぼって同じとする）とそれより前の節のcase式、および`switch`文の判別式。それらの節に`default`節が含まれる場合は、すべての節のcase式とする。",
+          "description": "前身の文は「囲む`if`文の条件式と`switch`文の判別式・case式のすべて」で、それを含む節より後ろの節の case 式も数えていた。DS-1947 の決める位置（その腕と、それより前の腕）に揃え、`switch` の節が続けて実行される形（break の無い節）を含めた。`assert.fail(..)` を加えたのは DS-1974 で失敗としての発散に数えるため。PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。",
           "derives_from": [
             "SPEC-487"
           ],
@@ -8122,7 +8192,7 @@
         },
         {
           "id": "DS-1929",
-          "statement": "`javascript`の`throw`文を囲む`if`文・`switch`文がない場合、そのassert相当の引数は無く、DA-001はそのassert相当を定数アサーションとして扱う。",
+          "statement": "`javascript`の`throw`文または`assert.fail(..)`を囲む`if`文・`switch`文がない場合、そのassert相当の引数は無く、DA-001はそのassert相当を定数アサーションとして扱う。",
           "derives_from": [
             "SPEC-487"
           ],
@@ -8187,8 +8257,8 @@
         },
         {
           "id": "DS-1969",
-          "statement": "`javascript`のDA-002 / DA-003のデータフロー解析は、少なくとも`const`・`let`・`var`によるローカル変数への束縛、メソッドチェーン、フィールドアクセスを通る経路を派生として追跡する。",
-          "description": "前身は PR #278 が DS-628 に書いていた `javascript` の束縛の形（`const`・`let`・`var`）と、メソッドチェーン・フィールドアクセス。ROOT-053 により DS-628 が範囲に上限を置かない一般則になったため、`rust-cargo` の DS-1937 と同じ形の下限として分けた（develop の取り込み、Issue #304 の M1。PM の判断で、Owner の裁定ではない）。メソッドチェーンを派生とするのは前身 DS-628 の範囲のままであり、受け手の値を捨てるメソッドがありうる（例: `target().alwaysThree()` を照合すると DA-003 が違反なしになりうる。DS-1937 と同じ残る偽 PASS）。",
+          "statement": "`javascript`のDA-002 / DA-003のデータフロー解析は、少なくとも`const`・`let`・`var`によるローカル変数への束縛、メソッドチェーン、フィールドアクセスを通る経路を派生として追跡する。メソッドの受け手として流れる値は、DS-1936にかかわらず本条による。メソッドに引数として渡す値はDS-1936による。",
+          "description": "前身は PR #278 が DS-628 に書いていた `javascript` の束縛の形（`const`・`let`・`var`）と、メソッドチェーン・フィールドアクセス。ROOT-053 により DS-628 が範囲に上限を置かない一般則になったため、`rust-cargo` の DS-1937 と同じ形の下限として分けた（develop の取り込み、Issue #304 の M1。PM の判断で、Owner の裁定ではない）。メソッドチェーンを派生とするのは前身 DS-628 の範囲のままであり、受け手の値を捨てるメソッドがありうる（例: `target().alwaysThree()` を照合すると DA-003 が違反なしになりうる。DS-1937 と同じ残る偽 PASS）。 受け手と引数の分け方は `rust-cargo` の DS-1960 と同じ。PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。",
           "derives_from": [
             "ROOT-053",
             "SPEC-487"
@@ -8205,7 +8275,92 @@
         {
           "id": "DS-1971",
           "statement": "`javascript`で、Test constructの本体の中の関数（関数式・アロー関数・関数宣言）のうち、DS-1900によりTest constructの本体そのものとして追跡するもの以外（変数に束縛したもの、その場で呼ぶもの、関数・メソッドへ渡すもの（`then`などのコールバックを含む）、一度も呼ばないものを含む）の本体の中の位置は、DA-002の呼出の存在として数えるtarget呼出の位置にも、DA-003の到達先として数えるassert相当の位置にも含めず、その本体の中の値の経路は派生として数えない。その本体の中のtarget呼出は、DA-002で「呼出なし」の根拠にしない。その本体の中にだけtarget呼出がある場合はDA-002とDA-003をどちらもUNKNOWNとし、本体の外のtarget呼出の結果がどれもassert相当に到達せず、その本体の中にtarget呼出がある場合と、派生した値がその本体の中へ流れ、他のどのassert相当にも到達しない場合は、DA-003をFAILではなくUNKNOWNとする。",
-          "description": "`rust-cargo` の DS-1944・DS-1962 に当たる `javascript` の規定。旧 DS-629（クロージャ内・マクロ展開内は UNKNOWN）が消えたあと、呼ばれないアロー関数（`const f = () => expect(target()).toBe(4);`）の中の target 呼出・assert 相当を DA-002 / DA-003 が数えると、違反なしになりうる（偽 PASS）。それを塞ぐ。`rust-cargo` の DS-1941（直接呼ぶ `let` 束縛のクロージャの追跡）に当たる下限は置いていないため、変数に束縛して直接呼ぶ関数も本条の対象になり UNKNOWN になる。`expect(() => target()).toThrow()` のように関数を渡して照合する形も UNKNOWN になる。develop の取り込み（Issue #304 の M1）で書いた。「数える位置で直接呼ぶクロージャだけを追跡し、それ以外は UNKNOWN」という PM の方針を `javascript` に当てはめた案で、条文の形は取り込みの時点で足したもの。PM の確認を待つ。Owner の裁定ではない。根拠は DS-615・DS-1680（違反なしと推測しない）だが、同じ層の参照は辺にしない規則のため `derives_from` には入れない。",
+          "description": "`rust-cargo` の DS-1944・DS-1962 に当たる `javascript` の規定。旧 DS-629（クロージャ内・マクロ展開内は UNKNOWN）が消えたあと、呼ばれないアロー関数（`const f = () => expect(target()).toBe(4);`）の中の target 呼出・assert 相当を DA-002 / DA-003 が数えると、違反なしになりうる（偽 PASS）。それを塞ぐ。`rust-cargo` の DS-1941（直接呼ぶ `let` 束縛のクロージャの追跡）に当たる下限は置いていないため、変数に束縛して直接呼ぶ関数も本条の対象になり UNKNOWN になる。`expect(() => target()).toThrow()` のように関数を渡して照合する形も UNKNOWN になる。develop の取り込み（Issue #304 の M1）で書いた。「数える位置で直接呼ぶクロージャだけを追跡し、それ以外は UNKNOWN」という PM の方針を `javascript` に当てはめたもので、条文の形は取り込みの時点で足し、PM が採った（旧 DS-629 が担っていた fail-closed を `javascript` で保つため）。PM の判断であり、Owner の裁定ではない。根拠は DS-615・DS-1680（違反なしと推測しない）だが、同じ層の参照は辺にしない規則のため `derives_from` には入れない。",
+          "derives_from": [
+            "ROOT-053",
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1972",
+          "statement": "`javascript`の`assert(...)`・`assert.<name>(...)`・`expect(...)`について、メッセージ引数は、`assert(..)`・`assert.ok(..)`・`expect(..)`の第2引数と、`assert.equal`・`assert.notEqual`・`assert.strictEqual`・`assert.notStrictEqual`・`assert.deepEqual`・`assert.notDeepEqual`・`assert.deepStrictEqual`・`assert.notDeepStrictEqual`・`assert.match`・`assert.doesNotMatch`の第3引数とし、DS-1935のとおり値が流れる位置に数えない。これ以外の`assert.<name>(...)`では、どの引数がメッセージ引数かを構文から決めないため、派生した値がその呼出しの第2引数以降にだけ流れる場合はその流れを到達とせず、DA-003をFAILではなくUNKNOWNとする。",
+          "description": "DS-1935（メッセージ引数は値が流れる位置に数えない）を `javascript` の組込みの assert に当てはめる。`assert(true, target())` を到達としない。位置は Node.js の `assert` モジュールの引数の並びによる。PM の指示は `expect(...)` を引数 1 つとして対象外にしていたが、vitest の `expect` は第 2 引数にメッセージを取るため含めた（`expect(true, target()).toBe(true)` を塞ぐ。取り込みの作業者の判断で、PM の確認を求める）。列挙しない `assert.<name>`（chai の `assert.isTrue` など）は、メッセージ引数の位置を決めずに UNKNOWN に倒す。`assertion_macros` に列挙した利用者の呼出しは DS-1935 の description のとおり残る偽 PASS である。PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "ROOT-053",
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1974",
+          "statement": "`javascript`で、失敗としての発散に数えるのは、`throw`文（DS-1893）、`assert.fail(..)`（DS-1892）、およびDA-001の定数判定で照合が偽と確定するassert相当（`assert(false)`など）だけとし、それ以外の`return`と`break` / `continue` / `process.exit`で抜ける腕は数えない。",
+          "description": "`rust-cargo` の DS-1951 に当たる `javascript` の定義。数える構文は DS-1892・DS-1893 が assert 相当として挙げる構文から取り、新しい種類は足していない。`assert.fail(..)` と定数で偽となる assert 相当は、`rust-cargo` の `panic!` と定数で偽となる assert 相当に当たる。`assert.fail(..)` の決める位置は DS-1897 による。PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "ROOT-054",
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1977",
+          "statement": "`javascript`のDA-003で、`x = e`の代入（分割代入で`x`へ代入するものを除く）の後は、`x`の派生を`e`の派生に置き換え、複合代入`x op= e`と`x++` / `x--`の後は、元の値と`e`のどちらかが派生であれば派生とする。分割代入で`x`へ代入した後と、射影への代入（`x.p = e`、`x[i] = e`と、それらの複合代入）の後の`x`の派生はUNKNOWNとする。条件付きで実行される代入（`if`文・`switch`文の一部の枝や節、ループの本体、`&&` / `||` / `??`の右辺と`?:`の枝の中の代入、`x ||= e` / `x &&= e` / `x ??= e`）の後の合流点では、代入先を、合流するすべての経路（`do ... while`を除くループの本体が一度も実行されない経路を含み、失敗として発散する経路（DS-1974）を除く）で派生であれば派生、どの経路でも派生でなければ派生でないものとし、それ以外はUNKNOWNとする。",
+          "description": "`rust-cargo` の DS-1958・DS-1966 に当たる `javascript` の規定。`let x = target(); x = 4; expect(x).toBe(4)` で `x` を派生のまま残すと DA-003 が違反なしになる。分割代入と射影への代入は、取り出す位置・上書きする位置を構文から追わず、`x` 全体を UNKNOWN にした（取り込みの作業者の判断で、PM の確認を求める）。PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。根拠は DS-615・DS-1680（違反なしと推測しない）だが、同じ層の参照は辺にしない規則のため `derives_from` には入れない。",
+          "derives_from": [
+            "ROOT-054",
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1978",
+          "statement": "`javascript`で、派生した値を束縛した`x`について、`x`を別の変数・プロパティ・配列要素へ代入する式（分割代入と、配列・オブジェクトのリテラルの要素にする形を含む）、`x`を関数・メソッドの引数（assert相当の引数を除く）に渡す式、`x`を受け手とするメソッド呼出し、`x`を参照する入れ子の関数（DS-1971の対象のもの）のいずれかを経た後の`x`の派生はUNKNOWNとする。",
+          "description": "`rust-cargo` の DS-1959 に当たる `javascript` の規定。オブジェクトは別名から書き換えられ（`const y = x; y.v = 4;`）、値がオブジェクトかどうかを構文から決めないため、別名を作る形と、書き換えうる呼出し（`x.push(..)`、`mutate(x)`）を経た後をまとめて UNKNOWN にした。メソッドチェーンの値そのものは DS-1969 による。PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。根拠は DS-615・DS-1680（違反なしと推測しない）だが、同じ層の参照は辺にしない規則のため `derives_from` には入れない。",
+          "derives_from": [
+            "ROOT-054",
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              25,
+              25
+            ]
+          }
+        },
+        {
+          "id": "DS-1980",
+          "statement": "`javascript`で、DS-629の構文から確定できる経路と、本節の`javascript`の条項の「構文から確定できる」は、名前だけを根拠とする推定を含めない。ただし、本節の`javascript`の条項が名前で挙げる構文（DS-1891の`expect`とmatcher、DS-1892とDS-1972の`assert` / `assert.<name>`、DS-1894の`assertion_macros`、DS-1899の`test` / `it`、DS-1969のメソッドチェーン、DS-1974の`assert.fail`・`process.exit`）は、その名前で判定する。",
+          "description": "`rust-cargo` の DS-1967 に当たる `javascript` の規定。DS-1967 は `rust-cargo` の構文を名前で挙げるため、汎用にせず言語ごとに置いた。名前で判定するため、失敗しない `assert` や `expect` を利用者が定義・import する形では DA-001 / DA-003 が違反なしになりうる（残る偽 PASS）。PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。",
           "derives_from": [
             "ROOT-053",
             "SPEC-487"
@@ -8396,8 +8551,8 @@
         },
         {
           "id": "DS-1948",
-          "statement": "DA-003で、リテラルに吸収されるオペランドの位置（`X || true`、`true || X`、`X && false`、`false && X`、`X | true`、`true | X`、`X & false`、`false & X`の`X`）は、値が流れる位置に数えない。",
-          "description": "Owner の承認（Issue #300 の提案 (5)、ROOT-054）。新しい検査は作らない。範囲はリテラルによる吸収までとする。短絡しない `|` / `&` はレビュー指摘 S1 / S2 により加えた（PM の判断）。これ以外の吸収（`X * 0`、`X - X` などの算術、`always_true()` や名前付き定数などリテラルでない定数による吸収）は数えず、DA-003 が違反なしになりうる（残る偽 PASS）。同じく、実行時にいつも真になるリテラルでないガードや条件（`x if x > 0 || always_true()`）は定数と判定せず、失敗として発散する腕へ到達したものとして数えるため、DA-003 が違反なしになりうる（残る偽 PASS）。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "statement": "DA-003で、演算の結果が真偽値になる言語と演算子（`rust-cargo`の`||`・`&&`・`|`・`&`、`go`の`||`・`&&`）について、リテラルに吸収されるオペランドの位置（`X || true`、`true || X`、`X && false`、`false && X`、`X | true`、`true | X`、`X & false`、`false & X`の`X`）は、値が流れる位置に数えない。`javascript`の`||`・`&&`・`|`・`&`は、演算の結果が真偽値にならないため対象としない。",
+          "description": "Owner の承認（Issue #300 の提案 (5)、ROOT-054）。新しい検査は作らない。範囲はリテラルによる吸収までとする。短絡しない `|` / `&` はレビュー指摘 S1 / S2 により加えた（PM の判断）。これ以外の吸収（`X * 0`、`X - X` などの算術、`always_true()` や名前付き定数などリテラルでない定数による吸収）は数えず、DA-003 が違反なしになりうる（残る偽 PASS）。同じく、実行時にいつも真になるリテラルでないガードや条件（`x if x > 0 || always_true()`）は定数と判定せず、失敗として発散する腕へ到達したものとして数えるため、DA-003 が違反なしになりうる（残る偽 PASS）。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。 対象を演算の結果が真偽値になる言語と演算子に絞ったのは、PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。`javascript` の `||` / `&&` はオペランドの値をそのまま返し、`|` / `&` は数値を返すため、`expect(target() || true).toBe(4)` では `X` が照合する値になる（吸収とすると誤った FAIL になる）。`javascript` を対象外にした結果、真偽だけを見る位置（`assert(target() || true)`）では DA-003 が違反なしになりうる（残る偽 PASS）。",
           "derives_from": [
             "ROOT-054"
           ],
@@ -8412,8 +8567,8 @@
         },
         {
           "id": "DS-1949",
-          "statement": "DA-001の定数式は、オペランドの値にかかわらずリテラルによって値が確定する論理式（`X || true`、`true || X`、`X && false`、`false && X`、`X | true`、`true | X`、`X & false`、`false & X`と、それらの否定）を含む。",
-          "description": "Owner の承認（Issue #300 の提案 (5)、ROOT-054）。DS-621 の定数式の範囲を明文にする。新しい検査は作らない。範囲はリテラルによる吸収までとする。短絡しない `|` / `&` はレビュー指摘 S1 / S2 により加えた（PM の判断）。これ以外の吸収（`X * 0 == 0` などの算術、リテラルでない定数による吸収）は定数式に数えず、DA-001 が違反なしになりうる（残る偽 PASS。DA-003 の側は DS-1948 の description）。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "statement": "DA-001の定数式は、演算の結果が真偽値になる言語と演算子（DS-1948と同じ）について、オペランドの値にかかわらずリテラルによって値が確定する論理式（`X || true`、`true || X`、`X && false`、`false && X`、`X | true`、`true | X`、`X & false`、`false & X`と、それらの否定）を含む。`javascript`の`||`・`&&`・`|`・`&`は対象としない。",
+          "description": "Owner の承認（Issue #300 の提案 (5)、ROOT-054）。DS-621 の定数式の範囲を明文にする。新しい検査は作らない。範囲はリテラルによる吸収までとする。短絡しない `|` / `&` はレビュー指摘 S1 / S2 により加えた（PM の判断）。これ以外の吸収（`X * 0 == 0` などの算術、リテラルでない定数による吸収）は定数式に数えず、DA-001 が違反なしになりうる（残る偽 PASS。DA-003 の側は DS-1948 の description）。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。 対象を DS-1948 と同じく絞ったのは、PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。`expect(target() || true).toBe(4)` を定数アサーションとしないため。`javascript` を対象外にした結果、`assert(target() || true)` は DA-001 でも違反なしになりうる（残る偽 PASS。DS-1948 と同じ）。",
           "derives_from": [
             "ROOT-054"
           ],
