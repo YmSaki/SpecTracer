@@ -5609,9 +5609,9 @@ enum Shape {
     Derived { path: bool, method: bool },
     /// A tuple or an array (`vec![..]` included) literal: one shape per element.
     Elements(Vec<Shape>),
-    /// A struct literal: the shape of each named field, and of the fields its base
-    /// expression gives.
-    Struct(Vec<(String, Shape)>, Box<Shape>),
+    /// A struct literal: the last segment of its path, the shape of each named field,
+    /// and of the fields its base expression gives.
+    Struct(Option<String>, Vec<(String, Shape)>, Box<Shape>),
     /// A constructor that syntax fixes (`Some` / `Ok` / `Err`, DS-1960): its variant is
     /// not derived (DS-1939).
     Variant(String, Vec<Shape>),
@@ -5625,7 +5625,7 @@ impl Shape {
     fn summary(&self) -> Shape {
         let parts: Vec<Shape> = match self {
             Shape::Elements(elements) => elements.iter().map(Shape::summary).collect(),
-            Shape::Struct(fields, rest) => fields
+            Shape::Struct(_, fields, rest) => fields
                 .iter()
                 .map(|(_, shape)| shape.summary())
                 .chain([rest.summary()])
@@ -5653,7 +5653,7 @@ impl Shape {
 
     fn field(&self, name: &str) -> Shape {
         match self {
-            Shape::Struct(fields, rest) => fields
+            Shape::Struct(_, fields, rest) => fields
                 .iter()
                 .find(|(field, _)| field == name)
                 .map_or_else(|| (**rest).clone(), |(_, shape)| shape.clone()),
@@ -5664,6 +5664,21 @@ impl Shape {
             Shape::Variant(..) | Shape::Unknown => Shape::Unknown,
         }
     }
+}
+
+/// Whether an identifier pattern may be a constant or a unit variant rather than a
+/// binding: Rust reads a name in scope as an item, and `None`, constants and unit
+/// variants are written with a leading capital.
+fn pattern_ident_may_be_path(ident: &syn::PatIdent) -> bool {
+    ident.subpat.is_none()
+        && ident.by_ref.is_none()
+        && ident.mutability.is_none()
+        && ident
+            .ident
+            .to_string()
+            .chars()
+            .next()
+            .is_some_and(char::is_uppercase)
 }
 
 /// One derivation for several summaries: `Plain` when none is derived (or there is
@@ -5857,7 +5872,12 @@ impl<'a> ShapeReader<'a> {
                     .rest
                     .as_ref()
                     .map_or(Shape::Plain, |rest| whole(self.shape(rest, depth + 1)));
-                Shape::Struct(fields, Box::new(rest))
+                let path = literal
+                    .path
+                    .segments
+                    .last()
+                    .map(|segment| segment.ident.to_string());
+                Shape::Struct(path, fields, Box::new(rest))
             }
             syn::Expr::Call(call) => {
                 let syn::Expr::Path(callee) = call.func.as_ref() else {
@@ -5988,6 +6008,9 @@ fn pattern_bindings(pattern: &syn::Pat, shape: &Shape, out: &mut Vec<PatternBind
         }
     };
     match pattern {
+        // A name that may be a constant or a unit variant (`None`, `K`) compares the
+        // value and binds nothing.
+        syn::Pat::Ident(ident) if pattern_ident_may_be_path(ident) => {}
         syn::Pat::Ident(ident) => {
             out.push(PatternBinding {
                 name: ident.ident.to_string(),
@@ -6034,7 +6057,22 @@ fn pattern_bindings(pattern: &syn::Pat, shape: &Shape, out: &mut Vec<PatternBind
             elements(&node.elems, &shape, out);
         }
         syn::Pat::Struct(node) => {
+            let name = node
+                .path
+                .segments
+                .last()
+                .map(|segment| segment.ident.to_string());
+            // A struct pattern of another variant never matches the literal, so its
+            // names take nothing.
+            let other_variant = matches!(
+                shape,
+                Shape::Struct(Some(literal), ..) if name.as_deref() != Some(literal.as_str())
+            );
             for field in &node.fields {
+                if other_variant {
+                    pattern_bindings(&field.pat, &Shape::Plain, out);
+                    continue;
+                }
                 let name = match &field.member {
                     syn::Member::Named(name) => field_name(name),
                     syn::Member::Unnamed(index) => index.index.to_string(),
@@ -6615,6 +6653,10 @@ struct BindingCounter {
     counts: BTreeMap<String, usize>,
     /// The names bound by a `mut` or `ref mut` pattern.
     mutable: BTreeSet<String>,
+    /// Where each name is bound.
+    positions: BTreeMap<String, Vec<proc_macro2::LineColumn>>,
+    /// The names of the items (`fn`, `const`, `static`, ..) declared in the body.
+    items: BTreeSet<String>,
 }
 
 impl BindingCounter {
@@ -6625,11 +6667,34 @@ impl BindingCounter {
 
 impl<'ast> Visit<'ast> for BindingCounter {
     fn visit_pat_ident(&mut self, node: &'ast syn::PatIdent) {
+        if pattern_ident_may_be_path(node) {
+            return;
+        }
         *self.counts.entry(node.ident.to_string()).or_default() += 1;
+        self.positions
+            .entry(node.ident.to_string())
+            .or_default()
+            .push(node.ident.span().start());
         if node.mutability.is_some() {
             self.mutable.insert(node.ident.to_string());
         }
         syn::visit::visit_pat_ident(self, node);
+    }
+
+    fn visit_item(&mut self, node: &'ast syn::Item) {
+        let name = match node {
+            syn::Item::Fn(item) => Some(&item.sig.ident),
+            syn::Item::Const(item) => Some(&item.ident),
+            syn::Item::Static(item) => Some(&item.ident),
+            syn::Item::Struct(item) => Some(&item.ident),
+            syn::Item::Enum(item) => Some(&item.ident),
+            syn::Item::Macro(item) => item.ident.as_ref(),
+            _ => None,
+        };
+        if let Some(name) = name {
+            self.items.insert(name.to_string());
+        }
+        syn::visit::visit_item(self, node);
     }
 
     fn visit_pat_or(&mut self, node: &'ast syn::PatOr) {
@@ -6638,6 +6703,9 @@ impl<'ast> Visit<'ast> for BindingCounter {
             let mut one = BindingCounter::default();
             one.visit_pat(case);
             self.mutable.extend(one.mutable);
+            for (name, at) in one.positions {
+                self.positions.entry(name).or_default().extend(at);
+            }
             for (name, count) in one.counts {
                 let entry = most.entry(name).or_default();
                 *entry = (*entry).max(count);
@@ -6780,8 +6848,10 @@ fn closure_info(
     }
     impl<'ast> Visit<'ast> for Sites<'_> {
         fn visit_pat_ident(&mut self, node: &'ast syn::PatIdent) {
-            self.bindings
-                .push((self.range(node.ident.span()), node.ident.to_string()));
+            if !pattern_ident_may_be_path(node) {
+                self.bindings
+                    .push((self.range(node.ident.span()), node.ident.to_string()));
+            }
             syn::visit::visit_pat_ident(self, node);
         }
         fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
@@ -6897,9 +6967,18 @@ fn closure_info(
     })
         // DS-1959: a closure that may capture a `mut` binding mutably changes it where
         // it runs; that change is not inlined.
+        // DS-1941: a name the body captures must mean, at every call, the binding it
+        // means at the closure: one binding made before the closure, or an item that
+        // no `let` shadows.
         || sites.uses.iter().any(|(_, name)| {
+            let count = function_counts.get(name);
             !bound.contains(name)
-                && (function_counts.get(name) > 1 || function_counts.mutable.contains(name))
+                && (count > 1
+                    || function_counts.mutable.contains(name)
+                    || (count == 1 && function_counts.items.contains(name))
+                    || function_counts.positions.get(name).is_some_and(|at| {
+                        at.iter().any(|position| *position >= closure.span().start())
+                    }))
         })
     {
         return None;
@@ -7205,7 +7284,10 @@ fn inline_round(text: &str, fresh: &mut usize) -> Option<String> {
     }
     for index in 0..defs.len() {
         let name = defs[index].name.clone();
-        if counts.get(&name) > defs.iter().filter(|def| def.name == name).count() {
+        // An item of the same name may be the one a call means in its block.
+        if counts.get(&name) > defs.iter().filter(|def| def.name == name).count()
+            || counts.items.contains(&name)
+        {
             defs[index].closure = None;
         }
     }
@@ -10464,6 +10546,7 @@ fn real_check() {
             "let S { a, .. } = S { a: double(2), b: 0 }; assert_eq!(a, 4);",
             "let t = (double(2), 3); let (a, _) = t; assert_eq!(a, 4);",
             "let v = double(2); let Some(x) = &v.items[0] else { panic!() }; assert_eq!(x, &4);",
+            "match E::A { x: double(2) } { E::A { x } => assert_eq!(x, 4), _ => {} }",
         ] {
             assert_eq!(da_003_of_two(body), DaVerdict::NoViolation, "{body}");
         }
@@ -10473,6 +10556,12 @@ fn real_check() {
             "match (double(2), 3) { (x, _) | (_, x) => assert_eq!(x, 4) }",
             "let S { b, .. } = S { a: double(2), b: 0 }; assert_eq!(b, 0);",
             "match Some(double(2)) { v @ Some(_) => assert_eq!(v, Some(4)), _ => {} }",
+            // A constant or a unit variant in a pattern binds nothing.
+            "match maybe(2) { None => {}, Some(_) => {} } assert_eq!(Option::<i32>::None, None);",
+            "match double(2) { K => {}, _ => {} } assert_eq!(K, 4);",
+            "if let K = double(2) {} assert_eq!(K, 4);",
+            // A struct pattern of another variant never matches the literal.
+            "match (E::A { x: double(2) }) { E::B { x } => assert_eq!(x, 4), _ => {} }",
         ] {
             assert_ne!(da_003_of_two(body), DaVerdict::NoViolation, "{body}");
         }
@@ -10511,7 +10600,11 @@ fn real_check() {
             "let f = |v: i32| if v > 0 { v } else { 0 }; assert_eq!(f(double(2)), 4);",
             "let f = |v: i32| (v, 0); let (_, b) = f(double(2)); assert_eq!(b, 0);",
             "let r = double(2); let get = || 4; assert_eq!(get(), 4); let _ = r;",
-        ] {
+            // DS-1941: an item, or a binding made after the closure, is not what the
+            // name means at the closure or at the call.
+            "let f = |v: i32| assert_eq!(v, 4); { fn f(_v: i32) {} f(double(2)); }",
+            "fn r() -> i32 { 4 } let get = || r(); let r = || double(2); assert_eq!(get(), 4);",
+            "fn helper(v: i32) -> i32 { v } let g = |v: i32| helper(v); let helper = |v: i32| assert_eq!(v, 4); assert_eq!(g(double(2)), 4);",        ] {
             assert_ne!(da_003_of_two(body), DaVerdict::NoViolation, "{body}");
         }
         assert!(matches!(
