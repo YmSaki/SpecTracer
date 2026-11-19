@@ -136,16 +136,31 @@
 //!   absorbs (`r.b &= false`, `r.b |= true`) counts as a plain assignment (DS-1948).
 //!   After a projection assignment, a read of the binding in an arm of a branch
 //!   expression (`if`, `if let`, `match`) or in the value of a `break` (which joins a
-//!   labeled block's value) in an assert is `Unknown`: DS-1940 derives such a value
-//!   only when every arm does, and the arms are not compared here. Each
-//!   of these narrowings only keeps a verdict `Unknown`. Field names are compared
-//!   unraw (`r.r#f` and `r.f` are one position). Not covered: DS-1940 for a branch
-//!   that does not read such a binding (`if c() { 5 } else { x }` reaches the assert
-//!   through its `x` arm), any join other than the arms of `if` / `if let` / `match`
-//!   whose values are not compared either (a labeled block whose `break` value does
-//!   not read the binding: `'a: { if c() { break 'a 5; } r.g }` reaches the assert
-//!   through its tail), and a binding name spelled raw in one place and plain in
-//!   another (`let r#r = ..; r.f`), which is matched by its spelling.
+//!   labeled block's value) in an assert is `Unknown` whether or not the arms agree
+//!   (narrower than DS-1940). Each of these narrowings only keeps a verdict
+//!   `Unknown`. Field names are compared unraw (`r.r#f` and `r.f` are one position).
+//!   Not covered: a binding name spelled raw in one place and plain in another
+//!   (`let r#r = ..; r.f`), which is matched by its spelling.
+//! - DS-1940 is read at every value an assert's checked argument, a deciding position
+//!   of a failure divergence or a `let` initializer reaches: an `if` / `if let` /
+//!   `match`, and a labeled block, whose exits are its body and the values of the
+//!   `break`s that leave it (a derivation: DS-1940 names the branches only). Each arm
+//!   other than a failure divergence (DS-1951) is classified at the position read (a
+//!   projection of the branch is applied to each arm's value) as derived when a call of
+//!   any declared target, a binding derived from one, or the probed binding flows
+//!   there. Unless every such arm is derived, what flows through the branch is not
+//!   counted as reaching (`Unknown`, never `NoViolation`); a `let` bound to it is
+//!   `Unknown` wherever it is used. The value itself is read as before, so this only
+//!   moves verdicts toward `Unknown`. Narrower than DS-1940 (each keeps `Unknown`): a
+//!   `return Err(..)` arm is not read as a failure divergence; an arm that leaves by
+//!   `return` / `break` / `continue`, a missing `else` and a labeled block's body that
+//!   always leaves count as not derived; a binding counts as derived only when it is
+//!   bound once and not `mut` (its positions are not told apart, as in #315), and a
+//!   chain of such bindings is followed one step for a `let` initializer; and an
+//!   `assert!` whose condition is `false` in one arm (`if c { x == 4 } else { false }`)
+//!   is `Unknown`, as DS-1940 reads the value. The arms of a pattern's scrutinee
+//!   (`ShapeReader`) and of a closure's tail (DS-1942, `tail_is_join`) stay `Unknown` as
+//!   before.
 //! - DS-1939's per-position derivation is not applied to a binding without a
 //!   projection assignment: a binding of a literal that holds the target's result
 //!   in one element reaches the assert through any element (`let t = (double(2),
@@ -2475,20 +2490,24 @@ struct DecidedCalls {
     path: bool,
     method: bool,
     delegated: bool,
+    /// A call flows there only through a branch whose arms differ (DS-1940).
+    mixed: bool,
 }
 
 fn divergence_target_reach(
     divergences: &[Divergence<'_>],
     names: &NameUse<'_>,
     targets: &[String],
+    sources: &JoinSources,
 ) -> DecidedCalls {
     let mut reach = DecidedCalls::default();
     for decider in counted_deciders(divergences) {
-        let mut visitor = CheckedCallVisitor::new(Some(names), None, targets);
+        let mut visitor = CheckedCallVisitor::new(Some(names), None, targets, sources);
         visit_decider(&mut visitor, decider);
         reach.path |= visitor.path;
         reach.method |= visitor.method;
         reach.delegated |= visitor.delegated;
+        reach.mixed |= visitor.mixed;
     }
     reach
 }
@@ -2501,12 +2520,13 @@ fn divergence_binding_reach(
     divergences: &[Divergence<'_>],
     binding: &DerivedBinding,
     targets: &[String],
+    sources: &JoinSources,
     overwrites: &[Vec<PlaceStep>],
 ) -> Vec<BindingReach> {
     let name = binding.name.as_str();
     counted_deciders(divergences)
         .map(|decider| {
-            let mut visitor = CheckedCallVisitor::new(None, Some(name), targets);
+            let mut visitor = CheckedCallVisitor::new(None, Some(name), targets, sources);
             visitor.probe_overwrites = overwrites;
             visit_decider(&mut visitor, decider);
             let outcome = probe_reach(&visitor);
@@ -2700,6 +2720,7 @@ fn da_003_result_unverified(
     let mut any_into_target = false;
     let mut any_debug_assert = false;
     let mut any_not_counted = false;
+    let mut any_branch_unknown = false;
     for symbol in target_symbols {
         match target_call_result_is_verified(text, symbol, all_targets, assert_spans, &regions) {
             TargetCallVerification::NotCalled => {}
@@ -2742,6 +2763,10 @@ fn da_003_result_unverified(
                 any_call_found = true;
                 any_debug_assert = true;
             }
+            TargetCallVerification::BranchUnknown => {
+                any_call_found = true;
+                any_branch_unknown = true;
+            }
         }
     }
     if !any_call_found {
@@ -2763,7 +2788,8 @@ fn da_003_result_unverified(
             || any_binding_uncertain
             || any_into_target
             || any_macro_opaque
-            || any_not_counted)
+            || any_not_counted
+            || any_branch_unknown)
         && every_assert.is_empty()
         && !has_non_target_call(text, target_symbols)
     {
@@ -2805,10 +2831,20 @@ fn da_003_result_unverified(
              macro (DS-1959), the assert reads a position that a projection assignment \
              may have overwritten (DS-1956, DS-1966), a value holding one other than as a \
              value compared whole or through an index that is not an integer literal \
-             (DS-1939), or the binding in an arm of a branch expression or a `break` value \
-             (DS-1940), or it \
+             (DS-1939), the binding is read in, or bound to, a branch expression or a labeled \
+             block whose arms differ in derivation (DS-1940), or it \
              appears in tokens this capability does not parse), so the result reaching the \
              assert is neither proven nor refuted (DS-1680)"
+                .to_owned(),
+        );
+    }
+    if any_branch_unknown {
+        return DaVerdict::Unknown(
+            "a declared target's result reaches an assert-equivalent or a position deciding a \
+             failure divergence only through a branch expression (`if`, `if let`, `match`) or a \
+             labeled block whose arms or exits, other than failure divergences (DS-1951), are \
+             not all derived from a target's result at the position read, so the value is \
+             neither shown derived nor shown underived (DS-1940, DS-1680)"
                 .to_owned(),
         );
     }
@@ -3003,6 +3039,9 @@ enum TargetCallVerification {
     /// The result flows into a delegation target in an assert-equivalent's
     /// checked argument or in a binding that reaches one (DS-641, DS-1960).
     Delegated,
+    /// A call flows to an assert-equivalent or a deciding position only through a
+    /// branch whose arms are not all derived (DS-1940).
+    BranchUnknown,
     /// No assert-equivalent is reached, but a binding of the result is used in a
     /// checked argument of a `debug_assert*` (DS-1954).
     DebugAssertOnly,
@@ -3046,6 +3085,7 @@ fn binding_reach(
     text: &str,
     binding: &DerivedBinding,
     targets: &[String],
+    sources: &JoinSources,
     assert_spans: &[(usize, usize)],
     divergences: &[Divergence<'_>],
 ) -> BindingReach {
@@ -3069,6 +3109,7 @@ fn binding_reach(
                 macro_name_before(text, start),
                 name,
                 targets,
+                sources,
                 overwrites,
             )
         })
@@ -3079,6 +3120,7 @@ fn binding_reach(
         divergences,
         binding,
         targets,
+        sources,
         overwrites,
     ));
     // A name bound again or changed in place is not shown to mean this binding,
@@ -3156,6 +3198,7 @@ fn span_binding_reach(
     macro_name: Option<&str>,
     binding: &str,
     targets: &[String],
+    sources: &JoinSources,
     overwrites: &[Vec<PlaceStep>],
 ) -> BindingReach {
     let Ok(tokens) = span_text.parse::<proc_macro2::TokenStream>() else {
@@ -3178,7 +3221,7 @@ fn span_binding_reach(
     ) else {
         return BindingReach::Uncertain;
     };
-    let mut visitor = CheckedCallVisitor::new(None, Some(binding), targets);
+    let mut visitor = CheckedCallVisitor::new(None, Some(binding), targets, sources);
     visitor.probe_overwrites = overwrites;
     // `assert_eq!` / `assert_ne!` compare their two checked arguments whole.
     let compares = matches!(macro_name, Some("assert_eq" | "assert_ne"));
@@ -3198,7 +3241,7 @@ fn span_binding_reach(
 /// A use that flows to the compared value decides before a use handed to a
 /// delegation target (DS-623, DS-1962).
 fn probe_reach(visitor: &CheckedCallVisitor<'_>) -> BindingReach {
-    if visitor.opaque || visitor.probe_rebound || visitor.probe_in_branch {
+    if visitor.opaque || visitor.probe_rebound || visitor.probe_in_branch || visitor.mixed {
         BindingReach::Uncertain
     } else if visitor.probe_flows {
         BindingReach::Reaches
@@ -3293,6 +3336,9 @@ struct MacroUse {
     /// A use of the name in the tokens of a macro where DS-1962 does not count a call
     /// (in a closure, an `async` block or a nested item).
     non_counted: bool,
+    /// A call in a checked argument of an assert flows only through a branch whose
+    /// arms differ (DS-1940).
+    mixed: bool,
 }
 
 /// Derivation (not stated in DS-615 / DS-651 / DS-1680): a macro's tokens are not
@@ -3314,6 +3360,7 @@ fn macro_target_use(
     text: &str,
     symbol: &str,
     targets: &[String],
+    sources: &JoinSources,
     regions: &[(usize, usize)],
 ) -> MacroUse {
     let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
@@ -3323,6 +3370,7 @@ fn macro_target_use(
     let mut visitor = MacroUseVisitor {
         names: &names,
         targets,
+        sources,
         regions,
         found: MacroUse::default(),
     };
@@ -3500,6 +3548,7 @@ impl<'ast> Visit<'ast> for ValueUseVisitor<'_> {
 struct MacroUseVisitor<'a> {
     names: &'a NameUse<'a>,
     targets: &'a [String],
+    sources: &'a JoinSources,
     /// DS-1962's regions that are not counted.
     regions: &'a [(usize, usize)],
     found: MacroUse,
@@ -3524,10 +3573,11 @@ impl<'ast> Visit<'ast> for MacroUseVisitor<'_> {
             self.found.opaque = true;
             return;
         };
-        let mut calls = CheckedCallVisitor::new(Some(self.names), None, self.targets);
+        let mut calls = CheckedCallVisitor::new(Some(self.names), None, self.targets, self.sources);
         for expression in &arguments.checked {
             calls.visit_expr(expression);
         }
+        self.found.mixed |= calls.mixed;
         self.found.verified_path |= calls.path;
         self.found.verified_method |= calls.method;
         self.found.delegated |= calls.delegated;
@@ -3584,6 +3634,17 @@ struct CheckedCallVisitor<'a> {
     probe: Option<&'a str>,
     /// Every declared target's symbol, whose calls are not delegation targets.
     targets: &'a [String],
+    /// The values derived from the target's result, read to join the arms of a
+    /// branch (DS-1940).
+    sources: &'a JoinSources,
+    /// This visitor classifies one arm of a branch: it looks for any of `sources`
+    /// (and `probe`) where it flows, recorded in `source_flows`.
+    classifying: bool,
+    /// A value of `sources` is used where it flows (`classifying` only).
+    source_flows: bool,
+    /// What is looked for flows only through a branch whose arms are not all
+    /// derived (DS-1940), so it is neither shown derived nor shown underived.
+    mixed: bool,
     flows: bool,
     /// Inside an argument of a delegation target (DS-1960).
     delegating: bool,
@@ -3719,11 +3780,20 @@ enum ArgumentFlow {
 }
 
 impl<'a> CheckedCallVisitor<'a> {
-    fn new(names: Option<&'a NameUse<'a>>, probe: Option<&'a str>, targets: &'a [String]) -> Self {
+    fn new(
+        names: Option<&'a NameUse<'a>>,
+        probe: Option<&'a str>,
+        targets: &'a [String],
+        sources: &'a JoinSources,
+    ) -> Self {
         Self {
             names,
             probe,
             targets,
+            sources,
+            classifying: false,
+            source_flows: false,
+            mixed: false,
             flows: true,
             delegating: false,
             path: false,
@@ -3753,6 +3823,164 @@ impl<'a> CheckedCallVisitor<'a> {
         self.in_branch = true;
         visit(self);
         self.in_branch = outer;
+    }
+
+    /// Whether every arm of `arms` that is not a failure divergence (DS-1951) carries,
+    /// at the position `steps` select, a value derived from the target's result
+    /// (DS-1940). Each arm is read by a classifying visitor that counts a call of any
+    /// declared target, a binding of `sources` and `probe`, so an arm derived through
+    /// another of them than the one looked for counts as derived too. With no arm
+    /// left, the value is not shown derived.
+    fn arms_all_derived(&self, arms: &[Arm<'_>], steps: &[Projection<'_>]) -> bool {
+        let mut counted = false;
+        for arm in arms {
+            if arm.always_fails() {
+                continue;
+            }
+            let mut classifier =
+                CheckedCallVisitor::new(None, self.probe, self.targets, self.sources);
+            classifier.classifying = true;
+            classifier.probe_overwrites = self.probe_overwrites;
+            classifier.path_unknown = self.path_unknown;
+            classifier.init_mode = self.init_mode;
+            match arm {
+                Arm::Expr(expression) => classifier.visit_projected(expression, steps),
+                Arm::Block(block) => classifier.visit_block_projected(block, steps),
+                Arm::Unit => {}
+            }
+            if !(classifier.source_flows || classifier.probe_flows) {
+                return false;
+            }
+            counted = true;
+        }
+        counted
+    }
+
+    /// Visits a value that joins `arms` with `visit`, which reads it as any other
+    /// value. DS-1940: unless every arm is derived at `steps`, the joined value is not
+    /// shown derived, so what `visit` finds flowing is recorded as `mixed` instead.
+    fn visit_join(
+        &mut self,
+        arms: &[Arm<'_>],
+        steps: &[Projection<'_>],
+        visit: impl FnOnce(&mut Self),
+    ) {
+        if self.arms_all_derived(arms, steps) {
+            return visit(self);
+        }
+        let outer = (
+            std::mem::take(&mut self.path),
+            std::mem::take(&mut self.method),
+            std::mem::take(&mut self.probe_flows),
+            std::mem::take(&mut self.source_flows),
+        );
+        visit(self);
+        if self.path || self.method || self.probe_flows || self.source_flows {
+            self.mixed = true;
+        }
+        (self.path, self.method, self.probe_flows, self.source_flows) = outer;
+    }
+
+    /// Records a use of one of `sources` where `self.flows` says (`classifying` only).
+    fn found_source(&mut self) {
+        if self.classifying && self.flows && !self.delegating {
+            self.source_flows = true;
+        }
+    }
+
+    /// The arms of an `if` (a missing `else` is a unit arm).
+    fn if_arms(node: &syn::ExprIf) -> Vec<Arm<'_>> {
+        vec![
+            Arm::Block(&node.then_branch),
+            node.else_branch
+                .as_ref()
+                .map_or(Arm::Unit, |(_, other)| Arm::Expr(other)),
+        ]
+    }
+
+    /// The exits of a labeled block: its body and the value of each `break` that
+    /// leaves it (a `break` without a value is a unit exit).
+    fn labeled_exits<'e>(node: &'e syn::ExprBlock, label: &syn::Label) -> Vec<Arm<'e>> {
+        let mut breaks = LabeledBreaks {
+            label: &label.name,
+            found: Vec::new(),
+        };
+        breaks.visit_block(&node.block);
+        std::iter::once(Arm::Block(&node.block))
+            .chain(
+                breaks
+                    .found
+                    .into_iter()
+                    .map(|value| value.map_or(Arm::Unit, Arm::Expr)),
+            )
+            .collect()
+    }
+
+    /// Visits a block whose value `steps` project: they are applied to its tail
+    /// expression.
+    fn visit_block_projected(&mut self, node: &syn::Block, steps: &[Projection<'_>]) {
+        let outer = self.flows;
+        let outer_delegating = self.delegating;
+        for (index, statement) in node.stmts.iter().enumerate() {
+            let mut delegates = false;
+            let is_tail = index + 1 == node.stmts.len();
+            self.flows = outer
+                && match statement {
+                    syn::Stmt::Expr(_, None) => is_tail,
+                    syn::Stmt::Local(local) => {
+                        match self.local_reaches_tail(local, &node.stmts[index + 1..]) {
+                            TailReach::Flows => true,
+                            TailReach::Delegated => {
+                                delegates = true;
+                                true
+                            }
+                            TailReach::No => false,
+                        }
+                    }
+                    syn::Stmt::Expr(_, Some(_)) | syn::Stmt::Item(_) | syn::Stmt::Macro(_) => false,
+                };
+            self.delegating = outer_delegating || delegates;
+            match statement {
+                // The initializer's value goes on under another name, whose
+                // projections are not followed back to `probe` (DS-1939).
+                syn::Stmt::Local(_) => self.path_unknown(|visitor| visitor.visit_stmt(statement)),
+                syn::Stmt::Expr(tail, None) if is_tail && !steps.is_empty() => {
+                    self.visit_projected(tail, steps);
+                }
+                _ => self.visit_stmt(statement),
+            }
+        }
+        self.flows = outer;
+        self.delegating = outer_delegating;
+    }
+
+    /// Visits `node` as an `if` whose value `steps` project.
+    fn visit_if_projected(&mut self, node: &syn::ExprIf, steps: &[Projection<'_>]) {
+        let arms = Self::if_arms(node);
+        self.visit_join(&arms, steps, |visitor| {
+            visitor.dropping(|visitor| visitor.visit_expr(&node.cond));
+            visitor.branch_arm(|visitor| {
+                visitor.visit_block(&node.then_branch);
+                if let Some((_, other)) = &node.else_branch {
+                    visitor.visit_expr(other);
+                }
+            });
+        });
+    }
+
+    /// Visits `node` as a `match` whose value `steps` project.
+    fn visit_match_projected(&mut self, node: &syn::ExprMatch, steps: &[Projection<'_>]) {
+        let arms: Vec<Arm<'_>> = node.arms.iter().map(|arm| Arm::Expr(&arm.body)).collect();
+        self.visit_join(&arms, steps, |visitor| {
+            visitor.dropping(|visitor| visitor.visit_expr(&node.expr));
+            for arm in &node.arms {
+                visitor.visit_pat(&arm.pat);
+                if let Some((_, guard)) = &arm.guard {
+                    visitor.dropping(|visitor| visitor.visit_expr(guard));
+                }
+                visitor.branch_arm(|visitor| visitor.visit_expr(&arm.body));
+            }
+        });
     }
 
     /// Records a read of `probe` that projects the path `steps` (innermost first)
@@ -3881,6 +4109,27 @@ impl<'a> CheckedCallVisitor<'a> {
         let Some((first, rest)) = steps.split_first() else {
             return self.visit_expr(base);
         };
+        // DS-1940: the steps select a position of each arm's value. The value is read
+        // whole as before, and its arms are joined at the selected position.
+        let whole = |visitor: &mut Self| visitor.path_unknown(|visitor| visitor.visit_expr(base));
+        match base {
+            syn::Expr::If(node) => return self.visit_join(&Self::if_arms(node), steps, whole),
+            syn::Expr::Match(node) => {
+                let arms: Vec<Arm<'_>> = node.arms.iter().map(|arm| Arm::Expr(&arm.body)).collect();
+                return self.visit_join(&arms, steps, whole);
+            }
+            syn::Expr::Block(node) => match &node.label {
+                Some(label) => {
+                    return self.visit_join(&Self::labeled_exits(node, label), steps, whole);
+                }
+                None if self.classifying => return self.visit_block_projected(&node.block, steps),
+                None => {}
+            },
+            syn::Expr::Unsafe(node) if self.classifying => {
+                return self.visit_block_projected(&node.block, steps);
+            }
+            _ => {}
+        }
         let selected = match first {
             Projection::Index(index) => *index,
             Projection::Member(syn::Member::Unnamed(member)) => Some(member.index as usize),
@@ -3948,6 +4197,15 @@ impl<'a> CheckedCallVisitor<'a> {
 
     /// Whether the tokens of a macro mention what is looked for.
     fn macro_relevant(&self, node: &syn::Macro) -> bool {
+        if self.classifying
+            && self
+                .targets
+                .iter()
+                .chain(&self.sources.names)
+                .any(|name| tokens_mention_ident(node.tokens.clone(), name))
+        {
+            return true;
+        }
         match (self.probe, self.names) {
             (Some(name), _) => tokens_mention_ident(node.tokens.clone(), name),
             (None, Some(names)) => names.tokens_use_name(node.tokens.clone()),
@@ -4014,7 +4272,7 @@ impl<'a> CheckedCallVisitor<'a> {
             return TailReach::No;
         }
         let name = binding.ident.to_string();
-        let mut probe = CheckedCallVisitor::new(None, Some(&name), self.targets);
+        let mut probe = CheckedCallVisitor::new(None, Some(&name), self.targets, self.sources);
         probe.flows = false;
         for statement in statements {
             probe.visit_stmt(statement);
@@ -4040,6 +4298,170 @@ enum TailReach {
     Flows,
     /// The tail hands the name to a delegation target (DS-1960).
     Delegated,
+}
+
+/// The values derived from a target's result that a branch's arms are read against
+/// (DS-1940): a call of any declared target (`CheckedCallVisitor::targets`), and the
+/// names of bindings that hold such a value.
+#[derive(Default)]
+struct JoinSources {
+    /// Bindings derived from the target's result, bound once, not `mut`, and neither
+    /// `Unknown` (DS-1939) nor joined from arms that differ (DS-1940).
+    names: Vec<String>,
+}
+
+impl JoinSources {
+    fn new<'b>(text: &str, bindings: impl IntoIterator<Item = &'b DerivedBinding>) -> Self {
+        let mut names: Vec<String> = bindings
+            .into_iter()
+            .filter(|binding| {
+                (binding.has_path_call || binding.has_method_call)
+                    && !binding.uncertain
+                    && !binding.mutable
+                    && count_rebindings(text, &binding.name) == 1
+            })
+            .map(|binding| binding.name.clone())
+            .collect();
+        names.sort();
+        names.dedup();
+        Self { names }
+    }
+}
+
+/// One arm of a branch expression, or one exit of a labeled block (DS-1940).
+#[derive(Clone, Copy)]
+enum Arm<'e> {
+    Expr(&'e syn::Expr),
+    Block(&'e syn::Block),
+    /// A missing `else`, or a `break` without a value: the unit value.
+    Unit,
+}
+
+impl Arm<'_> {
+    /// DS-1940 leaves out an arm that is a failure divergence (DS-1951).
+    fn always_fails(&self) -> bool {
+        match self {
+            Arm::Expr(expression) => expression_always_fails(expression),
+            Arm::Block(block) => block_always_fails(block),
+            Arm::Unit => false,
+        }
+    }
+}
+
+/// Whether every path through `expression` ends in a failure divergence (DS-1951),
+/// read from syntax: a failure divergence macro, reached after statements that fall
+/// through, in a block, or in every arm of an `if` with an `else` or of a `match`.
+/// Narrower than DS-1951: a `return Err(..)` is not read, as whether the Test returns
+/// `Result` is not known here, so such an arm counts as not derived.
+fn expression_always_fails(expression: &syn::Expr) -> bool {
+    match expression {
+        syn::Expr::Macro(node) => is_failure_divergence_macro(&node.mac),
+        syn::Expr::Paren(inner) => expression_always_fails(&inner.expr),
+        syn::Expr::Group(inner) => expression_always_fails(&inner.expr),
+        // A labeled block may be left by a `break` to its label.
+        syn::Expr::Block(node) => node.label.is_none() && block_always_fails(&node.block),
+        syn::Expr::Unsafe(node) => block_always_fails(&node.block),
+        syn::Expr::If(node) => {
+            let condition = match unwrap_parens(&node.cond) {
+                syn::Expr::Let(binding) => &binding.expr,
+                condition => condition,
+            };
+            !expression_may_exit(condition)
+                && block_always_fails(&node.then_branch)
+                && node
+                    .else_branch
+                    .as_ref()
+                    .is_some_and(|(_, other)| expression_always_fails(other))
+        }
+        syn::Expr::Match(node) => {
+            !node.arms.is_empty()
+                && !expression_may_exit(&node.expr)
+                && node.arms.iter().all(|arm| {
+                    arm.guard
+                        .as_ref()
+                        .is_none_or(|(_, guard)| !expression_may_exit(guard))
+                        && expression_always_fails(&arm.body)
+                })
+        }
+        _ => false,
+    }
+}
+
+fn block_always_fails(block: &syn::Block) -> bool {
+    for statement in &block.stmts {
+        let fails = match statement {
+            syn::Stmt::Macro(node) => is_failure_divergence_macro(&node.mac),
+            syn::Stmt::Expr(expression, _) => expression_always_fails(expression),
+            syn::Stmt::Local(local) => local
+                .init
+                .as_ref()
+                .is_some_and(|init| init.diverge.is_none() && expression_always_fails(&init.expr)),
+            syn::Stmt::Item(_) => false,
+        };
+        if fails {
+            return true;
+        }
+        let leaves_by_else = matches!(statement, syn::Stmt::Local(local)
+            if local.init.as_ref().is_some_and(|init| init.diverge.is_some()));
+        if leaves_by_else || statement_completion(statement) != Completion::Falls {
+            return false;
+        }
+    }
+    false
+}
+
+/// The values of the `break`s that leave the block labeled `label`, outside closures,
+/// `async` blocks, nested items and an inner expression with the same label.
+struct LabeledBreaks<'e, 'l> {
+    label: &'l syn::Lifetime,
+    found: Vec<Option<&'e syn::Expr>>,
+}
+
+impl<'e> Visit<'e> for LabeledBreaks<'e, '_> {
+    fn visit_expr_break(&mut self, node: &'e syn::ExprBreak) {
+        if node
+            .label
+            .as_ref()
+            .is_some_and(|label| label.ident == self.label.ident)
+        {
+            self.found.push(node.expr.as_deref());
+        }
+        syn::visit::visit_expr_break(self, node);
+    }
+
+    fn visit_expr_block(&mut self, node: &'e syn::ExprBlock) {
+        if !self.shadows(node.label.as_ref()) {
+            syn::visit::visit_expr_block(self, node);
+        }
+    }
+
+    fn visit_expr_loop(&mut self, node: &'e syn::ExprLoop) {
+        if !self.shadows(node.label.as_ref()) {
+            syn::visit::visit_expr_loop(self, node);
+        }
+    }
+
+    fn visit_expr_while(&mut self, node: &'e syn::ExprWhile) {
+        if !self.shadows(node.label.as_ref()) {
+            syn::visit::visit_expr_while(self, node);
+        }
+    }
+
+    fn visit_expr_for_loop(&mut self, node: &'e syn::ExprForLoop) {
+        if !self.shadows(node.label.as_ref()) {
+            syn::visit::visit_expr_for_loop(self, node);
+        }
+    }
+
+    fn visit_expr_closure(&mut self, _node: &'e syn::ExprClosure) {}
+    fn visit_expr_async(&mut self, _node: &'e syn::ExprAsync) {}
+    fn visit_item(&mut self, _node: &'e syn::Item) {}
+}
+
+impl LabeledBreaks<'_, '_> {
+    fn shadows(&self, label: Option<&syn::Label>) -> bool {
+        label.is_some_and(|label| label.name.ident == self.label.ident)
+    }
 }
 
 impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
@@ -4100,6 +4522,9 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
             {
                 self.found_target_call(false);
             }
+            if last.is_some_and(|name| self.is_declared_target(name)) {
+                self.found_source();
+            }
             // A probed `let` name may be the callee (`let f = |x| ..; f(2)`).
             if self.probe.is_some() {
                 self.visit_expr(&node.func);
@@ -4126,6 +4551,9 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
         if self.names.is_some_and(|names| node.method == names.symbol) {
             self.found_target_call(true);
         }
+        if self.is_declared_target(&node.method) {
+            self.found_source();
+        }
         // DS-1937: the receiver flows to the method's value.
         self.visit_expr(&node.receiver);
         if let Some(turbofish) = &node.turbofish {
@@ -4148,6 +4576,14 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
 
     fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
         self.visit_path_generics(node);
+        if node.qself.is_none()
+            && node
+                .path
+                .get_ident()
+                .is_some_and(|ident| self.sources.names.iter().any(|name| ident == name))
+        {
+            self.found_source();
+        }
         if let Some(name) = self.probe {
             if node.qself.is_none() && node.path.is_ident(name) {
                 self.probe_read(&[]);
@@ -4188,57 +4624,25 @@ impl<'ast> Visit<'ast> for CheckedCallVisitor<'_> {
     }
 
     fn visit_block(&mut self, node: &'ast syn::Block) {
-        let outer = self.flows;
-        let outer_delegating = self.delegating;
-        for (index, statement) in node.stmts.iter().enumerate() {
-            let mut delegates = false;
-            self.flows = outer
-                && match statement {
-                    syn::Stmt::Expr(_, None) => index + 1 == node.stmts.len(),
-                    syn::Stmt::Local(local) => {
-                        match self.local_reaches_tail(local, &node.stmts[index + 1..]) {
-                            TailReach::Flows => true,
-                            TailReach::Delegated => {
-                                delegates = true;
-                                true
-                            }
-                            TailReach::No => false,
-                        }
-                    }
-                    syn::Stmt::Expr(_, Some(_)) | syn::Stmt::Item(_) | syn::Stmt::Macro(_) => false,
-                };
-            self.delegating = outer_delegating || delegates;
-            if matches!(statement, syn::Stmt::Local(_)) {
-                // The initializer's value goes on under another name, whose
-                // projections are not followed back to `probe` (DS-1939).
-                self.path_unknown(|visitor| visitor.visit_stmt(statement));
-            } else {
-                self.visit_stmt(statement);
-            }
-        }
-        self.flows = outer;
-        self.delegating = outer_delegating;
+        self.visit_block_projected(node, &[]);
     }
 
-    fn visit_expr_if(&mut self, node: &'ast syn::ExprIf) {
-        self.dropping(|visitor| visitor.visit_expr(&node.cond));
-        self.branch_arm(|visitor| {
-            visitor.visit_block(&node.then_branch);
-            if let Some((_, other)) = &node.else_branch {
-                visitor.visit_expr(other);
-            }
+    fn visit_expr_block(&mut self, node: &'ast syn::ExprBlock) {
+        let Some(label) = &node.label else {
+            return self.visit_block(&node.block);
+        };
+        let exits = Self::labeled_exits(node, label);
+        self.visit_join(&exits, &[], |visitor| {
+            syn::visit::visit_expr_block(visitor, node);
         });
     }
 
+    fn visit_expr_if(&mut self, node: &'ast syn::ExprIf) {
+        self.visit_if_projected(node, &[]);
+    }
+
     fn visit_expr_match(&mut self, node: &'ast syn::ExprMatch) {
-        self.dropping(|visitor| visitor.visit_expr(&node.expr));
-        for arm in &node.arms {
-            self.visit_pat(&arm.pat);
-            if let Some((_, guard)) = &arm.guard {
-                self.dropping(|visitor| visitor.visit_expr(guard));
-            }
-            self.branch_arm(|visitor| visitor.visit_expr(&arm.body));
-        }
+        self.visit_match_projected(node, &[]);
     }
 
     fn visit_expr_assign(&mut self, node: &'ast syn::ExprAssign) {
@@ -5094,7 +5498,17 @@ fn target_call_result_is_verified(
         find_call_sites(text, symbol)
             .into_iter()
             .partition(|site| in_regions(site.callee_start, regions));
-    let macro_use = macro_target_use(text, symbol, targets, regions);
+    // DS-1940: the arms of a branch are read against every value derived from the
+    // target's result. The bindings are found once without the names, whose arms
+    // may then read as differing, and again with the names those found.
+    let pattern_bindings = find_pattern_bindings(text, symbol, regions);
+    let first =
+        find_let_bindings_containing_call(text, symbol, targets, &JoinSources::default(), regions);
+    let first_sources = JoinSources::new(text, first.iter().chain(&pattern_bindings));
+    let let_bindings =
+        find_let_bindings_containing_call(text, symbol, targets, &first_sources, regions);
+    let sources = JoinSources::new(text, let_bindings.iter().chain(&pattern_bindings));
+    let macro_use = macro_target_use(text, symbol, targets, &sources, regions);
     let function = syn::parse_str::<syn::ItemFn>(text).ok();
     let divergences = function
         .as_ref()
@@ -5106,24 +5520,36 @@ fn target_call_result_is_verified(
     let decided = function
         .as_ref()
         .map_or_else(DecidedCalls::default, |function| {
-            divergence_target_reach(&divergences, &NameUse::new(text, symbol, function), targets)
+            divergence_target_reach(
+                &divergences,
+                &NameUse::new(text, symbol, function),
+                targets,
+                &sources,
+            )
         });
-    let bindings: Vec<(DerivedBinding, BindingReach)> =
-        find_let_bindings_containing_call(text, symbol, targets, regions)
-            .into_iter()
-            .chain(find_pattern_bindings(text, symbol, regions))
-            .map(|binding| {
-                let reach = binding_reach(text, &binding, targets, assert_spans, &divergences);
-                // DS-1939: a binding whose position is not fixed by syntax over a value
-                // whose positions differ is UNKNOWN wherever it is used.
-                let reach = if binding.uncertain && !matches!(reach, BindingReach::NotReached) {
-                    BindingReach::Uncertain
-                } else {
-                    reach
-                };
-                (binding, reach)
-            })
-            .collect();
+    let mixed = macro_use.mixed || decided.mixed;
+    let bindings: Vec<(DerivedBinding, BindingReach)> = let_bindings
+        .into_iter()
+        .chain(pattern_bindings)
+        .map(|binding| {
+            let reach = binding_reach(
+                text,
+                &binding,
+                targets,
+                &sources,
+                assert_spans,
+                &divergences,
+            );
+            // DS-1939: a binding whose position is not fixed by syntax over a value
+            // whose positions differ is UNKNOWN wherever it is used.
+            let reach = if binding.uncertain && !matches!(reach, BindingReach::NotReached) {
+                BindingReach::Uncertain
+            } else {
+                reach
+            };
+            (binding, reach)
+        })
+        .collect();
     // Derivation from DS-623 and DS-1962: DA-003 fails only when the result is not
     // verified at all (DS-623), and one result that reaches an assert-equivalent
     // keeps the other calls from making it UNKNOWN (DS-1962). A delegation target
@@ -5146,6 +5572,8 @@ fn target_call_result_is_verified(
             || ((macro_use.verified_method || decided.method) && !macro_use.opaque)
         {
             TargetCallVerification::Verified
+        } else if mixed {
+            TargetCallVerification::BranchUnknown
         } else if delegated {
             TargetCallVerification::Delegated
         } else if macro_use.opaque {
@@ -5205,6 +5633,9 @@ fn target_call_result_is_verified(
     if binding_uncertain {
         return TargetCallVerification::BindingUncertain;
     }
+    if mixed {
+        return TargetCallVerification::BranchUnknown;
+    }
     if binding_into_target {
         return TargetCallVerification::IntoTargetArgument;
     }
@@ -5260,7 +5691,7 @@ fn target_call_result_is_verified(
     }
     if bindings
         .iter()
-        .any(|(binding, _)| reaches_debug_assert(text, &binding.name, targets))
+        .any(|(binding, _)| reaches_debug_assert(text, &binding.name, targets, &sources))
     {
         return TargetCallVerification::DebugAssertOnly;
     }
@@ -5270,12 +5701,12 @@ fn target_call_result_is_verified(
 /// Whether the name of a binding derived from the target's result is used in a
 /// checked argument of a `debug_assert*` where it may flow (DS-1954). A use whose
 /// value is dropped there, or one in the message arguments (DS-1935), is not.
-fn reaches_debug_assert(text: &str, name: &str, targets: &[String]) -> bool {
+fn reaches_debug_assert(text: &str, name: &str, targets: &[String], sources: &JoinSources) -> bool {
     debug_assert_macros(text).iter().any(|node| {
         let Some(arguments) = macro_arguments(node) else {
             return tokens_mention_ident(node.tokens.clone(), name);
         };
-        let mut probe = CheckedCallVisitor::new(None, Some(name), targets);
+        let mut probe = CheckedCallVisitor::new(None, Some(name), targets, sources);
         for expression in &arguments.checked {
             probe.visit_expr(expression);
         }
@@ -5510,6 +5941,7 @@ fn find_let_bindings_containing_call(
     text: &str,
     symbol: &str,
     targets: &[String],
+    sources: &JoinSources,
     regions: &[(usize, usize)],
 ) -> Vec<DerivedBinding> {
     let Ok(function) = syn::parse_str::<syn::ItemFn>(text) else {
@@ -5519,6 +5951,7 @@ fn find_let_bindings_containing_call(
     let mut visitor = LetBindingVisitor {
         names: &names,
         targets,
+        sources,
         bindings: Vec::new(),
     };
     visitor.visit_item_fn(&function);
@@ -5572,16 +6005,20 @@ fn is_whole_result(expression: &syn::Expr, symbol: &str) -> bool {
 struct LetBindingVisitor<'a> {
     names: &'a NameUse<'a>,
     targets: &'a [String],
+    sources: &'a JoinSources,
     bindings: Vec<DerivedBinding>,
 }
 
 impl<'ast> Visit<'ast> for LetBindingVisitor<'_> {
     fn visit_local(&mut self, node: &'ast syn::Local) {
         if let (syn::Pat::Ident(pattern), Some(init)) = (&node.pat, &node.init) {
-            let mut calls = CheckedCallVisitor::new(Some(self.names), None, self.targets);
+            let mut calls =
+                CheckedCallVisitor::new(Some(self.names), None, self.targets, self.sources);
             calls.init_mode = true;
             calls.visit_expr(init.expr.as_ref());
-            if calls.path || calls.method || calls.delegated {
+            // DS-1940: a value joined from arms that differ is neither shown derived
+            // nor shown underived, wherever the binding is used.
+            if calls.path || calls.method || calls.delegated || calls.mixed {
                 self.bindings.push(DerivedBinding {
                     name: pattern.ident.to_string(),
                     has_path_call: calls.path,
@@ -5590,7 +6027,7 @@ impl<'ast> Visit<'ast> for LetBindingVisitor<'_> {
                     mutable: pattern.mutability.is_some(),
                     whole_result: is_whole_result(&init.expr, self.names.symbol),
                     offset: span_offset(node.span().start(), self.names.text),
-                    uncertain: false,
+                    uncertain: calls.mixed,
                 });
             }
         }
@@ -8377,6 +8814,76 @@ mod tests {
         }
     }
 
+    /// DS-1940: a branch whose arms other than failure divergences (DS-1951) differ in
+    /// derivation at the position read is not shown derived, wherever it is.
+    /// @vtest.id TEST-ORACLE-DA-003-BRANCH-WITH-DIFFERING-ARMS-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-003-BRANCH-ARM-DERIVATION
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.intent `if`・`if let`・`match` とラベル付きブロックの値が、失敗として発散する腕を除いて、読む位置で target の結果から派生する腕と派生しない腕を持つとき(入れ子の分岐、let で束縛した分岐、`return` で抜ける腕、射影した位置、発散を決める位置を含む)、DA-003 が違反なしにならないことを確認する
+    #[test]
+    fn a_branch_whose_arms_differ_in_derivation_is_unknown() {
+        for body in [
+            "let x = double(2); assert_eq!(if c() { 5 } else { x }, 5);",
+            "let x = double(2); assert_eq!('a: { if c() { break 'a 5; } x }, 4);",
+            "assert_eq!('a: { if c() { break 'a 5; } double(2) }, 4);",
+            "assert_eq!(if c() { double(2) } else { 5 }, 4);",
+            "assert_eq!(match k() { 0 => double(2), _ => 5 }, 4);",
+            "assert_eq!(if let Some(_) = o() { double(2) } else { 5 }, 4);",
+            "assert_eq!(if a() { if b() { double(2) } else { 5 } } else { double(3) }, 4);",
+            "let y = if c() { double(2) } else { 5 }; assert_eq!(y, 4);",
+            "let y = match k() { 0 => 5, _ => double(2) }; assert_eq!(y + 1, 5);",
+            "assert_eq!(if c() { double(2) } else { return; }, 4);",
+            "assert_eq!(if c() { 5 } else { assert!(false); double(3) }, 5);",
+            "assert_eq!((if c() { (double(2), 1) } else { (double(3), 2) }).1, 1);",
+            "let x = double(2); assert_eq!((if c() { (double(3), 1) } else { (double(3), x) }).1, 1);",
+            "assert!(if c() { double(2) == 4 } else { false });",
+            "if (if c() { double(2) } else { 5 }) != 4 { panic!() }",
+        ] {
+            assert!(
+                matches!(da_003_of(body), DaVerdict::Unknown(_)),
+                "{body}: {:?}",
+                da_003_of(body)
+            );
+        }
+    }
+
+    /// DS-1940: a branch whose arms other than failure divergences are all derived,
+    /// through any call of a declared target or any binding of one, stays derived.
+    /// @vtest.id TEST-ORACLE-DA-003-BRANCH-WITH-DERIVED-ARMS-STAYS-NO-VIOLATION
+    /// @vtest.covers VO-ORACLE-DA-003-BRANCH-ARM-DERIVATION
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.intent 失敗として発散する腕を除くすべての腕が、読む位置で target の結果(別の呼出や別の束縛を含む)から派生する分岐とラベル付きブロックは、assert に届けば DA-003 が違反なしのままであることを確認する
+    #[test]
+    fn a_branch_whose_arms_are_all_derived_stays_no_violation() {
+        for body in [
+            "assert_eq!(if c() { double(2) } else { double(3) }, 4);",
+            "let x = double(2); assert_eq!(if c() { double(3) } else { x }, 4);",
+            "let x = double(2); let y = double(3); assert_eq!(if c() { x } else { y }, 4);",
+            "let x = double(2); assert_eq!(match k() { 0 => x, _ => unreachable!() }, 4);",
+            "let y = if c() { double(2) } else { double(3) }; assert_eq!(y, 4);",
+            "assert_eq!(if c() { double(2) } else { panic!(\"no\") }, 4);",
+            "assert_eq!((if c() { (double(2), 1) } else { (double(3), 2) }).0, 4);",
+            "assert_eq!('a: { if c() { break 'a double(2); } double(3) }, 4);",
+            "assert_eq!(if a() { if b() { double(2) } else { double(1) } } else { double(3) }, 4);",
+        ] {
+            assert!(
+                matches!(da_003_of(body), DaVerdict::NoViolation),
+                "{body}: {:?}",
+                da_003_of(body)
+            );
+        }
+        // Derivation: an arm derived from another declared target's call counts as
+        // derived, as `JoinSources` reads every declared target.
+        let text =
+            "#[test]\nfn t() {\n    assert_eq!(if c() { double(2) } else { triple(1) }, 4);\n}\n";
+        let analysis = analyze(text, &["double".to_owned(), "triple".to_owned()], &[]);
+        assert!(
+            matches!(analysis.da_003, DaVerdict::NoViolation),
+            "{:?}",
+            analysis.da_003
+        );
+    }
+
     /// DS-1948: a compound assignment whose value absorbs fixes the position to the
     /// literal, so it is not derived; DS-1956: a raw field name is the same position.
     /// @vtest.id TEST-ORACLE-DA-003-ABSORBING-OR-RAW-PROJECTION-IS-NOT-PASS
@@ -8847,10 +9354,10 @@ mod tests {
             "assert_eq!({ let r = double(2); r + 1 }, 5);",
             "assert_eq!({ let r = double(2); r.value }, 4);",
             "assert_eq!({ let r = double(2); &r }, &4);",
-            "assert!(if c { double(2) == 4 } else { false });",
-            "assert_eq!(if c { double(2) } else { 0 }, 4);",
-            "assert!(match c { true => double(2) == 4, false => false });",
-            "assert_eq!(match c { 0 => 1, _ => double(2) }, 4);",
+            "assert!(if c { double(2) == 4 } else { double(3) == 6 });",
+            "assert_eq!(if c { double(2) } else { panic!() }, 4);",
+            "assert!(match c { true => double(2) == 4, false => unreachable!() });",
+            "assert_eq!(match c { 0 => double(1) * 4, _ => double(2) }, 4);",
         ] {
             let text = format!("#[test]\nfn t() {{\n    {text}\n}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
@@ -8925,7 +9432,7 @@ mod tests {
             "assert_eq!({ let r = double(2); format!(\"{}\", r) }, \"4\");",
             "assert_eq!({ { double(2) } }, 4);",
             "assert_eq!(const { 1 } + double(2), 5);",
-            "assert!(if double(2) > 0 { double(2) == 4 } else { false });",
+            "assert!(if double(2) > 0 { double(2) == 4 } else { double(3) == 6 });",
         ] {
             let text = format!("#[test]\nfn t() {{\n    {text}\n}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
@@ -9403,8 +9910,8 @@ mod tests {
         for text in [
             "let r = double(2) + 1;\n    assert_eq!(r, 5);",
             "let r = c.double(2).unwrap();\n    assert_eq!(r, 4);",
-            "let r = if c { double(2) } else { 0 };\n    assert_eq!(r, 4);",
-            "let r = match c { 0 => 1, _ => double(2) };\n    assert_eq!(r, 4);",
+            "let r = if c { double(2) } else { double(3) };\n    assert_eq!(r, 4);",
+            "let r = match c { 0 => unreachable!(), _ => double(2) };\n    assert_eq!(r, 4);",
             "let r = { let q = double(2); q };\n    assert_eq!(r, 4);",
             "let r = { double(1); double(2) };\n    assert_eq!(r, 4);",
             "let r = (double(2), 1).0;\n    assert_eq!(r, 4);",
