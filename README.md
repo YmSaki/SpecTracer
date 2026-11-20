@@ -272,8 +272,10 @@ The annotation is not just documentation. It gives the test an identity, states 
 ### 6. Scan, run, and verify
 
 In a new Cargo project without `Cargo.lock`, the first `vtest run` reports
-`E-EXEC-004` without writing Evidence because Cargo creates `Cargo.lock` during
-the run. Create `Cargo.lock` first with `cargo generate-lockfile`. Also ensure
+`E-EXEC-004` and exits `1`, because Cargo creates `Cargo.lock` while the first
+Test runs. That Test gets no Evidence and stays `NO_EVIDENCE (NOT_EXECUTED)`.
+Tests that run after it still get Evidence, bound to the state with the new
+`Cargo.lock`. Create `Cargo.lock` first with `cargo generate-lockfile`. Also ensure
 the project has a git commit, because Evidence binds to git `HEAD` (without a
 commit, `target_binding` stays `NO_EVIDENCE (STALE)`):
 
