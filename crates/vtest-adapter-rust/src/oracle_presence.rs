@@ -190,11 +190,14 @@
 //!   or a guard fixed to `true`, `false` for a guard fixed to `false`, with their
 //!   negations (`assert!(matches!(double(2), _))` is constant, as is
 //!   `X || matches!(x, _)`, which absorbs like `X || true`). Syntax does not tell a
-//!   struct from an enum variant, nor a binding from a constant or a unit variant:
-//!   `S { .. }` and `DaVerdict::Fail(_)` have one form, as do `x` and a lowercase
-//!   `const`. DS-1952 reads such a pattern as irrefutable, but only its type shows
-//!   whether it is, so its `matches!` is DS-621's "定数性を確定できない式" and
-//!   DA-001 escapes to `Unknown` rather than `Fail` (a real check of a variant) or
+//!   struct from an enum variant, nor a binding from a constant or a unit struct or
+//!   variant: `S { .. }` and `DaVerdict::Fail(_)` have one form, as do `x` and a
+//!   lowercase `const`, and `U` and `E::A`. DS-1952 reads a tuple-struct or struct
+//!   pattern of irrefutable parts and a single binding as irrefutable, and a path
+//!   pattern or a macro as refutable, but for each of them only the type shows
+//!   whether it is (a unit struct `U` is irrefutable for its type). Such a
+//!   `matches!` is DS-621's "定数性を確定できない式", so DA-001 escapes to
+//!   `Unknown` (DS-621) rather than `Fail` (a real check of a variant) or
 //!   `NoViolation` (a pattern no type refutes, which checks nothing). This covers a
 //!   tuple-struct, struct or path pattern, a lone identifier as the whole pattern
 //!   (`x`, `ref x`, `mut x`, `Kind`), an identifier written like a variant below it
@@ -207,8 +210,17 @@
 //!   `NoViolation`. `x @ _`, `_` and the like are fixed. A pattern refutable whatever
 //!   the type (a literal, a range, `Some` / `None` / `Ok` / `Err` read as the
 //!   prelude's variants, or a pattern holding one) and a guard that is not fixed stay
-//!   non-constant. This reading is DA-001's only: DA-003 and DA-006 read DS-1952 for
-//!   whether a divergence is reached as before (`may_be_refuted_by_type`). Remaining
+//!   non-constant. Reading an undecidable pattern as `true` is DA-001's only; the
+//!   value `fixed_value` gives the other analyses reads it as its scrutinee's value,
+//!   as before. One change reaches them through `fixed_value`: an `or` pattern below
+//!   the top with an irrefutable alternative (`(S { .. } | _, _)`,
+//!   `x @ (E::B(_) | _)`, `&(S { .. } | _)`, `(Some(_) | _, _)`) is irrefutable, as
+//!   DS-1952 names it, where `may_be_refuted_by_type` had left it unfixed for the
+//!   struct or variant in the other alternative. Its `matches!` is now `true`, so
+//!   DA-001 is `Fail` for an assert of it alone, and DA-003 reads
+//!   `X || matches!(v, (S { .. } | _, _))` as absorbing (`Unknown`) as for
+//!   `X || true`. Whether a divergence is reached after a pattern
+//!   (`may_be_refuted_by_type` in DA-003 / DA-006) is read as before. Remaining
 //!   limits: a user type named `Some` / `None` / `Ok` / `Err` that shadows the
 //!   prelude's is read as the prelude's variant, so a `matches!` over it stays
 //!   non-constant; a lowercase identifier below the top of the pattern
@@ -10364,7 +10376,7 @@ mod tests {
     /// irrefutable is an expression whose constancy is not decided, so DA-001 escapes
     /// to `Unknown`; a non-constant assert-equivalent beside it keeps `NoViolation`.
     /// @vtest.id TEST-ORACLE-DA-001-TYPE-DECIDED-MATCHES-IS-UNKNOWN
-    /// @vtest.covers VO-ORACLE-DA-001-CONSTANT-ASSERTION, VO-ORACLE-DA-001-IRREFUTABLE-MATCHES-IS-CONSTANT
+    /// @vtest.covers VO-ORACLE-DA-001-UNDETERMINED-CONSTANCY-UNKNOWN, VO-ORACLE-DA-001-IRREFUTABLE-MATCHES-IS-CONSTANT
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_001_argument_constancy
     /// @vtest.intent 構文からは反駁不能とも反駁可能とも決まらないパターン（構造体 S { .. }、列挙子 Enum::V(_)、パス、単独の識別子、長さを決めるスライス）の matches! だけを assert 相当に持つ Test は、DA-001 が FAIL にも違反なしにもならず UNKNOWN になり、その Test に非定数の assert_eq!(double(2), 4) を足すと違反なしになることを確認する
     #[test]
@@ -10410,6 +10422,39 @@ mod tests {
                 matches!(analysis.da_001, DaVerdict::NoViolation),
                 "{body}: {:?}",
                 analysis.da_001
+            );
+        }
+    }
+
+    /// DS-1952, DS-1965: an `or` pattern below the top with an irrefutable
+    /// alternative is irrefutable whatever the other alternative is, so its
+    /// `matches!` is `true`.
+    /// @vtest.id TEST-ORACLE-DA-001-NESTED-IRREFUTABLE-OR-IS-CONSTANT
+    /// @vtest.covers VO-ORACLE-DA-001-IRREFUTABLE-MATCHES-IS-CONSTANT
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::nested_pattern_class
+    /// @vtest.intent パターンの内側にあり、反駁不能な選択肢を含む or（(S { .. } | _, _)、x @ (E::B(_) | _)、&(S { .. } | _)）の matches! だけを持つ assert は DA-001 が FAIL になり、X || の形で含む assert は X || true と同じく DA-003 が UNKNOWN になることを確認する
+    #[test]
+    fn a_nested_or_pattern_with_an_irrefutable_alternative_is_constant() {
+        for pattern in [
+            "(mk_s(double(2)), 0), (S { .. } | _, _)",
+            "mk_e(double(2)), x @ (E::B(_) | _)",
+            "&mk_s(double(2)), &(S { .. } | _)",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    assert!(matches!({pattern}));\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_001, DaVerdict::Fail(_)),
+                "{text}: {:?}",
+                analysis.da_001
+            );
+            let text = format!(
+                "#[test]\nfn t() {{\n    assert!(double(2) == 4 || matches!({pattern}));\n}}\n"
+            );
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{text}: {:?}",
+                analysis.da_003
             );
         }
     }
