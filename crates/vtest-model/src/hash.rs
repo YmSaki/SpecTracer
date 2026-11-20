@@ -469,7 +469,7 @@ mod tests {
 
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-LENGTH-PREFIX-PREVENTS-COLLISION
     /// @vtest.covers VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR, VO-MODEL-CANONICAL-HASH-FIELD-NAME, VO-MODEL-CANONICAL-HASH-KIND-TAG, VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
-    /// @vtest.target crates/vtest-model/src/hash.rs::push_len_prefixed
+    /// @vtest.target crates/vtest-model/src/hash.rs::SubjectHashInput
     /// @vtest.intent verifies length-prefixed field encoding avoids the classic concatenation collision (本冊:85 "単純な文字列連結を行わない")
     #[test]
     fn canonical_hash_length_prefixing_distinguishes_inputs_that_would_naively_collide() {
@@ -488,7 +488,7 @@ mod tests {
 
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-MAP-KEY-ORDER-INDEPENDENT
     /// @vtest.covers VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR, VO-MODEL-CANONICAL-HASH-FIELD-NAME, VO-MODEL-CANONICAL-HASH-KIND-TAG, VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
-    /// @vtest.target crates/vtest-model/src/hash.rs::encode_field_into
+    /// @vtest.target crates/vtest-model/src/hash.rs::SubjectHashInput
     /// @vtest.intent verifies map fields hash the same regardless of construction/insertion order (本冊:85 "mapはkey昇順")
     #[test]
     fn canonical_hash_map_field_is_independent_of_insertion_order() {
