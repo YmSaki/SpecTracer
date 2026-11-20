@@ -196,8 +196,9 @@
 //!   whether it is, so its `matches!` is DS-621's "定数性を確定できない式" and
 //!   DA-001 escapes to `Unknown` rather than `Fail` (a real check of a variant) or
 //!   `NoViolation` (a pattern no type refutes, which checks nothing). This covers a
-//!   tuple-struct, struct or path pattern, a lone identifier (`x`, `ref x`,
-//!   `mut x`, `Kind`), a slice of fixed length, a macro, and a tuple, reference or
+//!   tuple-struct, struct or path pattern, a lone identifier as the whole pattern
+//!   (`x`, `ref x`, `mut x`, `Kind`), an identifier written like a variant below it
+//!   (`(Kind, _)`), a slice of fixed length, a macro, and a tuple, reference or
 //!   `or` pattern holding one with no part refutable whatever the type
 //!   (`PatternClass::Undecidable`); DA-001 reads such a `matches!` both as `true`
 //!   and as its scrutinee's value, and the constancy is undecided where the two
@@ -210,7 +211,10 @@
 //!   whether a divergence is reached as before (`may_be_refuted_by_type`). Remaining
 //!   limits: a user type named `Some` / `None` / `Ok` / `Err` that shadows the
 //!   prelude's is read as the prelude's variant, so a `matches!` over it stays
-//!   non-constant; and DA-001 is `Unknown`, not `Fail`, for an undecidable pattern
+//!   non-constant; a lowercase identifier below the top of the pattern
+//!   (`(four, _)`, `&four`, `x @ four`) is read as a binding, as DS-1952 reads it
+//!   for DA-003 and DA-006 too, so a lowercase `const` there makes DA-001 `Fail` on
+//!   a real check; and DA-001 is `Unknown`, not `Fail`, for an undecidable pattern
 //!   that its type does make irrefutable (a struct, a single-variant enum, a unit
 //!   struct, a binding). An operand made only of literals
 //!   counts as the value it has: `!`, `^`, `==` / `!=` of `bool` literals and the
@@ -5228,8 +5232,8 @@ enum PatternClass {
     /// and tuples, references and parentheses of these.
     Irrefutable,
     /// Irrefutable for some type and refutable for another, which syntax does not
-    /// tell: a lone identifier (a binding, a constant, a unit struct or a unit
-    /// variant), a path, a tuple-struct or struct pattern (a struct or an enum
+    /// tell: a lone identifier as the whole pattern (a binding, a constant, a unit
+    /// struct or a unit variant) or one written like a variant below it, a path, a tuple-struct or struct pattern (a struct or an enum
     /// variant), a slice that fixes a length, or a macro.
     Undecidable,
     /// Refutable whatever the type: a literal, a range, `Some` / `None` / `Ok` /
@@ -5272,40 +5276,60 @@ impl PatternClass {
 
 /// The class of a `matches!` pattern (DS-1952 read for DA-001, DS-621's escape).
 /// `Irrefutable` is exactly what DS-1965 fixes to `true` whatever the type.
+///
+/// A lone identifier as the whole pattern (`x`, `ref x`, `mut x`, `Kind`, through
+/// parentheses and `or` alternatives) is `Undecidable`: it may name a constant or a
+/// unit struct or variant. Below a tuple, a reference, a struct or an `@`, a
+/// lowercase one is read as a binding (`nested_pattern_class`), as DS-1952 and
+/// `is_irrefutable` read it.
 fn pattern_class(pattern: &syn::Pat) -> PatternClass {
+    match pattern {
+        syn::Pat::Ident(ident) if ident.subpat.is_none() && ident.ident == "None" => {
+            PatternClass::Refutable
+        }
+        syn::Pat::Ident(ident) if ident.subpat.is_none() => PatternClass::Undecidable,
+        syn::Pat::Or(or) => PatternClass::any(or.cases.iter().map(pattern_class)),
+        syn::Pat::Paren(inner) => pattern_class(&inner.pat),
+        other => nested_pattern_class(other),
+    }
+}
+
+/// `pattern_class` of a pattern below the top: a lone lowercase identifier is a
+/// binding (`Irrefutable`), one written like a variant or a constant (`Kind`) is
+/// `Undecidable`, and `None` is `Refutable`.
+fn nested_pattern_class(pattern: &syn::Pat) -> PatternClass {
     match pattern {
         syn::Pat::Wild(_) | syn::Pat::Rest(_) => PatternClass::Irrefutable,
         syn::Pat::Ident(ident) => match &ident.subpat {
-            Some((_, sub)) => pattern_class(sub),
+            Some((_, sub)) => nested_pattern_class(sub),
             None if ident.ident == "None" => PatternClass::Refutable,
-            None => PatternClass::Undecidable,
+            None if is_variant_like(&ident.ident) => PatternClass::Undecidable,
+            None => PatternClass::Irrefutable,
         },
-        syn::Pat::Or(or) => PatternClass::any(or.cases.iter().map(pattern_class)),
-        syn::Pat::Paren(inner) => pattern_class(&inner.pat),
-        syn::Pat::Reference(inner) => pattern_class(&inner.pat),
-        syn::Pat::Type(inner) => pattern_class(&inner.pat),
-        syn::Pat::Tuple(tuple) => PatternClass::all(tuple.elems.iter().map(pattern_class)),
-        syn::Pat::Slice(slice) => {
-            let elements = PatternClass::all(slice.elems.iter().map(pattern_class));
-            if may_be_refuted_by_type(pattern) {
-                elements.refutable_by_type()
-            } else {
-                elements
-            }
+        syn::Pat::Or(or) => PatternClass::any(or.cases.iter().map(nested_pattern_class)),
+        syn::Pat::Paren(inner) => nested_pattern_class(&inner.pat),
+        syn::Pat::Reference(inner) => nested_pattern_class(&inner.pat),
+        syn::Pat::Type(inner) => nested_pattern_class(&inner.pat),
+        syn::Pat::Tuple(tuple) => PatternClass::all(tuple.elems.iter().map(nested_pattern_class)),
+        syn::Pat::Slice(slice) if may_be_refuted_by_type(pattern) => {
+            PatternClass::all(slice.elems.iter().map(nested_pattern_class)).refutable_by_type()
         }
+        syn::Pat::Slice(slice) => PatternClass::all(slice.elems.iter().map(nested_pattern_class)),
         syn::Pat::TupleStruct(node) if option_or_result_variant(&node.path).is_some() => {
             PatternClass::Refutable
         }
         syn::Pat::TupleStruct(node) => {
-            PatternClass::all(node.elems.iter().map(pattern_class)).refutable_by_type()
+            PatternClass::all(node.elems.iter().map(nested_pattern_class)).refutable_by_type()
         }
         syn::Pat::Struct(node) if option_or_result_variant(&node.path).is_some() => {
             PatternClass::Refutable
         }
-        syn::Pat::Struct(node) => {
-            PatternClass::all(node.fields.iter().map(|field| pattern_class(&field.pat)))
-                .refutable_by_type()
-        }
+        syn::Pat::Struct(node) => PatternClass::all(
+            node.fields
+                .iter()
+                .map(|field| nested_pattern_class(&field.pat)),
+        )
+        .refutable_by_type(),
         syn::Pat::Path(path)
             if path.qself.is_none()
                 && path
@@ -10321,6 +10345,9 @@ mod tests {
         // The same absorption as `X || true` (DS-1948): the value does not flow.
         for body in [
             "assert!(double(2) == 4 || matches!(ok, _));",
+            "assert!(double(2) == 4 || matches!(ok, (a, b)));",
+            "assert!(double(2) == 4 || matches!(ok, &x));",
+            "assert!(double(2) == 4 || matches!(ok, x @ y));",
             "assert!(double(2) == 4 || true);",
         ] {
             let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
@@ -10355,7 +10382,7 @@ mod tests {
             "assert!(matches!(double(2), ref four));",
             "assert!(matches!(double(2), mut four));",
             "assert!(matches!(double(2), four if true));",
-            "assert!(matches!(double(2), (four, _)));",
+            "assert!(matches!(double(2), (Kind, _)));",
             "assert!(matches!(double(2), [_, _]));",
             "assert!(matches!(double(2), Some(_) | S { .. }));",
             "assert!(matches!(double(2), Some(_) | Kind));",
