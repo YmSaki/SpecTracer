@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-002-UNTRACKED-MACRO-UNKNOWN
+parent: null
+derives_from:
+  - doc: DS-639
+claim: 'クロージャ・マクロ展開の内側での到達は、追跡しなかった、または追跡できなかった場合、§7.2の一般則どおりDA-002 / DA-003ともUNKNOWNとする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-20T12:00:00+09:00
+updated: 2026-11-20T12:00:00+09:00

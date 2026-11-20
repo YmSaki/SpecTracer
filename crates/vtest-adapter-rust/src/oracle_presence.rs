@@ -381,8 +381,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use quote::ToTokens;
 use syn::{spanned::Spanned, visit::Visit};
 use vtest_adapter_api::{
-    ReachOutcome, RuleOutcome, RuleVerdict, StaticAnalysisAdapter, StaticAnalysisInput,
-    StaticAnalysisVerdict, TargetReach,
+    RuleOutcome, RuleVerdict, StaticAnalysisAdapter, StaticAnalysisInput, StaticAnalysisVerdict,
+    TargetReach,
 };
 use vtest_model::{Diagnostic, Locator, TargetRef};
 
@@ -617,22 +617,10 @@ impl StaticAnalysisAdapter for RustCargoStaticAnalysisAdapter {
         }
     }
 
-    /// DA-002 (static reachability, DS-622) is not implemented by this
-    /// adapter, so every target reports `UNKNOWN` for it — the analysis
-    /// boundary, never "not called" (DS-612).
+    /// DA-002 (DS-622) per declared target, from the Test body and the functions
+    /// of its own file that it calls (`crate::target_reach`).
     fn target_reach(&self, input: StaticAnalysisInput<'_>) -> Vec<TargetReach> {
-        input
-            .test
-            .targets
-            .iter()
-            .map(|target| TargetReach {
-                target: target.clone(),
-                outcome: ReachOutcome::Unknown,
-                reason: "static target reachability (DA-002) is not implemented by rust-cargo; \
-                         only runtime measurement can establish it (DS-612/DS-613)"
-                    .to_owned(),
-            })
-            .collect()
+        crate::target_reach::target_reach(input)
     }
 
     /// SPEC-387/DS-1208: DA-001/004/005/006 are Test-scoped; DA-002 and
@@ -985,7 +973,7 @@ fn collect_divergences<'a>(text: &'a str, function: &'a syn::ItemFn) -> Vec<Dive
 
 /// The byte spans of the statements and expressions of the Test body that syntax
 /// fixes never to run (`DivergenceContext::dead`), outermost only.
-fn never_run_regions(text: &str) -> Vec<(usize, usize)> {
+pub(crate) fn never_run_regions(text: &str) -> Vec<(usize, usize)> {
     syn::parse_str::<syn::ItemFn>(text)
         .ok()
         .map(|function| run_divergence_collector(text, &function).1)
@@ -2175,7 +2163,9 @@ fn contains_let(expression: &syn::Expr) -> bool {
 }
 
 /// DS-1951's failure divergence among macros: `panic!` / `unreachable!` / `todo!` /
-/// `unimplemented!`, and an `assert!` whose condition literals fix to `false`.
+/// `unimplemented!`, an `assert!` whose condition literals fix to `false`, and an
+/// `assert_eq!` / `assert_ne!` whose comparison of its two values they fix to
+/// `false` (DS-1951 counts every assert-equivalent the DA-001 classifier fixes).
 fn is_failure_divergence_macro(node: &syn::Macro) -> bool {
     let Some(name) = node
         .path
@@ -2185,6 +2175,24 @@ fn is_failure_divergence_macro(node: &syn::Macro) -> bool {
     else {
         return false;
     };
+    let comparison = match name.as_str() {
+        "assert_eq" => Some(syn::BinOp::Eq(Default::default())),
+        "assert_ne" => Some(syn::BinOp::Ne(Default::default())),
+        _ => None,
+    };
+    if let Some(op) = comparison {
+        return macro_arguments(node).is_some_and(|arguments| match &arguments.checked[..] {
+            [left, right] => {
+                fixed_value(&syn::Expr::Binary(syn::ExprBinary {
+                    attrs: Vec::new(),
+                    left: Box::new(left.clone()),
+                    op,
+                    right: Box::new(right.clone()),
+                })) == Fixed::Value(false)
+            }
+            _ => false,
+        });
+    }
     name == "panic"
         || is_diverging_macro(&name)
         || (name == "assert"
@@ -5014,7 +5022,7 @@ fn absorbing_literal(op: syn::BinOp) -> Option<bool> {
 
 /// Whether literals fix the value of an expression whatever its other operands are.
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Fixed {
+pub(crate) enum Fixed {
     /// Fixed to this `bool`.
     Value(bool),
     /// A `bool` made only of literals, whose value is not evaluated here.
@@ -5042,7 +5050,7 @@ enum Fixed {
 /// `1 == 1`, `(true || ok)`) absorbs as the literal it equals, so `X || 1 == 1` is
 /// not read as `X` flowing. An operand made only of literals whose value is not
 /// evaluated here (`1 + 1 == 2`) may absorb (`Fixed::Literal`).
-fn fixed_value(expression: &syn::Expr) -> Fixed {
+pub(crate) fn fixed_value(expression: &syn::Expr) -> Fixed {
     if let syn::Expr::Macro(node) = unwrap_parens(expression) {
         if let Some(fixed) = matches_value(&node.mac) {
             return fixed;
@@ -6121,7 +6129,7 @@ fn non_counted_regions(text: &str) -> Vec<(usize, usize)> {
     regions.spans
 }
 
-fn in_regions(offset: usize, regions: &[(usize, usize)]) -> bool {
+pub(crate) fn in_regions(offset: usize, regions: &[(usize, usize)]) -> bool {
     regions
         .iter()
         .any(|&(start, end)| offset >= start && offset < end)
@@ -6413,7 +6421,7 @@ impl Shape {
 /// Whether an identifier pattern may be a constant or a unit variant rather than a
 /// binding: Rust reads a name in scope as an item, and `None`, constants and unit
 /// variants are written like a variant (`is_variant_like`).
-fn pattern_ident_may_be_path(ident: &syn::PatIdent) -> bool {
+pub(crate) fn pattern_ident_may_be_path(ident: &syn::PatIdent) -> bool {
     ident.subpat.is_none()
         && ident.by_ref.is_none()
         && ident.mutability.is_none()
@@ -7368,7 +7376,7 @@ const INLINE_ROUNDS: usize = 16;
 /// discarded becomes a `break` of the inlined block).
 ///
 /// `None` when no call is inlined, and when the rounds do not settle.
-fn inline_tracked_closures(text: &str) -> Option<String> {
+pub(crate) fn inline_tracked_closures(text: &str) -> Option<String> {
     let mut current = text.to_owned();
     let mut fresh = 0;
     let mut inlined = false;
@@ -8175,7 +8183,7 @@ fn inlined_call(text: &str, info: &ClosureInfo, call: &NameCall, fresh: &mut usi
 /// characters, so it goes through the crate's character-aware conversion:
 /// adding it to the line start as bytes lands inside a multi-byte character
 /// and the slice panics (#264). A position outside `text` clamps to its end.
-fn span_offset(location: proc_macro2::LineColumn, text: &str) -> usize {
+pub(crate) fn span_offset(location: proc_macro2::LineColumn, text: &str) -> usize {
     crate::line_column_byte_offset(
         text,
         &crate::line_offsets(text),

@@ -41,6 +41,7 @@ use vtest_model::{
 pub mod coverage;
 pub mod oracle_presence;
 pub mod structured_test;
+mod target_reach;
 pub mod wire_codec;
 
 pub use coverage::RustCargoCoverageAdapter;
