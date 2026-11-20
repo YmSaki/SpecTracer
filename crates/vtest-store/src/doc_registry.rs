@@ -524,6 +524,10 @@ mod tests {
     /// resolved to a single first-write-wins owner in the document-level
     /// chain -- every owning document becomes a parent, so the ambiguity
     /// is shown rather than hidden.
+    /// @vtest.id TEST-STORE-DOC-CHAIN-DUPLICATE-NODE-OWNER-ALL-PARENTS
+    /// @vtest.covers VO-DOC-LIST-TREE-NESTED
+    /// @vtest.target crates/vtest-store/src/doc_registry.rs::document_derives_from
+    /// @vtest.intent a node id owned by two documents makes both of them parents in the document chain that doc list --tree renders
     #[test]
     fn document_derives_from_lists_every_owner_when_a_node_id_is_duplicated() {
         let layout = temp_layout("duplicate-owner");
