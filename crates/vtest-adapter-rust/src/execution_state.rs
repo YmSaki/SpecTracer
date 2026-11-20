@@ -395,7 +395,7 @@ impl WorkspaceInputs {
 /// `(root, runner_kind, environment)` are collected on first use and reused.
 /// Drop it when the operation ends; it never notices a later change.
 #[derive(Debug, Default)]
-pub struct WorkspaceInputsCache {
+pub(crate) struct WorkspaceInputsCache {
     collected: RefCell<Vec<CollectedInputs>>,
 }
 
@@ -1109,7 +1109,7 @@ mod tests {
             Environment::current().with_overlay(&overlay)
         };
         let environments = [
-            environment(&[]),
+            environment(&[("RUSTFLAGS", "-Aunused")]),
             environment(&[("RUSTFLAGS", "-Dwarnings")]),
         ];
         let invocations = [
