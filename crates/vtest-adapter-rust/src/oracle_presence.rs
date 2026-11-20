@@ -8425,6 +8425,37 @@ mod tests {
         }
     }
 
+    // A test compares a verdict's variant with `assert_eq!` instead of
+    // `assert!(matches!(verdict, DaVerdict::Fail(_)))`: whether a path pattern
+    // is irrefutable is shown only by its type, so DA-001 reads that `matches!`
+    // as not decided constant (DS-621, DS-1965) and the test's own
+    // oracle_presence would be UNKNOWN (#339). The variant leaves the reason
+    // out, so the test checks what the `matches!` checked.
+    impl DaVerdict {
+        fn outcome(&self) -> RuleOutcome {
+            match self {
+                Self::NoViolation => RuleOutcome::NoViolation,
+                Self::Fail(_) => RuleOutcome::Fail,
+                Self::Unknown(_) => RuleOutcome::Unknown,
+            }
+        }
+    }
+
+    /// The variant of another crate's verdict type, read the same way.
+    trait Variant {
+        fn variant(&self) -> &'static str;
+    }
+
+    impl Variant for StaticAnalysisVerdict {
+        fn variant(&self) -> &'static str {
+            match self {
+                Self::Pass(_) => "PASS",
+                Self::Fail(_) => "FAIL",
+                Self::Unknown(_) => "UNKNOWN",
+            }
+        }
+    }
+
     /// @vtest.id TEST-ORACLE-TARGET-SYMBOL-FINAL-SEGMENT
     /// @vtest.covers VO-ORACLE-TARGET-SYMBOL-FINAL-SEGMENT
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::target_symbol
@@ -8471,7 +8502,7 @@ mod tests {
     fn no_verification_syntax_fails_da_006() {
         let text = "#[test]\nfn calls_but_checks_nothing() {\n    let _ = 1 + 1;\n}\n";
         let analysis = analyze(text, &[], &[]);
-        assert!(matches!(analysis.da_006, DaVerdict::Fail(_)));
+        assert_eq!(analysis.da_006.outcome(), RuleOutcome::Fail);
     }
 
     /// @vtest.id TEST-ORACLE-DA-006-DELEGATING-BODY-IS-UNKNOWN
@@ -8505,8 +8536,8 @@ mod tests {
     fn text_literal_target_and_unwrap_are_not_verification_syntax() {
         let text = "#[test]\nfn mentions_only() {\n    let _ = \"parse(input).unwrap()\";\n}\n";
         let analysis = analyze(text, &["parse".to_owned()], &[]);
-        assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
-        assert!(matches!(analysis.da_006, DaVerdict::Fail(_)));
+        assert_eq!(analysis.da_003, DaVerdict::NoViolation);
+        assert_eq!(analysis.da_006.outcome(), RuleOutcome::Fail);
     }
 
     /// @vtest.id TEST-ORACLE-DA-006-SHOULD-PANIC-PASSES
@@ -8517,7 +8548,7 @@ mod tests {
     fn a_should_panic_test_with_no_target_call_passes_da_006_via_the_attribute() {
         let text = "#[should_panic]\n#[test]\nfn panics() {\n    panic!(\"boom\");\n}\n";
         let analysis = analyze(text, &[], &[]);
-        assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
+        assert_eq!(analysis.da_006, DaVerdict::NoViolation);
     }
 
     /// REQ-074「不成立が構造から証明できる場合のみFAIL」: no
@@ -8568,7 +8599,7 @@ mod tests {
     fn a_should_panic_target_call_passes_da_003_without_an_assert() {
         let text = "#[should_panic]\n#[test]\nfn panics_on_call() {\n    divide(1, 0);\n}\n";
         let analysis = analyze(text, &["divide".to_owned()], &[]);
-        assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
+        assert_eq!(analysis.da_003, DaVerdict::NoViolation);
     }
 
     /// @vtest.id TEST-ORACLE-DA-003-LET-BOUND-CALL-PASSES
@@ -8594,8 +8625,8 @@ mod tests {
     fn a_direct_expect_err_call_passes_da_003_and_da_006() {
         let text = "#[test]\nfn rejects() {\n    parse(input).expect_err(\"invalid\");\n}\n";
         let analysis = analyze(text, &["parse".to_owned()], &[]);
-        assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
-        assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
+        assert_eq!(analysis.da_003, DaVerdict::NoViolation);
+        assert_eq!(analysis.da_006, DaVerdict::NoViolation);
     }
 
     /// @vtest.id TEST-ORACLE-DA-003-PATH-QUALIFIED-EXPECT-ERR-PASSES
@@ -8607,8 +8638,8 @@ mod tests {
         let text =
             "#[test]\nfn rejects() {\n    Type::from_yaml(input).expect_err(\"invalid\");\n}\n";
         let analysis = analyze(text, &["from_yaml".to_owned()], &[]);
-        assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
-        assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
+        assert_eq!(analysis.da_003, DaVerdict::NoViolation);
+        assert_eq!(analysis.da_006, DaVerdict::NoViolation);
     }
 
     /// @vtest.id TEST-ORACLE-DA-003-DIRECT-EXPECT-PASSES
@@ -8619,8 +8650,8 @@ mod tests {
     fn a_direct_expect_call_passes_da_003_and_da_006() {
         let text = "#[test]\nfn accepts() {\n    parse(input).expect(\"valid\");\n}\n";
         let analysis = analyze(text, &["parse".to_owned()], &[]);
-        assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
-        assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
+        assert_eq!(analysis.da_003, DaVerdict::NoViolation);
+        assert_eq!(analysis.da_006, DaVerdict::NoViolation);
     }
 
     /// @vtest.id TEST-ORACLE-DA-003-LOOP-CALL-UNKNOWN
@@ -8631,7 +8662,7 @@ mod tests {
     fn a_target_call_inside_a_loop_is_unknown() {
         let text = "#[test]\nfn repeated() {\n    for item in inputs {\n        parse(item);\n    }\n    assert!(true);\n}\n";
         let analysis = analyze(text, &["parse".to_owned()], &[]);
-        assert!(matches!(analysis.da_003, DaVerdict::Unknown(_)));
+        assert_eq!(analysis.da_003.outcome(), RuleOutcome::Unknown);
     }
 
     /// @vtest.id TEST-ORACLE-DA-003-LOOP-CALL-WITH-ASSERT-CHAIN
@@ -8646,7 +8677,7 @@ mod tests {
             "#[test]\nfn later() {\n    for item in inputs {\n        let _ = parse(item);\n    }\n    parse(\"x\").unwrap();\n}\n",
         ] {
             let analysis = analyze(text, &["parse".to_owned()], &[]);
-            assert!(matches!(analysis.da_003, DaVerdict::NoViolation), "{text}");
+            assert_eq!(analysis.da_003, DaVerdict::NoViolation, "{text}");
         }
     }
 
@@ -8671,7 +8702,7 @@ mod tests {
     fn a_target_call_passed_to_another_function_is_unknown() {
         let text = "#[test]\nfn delegated() {\n    check(parse(input));\n}\n";
         let analysis = analyze(text, &["parse".to_owned()], &[]);
-        assert!(matches!(analysis.da_003, DaVerdict::Unknown(_)));
+        assert_eq!(analysis.da_003.outcome(), RuleOutcome::Unknown);
     }
 
     /// DS-642: a body with no assert-equivalent construct delegates to every
@@ -10931,19 +10962,13 @@ mod tests {
             })
         };
         let locator_target = TargetRef::Locator(locator("src/lib.rs::double"));
-        assert!(matches!(
-            verdict(vec![locator_target.clone()]),
-            StaticAnalysisVerdict::Pass(_)
-        ));
+        assert_eq!(verdict(vec![locator_target.clone()]).variant(), "PASS");
         let src_id_target = TargetRef::SrcId(SrcId::new("SRC-DOUBLE"));
-        assert!(matches!(
-            verdict(vec![src_id_target.clone()]),
-            StaticAnalysisVerdict::Unknown(_)
-        ));
-        assert!(matches!(
-            verdict(vec![locator_target, src_id_target]),
-            StaticAnalysisVerdict::Unknown(_)
-        ));
+        assert_eq!(verdict(vec![src_id_target.clone()]).variant(), "UNKNOWN");
+        assert_eq!(
+            verdict(vec![locator_target, src_id_target]).variant(),
+            "UNKNOWN"
+        );
     }
 
     /// @vtest.id TEST-ORACLE-DA-004-IDENTICAL-ARGUMENTS-FAILS
@@ -10954,7 +10979,7 @@ mod tests {
     fn identical_assert_eq_arguments_fail_da_004() {
         let text = "#[test]\nfn tautology() {\n    assert_eq!(compute(), compute());\n}\n";
         let analysis = analyze(text, &[], &[]);
-        assert!(matches!(analysis.da_004, DaVerdict::Fail(_)));
+        assert_eq!(analysis.da_004.outcome(), RuleOutcome::Fail);
     }
 
     /// @vtest.id TEST-ORACLE-DA-001-ALL-LITERAL-FAILS
@@ -10965,7 +10990,7 @@ mod tests {
     fn an_all_literal_assert_fails_da_001() {
         let text = "#[test]\nfn tautology() {\n    assert_eq!(1, 1);\n}\n";
         let analysis = analyze(text, &[], &[]);
-        assert!(matches!(analysis.da_001, DaVerdict::Fail(_)));
+        assert_eq!(analysis.da_001.outcome(), RuleOutcome::Fail);
     }
 
     /// @vtest.id TEST-ORACLE-LITERAL-FIXTURE-IS-NOT-CODE
@@ -10981,8 +11006,8 @@ fn real_check() {
 }
 "##;
         let analysis = analyze(text, &[], &[]);
-        assert!(matches!(analysis.da_001, DaVerdict::NoViolation));
-        assert!(matches!(analysis.da_004, DaVerdict::NoViolation));
+        assert_eq!(analysis.da_001, DaVerdict::NoViolation);
+        assert_eq!(analysis.da_004, DaVerdict::NoViolation);
     }
 
     /// @vtest.id TEST-ORACLE-DA-001-CALL-RESULT-PASSES
@@ -10993,7 +11018,7 @@ fn real_check() {
     fn an_assert_referencing_a_call_result_does_not_fail_da_001() {
         let text = "#[test]\nfn real_check() {\n    assert_eq!(double(2), 4);\n}\n";
         let analysis = analyze(text, &[], &[]);
-        assert!(matches!(analysis.da_001, DaVerdict::NoViolation));
+        assert_eq!(analysis.da_001, DaVerdict::NoViolation);
     }
 
     /// @vtest.id TEST-ORACLE-DA-001-NON-ASCII-LINE
@@ -11007,14 +11032,14 @@ fn real_check() {
                 "#[test]{newline}fn real_check() {{{newline}    let label = \"日本語é\"; assert_eq!(double(2), 4, \"é\");{newline}}}{newline}"
             );
             let analysis = analyze(&real, &["double".to_owned()], &[]);
-            assert!(matches!(analysis.da_001, DaVerdict::NoViolation), "{real}");
-            assert!(matches!(analysis.da_003, DaVerdict::NoViolation), "{real}");
+            assert_eq!(analysis.da_001, DaVerdict::NoViolation, "{real}");
+            assert_eq!(analysis.da_003, DaVerdict::NoViolation, "{real}");
 
             let constant = format!(
                 "#[test]{newline}fn constant() {{{newline}    let label = \"日本語é\"; assert_eq!(1, 1);{newline}}}{newline}"
             );
             let analysis = analyze(&constant, &[], &[]);
-            assert!(matches!(analysis.da_001, DaVerdict::Fail(_)), "{constant}");
+            assert_eq!(analysis.da_001.outcome(), RuleOutcome::Fail, "{constant}");
         }
     }
 
@@ -11027,7 +11052,7 @@ fn real_check() {
         let text =
             "#[test]\nfn it_parses() -> Result<(), String> {\n    let _ = parse(\"x\")?;\n    Ok(())\n}\n";
         let analysis = analyze(text, &[], &[]);
-        assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
+        assert_eq!(analysis.da_006, DaVerdict::NoViolation);
     }
 
     /// @vtest.id TEST-ORACLE-ASSERT-MACRO-CLOSED-LIST
@@ -11041,22 +11066,19 @@ fn real_check() {
                 "#[test]\nfn t() {{\n    let x = compute();\n    if x != 4 {{\n        {name}!();\n    }}\n}}\n"
             );
             let analysis = analyze(&text, &[], &[]);
-            assert!(matches!(analysis.da_006, DaVerdict::NoViolation), "{text}");
+            assert_eq!(analysis.da_006, DaVerdict::NoViolation, "{text}");
         }
         let custom = "#[test]\nfn t() {\n    let x = 4;\n    assert_matches!(x, 4);\n}\n";
-        assert!(matches!(
-            analyze(custom, &[], &[]).da_006,
-            DaVerdict::Fail(_)
-        ));
-        assert!(matches!(
+        assert_eq!(
+            analyze(custom, &[], &[]).da_006.outcome(),
+            RuleOutcome::Fail
+        );
+        assert_eq!(
             analyze(custom, &[], &["assert_matches!".to_owned()]).da_006,
             DaVerdict::NoViolation
-        ));
+        );
         let debug = "#[test]\nfn t() {\n    let x = 4;\n    debug_assert!(x == 4);\n}\n";
-        assert!(!matches!(
-            analyze(debug, &[], &[]).da_006,
-            DaVerdict::NoViolation
-        ));
+        assert_ne!(analyze(debug, &[], &[]).da_006, DaVerdict::NoViolation);
     }
 
     /// @vtest.id TEST-ORACLE-DIVERGENCE-ARGUMENT-METHOD-CALL-IS-A-CHANGE
@@ -11072,19 +11094,17 @@ fn real_check() {
                 )
             };
             let read = body("r");
-            assert!(
-                matches!(
-                    analyze(&read, &["double".to_owned()], &[]).da_003,
-                    DaVerdict::NoViolation
-                ),
+            assert_eq!(
+                analyze(&read, &["double".to_owned()], &[]).da_003,
+                DaVerdict::NoViolation,
                 "{read}"
             );
             let changed = body("r.pow(2)");
-            assert!(
-                matches!(
-                    analyze(&changed, &["double".to_owned()], &[]).da_003,
-                    DaVerdict::Unknown(_)
-                ),
+            assert_eq!(
+                analyze(&changed, &["double".to_owned()], &[])
+                    .da_003
+                    .outcome(),
+                RuleOutcome::Unknown,
                 "{changed}"
             );
         }
@@ -11116,31 +11136,31 @@ fn real_check() {
                 format!("    if c() {{\n        {name}!(\"{{:?}}\", format!(\"{{}}\", {{ r = 4; r }}));\n    }}\n"),
             ] {
                 let text = wrap(&inner);
-                assert!(
-                    matches!(
-                        analyze(&text, &["double".to_owned()], &[]).da_003,
-                        DaVerdict::Unknown(_)
-                    ),
+                assert_eq!(
+                    analyze(&text, &["double".to_owned()], &[])
+                        .da_003
+                        .outcome(),
+                    RuleOutcome::Unknown,
                     "{text}"
                 );
             }
             let read = wrap(&format!(
                 "    if c() {{\n        {name}!(\"{{}}\", r);\n    }}\n"
             ));
-            assert!(
-                matches!(
-                    analyze(&read, &["double".to_owned()], &[]).da_003,
-                    DaVerdict::NoViolation
-                ),
+            assert_eq!(
+                analyze(&read, &["double".to_owned()], &[]).da_003,
+                DaVerdict::NoViolation,
                 "{read}"
             );
         }
         // The plain name assigned inside an assert's argument is a change too.
         let in_assert = wrap("    assert!({ r = 4; true });\n");
-        assert!(matches!(
-            analyze(&in_assert, &["double".to_owned()], &[]).da_003,
-            DaVerdict::Unknown(_)
-        ));
+        assert_eq!(
+            analyze(&in_assert, &["double".to_owned()], &[])
+                .da_003
+                .outcome(),
+            RuleOutcome::Unknown
+        );
     }
 
     /// @vtest.id TEST-ORACLE-DA-003-FAIL-OF-ONE-TARGET-DECIDES
@@ -11151,10 +11171,10 @@ fn real_check() {
     fn a_fail_of_one_target_decides_over_another_targets_unknown() {
         let targets = ["double".to_owned(), "triple".to_owned()];
         let text = "#[test]\nfn t() {\n    let a = double(2);\n    let b = triple(2);\n    debug_assert_eq!(a, 4);\n}\n";
-        assert!(matches!(
-            analyze(text, &targets, &[]).da_003,
-            DaVerdict::Fail(_)
-        ));
+        assert_eq!(
+            analyze(text, &targets, &[]).da_003.outcome(),
+            RuleOutcome::Fail
+        );
         let targets_with_check = ["double".to_owned(), "check".to_owned()];
         for (targets, body) in [
             (
@@ -11175,16 +11195,17 @@ fn real_check() {
             ),
         ] {
             let text = format!("#[test]\nfn t() {{\n{body}}}\n");
-            assert!(
-                matches!(analyze(&text, targets, &[]).da_003, DaVerdict::Unknown(_)),
+            assert_eq!(
+                analyze(&text, targets, &[]).da_003.outcome(),
+                RuleOutcome::Unknown,
                 "{text}"
             );
         }
         let one = "#[test]\nfn t() {\n    let a = double(2);\n    debug_assert_eq!(a, 4);\n}\n";
-        assert!(matches!(
-            analyze(one, &targets, &[]).da_003,
-            DaVerdict::Unknown(_)
-        ));
+        assert_eq!(
+            analyze(one, &targets, &[]).da_003.outcome(),
+            RuleOutcome::Unknown
+        );
     }
 
     /// @vtest.id TEST-ORACLE-DA-001-UNCONDITIONAL-DIVERGENCE-IS-CONSTANT
@@ -11633,23 +11654,25 @@ fn real_check() {
     fn a_debug_assert_never_counts_as_an_assert_equivalent() {
         let nested =
             "#[test]\nfn t() {\n    assert_eq!({ debug_assert_eq!(double(2), 4) }, ());\n}\n";
-        assert!(matches!(
-            analyze(nested, &["double".to_owned()], &[]).da_003,
-            DaVerdict::Unknown(_)
-        ));
+        assert_eq!(
+            analyze(nested, &["double".to_owned()], &[])
+                .da_003
+                .outcome(),
+            RuleOutcome::Unknown
+        );
         for body in [
             "    let r = double(2);\n    debug_assert!(true);\n",
             "    let r = double(2);\n    debug_assert!(true, \"{}\", r);\n",
         ] {
             let text = format!("#[test]\nfn t() {{\n{body}}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
-            assert!(matches!(analysis.da_003, DaVerdict::Fail(_)), "{text}");
+            assert_eq!(analysis.da_003.outcome(), RuleOutcome::Fail, "{text}");
         }
         let checked =
             "#[test]\nfn t() {\n    let mut r = double(2);\n    debug_assert!(r > 0);\n    assert_eq!(r, 4);\n}\n";
         let analysis = analyze(checked, &["double".to_owned()], &[]);
-        assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
-        assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
+        assert_eq!(analysis.da_003, DaVerdict::NoViolation);
+        assert_eq!(analysis.da_006, DaVerdict::NoViolation);
     }
 
     /// DA-003 of a Test whose declared targets are `double` and `maybe`.
