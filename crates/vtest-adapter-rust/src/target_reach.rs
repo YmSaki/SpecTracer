@@ -58,10 +58,14 @@
 //! - `cfg!(..)` is a macro whose value is not read, so a branch under
 //!   `if cfg!(any()) { .. }` counts its calls.
 //! - A bare-named standard macro's arguments are read as the standard one reads
-//!   them, so a `macro_rules!` of another file under that name that drops its
-//!   arguments is not seen, nor is one that a macro expansion defines.
+//!   them, and it is taken to add no item, so a `macro_rules!` of another file
+//!   under that name that drops its arguments or adds an item is not seen, nor is
+//!   one that a macro expansion defines.
 //! - `#[test]` is read as the prelude's unless a `use` of that name is in the
 //!   file; an attribute macro named `test` that a glob import brings is not seen.
+//!   Likewise a derive named like a standard one is read as the standard derive, so
+//!   one a `use` brings under that name (`use pm::Debug;` with `#[derive(Debug)]`),
+//!   whose expansion may add items, is not seen.
 //!
 //! A name a format string captures counts as a local when the body binds it
 //! anywhere. A static of the same name in scope there cannot be shadowed by a
@@ -82,7 +86,10 @@
 //!   may bind is not resolved: a local binding, an item or `use` in a nested block,
 //!   a glob in the body, a `use` from outside the file, an item under a `cfg`
 //!   attribute other than `cfg(test)`, a module with an item-position macro or two
-//!   definitions, `crate::` paths, and `Self::` paths.
+//!   definitions, a bare name in a body (the Test's or a followed function's) that
+//!   holds a macro in statement position other than the standard ones read above
+//!   (its expansion may add an item of any name, DS-639), `crate::` paths, and
+//!   `Self::` paths.
 //! - A method call (`receiver.name(..)`) is never the target's: its receiver type is
 //!   not resolved, so a method of another type or trait with the same name is not
 //!   ruled out. It is a call left unfollowed.
@@ -373,7 +380,7 @@ impl Walk<'_> {
             base
         };
         let never_run = never_run_regions(text);
-        let scope = BodyScope::new(&function);
+        let scope = BodyScope::new(&function, self.model);
         let place = name.map_or_else(
             || "the Test body".to_owned(),
             |name| format!("the same-file function `{name}`"),
@@ -651,10 +658,22 @@ struct BodyScope {
 }
 
 impl BodyScope {
-    fn new(function: &syn::ItemFn) -> Self {
+    fn new(function: &syn::ItemFn, model: Option<&FileModel>) -> Self {
+        // The standard macros read here expand to no item; any other macro in
+        // statement position may (DS-639).
+        let read = READ_MACROS
+            .iter()
+            .filter(|name| {
+                model.is_some_and(|model| {
+                    !model.shadowed_macros.contains("*") && !model.shadowed_macros.contains(**name)
+                })
+            })
+            .map(|name| (*name).to_owned())
+            .collect();
         let mut collector = ScopeCollector {
             scope: Self::default(),
             depth: 0,
+            read,
         };
         collector.visit_signature(&function.sig);
         collector.visit_block(&function.block);
@@ -686,9 +705,35 @@ impl BodyScope {
 struct ScopeCollector {
     scope: BodyScope,
     depth: usize,
+    /// The names of `READ_MACROS` that nothing in the file may take.
+    read: BTreeSet<String>,
 }
 
 impl ScopeCollector {
+    /// A macro in statement position, other than a standard one read here, may
+    /// expand to items of any name, as an item-position macro of a module does.
+    fn record_macro(&mut self, node: &syn::Macro) {
+        let standard = node.path.segments.len() == 1
+            || node
+                .path
+                .segments
+                .first()
+                .is_some_and(|segment| segment.ident == "std" || segment.ident == "core");
+        let read = standard
+            && node
+                .path
+                .segments
+                .last()
+                .is_some_and(|segment| self.read.contains(&segment.ident.to_string()));
+        if !read {
+            if self.depth == 0 {
+                self.scope.top_items.insert("*".to_owned());
+            } else {
+                self.scope.nested.insert("*".to_owned());
+            }
+        }
+    }
+
     fn record(&mut self, item: &syn::Item) {
         let top = self.depth == 0;
         if let syn::Item::Use(item_use) = item {
@@ -723,8 +768,10 @@ impl ScopeCollector {
 impl<'ast> Visit<'ast> for ScopeCollector {
     fn visit_block(&mut self, node: &'ast syn::Block) {
         for stmt in &node.stmts {
-            if let syn::Stmt::Item(item) = stmt {
-                self.record(item);
+            match stmt {
+                syn::Stmt::Item(item) => self.record(item),
+                syn::Stmt::Macro(node) => self.record_macro(&node.mac),
+                _ => {}
             }
         }
         self.depth += 1;

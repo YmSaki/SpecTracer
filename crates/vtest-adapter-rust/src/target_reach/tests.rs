@@ -332,7 +332,7 @@ fn a_call_syntax_shows_never_runs_is_unknown() {
 /// @vtest.id TEST-ORACLE-DA-002-EXPANDED-NAMES-UNRESOLVED
 /// @vtest.covers VO-ORACLE-DA-002-ANALYSIS-BOUNDARY
 /// @vtest.target crates/vtest-adapter-rust/src/target_reach.rs::target_reach
-/// @vtest.intent モジュールや Test 本体に、展開で項目を足しうる属性（属性マクロ、標準以外の derive）の付いた項目があるとき、glob import で解決する名前を解決せず、その呼出で PASS にも FAIL にもしないこと、標準の derive と明示の項目はこれまでどおり解決することを確認する
+/// @vtest.intent モジュールや Test 本体に、展開で項目を足しうる属性（属性マクロ、標準以外の derive）の付いた項目があるとき、また Test や helper の本体の文の位置に、ここで読む標準マクロ以外のマクロ呼出があるとき、glob import で解決する名前を解決せず、その呼出で PASS にも FAIL にもしないこと、標準の derive、読む標準マクロ、明示の経路はこれまでどおり解決することを確認する
 #[test]
 fn names_an_expansion_may_bind_are_not_resolved() {
     for (extra, body) in [
@@ -349,14 +349,30 @@ fn names_an_expansion_may_bind_are_not_resolved() {
             "#[pm::emit_helper]\n    struct Marker;",
             "let _ = helper();",
         ),
+        // A macro in statement position may expand to an item of the target's name.
+        (
+            "",
+            "pm::emit_double_fn!();\n        std::assert_eq!(double(2), 4);",
+        ),
+        (
+            "",
+            "{\n            pm::emit_double_fn!();\n            double(2);\n        }",
+        ),
+        (
+            "fn helper() -> i32 {\n        pm::emit_double_fn!();\n        double(1)\n    }",
+            "std::assert_eq!(helper(), 2);",
+        ),
     ] {
-        assert_outcome(ReachOutcome::Unknown, double_verdict(extra, body), extra);
+        assert_outcome(ReachOutcome::Unknown, double_verdict(extra, body), body);
     }
     for (extra, body) in [
         (
             "#[derive(Debug, Clone)]\n    #[repr(C)]\n    struct Marker;",
             "double(2);",
         ),
+        // The standard macros read here expand to no item.
+        ("", "std::assert_eq!(1, 1);\n        double(2);"),
+        ("", "pm::emit_double_fn!();\n        super::double(2);"),
         (
             "#[pm::emit_double]\n    struct Marker;",
             "super::double(2);",
