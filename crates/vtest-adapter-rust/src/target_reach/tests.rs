@@ -18,7 +18,17 @@ fn verdicts(file: &str, test: &str, targets: &[&str]) -> Vec<(ReachOutcome, Stri
         .values()
         .find(|info| info.module == module && info.name == name)
         .expect("the fixture holds the Test");
-    let construct = &file[info.start..info.end];
+    reach(Some(file), &file[info.start..info.end], test, targets)
+}
+
+/// DA-002 for the Test `construct` at item path `test` of a file whose text is
+/// `file_text`, one verdict per target locator value.
+fn reach(
+    file_text: Option<&str>,
+    construct: &str,
+    test: &str,
+    targets: &[&str],
+) -> Vec<(ReachOutcome, String)> {
     let hash = ContentHash::from_text(construct);
     let entity = TestEntity {
         id: TestId::new("TEST-X"),
@@ -55,7 +65,7 @@ fn verdicts(file: &str, test: &str, targets: &[&str]) -> Vec<(ReachOutcome, Stri
     target_reach(StaticAnalysisInput {
         test: &entity,
         construct_text: construct,
-        file_text: Some(file),
+        file_text,
         content_hash: &hash,
         extra_assertion_macros: &[],
     })
@@ -79,7 +89,7 @@ fn assert_outcome(expected: ReachOutcome, (outcome, reason): (ReachOutcome, Stri
 }
 
 /// @vtest.id TEST-ORACLE-DA-002-DIRECT-CALL-PASSES
-/// @vtest.covers VO-VERIFY-TARGET-REACH-STATIC-PASS
+/// @vtest.covers VO-ORACLE-DA-002-ANALYSIS-BOUNDARY, VO-ORACLE-DA-003-COUNTED-POSITIONS
 /// @vtest.target crates/vtest-adapter-rust/src/target_reach.rs::target_reach
 /// @vtest.intent Test 本体の数える位置にある同一ファイルの target 関数の呼出は、裸の名前、self/super の経路、モジュールの `use` と `as` の別名、本体の `use` のどれで書いても DA-002 を PASS にすることを確認する
 #[test]
@@ -124,13 +134,13 @@ fn helpers_of_the_same_file_are_followed_at_any_depth() {
     let none = "fn outer() -> i32 { inner() + 1 }\n    fn inner() -> i32 { 3 }";
     assert_outcome(
         ReachOutcome::Fail,
-        double_verdict(none, "assert_eq!(outer(), 4);"),
+        double_verdict(none, "std::assert_eq!(outer(), 4);"),
         "no call",
     );
     let cycle = "fn ping(n: i32) -> i32 { if n == 0 { 0 } else { pong(n - 1) } }\n    fn pong(n: i32) -> i32 { ping(n) }";
     assert_outcome(
         ReachOutcome::Fail,
-        double_verdict(cycle, "assert_eq!(ping(3), 0);"),
+        double_verdict(cycle, "std::assert_eq!(ping(3), 0);"),
         "a cycle of helpers",
     );
 }
@@ -142,13 +152,15 @@ fn helpers_of_the_same_file_are_followed_at_any_depth() {
 #[test]
 fn fail_needs_no_call_left_unfollowed() {
     for body in [
-        "assert_eq!(1 + 1, 2);",
-        "let x = 2;\n        assert_eq!(x * 2, 4, \"{}\", x);",
-        "for i in 0..3 {\n            assert!(i < 3);\n        }",
+        "std::assert_eq!(1 + 1, 2);",
+        "let x = 2;\n        std::assert_eq!(x * 2, 4, \"{}\", x);",
+        "for i in 0..3 {\n            core::assert!(i < 3);\n        }",
     ] {
         assert_outcome(ReachOutcome::Fail, double_verdict("", body), body);
     }
     for body in [
+        // A `macro_rules!` of another file may take a bare standard name.
+        "assert_eq!(1 + 1, 2);",
         "assert_eq!(other(2), 4);",
         "assert_eq!(std::cmp::max(1, 2), 2);",
         "let v = 2;\n        assert_eq!(v.pow(2), 4);",
@@ -175,7 +187,7 @@ fn only_a_call_resolved_to_the_target_passes() {
     let same_name = "mod other {\n        pub fn double(x: i32) -> i32 { x + x }\n    }";
     assert_outcome(
         ReachOutcome::Fail,
-        double_verdict(same_name, "assert_eq!(other::double(2), 4);"),
+        double_verdict(same_name, "std::assert_eq!(other::double(2), 4);"),
         "another function with the same name",
     );
     let calls_target =
@@ -188,7 +200,7 @@ fn only_a_call_resolved_to_the_target_passes() {
     let shadow = "fn double(x: i32) -> i32 { x + x }";
     assert_outcome(
         ReachOutcome::Fail,
-        double_verdict(shadow, "assert_eq!(double(2), 4);"),
+        double_verdict(shadow, "std::assert_eq!(double(2), 4);"),
         "a same-named function of the Test's module shadows the glob",
     );
     for (extra, body) in [
@@ -241,7 +253,7 @@ fn only_a_call_resolved_to_the_target_passes() {
 /// @vtest.id TEST-ORACLE-DA-002-COUNTED-POSITIONS
 /// @vtest.covers VO-ORACLE-DA-003-COUNTED-POSITIONS
 /// @vtest.target crates/vtest-adapter-rust/src/target_reach.rs::target_reach
-/// @vtest.intent 数える位置に無い target 呼出（assert のメッセージ引数、async ブロック、入れ子の項目、数えない位置から呼ぶ helper の本体、async 関数の本体、cfg 属性の下）と、構文上実行されない位置の呼出だけがある場合に、DA-002 が PASS でも FAIL でもなく UNKNOWN になることを確認する
+/// @vtest.intent 数える位置に無い target 呼出（assert のメッセージ引数、async ブロック、入れ子の項目、数えない位置から呼ぶ helper の本体、async 関数の本体、cfg 属性の下）だけがある場合に、DA-002 が PASS でも FAIL でもなく UNKNOWN になることを確認する
 #[test]
 fn calls_only_at_uncounted_positions_are_unknown() {
     let helper = "fn helper() -> i32 { double(2) }";
@@ -264,25 +276,81 @@ fn calls_only_at_uncounted_positions_are_unknown() {
             "#[cfg(feature = \"x\")]\n        let _ = double(2);",
             "DS-1962",
         ),
-        (
-            "",
-            "if false {\n            double(2);\n        }",
-            "never to run",
-        ),
-        (
-            "",
-            "return;\n        #[allow(unreachable_code)]\n        double(2);",
-            "never to run",
-        ),
-        (
-            helper,
-            "if 1 > 2 {\n            helper();\n        }",
-            "never to run",
-        ),
     ] {
         let (outcome, reason) = double_verdict(extra, body);
         assert_eq!(outcome, ReachOutcome::Unknown, "{body}: {reason}");
         assert!(reason.contains(why), "{body}: {reason}");
+    }
+}
+
+/// @vtest.id TEST-ORACLE-DA-002-NEVER-RUN-CALL-UNKNOWN
+/// @vtest.covers VO-ORACLE-DA-002-ANALYSIS-BOUNDARY
+/// @vtest.target crates/vtest-adapter-rust/src/target_reach.rs::target_reach
+/// @vtest.intent 構文上実行されないと分かる位置（定数で偽の if、return の後、定数で決まる && / || の評価されない右辺、必ず失敗する定数の assert_eq! / assert_ne! の後）にだけ target 呼出があるとき、その呼出は静的な到達の証明にならないので PASS にせず、呼出があるので FAIL にもせず、DA-002 を UNKNOWN にすることを確認する
+#[test]
+fn a_call_syntax_shows_never_runs_is_unknown() {
+    let helper = "fn helper() -> i32 { double(2) }";
+    for (extra, body) in [
+        ("", "if false {\n            double(2);\n        }"),
+        (
+            "",
+            "return;\n        #[allow(unreachable_code)]\n        double(2);",
+        ),
+        (helper, "if 1 > 2 {\n            helper();\n        }"),
+        ("", "let _ = false && double(2) == 4;"),
+        ("", "let _ = true || double(2) == 4;"),
+        ("", "assert_eq!(1, 2, \"boom\");\n        double(2);"),
+        ("", "std::assert_ne!(1, 1);\n        double(2);"),
+    ] {
+        let (outcome, reason) = double_verdict(extra, body);
+        assert_eq!(outcome, ReachOutcome::Unknown, "{body}: {reason}");
+        assert!(reason.contains("never to run"), "{body}: {reason}");
+    }
+    // An operand or a comparison syntax does not fix still runs.
+    for body in [
+        "let _ = true && double(2) == 4;",
+        "let _ = false || double(2) == 4;",
+        "std::assert_eq!(1, 1);\n        double(2);",
+        "let x = 1;\n        std::assert_eq!(x, 2);\n        double(2);",
+    ] {
+        assert_outcome(ReachOutcome::Pass, double_verdict("", body), body);
+    }
+}
+
+/// @vtest.id TEST-ORACLE-DA-002-EXPANDED-NAMES-UNRESOLVED
+/// @vtest.covers VO-ORACLE-DA-002-ANALYSIS-BOUNDARY
+/// @vtest.target crates/vtest-adapter-rust/src/target_reach.rs::target_reach
+/// @vtest.intent モジュールや Test 本体に、展開で項目を足しうる属性（属性マクロ、標準以外の derive）の付いた項目があるとき、glob import で解決する名前を解決せず、その呼出で PASS にも FAIL にもしないこと、標準の derive と明示の項目はこれまでどおり解決することを確認する
+#[test]
+fn names_an_expansion_may_bind_are_not_resolved() {
+    for (extra, body) in [
+        ("#[pm::emit_double]\n    struct Marker;", "double(2);"),
+        (
+            "#[derive(pm::EmitDouble)]\n    struct Marker;",
+            "double(2);",
+        ),
+        (
+            "",
+            "#[pm::emit_double]\n        struct Marker;\n        double(2);",
+        ),
+        (
+            "#[pm::emit_helper]\n    struct Marker;",
+            "let _ = helper();",
+        ),
+    ] {
+        assert_outcome(ReachOutcome::Unknown, double_verdict(extra, body), extra);
+    }
+    for (extra, body) in [
+        (
+            "#[derive(Debug, Clone)]\n    #[repr(C)]\n    struct Marker;",
+            "double(2);",
+        ),
+        (
+            "#[pm::emit_double]\n    struct Marker;",
+            "super::double(2);",
+        ),
+    ] {
+        assert_outcome(ReachOutcome::Pass, double_verdict(extra, body), body);
     }
 }
 
@@ -373,9 +441,34 @@ fn a_macro_that_may_take_a_standard_name_is_not_read() {
     }
     assert_outcome(
         ReachOutcome::Fail,
-        double_verdict("", "assert!(true);"),
+        double_verdict("", "std::assert!(true);"),
         "the standard assert!",
     );
+    // A `macro_rules!` of another file may take a bare standard name and call the
+    // target, so a bare one is not grounds for `Fail`; its arguments still give `Pass`.
+    assert_outcome(
+        ReachOutcome::Unknown,
+        double_verdict("", "assert_eq!(1, 1);"),
+        "a bare assert_eq! without a call",
+    );
+    // An item an attribute macro or a non-standard derive adds may be a macro.
+    for extra in [
+        "#[pm::emit]\n    struct Marker;",
+        "#[derive(pm::Emit)]\n    struct Marker;",
+    ] {
+        assert_outcome(
+            ReachOutcome::Unknown,
+            double_verdict(extra, "std::assert_eq!(double(2), 4);"),
+            extra,
+        );
+    }
+    // A file that does not parse may define any macro.
+    let construct = "fn t() { std::assert!(true); }";
+    let (outcome, reason) =
+        reach(Some("fn t() {"), construct, "t", &["src/lib.rs::double"]).remove(0);
+    assert_eq!(outcome, ReachOutcome::Unknown, "an unparsed file: {reason}");
+    let (outcome, reason) = reach(None, construct, "t", &["src/lib.rs::double"]).remove(0);
+    assert_eq!(outcome, ReachOutcome::Unknown, "no file text: {reason}");
     // A glob of a module of the file imports nothing this scan does not see.
     assert_outcome(
         ReachOutcome::Pass,
@@ -403,6 +496,12 @@ fn code_the_boundary_does_not_fix_is_not_counted() {
             "let x = const { double(2) };\n        assert_eq!(x, 4);",
         ),
         ("", "assert!(1 == 1, \"{w}\");"),
+        // A static of a nested block, captured where a closure parameter elsewhere
+        // shares its name.
+        (
+            "",
+            "let _f = |g: i32| g;\n        {\n            static g: W = W;\n            std::panic!(\"{g}\");\n        }",
+        ),
         ("", "let _a: [u8; double(2) as usize] = [0; 4];"),
         ("fn h<const N: i32>() {}", "h::<{ double(2) }>();"),
         (
@@ -430,12 +529,12 @@ fn code_the_boundary_does_not_fix_is_not_counted() {
         assert_outcome(ReachOutcome::Pass, double_verdict(extra, body), extra);
     }
     for (extra, body) in [
-        ("", "let w = 1;\n        assert!(1 == 1, \"{w}\");"),
-        ("", "assert!(1 == 1, \"{{w}}\");"),
+        ("", "let w = 1;\n        std::assert!(1 == 1, \"{w}\");"),
+        ("", "std::assert!(1 == 1, \"{{w}}\");"),
         // A const parameter shadows the constant `D`, and its value runs nothing.
         (
             "const D: S = S;\n    struct S;\n    fn helper<const D: i32>() -> i32 { D }",
-            "assert_eq!(helper::<2>(), 2);",
+            "std::assert_eq!(helper::<2>(), 2);",
         ),
     ] {
         assert_outcome(ReachOutcome::Fail, double_verdict(extra, body), body);
@@ -482,7 +581,7 @@ fn code_the_boundary_does_not_fix_is_not_counted() {
 fn each_target_is_decided_on_its_own() {
     let file = "pub fn double(x: i32) -> i32 { x * 2 }\n\
                 pub fn triple(x: i32) -> i32 { x * 3 }\n\
-                #[cfg(test)]\nmod tests {\n    use super::*;\n    #[test]\n    fn t() { assert_eq!(double(2), 4); }\n}\n";
+                #[cfg(test)]\nmod tests {\n    use super::*;\n    #[test]\n    fn t() { std::assert_eq!(double(2), 4); }\n}\n";
     let outcomes: Vec<ReachOutcome> = verdicts(
         file,
         "tests::t",

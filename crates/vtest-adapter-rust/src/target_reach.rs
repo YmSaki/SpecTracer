@@ -28,27 +28,43 @@
 //! attribute outside `PLAIN_ATTRIBUTES`, or inside a module or `impl` with one,
 //! counts nothing either, as an attribute macro may replace what it runs. A `const`
 //! block and an array length count nothing: they are evaluated at compile time.
+//! The right side of `false && ..` and `true || ..`, and the statements after an
+//! `assert_eq!` / `assert_ne!` whose compared values DS-1949's classifier fixes so
+//! that it always fails, never run either.
 //! The standard macros above are read only when nothing in the file may take their
 //! name: a `macro_rules!` of that name (any `macro_rules!` in statement position), a
-//! `use` of that name, a `#[macro_use]` crate or out-of-line module, or a glob
-//! import of a module outside the file.
+//! `use` of that name, a `#[macro_use]` crate or out-of-line module, a glob import
+//! of a module outside the file, or an item whose attribute may add items (an
+//! attribute macro or a derive outside the standard ones). Even then, a macro
+//! called by a bare name may be a `macro_rules!` of another file (DS-659 bounds the
+//! analysis to this file), so it is a call left unfollowed: its arguments are read
+//! for `Pass`, and it rules out `Fail`. A `std::` / `core::` path names the
+//! standard macro itself. Such an item with an expanding attribute also keeps the
+//! names of its module (or of the body that holds it) from resolving through a
+//! glob import, since its expansion may add an item of the same name.
 //!
 //! Remaining false `Pass` cases:
 //! - DS-1962 counts a call in a branch or a loop body whatever decides it at run
 //!   time, so a branch the run does not take, a loop that runs zero times, a call
 //!   after an exit under a run-time condition (`if c() { return; }`) and a call
-//!   after a call that never returns (`std::process::exit`, a `-> !` function)
-//!   count as calls. Only a measured count of zero shows that such a call did not
-//!   run (DS-684).
-//! - A `macro_rules!` defined in another file of the crate before this file's
-//!   module, under a standard macro's name, is not seen (DS-659 bounds the
-//!   analysis to this file), nor is one that a macro expansion defines.
+//!   after a call that never returns (`std::process::exit`, a `-> !` function, or
+//!   any function, of the file or not, whose every path panics, such as
+//!   `fn boom() { panic!() }`) count as calls. Only a measured count of zero shows
+//!   that such a call did not run (DS-684).
+//! - Literal patterns are not evaluated, so an arm or an `if let` that never
+//!   matches (`match 1 { 0 => { double(2) } _ => {} }`,
+//!   `if let Some(_) = None::<i32> { double(2) }`) counts its calls.
+//! - `cfg!(..)` is a macro whose value is not read, so a branch under
+//!   `if cfg!(any()) { .. }` counts its calls.
+//! - A bare-named standard macro's arguments are read as the standard one reads
+//!   them, so a `macro_rules!` of another file under that name that drops its
+//!   arguments is not seen, nor is one that a macro expansion defines.
 //! - `#[test]` is read as the prelude's unless a `use` of that name is in the
 //!   file; an attribute macro named `test` that a glob import brings is not seen.
 //!
-//! A remaining false `Fail`: a name a format string captures counts as a local when
-//! the body binds it anywhere, so a static of the same name, whose `Display` may
-//! call the target, is missed when a closure parameter elsewhere shares its name.
+//! A name a format string captures counts as a local when the body binds it
+//! anywhere. A static of the same name in scope there cannot be shadowed by a
+//! binding (E0530), and one in a nested block is a nested item, left unfollowed.
 //!
 //! Which call is the target's (narrower than DS-622, each toward `Unknown`):
 //! - Only a target that is a function of the Test's own file is identified: a free
@@ -91,7 +107,8 @@ use vtest_adapter_api::{ReachOutcome, StaticAnalysisInput, TargetReach};
 use vtest_model::TargetRef;
 
 use crate::oracle_presence::{
-    in_regions, inline_tracked_closures, never_run_regions, pattern_ident_may_be_path, span_offset,
+    fixed_value, in_regions, inline_tracked_closures, never_run_regions, pattern_ident_may_be_path,
+    span_offset, Fixed,
 };
 use crate::RustLocator;
 
@@ -113,6 +130,22 @@ const PLAIN_ATTRIBUTES: &[&str] = &[
     "cold",
     "macro_use",
 ];
+
+/// The derives of the standard library, which add trait impls only, no named item.
+const STANDARD_DERIVES: &[&str] = &[
+    "Debug",
+    "Clone",
+    "Copy",
+    "PartialEq",
+    "Eq",
+    "PartialOrd",
+    "Ord",
+    "Hash",
+    "Default",
+];
+
+/// Built-in item attributes that add no item.
+const ITEM_ATTRIBUTES: &[&str] = &["repr", "non_exhaustive", "macro_export", "path"];
 
 /// The most `use`, glob and module steps one name resolution takes. Beyond it the
 /// name is not resolved, which also stops a cycle of glob imports.
@@ -214,7 +247,8 @@ fn decide(
     let reason = if found.never_run {
         format!(
             "the target's calls within the boundary are only in positions that syntax fixes \
-             never to run, which are not grounds for reach (DS-1962, DS-622){unidentified}"
+             never to run: such a call does not prove reach statically, so it is no `Pass`, and \
+             it is a call, so it is no `Fail` (DS-659, DS-622){unidentified}"
         )
     } else if found.not_counted {
         format!(
@@ -301,10 +335,11 @@ impl Walk<'_> {
         if name.is_none() && !function.sig.inputs.is_empty() {
             self.unfollow(|| "a parameter of the Test, which an attribute supplies,".to_owned());
         }
-        // `test` is a macro of the prelude, which a `use` of that name can replace.
+        // `test` is a macro of the prelude, which a `use` of that name can replace; a
+        // file that does not parse may hold one.
         let test_replaced = self
             .model
-            .is_some_and(|model| model.shadowed_macros.contains("test"));
+            .is_none_or(|model| model.shadowed_macros.contains("test"));
         let attribute = function.attrs.iter().find(|attribute| {
             !is_plain(attribute) || (test_replaced && attribute.path().is_ident("test"))
         });
@@ -386,6 +421,84 @@ fn is_plain(attribute: &syn::Attribute) -> bool {
     plain_path(path)
 }
 
+/// Whether an item's attributes may add items beside it, whose expansion is not
+/// read (DS-639): an attribute macro, or a derive outside `STANDARD_DERIVES`.
+fn may_add_items(attrs: &[syn::Attribute]) -> bool {
+    attrs.iter().any(|attribute| {
+        let path = attribute.path();
+        if path.is_ident("derive") {
+            return attribute
+                .parse_args_with(
+                    syn::punctuated::Punctuated::<syn::Path, syn::Token![,]>::parse_terminated,
+                )
+                .map_or(true, |derives| {
+                    derives
+                        .iter()
+                        .any(|derive| !STANDARD_DERIVES.iter().any(|name| derive.is_ident(name)))
+                });
+        }
+        !is_plain(attribute) && !ITEM_ATTRIBUTES.iter().any(|name| path.is_ident(name))
+    })
+}
+
+fn item_attrs(item: &syn::Item) -> &[syn::Attribute] {
+    match item {
+        syn::Item::Const(item) => &item.attrs,
+        syn::Item::Enum(item) => &item.attrs,
+        syn::Item::ExternCrate(item) => &item.attrs,
+        syn::Item::Fn(item) => &item.attrs,
+        syn::Item::ForeignMod(item) => &item.attrs,
+        syn::Item::Impl(item) => &item.attrs,
+        syn::Item::Macro(item) => &item.attrs,
+        syn::Item::Mod(item) => &item.attrs,
+        syn::Item::Static(item) => &item.attrs,
+        syn::Item::Struct(item) => &item.attrs,
+        syn::Item::Trait(item) => &item.attrs,
+        syn::Item::TraitAlias(item) => &item.attrs,
+        syn::Item::Type(item) => &item.attrs,
+        syn::Item::Union(item) => &item.attrs,
+        syn::Item::Use(item) => &item.attrs,
+        _ => &[],
+    }
+}
+
+/// Whether a statement is an `assert_eq!` / `assert_ne!` whose two compared values
+/// DA-001's classifier fixes so that it always fails (DS-1949).
+fn always_failing_comparison(statement: &syn::Stmt) -> bool {
+    let node = match statement {
+        syn::Stmt::Macro(node) => &node.mac,
+        syn::Stmt::Expr(syn::Expr::Macro(node), _) => &node.mac,
+        _ => return false,
+    };
+    // Another macro of the name only makes the rest `NeverRun`, never `Pass`.
+    let Some(name) = node
+        .path
+        .segments
+        .last()
+        .map(|segment| segment.ident.to_string())
+    else {
+        return false;
+    };
+    let op = match name.as_str() {
+        "assert_eq" => syn::BinOp::Eq(Default::default()),
+        "assert_ne" => syn::BinOp::Ne(Default::default()),
+        _ => return false,
+    };
+    let Ok(arguments) = node.parse_body_with(Arguments::parse_terminated) else {
+        return false;
+    };
+    let (Some(left), Some(right)) = (arguments.get(0), arguments.get(1)) else {
+        return false;
+    };
+    let comparison = syn::Expr::Binary(syn::ExprBinary {
+        attrs: Vec::new(),
+        left: Box::new(left.clone()),
+        op,
+        right: Box::new(right.clone()),
+    });
+    fixed_value(&comparison) == Fixed::Value(false)
+}
+
 /// A name of `PLAIN_ATTRIBUTES`, or a tool attribute (`rustfmt::`, `clippy::`),
 /// which cannot be a macro.
 fn plain_path(path: &syn::Path) -> bool {
@@ -463,6 +576,14 @@ impl MacroScan<'_> {
 }
 
 impl<'ast> Visit<'ast> for MacroScan<'_> {
+    fn visit_item(&mut self, node: &'ast syn::Item) {
+        // An expansion that adds items may add a `macro_rules!` of any name.
+        if may_add_items(item_attrs(node)) {
+            self.shadowed.insert("*".to_owned());
+        }
+        syn::visit::visit_item(self, node);
+    }
+
     fn visit_item_mod(&mut self, node: &'ast syn::ItemMod) {
         self.module.push(node.ident.to_string());
         if node.content.is_none() {
@@ -617,7 +738,10 @@ impl ScopeCollector {
             }
             return;
         }
-        let name = item_name(item).unwrap_or_else(|| "*".to_owned());
+        // An item whose attribute may add items binds names that are not known.
+        let name = item_name(item)
+            .filter(|_| !may_add_items(item_attrs(item)))
+            .unwrap_or_else(|| "*".to_owned());
         if top {
             self.scope.top_items.insert(name);
         } else {
@@ -949,7 +1073,8 @@ impl<'ast> Visit<'ast> for FnVisitor<'_, '_> {
             .map(|segment| segment.ident.to_string())
             .unwrap_or_default();
         // A macro of the file or one it imports may take the standard name.
-        let shadowed = self.walk.model.is_some_and(|model| {
+        // A file that does not parse may take any name.
+        let shadowed = self.walk.model.is_none_or(|model| {
             model.shadowed_macros.contains("*") || model.shadowed_macros.contains(&name)
         });
         let read = standard
@@ -967,6 +1092,46 @@ impl<'ast> Visit<'ast> for FnVisitor<'_, '_> {
         if !read {
             self.walk
                 .unfollow(|| format!("the macro `{name}!`, whose expansion is not read,"));
+        } else if node.path.segments.len() == 1 {
+            // A `macro_rules!` of another file is outside the boundary (DS-659) and may
+            // take the name, so its expansion is one left unfollowed (DS-639): it rules
+            // out `Fail`, while the arguments read above may still give `Pass`.
+            self.walk.unfollow(|| {
+                format!("the macro `{name}!`, which a `macro_rules!` outside the file may define,")
+            });
+        }
+    }
+
+    fn visit_block(&mut self, node: &'ast syn::Block) {
+        // The statements after an `assert_eq!` / `assert_ne!` that always fails never
+        // run. Read so even when another macro may take the name: that only keeps
+        // them from `Pass`.
+        let mut dead = false;
+        for statement in &node.stmts {
+            if dead {
+                self.with_position(Position::NeverRun, |visitor| visitor.visit_stmt(statement));
+            } else {
+                self.visit_stmt(statement);
+                dead = always_failing_comparison(statement);
+            }
+        }
+    }
+
+    fn visit_expr_binary(&mut self, node: &'ast syn::ExprBinary) {
+        // The right side of `false && ..` and `true || ..` never runs (DS-1949 fixes
+        // the left side).
+        let skipped = match node.op {
+            syn::BinOp::And(_) => fixed_value(&node.left) == Fixed::Value(false),
+            syn::BinOp::Or(_) => fixed_value(&node.left) == Fixed::Value(true),
+            _ => false,
+        };
+        if skipped {
+            self.visit_expr(&node.left);
+            self.with_position(Position::NeverRun, |visitor| {
+                visitor.visit_expr(&node.right)
+            });
+        } else {
+            syn::visit::visit_expr_binary(self, node);
         }
     }
 }
@@ -1127,6 +1292,9 @@ struct ModuleScope {
     /// An item-position macro, a second definition of the module, or an item that
     /// does not parse: the names it binds are not known.
     unknown: bool,
+    /// An item with an attribute that may add items beside it (`may_add_items`):
+    /// the names its expansion binds shadow glob imports.
+    expanded: bool,
 }
 
 #[derive(Debug)]
@@ -1255,6 +1423,9 @@ impl FileModel {
                 }
             };
             let conditional = is_conditional(attrs);
+            if may_add_items(attrs) {
+                self.scope(module).expanded = true;
+            }
             let push = |model: &mut Self, name: String, ns: Ns, def: Def| {
                 model.scope(module).items.push(ScopeItem {
                     name,
@@ -1494,6 +1665,10 @@ impl FileModel {
             0 => {}
             1 => return explicit.remove(0),
             _ => return Binding::Unknown,
+        }
+        // An item an expansion adds would shadow what a glob brings (DS-639).
+        if scope.expanded {
+            return Binding::Unknown;
         }
         // Explicit items and imports shadow glob imports. Two globs that bring
         // different items under one name make its use a compile error, so a glob of

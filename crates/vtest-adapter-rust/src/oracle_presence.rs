@@ -5002,7 +5002,7 @@ fn absorbing_literal(op: syn::BinOp) -> Option<bool> {
 
 /// Whether literals fix the value of an expression whatever its other operands are.
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Fixed {
+pub(crate) enum Fixed {
     /// Fixed to this `bool`.
     Value(bool),
     /// A `bool` made only of literals, whose value is not evaluated here.
@@ -5030,7 +5030,7 @@ enum Fixed {
 /// `1 == 1`, `(true || ok)`) absorbs as the literal it equals, so `X || 1 == 1` is
 /// not read as `X` flowing. An operand made only of literals whose value is not
 /// evaluated here (`1 + 1 == 2`) may absorb (`Fixed::Literal`).
-fn fixed_value(expression: &syn::Expr) -> Fixed {
+pub(crate) fn fixed_value(expression: &syn::Expr) -> Fixed {
     if let syn::Expr::Macro(node) = unwrap_parens(expression) {
         if let Some(fixed) = matches_value(&node.mac) {
             return fixed;
