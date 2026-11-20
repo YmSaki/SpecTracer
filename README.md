@@ -292,9 +292,9 @@ For automation, these commands accept `--format json` and return the same
 
 Evidence is also bound to the Execution State at run time: the toolchain, the
 adapter configuration that affects execution, and the input manifest. The
-`rust-cargo` adapter records the `CARGO*` / `RUST*` environment variables (for
-example `CARGO_TARGET_DIR`) as part of that state, so if `vtest run` and
-`vtest verify` see different values, `target_binding` becomes
+`rust-cargo` adapter records the `CARGO*` / `RUST*` environment variables that
+affect the build (for example `CARGO_TARGET_DIR`) as part of that state, so if
+`vtest run` and `vtest verify` see different values, `target_binding` becomes
 `NO_EVIDENCE (STALE)`. This is the intended fail-closed behavior; run both
 commands in the same environment.
 
