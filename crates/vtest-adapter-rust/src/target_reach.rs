@@ -1554,10 +1554,8 @@ impl FileModel {
                     }
                 }
                 syn::Item::Impl(item) => self.collect_impl(item, module, conditional),
-                syn::Item::Macro(item) => {
-                    if item.ident.is_none() {
-                        self.scope(module).unknown = true;
-                    }
+                syn::Item::Macro(item) if item.ident.is_none() => {
+                    self.scope(module).unknown = true;
                 }
                 _ => {}
             }
