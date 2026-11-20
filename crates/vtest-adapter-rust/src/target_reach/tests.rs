@@ -148,7 +148,7 @@ fn helpers_of_the_same_file_are_followed_at_any_depth() {
 /// @vtest.id TEST-ORACLE-DA-002-FAIL-ONLY-WITHOUT-UNFOLLOWED-CALLS
 /// @vtest.covers VO-ORACLE-DA-002-FAIL-CONDITION
 /// @vtest.target crates/vtest-adapter-rust/src/target_reach.rs::target_reach
-/// @vtest.intent 探索範囲に target 呼出が無く追跡しない呼出も無い本体だけを DA-002 FAIL にし、追跡しない関数呼出・メソッド呼出・値としての経路・構造体リテラル・Test の引数・書き換えうる属性のどれかがあれば UNKNOWN にすることを確認する
+/// @vtest.intent 探索範囲に target 呼出が無く追跡しない呼出も無い本体（標準マクロは std:: / core:: の経路で呼ぶ）だけを DA-002 FAIL にし、追跡しない関数呼出・メソッド呼出・値としての経路・構造体リテラル・Test の引数・書き換えうる属性・他ファイルの macro_rules! が取りうる裸の名前のマクロ呼出のどれかがあれば UNKNOWN にすることを確認する
 #[test]
 fn fail_needs_no_call_left_unfollowed() {
     for body in [
@@ -286,7 +286,7 @@ fn calls_only_at_uncounted_positions_are_unknown() {
 /// @vtest.id TEST-ORACLE-DA-002-NEVER-RUN-CALL-UNKNOWN
 /// @vtest.covers VO-ORACLE-DA-002-ANALYSIS-BOUNDARY
 /// @vtest.target crates/vtest-adapter-rust/src/target_reach.rs::target_reach
-/// @vtest.intent 構文上実行されないと分かる位置（定数で偽の if、return の後、定数で決まる && / || の評価されない右辺、必ず失敗する定数の assert_eq! / assert_ne! の後）にだけ target 呼出があるとき、その呼出は静的な到達の証明にならないので PASS にせず、呼出があるので FAIL にもせず、DA-002 を UNKNOWN にすることを確認する
+/// @vtest.intent 構文上実行されないと分かる位置（定数で偽の if、return の後、定数で決まる && / || の評価されない右辺、必ず失敗する定数の assert_eq! / assert_ne! の後。それを含むブロックの後も含む）にだけ target 呼出があるとき、その呼出は静的な到達の証明にならないので PASS にせず、呼出があるので FAIL にもせず、DA-002 を UNKNOWN にすることを確認する
 #[test]
 fn a_call_syntax_shows_never_runs_is_unknown() {
     let helper = "fn helper() -> i32 { double(2) }";
@@ -301,6 +301,18 @@ fn a_call_syntax_shows_never_runs_is_unknown() {
         ("", "let _ = true || double(2) == 4;"),
         ("", "assert_eq!(1, 2, \"boom\");\n        double(2);"),
         ("", "std::assert_ne!(1, 1);\n        double(2);"),
+        (
+            "",
+            "{\n            assert_eq!(1, 2);\n        }\n        double(2);",
+        ),
+        (
+            "",
+            "if true {\n            assert_eq!(1, 2);\n        }\n        double(2);",
+        ),
+        (
+            "",
+            "let _ = {\n            assert_ne!(1, 1);\n        };\n        double(2);",
+        ),
     ] {
         let (outcome, reason) = double_verdict(extra, body);
         assert_eq!(outcome, ReachOutcome::Unknown, "{body}: {reason}");
@@ -412,7 +424,7 @@ fn a_call_in_a_macro_not_read_is_unknown() {
 /// @vtest.id TEST-ORACLE-DA-002-SHADOWED-STANDARD-MACRO-UNKNOWN
 /// @vtest.covers VO-ORACLE-DA-002-UNTRACKED-MACRO-UNKNOWN
 /// @vtest.target crates/vtest-adapter-rust/src/target_reach.rs::target_reach
-/// @vtest.intent ファイルの macro_rules!、名前の use、ファイル外からの glob import が assert_eq! などの標準の名前を取りうるときは、そのマクロの展開を読まず、DA-002 を PASS にも FAIL にもせず UNKNOWN にすることを確認する
+/// @vtest.intent ファイルの macro_rules!、名前の use、ファイル外からの glob import、項目を足しうる属性（属性マクロ、標準以外の derive）の付いた項目が assert_eq! などの標準の名前を取りうるとき、およびファイルが構文解析できないときは、そのマクロの展開を読まず、DA-002 を PASS にも FAIL にもせず UNKNOWN にすること、裸の名前の標準マクロは他ファイルの macro_rules! でありうるので呼出のない本体でも FAIL にしないことを確認する
 #[test]
 fn a_macro_that_may_take_a_standard_name_is_not_read() {
     for (extra, body) in [

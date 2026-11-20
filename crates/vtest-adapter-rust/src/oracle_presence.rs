@@ -2163,7 +2163,9 @@ fn contains_let(expression: &syn::Expr) -> bool {
 }
 
 /// DS-1951's failure divergence among macros: `panic!` / `unreachable!` / `todo!` /
-/// `unimplemented!`, and an `assert!` whose condition literals fix to `false`.
+/// `unimplemented!`, an `assert!` whose condition literals fix to `false`, and an
+/// `assert_eq!` / `assert_ne!` whose comparison of its two values they fix to
+/// `false` (DS-1951 counts every assert-equivalent the DA-001 classifier fixes).
 fn is_failure_divergence_macro(node: &syn::Macro) -> bool {
     let Some(name) = node
         .path
@@ -2173,6 +2175,24 @@ fn is_failure_divergence_macro(node: &syn::Macro) -> bool {
     else {
         return false;
     };
+    let comparison = match name.as_str() {
+        "assert_eq" => Some(syn::BinOp::Eq(Default::default())),
+        "assert_ne" => Some(syn::BinOp::Ne(Default::default())),
+        _ => None,
+    };
+    if let Some(op) = comparison {
+        return macro_arguments(node).is_some_and(|arguments| match &arguments.checked[..] {
+            [left, right] => {
+                fixed_value(&syn::Expr::Binary(syn::ExprBinary {
+                    attrs: Vec::new(),
+                    left: Box::new(left.clone()),
+                    op,
+                    right: Box::new(right.clone()),
+                })) == Fixed::Value(false)
+            }
+            _ => false,
+        });
+    }
     name == "panic"
         || is_diverging_macro(&name)
         || (name == "assert"

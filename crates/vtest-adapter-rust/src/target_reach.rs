@@ -28,9 +28,10 @@
 //! attribute outside `PLAIN_ATTRIBUTES`, or inside a module or `impl` with one,
 //! counts nothing either, as an attribute macro may replace what it runs. A `const`
 //! block and an array length count nothing: they are evaluated at compile time.
-//! The right side of `false && ..` and `true || ..`, and the statements after an
-//! `assert_eq!` / `assert_ne!` whose compared values DS-1949's classifier fixes so
-//! that it always fails, never run either.
+//! The right side of `false && ..` and `true || ..` never runs either, nor does
+//! code after an `assert_eq!` / `assert_ne!` whose compared values DS-1949's
+//! classifier fixes so that it always fails (a failure divergence of DS-1951, read
+//! by `never_run_regions` like `assert!(false)`, so also after a block holding it).
 //! The standard macros above are read only when nothing in the file may take their
 //! name: a `macro_rules!` of that name (any `macro_rules!` in statement position), a
 //! `use` of that name, a `#[macro_use]` crate or out-of-line module, a glob import
@@ -145,7 +146,13 @@ const STANDARD_DERIVES: &[&str] = &[
 ];
 
 /// Built-in item attributes that add no item.
-const ITEM_ATTRIBUTES: &[&str] = &["repr", "non_exhaustive", "macro_export", "path"];
+const ITEM_ATTRIBUTES: &[&str] = &[
+    "repr",
+    "non_exhaustive",
+    "macro_export",
+    "path",
+    "deprecated",
+];
 
 /// The most `use`, glob and module steps one name resolution takes. Beyond it the
 /// name is not resolved, which also stops a cycle of glob imports.
@@ -460,43 +467,6 @@ fn item_attrs(item: &syn::Item) -> &[syn::Attribute] {
         syn::Item::Use(item) => &item.attrs,
         _ => &[],
     }
-}
-
-/// Whether a statement is an `assert_eq!` / `assert_ne!` whose two compared values
-/// DA-001's classifier fixes so that it always fails (DS-1949).
-fn always_failing_comparison(statement: &syn::Stmt) -> bool {
-    let node = match statement {
-        syn::Stmt::Macro(node) => &node.mac,
-        syn::Stmt::Expr(syn::Expr::Macro(node), _) => &node.mac,
-        _ => return false,
-    };
-    // Another macro of the name only makes the rest `NeverRun`, never `Pass`.
-    let Some(name) = node
-        .path
-        .segments
-        .last()
-        .map(|segment| segment.ident.to_string())
-    else {
-        return false;
-    };
-    let op = match name.as_str() {
-        "assert_eq" => syn::BinOp::Eq(Default::default()),
-        "assert_ne" => syn::BinOp::Ne(Default::default()),
-        _ => return false,
-    };
-    let Ok(arguments) = node.parse_body_with(Arguments::parse_terminated) else {
-        return false;
-    };
-    let (Some(left), Some(right)) = (arguments.get(0), arguments.get(1)) else {
-        return false;
-    };
-    let comparison = syn::Expr::Binary(syn::ExprBinary {
-        attrs: Vec::new(),
-        left: Box::new(left.clone()),
-        op,
-        right: Box::new(right.clone()),
-    });
-    fixed_value(&comparison) == Fixed::Value(false)
 }
 
 /// A name of `PLAIN_ATTRIBUTES`, or a tool attribute (`rustfmt::`, `clippy::`),
@@ -1099,21 +1069,6 @@ impl<'ast> Visit<'ast> for FnVisitor<'_, '_> {
             self.walk.unfollow(|| {
                 format!("the macro `{name}!`, which a `macro_rules!` outside the file may define,")
             });
-        }
-    }
-
-    fn visit_block(&mut self, node: &'ast syn::Block) {
-        // The statements after an `assert_eq!` / `assert_ne!` that always fails never
-        // run. Read so even when another macro may take the name: that only keeps
-        // them from `Pass`.
-        let mut dead = false;
-        for statement in &node.stmts {
-            if dead {
-                self.with_position(Position::NeverRun, |visitor| visitor.visit_stmt(statement));
-            } else {
-                self.visit_stmt(statement);
-                dead = always_failing_comparison(statement);
-            }
         }
     }
 
