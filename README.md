@@ -236,7 +236,7 @@ vtest doc list --tree
 
 `--tree` shows the chain of registered documents, not the nodes inside them:
 each document ID is indented under the documents its nodes derive from. With
-only `calculator` registered, it prints the single line `calculator`.
+only `calculator` registered, the tree is the single entry `calculator`.
 
 ### 4. Declare a Verification Obligation (VO)
 
