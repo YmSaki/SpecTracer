@@ -238,7 +238,7 @@ fn an_absent_head_commit_is_incomplete_not_a_fabricated_hash() {
 
 /// @vtest.id TEST-EXEC-STATE-BUILD-SCRIPT-FORCES-INCOMPLETE
 /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
-/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk
+/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk_in
 /// @vtest.intent Verifies a `build.rs` in the tree makes the escape risk unprovable and forces an incomplete reconstruction.
 /// DES-212: a `build.rs` in the tree makes the escape risk
 /// unprovable, so the reconstruction must not report `complete: true`.
@@ -255,7 +255,7 @@ fn a_build_script_forces_an_incomplete_reconstruction() {
 
 /// @vtest.id TEST-EXEC-STATE-IN-SCOPE-INCLUDE-NOT-INCOMPLETE
 /// @vtest.covers VO-EXEC-STATE-IN-SCOPE-INCLUDE-NOT-INCOMPLETE
-/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk
+/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk_in
 /// @vtest.intent Verifies an `include_str!` literal resolving inside the manifest's included area does not force incompleteness.
 /// A literal `include_str!` that stays inside the manifest's own
 /// included area (not an excluded directory) does not itself force
@@ -282,7 +282,7 @@ fn an_in_scope_include_str_literal_does_not_force_incompleteness() {
 
 /// @vtest.id TEST-EXEC-STATE-INCLUDE-SPELLING-IN-RUST-LITERAL-NOT-RISK
 /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
-/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk
+/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk_in
 /// @vtest.intent Rust文字列literal内のinclude_str!表記を実マクロ呼出しと誤認しないことを確認する
 #[test]
 fn include_spelling_inside_a_string_literal_is_not_escape_risk() {
@@ -299,7 +299,7 @@ fn include_spelling_inside_a_string_literal_is_not_escape_risk() {
 
 /// @vtest.id TEST-EXEC-STATE-INCLUDE-SPELLING-IN-COMMENT-NOT-RISK
 /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
-/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk
+/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk_in
 /// @vtest.intent コメント内のinclude_str!表記を実マクロ呼出しと誤認しないことを確認する
 #[test]
 fn include_spelling_inside_a_comment_is_not_escape_risk() {
@@ -316,7 +316,7 @@ fn include_spelling_inside_a_comment_is_not_escape_risk() {
 
 /// @vtest.id TEST-EXEC-STATE-PARSE-ERROR-FORCES-ESCAPE-RISK
 /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
-/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk
+/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk_in
 /// @vtest.intent 構文解析不能なRust sourceが理由付きescape_riskになることを確認する
 #[test]
 fn an_unparseable_rust_file_is_escape_risk_with_a_reason() {
@@ -331,7 +331,7 @@ fn an_unparseable_rust_file_is_escape_risk_with_a_reason() {
 
 /// @vtest.id TEST-EXEC-STATE-OUT-OF-SCOPE-INCLUDE-FORCES-INCOMPLETE
 /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
-/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk
+/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk_in
 /// @vtest.intent Verifies an `include_str!` literal resolving outside the manifest's included area forces incompleteness.
 /// An `include_str!` that resolves outside the manifest's included area
 /// (here, above the workspace root entirely) cannot be ruled out and
@@ -357,7 +357,7 @@ fn an_out_of_scope_include_str_literal_forces_incompleteness() {
 /// would have missed this.
 /// @vtest.id TEST-EXEC-STATE-SECOND-INCLUDE-OCCURRENCE-FORCES-INCOMPLETE
 /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
-/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk
+/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk_in
 /// @vtest.intent Verifies a second `include_str!` occurrence in a file resolving out of scope forces incompleteness, not only the first occurrence.
 #[test]
 fn a_second_include_str_occurrence_pointing_out_of_scope_forces_incompleteness() {
@@ -383,7 +383,7 @@ fn a_second_include_str_occurrence_pointing_out_of_scope_forces_incompleteness()
 
 /// @vtest.id TEST-EXEC-STATE-NON-LITERAL-INCLUDE-ARG-FORCES-INCOMPLETE
 /// @vtest.covers VO-EXEC-STATE-ESCAPE-RISK-FORCES-INCOMPLETE
-/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk
+/// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::escape_risk_in
 /// @vtest.intent Verifies a non-literal `include_str!` argument, which cannot be statically resolved, forces incompleteness.
 #[test]
 fn a_non_literal_include_argument_forces_incompleteness() {
