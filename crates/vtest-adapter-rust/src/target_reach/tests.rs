@@ -332,7 +332,7 @@ fn a_call_syntax_shows_never_runs_is_unknown() {
 /// @vtest.id TEST-ORACLE-DA-002-EXPANDED-NAMES-UNRESOLVED
 /// @vtest.covers VO-ORACLE-DA-002-ANALYSIS-BOUNDARY
 /// @vtest.target crates/vtest-adapter-rust/src/target_reach.rs::target_reach
-/// @vtest.intent モジュールや Test 本体に、展開で項目を足しうる属性（属性マクロ、標準以外の derive）の付いた項目があるとき、また Test や helper の本体の文の位置に、ここで読む標準マクロ以外のマクロ呼出があるとき、glob import で解決する名前を解決せず、その呼出で PASS にも FAIL にもしないこと、標準の derive、読む標準マクロ、明示の経路はこれまでどおり解決することを確認する
+/// @vtest.intent モジュールや Test 本体に、展開で項目を足しうる属性（属性マクロ、標準以外の derive）の付いた項目があるとき、また Test や helper の本体の文の位置に、ここで読む標準マクロ以外のマクロ呼出があるとき、glob import で解決する名前を解決せず、その呼出で PASS にも FAIL にもしないこと、標準の derive、読む標準マクロ、明示の経路はこれまでどおり解決すること、展開で項目を足しうる属性の付いた項目が呼出側と同じモジュールか本体にあるときだけ標準マクロを読まず、外側のモジュールにあるだけでは読むことを確認する
 #[test]
 fn names_an_expansion_may_bind_are_not_resolved() {
     for (extra, body) in [
@@ -380,6 +380,29 @@ fn names_an_expansion_may_bind_are_not_resolved() {
     ] {
         assert_outcome(ReachOutcome::Pass, double_verdict(extra, body), body);
     }
+    // An expansion in the Test's own module or body may define a `macro_rules!`
+    // of a standard name, so the standard macros are not read there.
+    for (extra, body) in [
+        (
+            "#[pm::emit_assert]\n    struct Marker;",
+            "assert_eq!(super::double(2), 4);",
+        ),
+        (
+            "",
+            "#[pm::emit_assert]\n        struct Marker;\n        assert_eq!(super::double(2), 4);",
+        ),
+    ] {
+        assert_outcome(ReachOutcome::Unknown, double_verdict(extra, body), body);
+    }
+    // One in another module cannot take a prelude macro's name there (E0659).
+    let outer = "pub fn double(x: i32) -> i32 { x * 2 }\n\
+                 #[derive(serde::Serialize)]\npub struct Record;\n\
+                 #[cfg(test)]\nmod tests {\n    use super::*;\n    #[test]\n    fn t() {\n        assert_eq!(double(2), 4);\n    }\n}\n";
+    assert_outcome(
+        ReachOutcome::Pass,
+        verdicts(outer, "tests::t", &["src/lib.rs::double"]).remove(0),
+        "a derive in the parent module",
+    );
 }
 
 /// @vtest.id TEST-ORACLE-DA-002-TRACKED-CLOSURE-PASSES
@@ -440,7 +463,7 @@ fn a_call_in_a_macro_not_read_is_unknown() {
 /// @vtest.id TEST-ORACLE-DA-002-SHADOWED-STANDARD-MACRO-UNKNOWN
 /// @vtest.covers VO-ORACLE-DA-002-UNTRACKED-MACRO-UNKNOWN
 /// @vtest.target crates/vtest-adapter-rust/src/target_reach.rs::target_reach
-/// @vtest.intent ファイルの macro_rules!、名前の use、ファイル外からの glob import、項目を足しうる属性（属性マクロ、標準以外の derive）の付いた項目が assert_eq! などの標準の名前を取りうるとき、およびファイルが構文解析できないときは、そのマクロの展開を読まず、DA-002 を PASS にも FAIL にもせず UNKNOWN にすること、裸の名前の標準マクロは他ファイルの macro_rules! でありうるので呼出のない本体でも FAIL にしないことを確認する
+/// @vtest.intent ファイルの macro_rules!、名前の use、ファイル外からの glob import、Test と同じモジュールにある項目を足しうる属性（属性マクロ、標準以外の derive）の付いた項目が assert_eq! などの標準の名前を取りうるとき、およびファイルが構文解析できないときは、そのマクロの展開を読まず、DA-002 を PASS にも FAIL にもせず UNKNOWN にすること、裸の名前の標準マクロは他ファイルの macro_rules! でありうるので呼出のない本体でも FAIL にしないことを確認する
 #[test]
 fn a_macro_that_may_take_a_standard_name_is_not_read() {
     for (extra, body) in [

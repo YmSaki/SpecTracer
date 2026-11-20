@@ -35,8 +35,11 @@
 //! The standard macros above are read only when nothing in the file may take their
 //! name: a `macro_rules!` of that name (any `macro_rules!` in statement position), a
 //! `use` of that name, a `#[macro_use]` crate or out-of-line module, a glob import
-//! of a module outside the file, or an item whose attribute may add items (an
-//! attribute macro or a derive outside the standard ones). Even then, a macro
+//! of a module outside the file, or an item of the calling function's own module or
+//! body whose attribute may add items (an attribute macro or a derive outside the
+//! standard ones; one in an outer module cannot take a prelude macro's name for
+//! the calls below it, since rustc rejects such a call as ambiguous, E0659). Even
+//! then, a macro
 //! called by a bare name may be a `macro_rules!` of another file (DS-659 bounds the
 //! analysis to this file), so it is a call left unfollowed: its arguments are read
 //! for `Pass`, and it rules out `Fail`. A `std::` / `core::` path names the
@@ -60,7 +63,11 @@
 //! - A bare-named standard macro's arguments are read as the standard one reads
 //!   them, and it is taken to add no item, so a `macro_rules!` of another file
 //!   under that name that drops its arguments or adds an item is not seen, nor is
-//!   one that a macro expansion defines.
+//!   one that a macro expansion defines where the calling function's module and
+//!   body hold no expanding item (in an inline `#[macro_use]` module, for one).
+//!   One that an attribute or derive in an outer module defines is not seen either,
+//!   but rustc rejects the call (E0659, checked with a `macro_rules! assert_eq`
+//!   that adds `fn double`, defined by an attribute on the parent module's item).
 //! - `#[test]` is read as the prelude's unless a `use` of that name is in the
 //!   file; an attribute macro named `test` that a glob import brings is not seen.
 //!   Likewise a derive named like a standard one is read as the standard derive, so
@@ -380,7 +387,7 @@ impl Walk<'_> {
             base
         };
         let never_run = never_run_regions(text);
-        let scope = BodyScope::new(&function, self.model);
+        let scope = BodyScope::new(&function, module, self.model);
         let place = name.map_or_else(
             || "the Test body".to_owned(),
             |name| format!("the same-file function `{name}`"),
@@ -553,14 +560,6 @@ impl MacroScan<'_> {
 }
 
 impl<'ast> Visit<'ast> for MacroScan<'_> {
-    fn visit_item(&mut self, node: &'ast syn::Item) {
-        // An expansion that adds items may add a `macro_rules!` of any name.
-        if may_add_items(item_attrs(node)) {
-            self.shadowed.insert("*".to_owned());
-        }
-        syn::visit::visit_item(self, node);
-    }
-
     fn visit_item_mod(&mut self, node: &'ast syn::ItemMod) {
         self.module.push(node.ident.to_string());
         if node.content.is_none() {
@@ -655,19 +654,18 @@ struct BodyScope {
     top_items: BTreeSet<String>,
     /// Items and `use` names in nested blocks (`*` for a glob or a macro).
     nested: BTreeSet<String>,
+    /// An item of the body has an attribute that may add items, so its expansion
+    /// may define a `macro_rules!` of a standard name there.
+    expanded: bool,
 }
 
 impl BodyScope {
-    fn new(function: &syn::ItemFn, model: Option<&FileModel>) -> Self {
+    fn new(function: &syn::ItemFn, module: &[String], model: Option<&FileModel>) -> Self {
         // The standard macros read here expand to no item; any other macro in
         // statement position may (DS-639).
         let read = READ_MACROS
             .iter()
-            .filter(|name| {
-                model.is_some_and(|model| {
-                    !model.shadowed_macros.contains("*") && !model.shadowed_macros.contains(**name)
-                })
-            })
+            .filter(|name| model.is_some_and(|model| !model.macro_taken(module, name)))
             .map(|name| (*name).to_owned())
             .collect();
         let mut collector = ScopeCollector {
@@ -705,7 +703,7 @@ impl BodyScope {
 struct ScopeCollector {
     scope: BodyScope,
     depth: usize,
-    /// The names of `READ_MACROS` that nothing in the file may take.
+    /// The names of `READ_MACROS` that nothing may take where the body is.
     read: BTreeSet<String>,
 }
 
@@ -753,9 +751,12 @@ impl ScopeCollector {
             }
             return;
         }
-        // An item whose attribute may add items binds names that are not known.
+        // An item whose attribute may add items binds names that are not known,
+        // macros included.
+        let expanding = may_add_items(item_attrs(item));
+        self.scope.expanded |= expanding;
         let name = item_name(item)
-            .filter(|_| !may_add_items(item_attrs(item)))
+            .filter(|_| !expanding)
             .unwrap_or_else(|| "*".to_owned());
         if top {
             self.scope.top_items.insert(name);
@@ -1091,9 +1092,11 @@ impl<'ast> Visit<'ast> for FnVisitor<'_, '_> {
             .unwrap_or_default();
         // A macro of the file or one it imports may take the standard name.
         // A file that does not parse may take any name.
-        let shadowed = self.walk.model.is_none_or(|model| {
-            model.shadowed_macros.contains("*") || model.shadowed_macros.contains(&name)
-        });
+        let shadowed = self.scope.expanded
+            || self
+                .walk
+                .model
+                .is_none_or(|model| model.macro_taken(self.module, &name));
         let read = standard
             && !shadowed
             && match name.as_str() {
@@ -1383,6 +1386,17 @@ impl FileModel {
         model.shadowed_macros = shadowed;
         model.rewritten_modules = rewritten;
         Some(model)
+    }
+
+    /// Whether something may take the macro name `name` where `module`'s code calls
+    /// it: a `macro_rules!` or an import of the file (`shadowed_macros`), or the
+    /// expansion of an item of that module itself (`ModuleScope::expanded`). An
+    /// expansion in an outer module cannot: rustc rejects the call as ambiguous
+    /// between the macro-expanded `macro_rules!` and the prelude macro (E0659).
+    fn macro_taken(&self, module: &[String], name: &str) -> bool {
+        self.shadowed_macros.contains("*")
+            || self.shadowed_macros.contains(name)
+            || self.modules.get(module).is_some_and(|scope| scope.expanded)
     }
 
     /// Whether `module` or a module around it has an attribute that may rewrite it.
