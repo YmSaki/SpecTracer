@@ -37,10 +37,12 @@
 //! `use` of that name, a `#[macro_use]` crate or out-of-line module, a glob import
 //! of a module outside the file, or an item of the calling function's own module or
 //! body whose attribute may add items (an attribute macro or a derive outside the
-//! standard ones; one in an outer module cannot take a prelude macro's name for
-//! the calls below it, since rustc rejects such a call as ambiguous, E0659). Even
-//! then, a macro
-//! called by a bare name may be a `macro_rules!` of another file (DS-659 bounds the
+//! standard ones). A `macro_rules!` that an expansion defines cannot take a prelude
+//! macro's name anywhere: rustc rejects a call of that name as ambiguous (E0659),
+//! whether the expansion is in the calling module, in the body, in an outer module
+//! or in a sibling inline `#[macro_use]` module. Not reading the standard macros
+//! beside such an item is a cautious choice kept on purpose; it leans to
+//! `Unknown`. Even then, a macro called by a bare name may be a `macro_rules!` of another file (DS-659 bounds the
 //! analysis to this file), so it is a call left unfollowed: its arguments are read
 //! for `Pass`, and it rules out `Fail`. A `std::` / `core::` path names the
 //! standard macro itself. Such an item with an expanding attribute also keeps the
@@ -62,12 +64,11 @@
 //!   `if cfg!(any()) { .. }` counts its calls.
 //! - A bare-named standard macro's arguments are read as the standard one reads
 //!   them, and it is taken to add no item, so a `macro_rules!` of another file
-//!   under that name that drops its arguments or adds an item is not seen, nor is
-//!   one that a macro expansion defines where the calling function's module and
-//!   body hold no expanding item (in an inline `#[macro_use]` module, for one).
-//!   One that an attribute or derive in an outer module defines is not seen either,
-//!   but rustc rejects the call (E0659, checked with a `macro_rules! assert_eq`
-//!   that adds `fn double`, defined by an attribute on the parent module's item).
+//!   under that name that drops its arguments or adds an item is not seen. For
+//!   one, a `macro_rules! assert_eq` written in `lib.rs` above `mod x;` that adds
+//!   `fn double` takes the name in `x.rs` by textual scope. Seeing it would need
+//!   every bare-named macro statement to be `Unknown`, which would leave almost
+//!   every Test `Unknown`, so it is not detected.
 //! - `#[test]` is read as the prelude's unless a `use` of that name is in the
 //!   file; an attribute macro named `test` that a glob import brings is not seen.
 //!   Likewise a derive named like a standard one is read as the standard derive, so
