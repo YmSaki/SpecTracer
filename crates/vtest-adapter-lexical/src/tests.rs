@@ -316,7 +316,7 @@ fn unreadable_file_is_e_scan_001_and_contributes_nothing() {
 
 /// @vtest.id TEST-ADAPTER-LEXICAL-DECLARES-DISCOVERY-ONLY
 /// @vtest.covers VO-ADAPTER-LEXICAL-DECLARES-DISCOVERY-ONLY
-/// @vtest.target crates/vtest-adapter-lexical/src/lib.rs::LexicalAdapter
+/// @vtest.target crates/vtest-adapter-lexical/src/lib.rs::LexicalAdapter::descriptor
 /// @vtest.intent verifies a lexical adapter declares its id, languages, config namespace, and only the source_discovery capability, and registers without a capability mismatch
 #[test]
 fn declares_only_source_discovery() {

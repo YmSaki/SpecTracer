@@ -2661,7 +2661,7 @@ fn adds() { assert_eq!(2, 1 + 1); }
     /// `targets`（`required: true`）まで弱めていないことを固定する。
     /// @vtest.id TEST-SCAN-RUST-INTEGRATION-FORM-REJECTS-EMPTY-TARGETS
     /// @vtest.covers VO-SCAN-RUST-INTEGRATION-TARGETS-REQUIRED
-    /// @vtest.target crates/vtest-adapter-rust/src/structured_test.rs::RUST_INTEGRATION_FORM
+    /// @vtest.target crates/vtest-scan/src/operations.rs::validate_form_answers
     /// @vtest.intent verifies the rust-integration Form rejects an empty targets list with E-OP-001 (DS-1247)
     #[test]
     fn rust_integration_form_rejects_an_empty_targets_list() {
