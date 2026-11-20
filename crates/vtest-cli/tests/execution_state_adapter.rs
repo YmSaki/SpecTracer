@@ -8,7 +8,9 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
-use vtest_adapter_rust::execution_state::{escape_risk, snapshot, snapshot_in, Environment};
+use vtest_adapter_rust::execution_state::{
+    escape_risk_in, snapshot, snapshot_in, Environment, ExecutionContext,
+};
 use vtest_model::{AdapterId, ExecutionState};
 struct ExecutionStateInputs<'a> {
     adapter: &'a AdapterId,
@@ -516,6 +518,13 @@ fn fixed_environment(root: &Path, extra: &[(&str, &str)]) -> Environment {
         vars.push(((*key).to_owned(), (*value).to_owned()));
     }
     Environment::from_vars(vars)
+}
+
+/// The escape check under the fixed fixture environment, so an ambient
+/// `CARGO_TARGET_DIR` of the test process cannot move the excluded area.
+fn escape_risk(root: &Path) -> Option<String> {
+    let context = ExecutionContext::resolve(root, fixed_environment(root, &[]), "cargo-test");
+    escape_risk_in(root, &context)
 }
 
 fn snapshot_with(root: &Path, extra: &[(&str, &str)]) -> vtest_model::ExecutionStateDraft {
