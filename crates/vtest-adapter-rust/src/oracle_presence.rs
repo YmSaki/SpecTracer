@@ -189,16 +189,30 @@
 //!   DS-1965 fixes: `true` for a pattern that is irrefutable (DS-1952) with no guard
 //!   or a guard fixed to `true`, `false` for a guard fixed to `false`, with their
 //!   negations (`assert!(matches!(double(2), _))` is constant, as is
-//!   `X || matches!(x, _)`, which absorbs like `X || true`). A pattern DS-1952 reads
-//!   as irrefutable that its type may refute (`Shape::Circle(..)`, `S { .. }`, a
-//!   fixed-length slice) is not fixed, so DA-001 does not report a real check of a
-//!   variant as `Fail` (derivation from DS-1680 toward `NoViolation`: DS-1965's text
-//!   names every DS-1952 irrefutable pattern, so one that no type refutes stays a
-//!   false PASS). A lone identifier (`x`, `ref x`, `mut x`) is not fixed either: it
-//!   may name a lowercase constant, which syntax does not tell from a binding, so
-//!   `matches!(x, y)` stays `NoViolation` as before, a remaining false PASS
-//!   (`x @ _` and `_` are fixed). `matches!(x, Some(4))` and a guard that is not
-//!   fixed stay non-constant. An operand made only of literals
+//!   `X || matches!(x, _)`, which absorbs like `X || true`). Syntax does not tell a
+//!   struct from an enum variant, nor a binding from a constant or a unit variant:
+//!   `S { .. }` and `DaVerdict::Fail(_)` have one form, as do `x` and a lowercase
+//!   `const`. DS-1952 reads such a pattern as irrefutable, but only its type shows
+//!   whether it is, so its `matches!` is DS-621's "定数性を確定できない式" and
+//!   DA-001 escapes to `Unknown` rather than `Fail` (a real check of a variant) or
+//!   `NoViolation` (a pattern no type refutes, which checks nothing). This covers a
+//!   tuple-struct, struct or path pattern, a lone identifier (`x`, `ref x`,
+//!   `mut x`, `Kind`), a slice of fixed length, a macro, and a tuple, reference or
+//!   `or` pattern holding one with no part refutable whatever the type
+//!   (`PatternClass::Undecidable`); DA-001 reads such a `matches!` both as `true`
+//!   and as its scrutinee's value, and the constancy is undecided where the two
+//!   differ (`da_001_argument_constancy`), so `matches!(f(), S { .. }) && g()` stays
+//!   non-constant. A non-constant assert-equivalent beside it still makes DA-001
+//!   `NoViolation`. `x @ _`, `_` and the like are fixed. A pattern refutable whatever
+//!   the type (a literal, a range, `Some` / `None` / `Ok` / `Err` read as the
+//!   prelude's variants, or a pattern holding one) and a guard that is not fixed stay
+//!   non-constant. This reading is DA-001's only: DA-003 and DA-006 read DS-1952 for
+//!   whether a divergence is reached as before (`may_be_refuted_by_type`). Remaining
+//!   limits: a user type named `Some` / `None` / `Ok` / `Err` that shadows the
+//!   prelude's is read as the prelude's variant, so a `matches!` over it stays
+//!   non-constant; and DA-001 is `Unknown`, not `Fail`, for an undecidable pattern
+//!   that its type does make irrefutable (a struct, a single-variant enum, a unit
+//!   struct, a binding). An operand made only of literals
 //!   counts as the value it has: `!`, `^`, `==` / `!=` of `bool` literals and the
 //!   comparisons of two literals of one kind (integer, string, char) are
 //!   evaluated (`X || 1 == 1` is constant). Float literals are not compared, since
@@ -838,9 +852,11 @@ fn da_001_constant_assertion(
     if undetermined_argument {
         return DaVerdict::Unknown(
             "every other assert-equivalent call is constant, and an argument holds a macro \
-             whose expansion is not read, or an operand of `||` / `|` / `&&` / `&` made only \
-             of literals whose value this analysis does not evaluate, so whether it is \
-             constant is not decided (DS-621, DS-629, DS-1949)"
+             whose expansion is not read, an operand of `||` / `|` / `&&` / `&` made only \
+             of literals whose value this analysis does not evaluate, or a `matches!` whose \
+             pattern (a struct, tuple-struct or path pattern, a lone identifier, a slice of \
+             fixed length) only its type shows to be irrefutable or not, so whether it is \
+             constant is not decided (DS-621, DS-629, DS-1949, DS-1952, DS-1965)"
                 .to_owned(),
         );
     }
@@ -2623,7 +2639,7 @@ fn divergence_constancy(divergence: &Divergence<'_>) -> Constancy {
     }
     let mut constancy = Constancy::AllLiteral;
     for decider in &divergence.deciders {
-        match argument_constancy(decider.base) {
+        match da_001_argument_constancy(decider.base) {
             Constancy::AllLiteral => {}
             Constancy::Undetermined => {
                 if matches!(constancy, Constancy::AllLiteral) {
@@ -2788,7 +2804,7 @@ fn classify_constancy(arguments: &str) -> Constancy {
         {
             continue;
         }
-        match argument_constancy(argument) {
+        match da_001_argument_constancy(argument) {
             Constancy::AllLiteral => {}
             Constancy::Undetermined => undetermined = true,
             Constancy::NotAllLiteral => return Constancy::NotAllLiteral,
@@ -5051,11 +5067,27 @@ pub(crate) enum Fixed {
 /// not read as `X` flowing. An operand made only of literals whose value is not
 /// evaluated here (`1 + 1 == 2`) may absorb (`Fixed::Literal`).
 pub(crate) fn fixed_value(expression: &syn::Expr) -> Fixed {
+    fixed_value_read(expression, UndecidedMatches::Open)
+}
+
+/// How `fixed_value_read` reads a `matches!` whose pattern syntax shows neither
+/// irrefutable nor refutable (`PatternClass::Undecidable`).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum UndecidedMatches {
+    /// As a value that depends on its scrutinee, as `fixed_value` reads it.
+    Open,
+    /// As the value `true` its pattern has when its type makes it irrefutable.
+    True,
+}
+
+/// `fixed_value` with a reading of an undecidable `matches!` (DA-001 only).
+fn fixed_value_read(expression: &syn::Expr, reading: UndecidedMatches) -> Fixed {
     if let syn::Expr::Macro(node) = unwrap_parens(expression) {
-        if let Some(fixed) = matches_value(&node.mac) {
+        if let Some(fixed) = matches_value(&node.mac, reading) {
             return fixed;
         }
     }
+    let fixed_value = |inner: &syn::Expr| fixed_value_read(inner, reading);
     match unwrap_parens(expression) {
         syn::Expr::Lit(syn::ExprLit {
             lit: syn::Lit::Bool(literal),
@@ -5166,34 +5198,128 @@ fn parse_matches(node: &syn::Macro) -> Option<syn::Result<(syn::Pat, Option<syn:
 /// irrefutable (DS-1952) with no guard or a guard fixed to `true`, `false` for a
 /// guard fixed to `false` (DA-001's `fixed_value`), each as `Fixed::Value`.
 ///
-/// Derivation from DS-1680 toward `NoViolation`: a pattern DS-1952 reads as
-/// irrefutable that its type may refute (`may_be_refuted_by_type`:
-/// `DaVerdict::Fail(_)`, `S { .. }`, a fixed-length slice) is not fixed, since its
-/// value is `false` for a variant it does not name and `Fail` would reject a real
-/// check. DS-1965's text does not exclude it, which leaves a false PASS for such a
-/// pattern that no type refutes. Any pattern not fixed is `None`, which leaves the
-/// form as `fixed_value` reads any other macro.
-fn matches_value(node: &syn::Macro) -> Option<Fixed> {
+/// A pattern whose irrefutability its type decides (`PatternClass::Undecidable`:
+/// `S { .. }`, `E::V(_)`, `E::A`, `x`) is read as `reading` says: `None` (as any
+/// other macro, which its identifiers make `Fixed::Open`) under
+/// `UndecidedMatches::Open`, `true` under `UndecidedMatches::True`. DA-001 reads
+/// both and leaves the constancy undecided where they differ (DS-621's escape).
+/// Any other pattern not fixed is `None`.
+fn matches_value(node: &syn::Macro, reading: UndecidedMatches) -> Option<Fixed> {
     let (pattern, guard) = parse_matches(node)?.ok()?;
-    match guard.as_ref().map(fixed_value) {
+    let class = pattern_class(&pattern);
+    match guard.as_ref().map(|guard| fixed_value_read(guard, reading)) {
         Some(Fixed::Value(false)) => Some(Fixed::Value(false)),
-        Some(Fixed::Value(true)) | None if irrefutable_whatever_the_type(&pattern) => {
+        Some(Fixed::Value(true)) | None if class == PatternClass::Irrefutable => {
+            Some(Fixed::Value(true))
+        }
+        Some(Fixed::Value(true)) | None
+            if class == PatternClass::Undecidable && reading == UndecidedMatches::True =>
+        {
             Some(Fixed::Value(true))
         }
         _ => None,
     }
 }
 
-/// Whether a pattern is irrefutable (DS-1952) and no type can refute it: an `or`
-/// pattern is, when one of its alternatives is (`Some(_) | _`).
-fn irrefutable_whatever_the_type(pattern: &syn::Pat) -> bool {
+/// What syntax shows of a `matches!` pattern for DA-001 (DS-1952, DS-1965).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum PatternClass {
+    /// Irrefutable whatever the type: `_`, `..`, `x @ _`, a slice of a rest only,
+    /// and tuples, references and parentheses of these.
+    Irrefutable,
+    /// Irrefutable for some type and refutable for another, which syntax does not
+    /// tell: a lone identifier (a binding, a constant, a unit struct or a unit
+    /// variant), a path, a tuple-struct or struct pattern (a struct or an enum
+    /// variant), a slice that fixes a length, or a macro.
+    Undecidable,
+    /// Refutable whatever the type: a literal, a range, `Some` / `None` / `Ok` /
+    /// `Err` (the prelude's variants, as `option_or_result_variant` reads them),
+    /// or a pattern holding one in a position every value reaches.
+    Refutable,
+}
+
+impl PatternClass {
+    /// The class of patterns that must all match (tuple elements, fields).
+    fn all(classes: impl IntoIterator<Item = Self>) -> Self {
+        classes
+            .into_iter()
+            .fold(Self::Irrefutable, |all, class| match (all, class) {
+                (Self::Refutable, _) | (_, Self::Refutable) => Self::Refutable,
+                (Self::Undecidable, _) | (_, Self::Undecidable) => Self::Undecidable,
+                (Self::Irrefutable, Self::Irrefutable) => Self::Irrefutable,
+            })
+    }
+
+    /// The class of alternatives one of which must match (an `or` pattern).
+    fn any(classes: impl IntoIterator<Item = Self>) -> Self {
+        classes
+            .into_iter()
+            .fold(Self::Refutable, |any, class| match (any, class) {
+                (Self::Irrefutable, _) | (_, Self::Irrefutable) => Self::Irrefutable,
+                (Self::Undecidable, _) | (_, Self::Undecidable) => Self::Undecidable,
+                (Self::Refutable, Self::Refutable) => Self::Refutable,
+            })
+    }
+
+    /// A pattern with these elements whose path or length a type may refute.
+    fn refutable_by_type(self) -> Self {
+        match self {
+            Self::Irrefutable | Self::Undecidable => Self::Undecidable,
+            Self::Refutable => Self::Refutable,
+        }
+    }
+}
+
+/// The class of a `matches!` pattern (DS-1952 read for DA-001, DS-621's escape).
+/// `Irrefutable` is exactly what DS-1965 fixes to `true` whatever the type.
+fn pattern_class(pattern: &syn::Pat) -> PatternClass {
     match pattern {
-        syn::Pat::Or(or) => or.cases.iter().any(irrefutable_whatever_the_type),
-        syn::Pat::Paren(inner) => irrefutable_whatever_the_type(&inner.pat),
-        // A lone identifier (`x`, `ref x`, `mut x`) may name a lowercase constant, which
-        // syntax does not tell from a binding: not fixed, as with `may_be_refuted_by_type`.
-        syn::Pat::Ident(ident) if ident.subpat.is_none() => false,
-        other => is_irrefutable(other) && !may_be_refuted_by_type(other),
+        syn::Pat::Wild(_) | syn::Pat::Rest(_) => PatternClass::Irrefutable,
+        syn::Pat::Ident(ident) => match &ident.subpat {
+            Some((_, sub)) => pattern_class(sub),
+            None if ident.ident == "None" => PatternClass::Refutable,
+            None => PatternClass::Undecidable,
+        },
+        syn::Pat::Or(or) => PatternClass::any(or.cases.iter().map(pattern_class)),
+        syn::Pat::Paren(inner) => pattern_class(&inner.pat),
+        syn::Pat::Reference(inner) => pattern_class(&inner.pat),
+        syn::Pat::Type(inner) => pattern_class(&inner.pat),
+        syn::Pat::Tuple(tuple) => PatternClass::all(tuple.elems.iter().map(pattern_class)),
+        syn::Pat::Slice(slice) => {
+            let elements = PatternClass::all(slice.elems.iter().map(pattern_class));
+            if may_be_refuted_by_type(pattern) {
+                elements.refutable_by_type()
+            } else {
+                elements
+            }
+        }
+        syn::Pat::TupleStruct(node) if option_or_result_variant(&node.path).is_some() => {
+            PatternClass::Refutable
+        }
+        syn::Pat::TupleStruct(node) => {
+            PatternClass::all(node.elems.iter().map(pattern_class)).refutable_by_type()
+        }
+        syn::Pat::Struct(node) if option_or_result_variant(&node.path).is_some() => {
+            PatternClass::Refutable
+        }
+        syn::Pat::Struct(node) => {
+            PatternClass::all(node.fields.iter().map(|field| pattern_class(&field.pat)))
+                .refutable_by_type()
+        }
+        syn::Pat::Path(path)
+            if path.qself.is_none()
+                && path
+                    .path
+                    .segments
+                    .last()
+                    .is_some_and(|segment| segment.ident == "None") =>
+        {
+            PatternClass::Refutable
+        }
+        syn::Pat::Lit(_) | syn::Pat::Range(_) => PatternClass::Refutable,
+        // A path (`E::A`, a unit struct or a constant), a macro, a `const` block or a
+        // form syn does not name may be irrefutable for some type.
+        _ => PatternClass::Undecidable,
     }
 }
 
@@ -5287,12 +5413,36 @@ fn operand_flows(sibling: &syn::Expr, absorbing: bool) -> bool {
 /// literals whose value is not evaluated or holds such a macro, so it may absorb
 /// the rest.
 fn argument_constancy(argument: &syn::Expr) -> Constancy {
-    match fixed_value(argument) {
+    argument_constancy_read(argument, UndecidedMatches::Open)
+}
+
+/// DA-001's constancy of one argument, with a `matches!` whose pattern syntax shows
+/// neither irrefutable nor refutable (`PatternClass::Undecidable`) read both ways:
+/// as `true`, the value its type makes it when the pattern is irrefutable, and as
+/// a value its scrutinee decides. Where the two readings differ, the constancy is
+/// not decided (DS-621's "定数性を確定できない式", DS-1952, DS-1965): `S { .. }` and
+/// `E::V(_)` look the same, and only the type tells whether one is constant.
+fn da_001_argument_constancy(argument: &syn::Expr) -> Constancy {
+    match (
+        argument_constancy_read(argument, UndecidedMatches::Open),
+        argument_constancy_read(argument, UndecidedMatches::True),
+    ) {
+        (Constancy::AllLiteral, Constancy::AllLiteral) => Constancy::AllLiteral,
+        (Constancy::NotAllLiteral, Constancy::NotAllLiteral) => Constancy::NotAllLiteral,
+        _ => Constancy::Undetermined,
+    }
+}
+
+fn argument_constancy_read(argument: &syn::Expr, reading: UndecidedMatches) -> Constancy {
+    match fixed_value_read(argument, reading) {
         Fixed::Open => {}
         Fixed::Opaque => return Constancy::Undetermined,
         Fixed::Value(_) | Fixed::Literal | Fixed::Constant => return Constancy::AllLiteral,
     }
-    let mut finder = UnevaluatedAbsorberFinder { found: false };
+    let mut finder = UnevaluatedAbsorberFinder {
+        found: false,
+        reading,
+    };
     finder.visit_expr(argument);
     if finder.found {
         Constancy::Undetermined
@@ -5303,13 +5453,18 @@ fn argument_constancy(argument: &syn::Expr) -> Constancy {
 
 struct UnevaluatedAbsorberFinder {
     found: bool,
+    reading: UndecidedMatches,
 }
 
 impl<'ast> Visit<'ast> for UnevaluatedAbsorberFinder {
     fn visit_expr_binary(&mut self, node: &'ast syn::ExprBinary) {
         if absorbing_literal(node.op).is_some() {
-            let may_absorb =
-                |side: &syn::Expr| matches!(fixed_value(side), Fixed::Literal | Fixed::Opaque);
+            let may_absorb = |side: &syn::Expr| {
+                matches!(
+                    fixed_value_read(side, self.reading),
+                    Fixed::Literal | Fixed::Opaque
+                )
+            };
             self.found |= may_absorb(&node.left) || may_absorb(&node.right);
         }
         syn::visit::visit_expr_binary(self, node);
@@ -10042,7 +10197,7 @@ mod tests {
     /// @vtest.id TEST-ORACLE-DA-001-IRREFUTABLE-MATCHES-IS-CONSTANT
     /// @vtest.covers VO-ORACLE-DA-001-IRREFUTABLE-MATCHES-IS-CONSTANT
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::matches_value
-    /// @vtest.intent 反駁不能なパターンでガードが無いか定数で真の matches!、ガードが定数で偽の matches!、それらの否定と、それを X || や && false の吸収の形で含む引数だけを持つ assert 相当は DA-001 の定数アサーションになって合成結果が FAIL になり、Some(4) や 4 などの反駁可能なパターン、Some(_)、単独の識別子（定数かもしれない four、ref four、mut four）、定数でないガード、反駁可能なパターンと定数で真のガードの組は定数アサーションにならず違反なしのままで、列挙子や構造体やスライスの型で反駁されうるパターンも FAIL にならず違反なしのままで、X || matches!(x, _) は X || true と同じく DA-003 で UNKNOWN になることを確認する
+    /// @vtest.intent 反駁不能なパターンでガードが無いか定数で真の matches!、ガードが定数で偽の matches!、それらの否定と、それを X || や && false の吸収の形で含む引数だけを持つ assert 相当は DA-001 の定数アサーションになって合成結果が FAIL になり、Some(4) や 4 などの反駁可能なパターン、Some(_)、None、反駁可能な部分を持つ構造体やタプルのパターン、定数でないガード、反駁可能なパターンと定数で真のガードの組は定数アサーションにならず違反なしのままで、X || matches!(x, _) は X || true と同じく DA-003 で UNKNOWN になることを確認する
     #[test]
     fn a_matches_that_its_pattern_and_guard_fix_is_a_constant_assertion() {
         for body in [
@@ -10084,26 +10239,15 @@ mod tests {
         }
         for body in [
             "assert!(matches!(double(2), Some(4)));",
-            "assert!(matches!(double(2), four));",
-            "assert!(!matches!(double(2), four));",
-            "assert!(matches!(double(2), ref four));",
-            "assert!(matches!(double(2), mut four));",
-            "assert!(matches!(double(2), four if true));",
             "assert!(matches!(double(2), Some(_)));",
             "assert!(matches!(double(2), Ok(_)));",
             "assert!(matches!(double(2), 4));",
             "assert!(matches!(double(2), 4 | 5));",
             "assert!(matches!(double(2), 0..=9));",
             "assert!(matches!(double(2), None));",
-            "assert!(matches!(double(2), Kind));",
-            "assert!(matches!(double(2), Some(_) | Kind));",
-            "assert!(matches!(double(2), Shape::Circle(..)));",
-            "assert!(matches!(double(2), Shape::Circle { .. }));",
-            "assert!(matches!(double(2), S { .. }));",
-            "assert!(matches!(double(2), [_, _]));",
-            "assert!(matches!(double(2), Some(_) | S { .. }));",
-            "assert!(matches!(double(2), Shape::Circle(..) if true));",
-            "assert!(matches!(double(2), DaVerdict::Fail(_)));",
+            "assert!(matches!(double(2), Option::None));",
+            "assert!(matches!(double(2), S { x: 4, .. }));",
+            "assert!(matches!(double(2), (S { .. }, 4)));",
             "assert!(matches!(double(2), _ if ok));",
             "assert!(matches!(double(2), x if x == 4));",
             "assert!(matches!(double(2), Some(4) if true));",
@@ -10112,6 +10256,7 @@ mod tests {
             "assert!(double(2) == 4 || matches!(double(2), Some(_)));",
             "assert!(double(2) == 4 && matches!(double(2), _ if ok));",
             "assert!(matches!(double(2), _) && ok);",
+            "assert!(matches!(double(2), S { .. }) && ok);",
             "assert_eq!(matches!(double(2), Some(4)), true);",
             "assert!(matches!(double(2), _));\n    assert!(matches!(double(2), Some(4)));",
         ] {
@@ -10184,6 +10329,60 @@ mod tests {
                 matches!(analysis.da_003, DaVerdict::Unknown(_)),
                 "{body}: {:?}",
                 analysis.da_003
+            );
+        }
+    }
+
+    /// DS-621, DS-1952, DS-1965: a `matches!` whose pattern only its type shows to be
+    /// irrefutable is an expression whose constancy is not decided, so DA-001 escapes
+    /// to `Unknown`; a non-constant assert-equivalent beside it keeps `NoViolation`.
+    /// @vtest.id TEST-ORACLE-DA-001-TYPE-DECIDED-MATCHES-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-001-CONSTANT-ASSERTION, VO-ORACLE-DA-001-IRREFUTABLE-MATCHES-IS-CONSTANT
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_001_argument_constancy
+    /// @vtest.intent 構文からは反駁不能とも反駁可能とも決まらないパターン（構造体 S { .. }、列挙子 Enum::V(_)、パス、単独の識別子、長さを決めるスライス）の matches! だけを assert 相当に持つ Test は、DA-001 が FAIL にも違反なしにもならず UNKNOWN になり、その Test に非定数の assert_eq!(double(2), 4) を足すと違反なしになることを確認する
+    #[test]
+    fn a_matches_whose_pattern_only_its_type_decides_is_unknown_for_da_001() {
+        let undecided = [
+            "assert!(matches!(double(2), S { .. }));",
+            "assert!(matches!(double(2), Enum::V(_)));",
+            "assert!(matches!(double(2), DaVerdict::Fail(_)));",
+            "assert!(matches!(double(2), Shape::Circle(..)));",
+            "assert!(matches!(double(2), Shape::Circle { .. }));",
+            "assert!(matches!(double(2), Shape::Circle(..) if true));",
+            "assert!(matches!(double(2), E::A));",
+            "assert!(matches!(double(2), Kind));",
+            "assert!(matches!(double(2), four));",
+            "assert!(matches!(double(2), ref four));",
+            "assert!(matches!(double(2), mut four));",
+            "assert!(matches!(double(2), four if true));",
+            "assert!(matches!(double(2), (four, _)));",
+            "assert!(matches!(double(2), [_, _]));",
+            "assert!(matches!(double(2), Some(_) | S { .. }));",
+            "assert!(matches!(double(2), Some(_) | Kind));",
+            "assert!(!matches!(double(2), four));",
+            "assert!(!matches!(double(2), S { .. }));",
+            "assert!(double(2) == 4 || matches!(double(2), S { .. }));",
+            "assert_eq!(matches!(double(2), S { .. }), true);",
+            "if !matches!(double(2), S { .. }) { panic!(); }",
+            "assert!(matches!(double(2), _));\n    assert!(matches!(double(2), S { .. }));",
+        ];
+        for body in undecided {
+            let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_001, DaVerdict::Unknown(_)),
+                "{body}: {:?}",
+                analysis.da_001
+            );
+        }
+        for body in undecided {
+            let text =
+                format!("#[test]\nfn t() {{\n    {body}\n    assert_eq!(double(2), 4);\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_001, DaVerdict::NoViolation),
+                "{body}: {:?}",
+                analysis.da_001
             );
         }
     }
