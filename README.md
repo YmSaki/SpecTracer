@@ -234,6 +234,10 @@ vtest doc add --id calculator --path docs/calculator.json
 vtest doc list --tree
 ```
 
+`--tree` shows the chain of registered documents, not the nodes inside them:
+each document ID is indented under the documents its nodes derive from. With
+only `calculator` registered, it prints the single line `calculator`.
+
 ### 4. Declare a Verification Obligation (VO)
 
 VOs are YAML records under `.verify/vo/`, one file per VO, deriving from one or
