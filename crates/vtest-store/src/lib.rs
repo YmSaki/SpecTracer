@@ -1325,10 +1325,15 @@ mod tests {
     /// model instead means `yaml_serde` itself rejects the duplicate key
     /// during parsing, before `ProjectConfig::from_yaml` ever inspects a
     /// version value.
+    /// @vtest.id TEST-STORE-CONFIG-DUPLICATE-VERSION-KEY-REJECTED
+    /// @vtest.covers VO-STORE-CONFIG-INVARIANT-VIOLATION-E-CONFIG-001
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent a config with a duplicate top-level `version` key fails closed as E-CONFIG-001
     #[test]
     fn duplicate_top_level_version_key_is_rejected() {
-        ProjectConfig::from_yaml("version: 1\nversion: 2\n", "fallback")
+        let error = ProjectConfig::from_yaml("version: 1\nversion: 2\n", "fallback")
             .expect_err("a duplicate top-level `version` key must fail closed");
+        assert_eq!(error.config_load_code(), Some("E-CONFIG-001"));
     }
 
     /// The same `yaml_serde::Value`-first parse that lets `from_yaml` inspect
@@ -1343,11 +1348,16 @@ mod tests {
     /// mapping, `approval_roles` included, before `from_value` ever builds
     /// the `BTreeMap`. This re-verifies that specifically, rather than
     /// leaving the round 2 claim uncorrected.
+    /// @vtest.id TEST-STORE-CONFIG-DUPLICATE-APPROVAL-ROLES-KEY-REJECTED
+    /// @vtest.covers VO-STORE-CONFIG-INVARIANT-VIOLATION-E-CONFIG-001
+    /// @vtest.target crates/vtest-store/src/lib.rs::ProjectConfig::from_yaml
+    /// @vtest.intent a config with a duplicate key inside `approval_roles` fails closed as E-CONFIG-001
     #[test]
     fn approval_roles_with_a_duplicate_key_is_rejected() {
         let yaml = "version: 2\nproject:\n  name: x\nadapters: []\nverify:\n  full_scope: [chain_integrity, orphan_detection, target_binding, oracle_presence]\napproval_roles:\n  reviewer: [a]\n  reviewer: [b]\n";
-        ProjectConfig::from_yaml(yaml, "fallback")
+        let error = ProjectConfig::from_yaml(yaml, "fallback")
             .expect_err("a duplicate key inside approval_roles must fail closed");
+        assert_eq!(error.config_load_code(), Some("E-CONFIG-001"));
     }
 
     /// @vtest.id TEST-STORE-V2-MISSING-REQUIRED-SECTION
