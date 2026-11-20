@@ -2519,7 +2519,7 @@ fn adds() { assert_eq!(2, crate::missing()); }
     /// 変換自体を対象にする）。
     /// @vtest.id TEST-SCAN-DISCOVERY-ERROR-CARRIES-E-ADAPTER-002
     /// @vtest.covers VO-SCAN-DISCOVERY-FAILURE-E-ADAPTER-002
-    /// @vtest.target crates/vtest-scan/src/lib.rs::ScanError
+    /// @vtest.target crates/vtest-scan/src/lib.rs::ScanError::code
     /// @vtest.intent verifies vtest_adapter_api::DiscoveryError converts into ScanError carrying code E-ADAPTER-002
     #[test]
     fn discovery_error_conversion_carries_e_adapter_002() {

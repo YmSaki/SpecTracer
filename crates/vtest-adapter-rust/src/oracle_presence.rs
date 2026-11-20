@@ -9434,7 +9434,7 @@ mod tests {
     /// derivation at the position read is not shown derived, wherever it is.
     /// @vtest.id TEST-ORACLE-DA-003-BRANCH-WITH-DIFFERING-ARMS-IS-UNKNOWN
     /// @vtest.covers VO-ORACLE-DA-003-BRANCH-ARM-DERIVATION
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent `if`・`if let`・`match` とラベル付きブロックの値が、失敗として発散する腕を除いて、読む位置で target の結果から派生する腕と派生しない腕を持つとき(入れ子の分岐、let で束縛した分岐、`return` で抜ける腕、射影した位置、発散を決める位置を含む)、DA-003 が違反なしにならないことを確認する
     #[test]
     fn a_branch_whose_arms_differ_in_derivation_is_unknown() {
@@ -9469,7 +9469,7 @@ mod tests {
     /// through any call of a declared target or any binding of one, stays derived.
     /// @vtest.id TEST-ORACLE-DA-003-BRANCH-WITH-DERIVED-ARMS-STAYS-NO-VIOLATION
     /// @vtest.covers VO-ORACLE-DA-003-BRANCH-ARM-DERIVATION
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent 失敗として発散する腕を除くすべての腕が、読む位置で target の結果(別の呼出や別の束縛を含む)から派生する分岐とラベル付きブロックは、assert に届けば DA-003 が違反なしのままであることを確認する
     #[test]
     fn a_branch_whose_arms_are_all_derived_stays_no_violation() {
@@ -9888,7 +9888,7 @@ mod tests {
     /// condition) does not verify the target.
     /// @vtest.id TEST-ORACLE-DA-003-DISCARDED-CALL-IN-ASSERT-IS-UNKNOWN
     /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN, VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent assert の検査される引数の中で、ブロックの文、let _、使われない let の束縛、クロージャの本体、ループ、if と match の条件と被検査式、代入の右辺にある target の呼出は、結果が比較される値へ流れないので検証済みと数えず、DA-003 が UNKNOWN で合成結果が PASS にならないことを確認する
     #[test]
     fn a_call_whose_value_is_dropped_inside_an_assert_argument_is_unknown() {
@@ -9943,7 +9943,7 @@ mod tests {
     /// A call whose value can reach the compared value still verifies the target.
     /// @vtest.id TEST-ORACLE-DA-003-CALL-REACHING-THE-ASSERT-STAYS-NO-VIOLATION
     /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent assert の検査される引数の式そのもの、二項演算、メソッドチェーン、フィールド、参照、キャスト、? の被演算子、ブロックの末尾の式、末尾で使われる let の束縛、失敗として発散する腕を除くすべての腕が派生である if と match の各分岐の末尾の式にある target の呼出は、検証済みと数えられ、DA-003 が違反なしのままであることを確認する
     #[test]
     fn a_call_whose_value_reaches_the_compared_value_inside_an_assert_stays_no_violation() {
@@ -9995,7 +9995,7 @@ mod tests {
     /// used by the tail) does not.
     /// @vtest.id TEST-ORACLE-DA-003-UNLISTED-POSITION-IN-ASSERT-IS-UNKNOWN
     /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN, VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent assert の検査される引数の中で、流れる位置として列挙されていない位置(射影で残らない集約リテラルの要素、match の被検査式、ガード、if let、let-else、範囲、ラベル付きブロックの break、可変の束縛、末尾で使われない束縛、matches! のパターン側)にある target の呼出は検証済みと数えず、DA-003 が UNKNOWN になることを確認する
     #[test]
     fn a_call_in_a_position_that_is_not_listed_as_flowing_is_unknown() {
@@ -10036,7 +10036,7 @@ mod tests {
     /// still verify the target.
     /// @vtest.id TEST-ORACLE-DA-003-LISTED-POSITION-IN-ASSERT-STAYS-NO-VIOLATION
     /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent assert の検査される引数の中で、射影された集約リテラルの要素、射影されない集約リテラル、末尾の式で format! の引数や参照として使われる束縛、定数ブロックの演算子の被演算子にある target の呼出は検証済みと数えられ、DA-003 が違反なしのままであることを確認する
     #[test]
     fn a_call_in_a_listed_position_in_an_assert_stays_no_violation() {
@@ -10068,7 +10068,7 @@ mod tests {
     /// position the value flows from; beside any other operand it flows.
     /// @vtest.id TEST-ORACLE-DA-003-LITERAL-ABSORBED-OPERAND-DOES-NOT-FLOW
     /// @vtest.covers VO-ORACLE-DA-003-LITERAL-ABSORBED-OPERAND-NOT-FLOWING
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent X || true、true || X、X && false、false && X と | / & の同じ形、その否定、括弧や入れ子でリテラルに値が確定する兄弟の横にある target の呼出と束縛は DA-003 で検証済みと数えず UNKNOWN になり、X || false、X || ok、ok && X、(X || true) && Y の Y、整数の X | 0 のように吸収されない位置では違反なしのままであることを確認する
     #[test]
     fn an_operand_that_a_literal_absorbs_does_not_flow_and_any_other_operand_does() {
@@ -10579,7 +10579,7 @@ mod tests {
     /// do not carry the call's value (DS-629; a projection selects one element).
     /// @vtest.id TEST-ORACLE-DA-003-CLOSURE-AND-NESTED-PROJECTION-IN-ASSERT-IS-UNKNOWN
     /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN, VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent assert の検査される引数の中で、インラインのクロージャの本体、入れ子の射影で残らない要素、vec! の添字で残らない要素にある target の呼出は検証済みと数えず、DA-003 が UNKNOWN になり合成結果が PASS にならないことを確認する
     #[test]
     fn a_closure_or_nested_projection_inside_an_assert_argument_is_unknown() {
@@ -10642,7 +10642,7 @@ mod tests {
     /// reaches an assert-equivalent directly.
     /// @vtest.id TEST-ORACLE-DA-003-RESULT-INTO-DELEGATION-TARGET-IS-UNKNOWN
     /// @vtest.covers VO-ORACLE-DA-003-DELEGATE-FUNCTION-ARGS, VO-ORACLE-DA-003-DELEGATION-NOT-FAIL
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent target の結果が、assert の検査される引数またはそこへ届く let 束縛の中で、値の変換でない関数呼出(利用者の関数、クロージャ、タプル構造体、T::new、PathBuf::from)の引数かメソッド呼出の引数へ流れ、assert へ直接届く結果が 1 つもない Test は、DA-003 が委譲(DS-1960)を理由に UNKNOWN になり、合成結果が PASS にならないことを確認する
     #[test]
     fn a_result_flowing_into_a_delegation_target_is_unknown() {
@@ -10791,7 +10791,7 @@ mod tests {
     /// target (DS-641 names only calls outside the assert-equivalents).
     /// @vtest.id TEST-ORACLE-DA-003-MESSAGE-ARGUMENT-IS-NOT-A-FLOWING-POSITION
     /// @vtest.covers VO-ORACLE-DA-003-MESSAGE-ARGUMENT-NOT-FLOWING
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent target の結果が assert のメッセージ引数、または expect / expect_err の引数にだけ現れる Test は DA-003 が違反なしにならず、検査される引数で結果が届く Test はメッセージ引数の関数呼出があっても違反なしのままであることを確認する
     #[test]
     fn a_message_argument_is_not_a_flowing_position() {
@@ -10853,7 +10853,7 @@ mod tests {
     /// verification is one of them does not get DA-006's no violation.
     /// @vtest.id TEST-ORACLE-DA-006-INFALLIBLE-UNWRAP-IS-NOT-VERIFICATION
     /// @vtest.covers VO-ORACLE-INFALLIBLE-UNWRAP-NOT-ASSERT-EQUIVALENT, VO-ORACLE-DA-006-NO-VERIFICATION-SYNTAX
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::VerificationSyntaxVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_006_no_verification_syntax
     /// @vtest.intent 受け手の列挙子が構文から Some / Ok と決まる値(構築式と、それを一度だけ束縛した変数)への unwrap / expect / ?、Err と決まる値への unwrap_err / expect_err だけを検証構文に持つ Test は、DA-006 が違反なしにならず合成結果が PASS にならないことを確認する
     #[test]
     fn an_unwrap_that_cannot_fail_is_not_verification_syntax() {
@@ -10885,7 +10885,7 @@ mod tests {
     /// assert-equivalent (DS-619).
     /// @vtest.id TEST-ORACLE-DA-006-FALLIBLE-UNWRAP-STAYS-VERIFICATION
     /// @vtest.covers VO-ORACLE-INFALLIBLE-UNWRAP-NOT-ASSERT-EQUIVALENT, VO-ORACLE-DA-003-DIRECT-ASSERT-METHOD
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::VerificationSyntaxVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_006_no_verification_syntax
     /// @vtest.intent 受け手の列挙子が構文から決まらない値(呼出の結果、分岐、let mut、同じ名前の再束縛)、または失敗しうる組(Ok への unwrap_err、Err への unwrap)への unwrap / expect / ? は assert 相当のままで、DA-006 が違反なしのままであることを確認する
     #[test]
     fn an_unwrap_that_can_fail_stays_verification_syntax() {
@@ -10916,7 +10916,7 @@ mod tests {
     /// static-analysis verdict is UNKNOWN, not the PASS the other rules compose to.
     /// @vtest.id TEST-ORACLE-DA-003-SRC-ID-TARGET-IS-UNKNOWN
     /// @vtest.covers VO-ORACLE-DA-003-UNIDENTIFIED-CALL-UNKNOWN
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::RustCargoStaticAnalysisAdapter
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::RustCargoStaticAnalysisAdapter::analyze
     /// @vtest.intent SrcId で宣言された target は呼出箇所を同定できないため、他の規則が違反なしでも静的解析の判定が PASS ではなく UNKNOWN になり、Locator の target だけの同じ本体は PASS のままであることを確認する
     #[test]
     fn a_src_id_target_makes_the_static_analysis_verdict_unknown_not_pass() {
