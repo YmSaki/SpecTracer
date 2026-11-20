@@ -4,6 +4,7 @@
 //! report incompleteness.
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
 use std::{
+    cell::RefCell,
     collections::BTreeMap,
     fs,
     path::{Component, Path, PathBuf},
@@ -333,25 +334,107 @@ pub fn snapshot_in(
     invocation: CanonicalProjection,
     environment: Environment,
 ) -> ExecutionStateDraft {
-    let context = ExecutionContext::resolve(root, environment, runner_kind);
-    let toolchain = toolchain_identity(root, &context.environment);
-    let entries = collect_manifest(root, &context);
-    let complete = head.is_some()
-        && toolchain.is_some()
-        && entries.is_some()
-        && context.incomplete.is_empty()
-        && escape_risk_in(root, &context).is_none()
-        && local_dependencies_are_in_scope(root, &context);
-    ExecutionStateDraft {
-        schema_id: "rust-cargo-execution-state".into(),
-        schema_version: "1".into(),
-        complete,
-        head_revision: head.map(str::to_owned),
-        runner_kind: runner_kind.into(),
-        invocation,
-        toolchain_identity: toolchain.unwrap_or_default(),
-        effective_config: context.effective_config(),
-        inputs: entries.unwrap_or_default(),
+    WorkspaceInputs::collect(root, runner_kind, environment).snapshot(head, runner_kind, invocation)
+}
+
+/// The part of a snapshot that does not depend on the Test: everything
+/// [`snapshot_in`] reads from the workspace, the toolchain and the
+/// environment for one `(root, runner_kind, environment)`.
+#[derive(Debug)]
+struct WorkspaceInputs {
+    toolchain: Option<String>,
+    entries: Option<Vec<ExecutionInputDraft>>,
+    effective_config: CanonicalProjection,
+    /// The context is complete and no build-time escape or out-of-scope local
+    /// dependency was found.
+    in_scope: bool,
+}
+
+impl WorkspaceInputs {
+    fn collect(root: &Path, runner_kind: &str, environment: Environment) -> Self {
+        let context = ExecutionContext::resolve(root, environment, runner_kind);
+        let toolchain = toolchain_identity(root, &context.environment);
+        let entries = collect_manifest(root, &context);
+        // The escape and dependency walks only decide completeness, so they
+        // are skipped once completeness is already lost.
+        let in_scope = toolchain.is_some()
+            && entries.is_some()
+            && context.incomplete.is_empty()
+            && escape_risk_in(root, &context).is_none()
+            && local_dependencies_are_in_scope(root, &context);
+        Self {
+            toolchain,
+            entries,
+            effective_config: context.effective_config(),
+            in_scope,
+        }
+    }
+
+    fn snapshot(
+        &self,
+        head: Option<&str>,
+        runner_kind: &str,
+        invocation: CanonicalProjection,
+    ) -> ExecutionStateDraft {
+        ExecutionStateDraft {
+            schema_id: "rust-cargo-execution-state".into(),
+            schema_version: "1".into(),
+            complete: head.is_some() && self.in_scope,
+            head_revision: head.map(str::to_owned),
+            runner_kind: runner_kind.into(),
+            invocation,
+            toolchain_identity: self.toolchain.clone().unwrap_or_default(),
+            effective_config: self.effective_config.clone(),
+            inputs: self.entries.clone().unwrap_or_default(),
+        }
+    }
+}
+
+/// [`snapshot_in`] for one operation that takes many snapshots of a workspace
+/// it does not change: the workspace inputs of each distinct
+/// `(root, runner_kind, environment)` are collected on first use and reused.
+/// Drop it when the operation ends; it never notices a later change.
+#[derive(Debug, Default)]
+pub struct WorkspaceInputsCache {
+    collected: RefCell<Vec<CollectedInputs>>,
+}
+
+/// The workspace inputs collected for one `(root, runner_kind, environment)`.
+#[derive(Debug)]
+struct CollectedInputs {
+    root: PathBuf,
+    runner_kind: String,
+    environment: Environment,
+    inputs: WorkspaceInputs,
+}
+
+impl WorkspaceInputsCache {
+    /// The same draft as [`snapshot_in`] for the same arguments.
+    pub fn snapshot_in(
+        &self,
+        root: &Path,
+        head: Option<&str>,
+        runner_kind: &str,
+        invocation: CanonicalProjection,
+        environment: Environment,
+    ) -> ExecutionStateDraft {
+        let mut collected = self.collected.borrow_mut();
+        if let Some(entry) = collected.iter().find(|entry| {
+            entry.root == root
+                && entry.runner_kind == runner_kind
+                && entry.environment == environment
+        }) {
+            return entry.inputs.snapshot(head, runner_kind, invocation);
+        }
+        let inputs = WorkspaceInputs::collect(root, runner_kind, environment.clone());
+        let draft = inputs.snapshot(head, runner_kind, invocation);
+        collected.push(CollectedInputs {
+            root: root.to_owned(),
+            runner_kind: runner_kind.to_owned(),
+            environment,
+            inputs,
+        });
+        draft
     }
 }
 
@@ -989,5 +1072,78 @@ mod tests {
             source.len(),
             after - before
         );
+    }
+
+    /// DES-372: a verification rebuilds every Test's current Execution State
+    /// through one reader. Reusing the workspace inputs must give the draft a
+    /// fresh snapshot gives, for each runner kind (the coverage runner excludes
+    /// its own target directory) and each environment.
+    /// @vtest.id TEST-EXEC-STATE-SHARED-WORKSPACE-INPUTS-MATCH-SNAPSHOT
+    /// @vtest.covers VO-EXEC-STATE-REEVALUATION-REBUILDS-CURRENT-DTO
+    /// @vtest.target crates/vtest-adapter-rust/src/execution_state.rs::WorkspaceInputsCache::snapshot_in
+    /// @vtest.intent Verifies the cached snapshot equals a fresh snapshot for every runner kind, invocation and environment, so a cache key that missed one of them would fail.
+    #[test]
+    fn shared_workspace_inputs_give_the_same_draft_as_a_fresh_snapshot() {
+        use super::{snapshot_in, Environment, WorkspaceInputsCache};
+        use std::collections::BTreeMap;
+
+        let root = std::env::temp_dir().join(format!(
+            "vtest-adapter-rust-shared-workspace-inputs-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("src")).expect("create fixture");
+        std::fs::create_dir_all(root.join("cov-out")).expect("create coverage dir");
+        std::fs::write(root.join("Cargo.toml"), "[package]\nname = \"fixture\"\n")
+            .expect("write manifest");
+        std::fs::write(root.join("src/lib.rs"), "pub fn value() -> u8 { 1 }\n")
+            .expect("write source");
+        std::fs::write(root.join("cov-out/generated.txt"), "generated").expect("write output");
+
+        let environment = |extra: &[(&str, &str)]| {
+            let overlay: BTreeMap<String, String> = [("CARGO_LLVM_COV_TARGET_DIR", "cov-out")]
+                .iter()
+                .chain(extra)
+                .map(|(key, value)| ((*key).to_owned(), (*value).to_owned()))
+                .collect();
+            Environment::current().with_overlay(&overlay)
+        };
+        let environments = [
+            environment(&[]),
+            environment(&[("RUSTFLAGS", "-Dwarnings")]),
+        ];
+        let invocations = [
+            serde_json::json!({"args": ["first"]}),
+            serde_json::json!({"args": ["second"]}),
+        ];
+        let cache = WorkspaceInputsCache::default();
+        let mut drafts = Vec::new();
+        for environment in &environments {
+            for invocation in &invocations {
+                for runner_kind in ["cargo-test", "cargo-llvm-cov"] {
+                    let shared = cache.snapshot_in(
+                        &root,
+                        Some("revision"),
+                        runner_kind,
+                        invocation.clone(),
+                        environment.clone(),
+                    );
+                    let fresh = snapshot_in(
+                        &root,
+                        Some("revision"),
+                        runner_kind,
+                        invocation.clone(),
+                        environment.clone(),
+                    );
+                    assert_eq!(shared, fresh, "{runner_kind} {invocation}");
+                    drafts.push(shared);
+                }
+            }
+        }
+        std::fs::remove_dir_all(&root).expect("remove fixture");
+        // The fixture makes the key matter: the coverage runner's target
+        // directory is an input only to `cargo test`, and RUSTFLAGS is bound.
+        assert_ne!(drafts[0].inputs, drafts[1].inputs);
+        assert_ne!(drafts[0].effective_config, drafts[4].effective_config);
     }
 }

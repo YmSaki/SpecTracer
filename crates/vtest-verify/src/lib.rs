@@ -15,6 +15,7 @@
 //! 完全に排除した。SPEC-400「旧モデルの12項目…は検査として存在しない」。
 
 use std::{
+    cell::RefCell,
     collections::{BTreeMap, BTreeSet},
     path::Path,
 };
@@ -386,9 +387,36 @@ struct EvidenceContext<'a> {
     /// 新設せず（本 PR 範囲外）、`StaticAnalysisAdapter` の唯一の消費対象を
     /// プレーンな `Vec<String>` として運ぶ。
     assertion_macros: BTreeMap<String, Vec<String>>,
+    /// adapter id → the Execution State reader of this verification. One
+    /// verification reads one unchanged workspace, so an adapter may collect
+    /// the inputs every Test shares once; the readers end with the context.
+    execution_state_readers:
+        RefCell<BTreeMap<String, Box<dyn vtest_adapter_api::ExecutionStateReader + 'a>>>,
 }
 
 impl<'a> EvidenceContext<'a> {
+    /// The current Execution State draft of `execution` under `runner_kind`,
+    /// as the `adapter_id` Test Runner reports it (DES-372), or `None` when
+    /// the adapter has no Test Runner or cannot report one.
+    fn execution_state(
+        &self,
+        adapter_id: &str,
+        execution: &vtest_model::ExecutionDescriptor,
+        runner_kind: &str,
+    ) -> Option<vtest_model::ExecutionStateDraft> {
+        let runner = self.registry.test_runner(adapter_id)?;
+        let mut readers = self.execution_state_readers.borrow_mut();
+        let reader = readers
+            .entry(adapter_id.to_owned())
+            .or_insert_with(|| runner.execution_state_reader());
+        reader.execution_state(
+            &self.root,
+            execution,
+            self.head_commit.as_deref(),
+            runner_kind,
+        )
+    }
+
     fn load(
         root: &Path,
         layout: &VerifyLayout,
@@ -496,6 +524,7 @@ impl<'a> EvidenceContext<'a> {
             head_commit: git_head_commit(root),
             registry,
             assertion_macros,
+            execution_state_readers: RefCell::new(BTreeMap::new()),
         }
     }
 }
@@ -1122,19 +1151,12 @@ fn evidence_validity_failure(
             vec!["recorded execution_state.complete is not true (DS-822)".to_owned()],
         ));
     }
-    let draft = evidence
-        .registry
-        .test_runner(current_adapter.as_str())
-        .and_then(|runner| {
-            runner.execution_state(
-                &evidence.root,
-                &test.execution,
-                evidence.head_commit.as_deref(),
-                &record.runner.kind,
-            )
-        });
-    let current_state = draft.as_ref().map(|draft| {
-        let mut checked = draft.clone();
+    let draft = evidence.execution_state(
+        current_adapter.as_str(),
+        &test.execution,
+        &record.runner.kind,
+    );
+    let current_state = draft.map(|mut checked| {
         checked.complete &= checked.head_revision == evidence.head_commit
             && checked.runner_kind == record.runner.kind;
         materialize_execution_state(current_adapter, &checked)
@@ -3637,6 +3659,7 @@ mod tests {
             head_commit: Some("deadbeef".to_owned()),
             registry: &registry,
             assertion_macros: BTreeMap::new(),
+            execution_state_readers: RefCell::new(BTreeMap::new()),
         };
 
         let outcome = evidence_validity_failure(&test, &record, &scan, &evidence)
@@ -3697,6 +3720,7 @@ mod tests {
             head_commit: Some("deadbeef".to_owned()),
             registry: &registry,
             assertion_macros: BTreeMap::new(),
+            execution_state_readers: RefCell::new(BTreeMap::new()),
         };
 
         let outcome = evidence_validity_failure(&test, &record, &scan, &evidence)
@@ -3806,6 +3830,7 @@ mod tests {
             head_commit: Some(head_commit),
             registry: &registry,
             assertion_macros: BTreeMap::new(),
+            execution_state_readers: RefCell::new(BTreeMap::new()),
         };
 
         let outcome = evidence_validity_failure(&test, &record, &scan, &evidence)
@@ -3872,6 +3897,7 @@ mod tests {
             head_commit: current.map(str::to_owned),
             registry: &registry,
             assertion_macros: BTreeMap::new(),
+            execution_state_readers: RefCell::new(BTreeMap::new()),
         };
         // revision commit missing
         let (test, scan, record) = evidence_fixture_past_subject_checks(None);
@@ -3929,6 +3955,7 @@ mod tests {
             head_commit: Some(head.to_owned()),
             registry: &registry,
             assertion_macros: BTreeMap::new(),
+            execution_state_readers: RefCell::new(BTreeMap::new()),
         };
         let outcome = evidence_validity_failure(&test, &record, &scan, &evidence)
             .expect("Evidence without an Execution State record must not validate");
@@ -4532,6 +4559,7 @@ mod tests {
                 head_commit: None,
                 registry: &registry,
                 assertion_macros: BTreeMap::new(),
+                execution_state_readers: RefCell::new(BTreeMap::new()),
             };
             static_reach(&test, &evidence)
                 .into_iter()
@@ -4580,6 +4608,7 @@ mod tests {
             head_commit: None,
             registry: &registry,
             assertion_macros: BTreeMap::new(),
+            execution_state_readers: RefCell::new(BTreeMap::new()),
         };
         assert!(static_reach(&test, &evidence)
             .iter()
@@ -4731,6 +4760,7 @@ mod tests {
                 head_commit: Some(head.to_owned()),
                 registry: &registry,
                 assertion_macros: BTreeMap::new(),
+                execution_state_readers: RefCell::new(BTreeMap::new()),
             };
             let outcome =
                 evaluate_target_binding(&test, &TargetResolution::default(), &scan, &evidence);
@@ -4781,6 +4811,7 @@ mod tests {
             head_commit: None,
             registry: &registry,
             assertion_macros: BTreeMap::new(),
+            execution_state_readers: RefCell::new(BTreeMap::new()),
         };
         let broken = |id: Option<&str>, test: Option<&str>| InvalidEvidence {
             id: id.map(str::to_owned),

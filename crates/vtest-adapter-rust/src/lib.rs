@@ -106,16 +106,16 @@ impl RustCargoTestRunner {
     pub const fn new() -> Self {
         Self
     }
-}
 
-impl TestRunnerAdapter for RustCargoTestRunner {
-    fn execution_state(
+    /// The canonical invocation and the environment of the command
+    /// `execution` runs under `runner_kind`, or `None` when the runner kind is
+    /// not this adapter's or the descriptor cannot be turned into a command.
+    fn invocation(
         &self,
         root: &Path,
         execution: &ExecutionDescriptor,
-        head_revision: Option<&str>,
         runner_kind: &str,
-    ) -> Option<vtest_model::ExecutionStateDraft> {
+    ) -> Option<(serde_json::Value, execution_state::Environment)> {
         let coverage = match runner_kind {
             "cargo-test" => false,
             "cargo-llvm-cov" => true,
@@ -142,6 +142,44 @@ impl TestRunnerAdapter for RustCargoTestRunner {
         // DES-369: bind the environment the command will actually inherit
         // (the process environment overlaid with the command's own `env`).
         let environment = execution_state::Environment::current().with_overlay(&command.env);
+        Some((invocation, environment))
+    }
+}
+
+/// The `rust-cargo` Execution State reader of one operation: the workspace
+/// inputs (toolchain, manifest, configuration, escape checks) depend only on
+/// the root, the runner kind and the environment, so they are collected once
+/// per distinct combination and every Test's snapshot reuses them.
+struct RustCargoExecutionStateReader<'a> {
+    runner: &'a RustCargoTestRunner,
+    workspace: execution_state::WorkspaceInputsCache,
+}
+
+impl vtest_adapter_api::ExecutionStateReader for RustCargoExecutionStateReader<'_> {
+    fn execution_state(
+        &self,
+        root: &Path,
+        execution: &ExecutionDescriptor,
+        head_revision: Option<&str>,
+        runner_kind: &str,
+    ) -> Option<vtest_model::ExecutionStateDraft> {
+        let (invocation, environment) = self.runner.invocation(root, execution, runner_kind)?;
+        Some(
+            self.workspace
+                .snapshot_in(root, head_revision, runner_kind, invocation, environment),
+        )
+    }
+}
+
+impl TestRunnerAdapter for RustCargoTestRunner {
+    fn execution_state(
+        &self,
+        root: &Path,
+        execution: &ExecutionDescriptor,
+        head_revision: Option<&str>,
+        runner_kind: &str,
+    ) -> Option<vtest_model::ExecutionStateDraft> {
+        let (invocation, environment) = self.invocation(root, execution, runner_kind)?;
         Some(execution_state::snapshot_in(
             root,
             head_revision,
@@ -149,6 +187,13 @@ impl TestRunnerAdapter for RustCargoTestRunner {
             invocation,
             environment,
         ))
+    }
+
+    fn execution_state_reader(&self) -> Box<dyn vtest_adapter_api::ExecutionStateReader + '_> {
+        Box::new(RustCargoExecutionStateReader {
+            runner: self,
+            workspace: execution_state::WorkspaceInputsCache::default(),
+        })
     }
 
     fn id(&self) -> &'static str {
