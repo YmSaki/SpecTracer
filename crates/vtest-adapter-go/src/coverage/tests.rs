@@ -370,6 +370,10 @@ fn a_target_in_another_module_is_unknown_even_with_the_same_module_path() {
         // A second module that names itself as the first does.
         ("nested/go.mod", GO_MOD),
         ("nested/p/util.go", util.as_bytes()),
+        // A module whose path goes on from the first's, as a module nested in a
+        // module usually does.
+        ("sub/go.mod", b"module example.com/m/sub\n\ngo 1.21\n"),
+        ("sub/p/util.go", util.as_bytes()),
     ]);
     let file = "example.com/m/p/util.go";
     let selected = profile(&[body_block(file, util, "func F", 5)]);
@@ -395,6 +399,35 @@ fn a_target_in_another_module_is_unknown_even_with_the_same_module_path() {
         &["p/util.go::F", "nested/p/util.go::F"],
     );
     assert_eq!(nested, [UNKNOWN, (TargetCoverageResult::Pass, Some(5))]);
+
+    // A profile that names a file of the module below it by the first module's
+    // path (as a workspace that uses both modules would write it) places the
+    // block at the path of that file, but the file is not in the measured
+    // module: UNKNOWN, where the module check is the one thing that says so.
+    let sub_file = "example.com/m/sub/p/util.go";
+    let selected = profile(&[body_block(sub_file, util, "func F", 7)]);
+    let baseline = profile(&[body_block(sub_file, util, "func F", 0)]);
+    assert_eq!(
+        measure(
+            &fixture,
+            &module(".", "example.com/m"),
+            &selected,
+            &baseline,
+            &["sub/p/util.go::F"],
+        ),
+        [UNKNOWN]
+    );
+    assert_eq!(
+        measure(
+            &fixture,
+            &module("sub", "example.com/m/sub"),
+            &selected,
+            &baseline,
+            &["sub/p/util.go::F"],
+        ),
+        [(TargetCoverageResult::Pass, Some(7))],
+        "the same profile of the module's own run is PASS"
+    );
 }
 
 /// DES-676: whatever ran before any Test is not a Test's reach.

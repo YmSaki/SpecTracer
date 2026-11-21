@@ -1,7 +1,8 @@
 # Go adapter (`go`)
 
-Discovers Tests and Source Targets in `.go` files and runs the Tests with `go
-test`. See [lexical.md](lexical.md)
+Discovers Tests and Source Targets in `.go` files, runs the Tests with `go
+test`, and measures with `go test`'s own coverage whether a Test ran the
+targets it declares. See [lexical.md](lexical.md)
 for the `@vtest.` line grammar it shares with the other framework-neutral
 adapters. Unlike them, `go` finds a Test by its shape, not by the comment above
 it, so a Test function that has no `@vtest.` declaration is still observed.
@@ -63,7 +64,8 @@ it, so a Test function that has no `@vtest.` declaration is still observed.
 - **Running a Test**: `vtest run` starts `go test ./<package> -run ^<Name>$
   -count=1 -json` for each Test, in the directory of the Go module the Test is
   in, which is the nearest directory with a `go.mod` from the Test's file up to
-  the project root. The runner kind is `go-test`. The Test's result is the one
+  the project root. The runner kind is `go-test` (with `--fast`; see Coverage
+  below for the measured run). The Test's result is the one
   `pass`, `fail` or `skip` event whose `Test` is exactly the function's name
   (events of subtests and of the package do not count): `pass` is `PASS`,
   `fail` is `FAIL`, and `skip` means the Test was not executed (no Evidence).
@@ -96,11 +98,55 @@ it, so a Test function that has no `@vtest.` declaration is still observed.
   the project root, when a package of the build outside the standard library
   uses cgo, or when the C compiler of a cgo build cannot report its version.
   Dependencies are bound only through `go.sum`; the module cache is not checked.
-- **Limits**: the adapter declares `source_discovery` and `test_runner`. There
-  is no coverage and no oracle check, so `target_binding` and `oracle_presence`
-  stay `NO_EVIDENCE` (`NOT_CHECKED`) for a Go Test, whatever its Evidence says.
-  `vtest run` records the Evidence, and a run without `--fast` reports
-  `W-EXEC-101` because no coverage is measured.
+- **Coverage** (`run.coverage: go-cover`, the default mode): without `--fast`,
+  `vtest run` starts the Test's `go test` with `-covermode=atomic`,
+  `-coverpkg=./...` (every package of the module) and `-coverprofile`, and then
+  starts `go test ./<package> -run ^$` with the same options, which selects no
+  Test. Each run writes its profile to a file of its own under
+  `.verify/cache/cov/` (named by a record id, with no extension). The
+  Evidence's `runner.kind` is `go-test-cover` for a measured run, and its
+  `target_coverage` has the method `go-cover` and one entry per declared target.
+  A target's count is the sum of the counts of the profile's blocks that start
+  inside the byte range of its construct (its doc comment included), with a
+  profile line's file read as `<module path>/<path from the module root>` and
+  turned into a project path. A target is:
+  - `PASS` when blocks start in its range in both runs, none of them ran in the
+    run that selects no Test, and some ran in the Test's run (the count is the
+    Test's);
+  - `FAIL` (`NOT_EXECUTED`) when they did not run in the Test's run (count 0);
+  - `UNKNOWN`, with no count, when it cannot be told for certain: a block of it
+    ran in the run that selects no Test (an `init` function, a package variable,
+    `TestMain`: that is not a Test's reach), it has no block in a profile (its
+    package is not linked into the test binary, or it is in another module, even
+    a nested one reached with `replace`: only the packages of the module `go
+    test` ran in are measured), the run that selects no Test did not exit with
+    code 0 or left no profile, a profile is not of mode `atomic` or has a line
+    that cannot be read, a block's position is not in the file, the module path
+    cannot be read from `go list -m`, or a non-test `.go` file of the target's
+    package holds a line directive (`//line` at the start of a line, or
+    `/*line`), which renames the blocks of one file onto another.
+  The Test's own result still decides first: a failing Test is `FAIL` whatever
+  it reached. A target that only a process the Test started ran has no count (go
+  does not merge the profiles of child processes), so it is `FAIL`, not `PASS`.
+  The run that selects no Test is run once per measured Test, with the Test's
+  Execution State watched around both runs (a file it writes is `E-EXEC-004`).
+  Its Execution State is of the runner kind `go-test-cover`, whose invocation
+  holds the cover options and the arguments of the run that selects no Test,
+  with markers for the profiles.
+- **`--fast`, `run.coverage: off` and the config**: `--fast` and `run.coverage:
+  off` run the plain `go test` command (runner kind `go-test`) and record
+  `target_coverage` as not checked, so `target_binding` is `NO_EVIDENCE`
+  (`NOT_CHECKED`); `off` gives no warning, being the project's own setting.
+  `run.coverage` of a `go` entry of `config.yaml` is `go-cover` or `off`; any
+  other value is `E-CONFIG-001` when the project is scanned. If `go version`
+  cannot be run, coverage is unavailable: `W-EXEC-101` and a `target_coverage`
+  that is not checked.
+- **Limits**: the adapter declares `source_discovery`, `test_runner` and
+  `coverage`. There is no oracle check, so `oracle_presence` stays
+  `NO_EVIDENCE` (`NOT_CHECKED`) for a Go Test and a Go Test as a whole is never
+  better than `NO_EVIDENCE`, whatever its `target_binding` is. A Test that is
+  `PASS` for `target_binding` has run its target under `go test`'s coverage,
+  which says the code ran, not that its result was checked.
 
 ```go
 // @vtest.id TEST-CALC-ADD

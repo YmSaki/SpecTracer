@@ -181,7 +181,7 @@ fn a_test_that_calls_its_target_reaches_it() {
             .all(|name| name.len() == 26 && !name.contains('.')),
         "{names:?}"
     );
-    assert!(names.iter().any(|name| *name == record.id), "{names:?}");
+    assert!(names.contains(&record.id), "{names:?}");
     // The log keeps both runs.
     let log = fs::read_to_string(
         vtest_store::VerifyLayout::new(&fixture.root)

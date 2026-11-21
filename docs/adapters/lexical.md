@@ -9,8 +9,8 @@ same rules work with pytest, JUnit, Jest, GoogleTest, or a hand-written runner.
 >
 > REQ-264, SPEC-218, SPEC-361, and SPEC-458 include `go` and `javascript`,
 > alongside `rust-cargo`, as v0.1 production language adapters. The `go` adapter
-> now lives in `vtest-adapter-go` and has a `go test` runner (see
-> [go.md](go.md)); it has no coverage and no oracle check yet. The
+> now lives in `vtest-adapter-go` and has a `go test` runner and coverage (see
+> [go.md](go.md)); it has no oracle check yet. The
 > `javascript` adapter does not meet that contract yet. It implements only
 > `source_discovery`: there is no runner, no coverage, and no oracle check.
 > Every other language is outside the v0.1 production scope.
@@ -68,7 +68,7 @@ are traced by `chain_integrity` and `orphan_detection`. `target_binding` stays
 `NO_EVIDENCE` (`NOT_CHECKED`), and `vtest run` rejects them with
 `E-ADAPTER-004`. No test runner or coverage tool is assumed. (`go` is not one
 of them in this respect: it also declares `test_runner`, so `vtest run` runs its
-Tests with `go test`; coverage and the oracle check are still missing. See
+Tests with `go test` and measures their coverage; the oracle check is still missing. See
 [go.md](go.md).)
 
 A test without a `@vtest.` declaration is not observed, because recognizing it

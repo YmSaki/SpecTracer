@@ -486,8 +486,8 @@ pub trait CoverageAdapter {
     fn id(&self) -> &'static str;
 
     /// The coverage method name this adapter's Evidence records in
-    /// `target_coverage.method` (currently always `"llvm-cov"` for
-    /// `rust-cargo`, BD-220).
+    /// `target_coverage.method` (`"llvm-cov"` for `rust-cargo`, BD-220;
+    /// `"go-cover"` for `go`, DES-667).
     fn method(&self) -> &'static str;
 
     /// Whether this environment can measure coverage right now (e.g.

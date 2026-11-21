@@ -30,9 +30,9 @@ item and an implementation detail differ.
   `cargo-llvm-cov` and `llvm-tools-preview` unless `--fast` is given).
 - The Go adapter (`go`, `vtest-adapter-go`) is in the canonical v0.1 production
   scope and is still a preview. Discovery (by Test shape, delegated to the
-  lexical `go` module) and the `go test` runner with its Execution State are
-  done; see [docs/adapters/go.md](docs/adapters/go.md). Go coverage and static
-  analysis are not implemented, so `target_binding` and `oracle_presence` stay
+  lexical `go` module), the `go test` runner with its Execution State, and
+  coverage (`go-cover`) are done; see [docs/adapters/go.md](docs/adapters/go.md).
+  Go static analysis is not implemented, so `oracle_presence` stays
   `NO_EVIDENCE` and a completed `vtest verify` ends with `Result: NG`.
 - Ten experimental, discovery-only adapters are built on the framework-neutral
   `vtest-adapter-lexical` engine (`c`, `cpp`, `csharp`, `java`, `javascript`
@@ -66,8 +66,8 @@ is in place. Remaining work:
    `E-INTERNAL-001` panic handling);
 2. bring this repository's own self-verification (`vtest run --all` +
    `vtest verify`) toward passing; and
-3. add Go coverage and Go static analysis (Go discovery and the `go test`
-   runner are done), and the specification of the JavaScript Test construct for
+3. add Go static analysis (Go discovery, the `go test` runner and Go coverage
+   are done), and the specification of the JavaScript Test construct for
    the `javascript` adapter, which is still discovery only; and
 4. add test-runner, coverage, freshness, and static-analysis capabilities for
    other languages only after canonical specification updates and reproducible
