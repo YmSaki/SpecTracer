@@ -5,7 +5,11 @@
 //! test frameworks, so these adapters do not recognize a Test by a
 //! framework's syntax. Instead, **a Test construct is the construct that
 //! immediately follows a comment block declaring at least one `@vtest.`
-//! test-key**.
+//! test-key**. The exception is [`go`]: its Test constructs are a shape (a
+//! top-level `Test...` function of a `_test.go` file, DS-2002), declared or
+//! not, so it implements [`SourceDiscoveryAdapter`] itself and uses only the
+//! parts of this crate root that every language shares (`discover_files`,
+//! `push_test`, and [`annotation`]).
 //!
 //! # Responsibilities
 //!
@@ -205,7 +209,7 @@ impl<P: LanguageProfile> SourceDiscoveryAdapter for LexicalAdapter<P> {
                     .and_then(|value| value.to_str())
                     .is_some_and(|extension| extensions.contains(&extension))
             },
-            move |name, _| name == ".git" || name == "target" || excluded.contains(&name),
+            move |name| name == ".git" || name == "target" || excluded.contains(&name),
             root,
             config,
             |relative, source, outcome| {
@@ -218,14 +222,14 @@ impl<P: LanguageProfile> SourceDiscoveryAdapter for LexicalAdapter<P> {
 /// Walks the include paths of `config`, reads each file `wanted` accepts, and
 /// lets `scan_file` (project-relative path, text) add what it finds to the
 /// outcome. A file that cannot be read as text is `E-SCAN-001` and is not
-/// passed to `scan_file`. `skipped_dir` is given a directory's name and its
-/// depth below the project root (0 is the root itself) and says whether the
-/// walk stays out of it. Files are visited in path order, so the outcome does
-/// not depend on the walk order.
+/// passed to `scan_file`. `skipped_dir` is given a directory's name and says
+/// whether the walk stays out of it; the project root itself is never asked
+/// (the walker does not filter its starting directory). Files are visited in
+/// path order, so the outcome does not depend on the walk order.
 pub(crate) fn discover_files(
     adapter_id: &str,
     wanted: &dyn Fn(&Path) -> bool,
-    skipped_dir: impl Fn(&str, usize) -> bool + Copy + Send + Sync + 'static,
+    skipped_dir: impl Fn(&str) -> bool + Copy + Send + Sync + 'static,
     root: &Path,
     config: &AdapterScanConfig,
     mut scan_file: impl FnMut(&str, &str, &mut DiscoveryOutcome),
@@ -295,7 +299,7 @@ fn collect_files(
     project_root: &Path,
     path: &Path,
     wanted: &dyn Fn(&Path) -> bool,
-    skipped_dir: impl Fn(&str, usize) -> bool + Send + Sync + 'static,
+    skipped_dir: impl Fn(&str) -> bool + Send + Sync + 'static,
     output: &mut Vec<PathBuf>,
 ) -> Result<(), ignore::Error> {
     if !path.exists() {
@@ -322,7 +326,7 @@ fn collect_files(
         .filter_entry(move |entry| {
             let name = entry.file_name().to_str().unwrap_or_default();
             let is_dir = entry.file_type().is_some_and(|kind| kind.is_dir());
-            !(is_dir && skipped_dir(name, entry.depth()))
+            !(is_dir && skipped_dir(name))
                 && (include_root.starts_with(entry.path())
                     || entry.path().starts_with(&include_root))
         });
