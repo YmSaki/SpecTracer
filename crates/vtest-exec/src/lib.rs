@@ -267,9 +267,14 @@ pub fn run_tests_with_runner(
             coverage_path.as_deref(),
         ) {
             Ok(command_spec) => command_spec,
-            // DS-1903: a Test the runner declines does not stop the others.
-            // No Evidence is recorded for it, and the diagnostic is the one the
-            // refusal names (DS-1901, DS-1930); a refusal that names none
+            // A Test the runner declines does not stop the others. For a Test
+            // construct the runner cannot execute that is DS-1903. For a Test
+            // that cannot be selected uniquely (DS-1930) or whose selection is
+            // undetermined (DS-2012) the canon states no such rule: continuing
+            // is derived from the other E-EXEC errors, after which the run goes
+            // on with the next Test. It is a derivation, not a clause. No
+            // Evidence is recorded for the Test, and the diagnostic is the one
+            // the refusal names (DS-1901, DS-1930); a refusal that names none
             // (DS-2012) records nothing.
             Err(error) if error.refuses_one_test() => {
                 if let Some(diagnostic) = refusal_diagnostic(test, &error) {
@@ -795,6 +800,155 @@ mod tests {
         assert!(!result.evidence[0].target_coverage.checked);
         assert!(result.diagnostics.is_empty());
         fs::remove_dir_all(root).expect("remove runner fixture root");
+    }
+
+    /// A fake runner that answers by the selector of the Test, so one run can
+    /// hold a Test that triggers the arm under test and one that must still
+    /// run after it. The selector `next` passes. A selector that ends in
+    /// `-failing` is started as a process that exits with a failure status, any
+    /// other as one that exits 0, so no result below can be told from the
+    /// process status.
+    #[derive(Clone, Copy, Debug)]
+    struct SelectorRunner;
+
+    impl TestRunnerAdapter for SelectorRunner {
+        fn id(&self) -> &'static str {
+            "fake-runner"
+        }
+
+        fn command(
+            &self,
+            root: &Path,
+            execution: &ExecutionDescriptor,
+            coverage: bool,
+            coverage_output_path: Option<&Path>,
+        ) -> Result<RunnerCommand, TestRunnerError> {
+            let reason = || format!("refused {}", execution.selector);
+            match execution.selector.as_str() {
+                "refuse-not-executable" => Err(TestRunnerError::NotExecutable { reason: reason() }),
+                "refuse-not-unique" => {
+                    Err(TestRunnerError::NotUniquelySelectable { reason: reason() })
+                }
+                "refuse-undetermined" => {
+                    Err(TestRunnerError::SelectionUndetermined { reason: reason() })
+                }
+                selector => {
+                    let mut command = FixedResultRunner.command(
+                        root,
+                        execution,
+                        coverage,
+                        coverage_output_path,
+                    )?;
+                    if selector.ends_with("-failing") {
+                        command.args = vec!["--no-such-option-for-vtest".to_owned()];
+                    }
+                    Ok(command)
+                }
+            }
+        }
+
+        fn parse(
+            &self,
+            execution: &ExecutionDescriptor,
+            _output: RunnerOutput<'_>,
+        ) -> RunnerTestResult {
+            match execution.selector.trim_end_matches("-failing") {
+                "build-failed" => RunnerTestResult::BuildFailed,
+                "no-result" => RunnerTestResult::NoResult,
+                "ambiguous" => RunnerTestResult::Ambiguous,
+                _ => RunnerTestResult::Pass,
+            }
+        }
+    }
+
+    /// Runs a Test with `selector` and then the Test `next`, and returns the
+    /// result of the run.
+    fn run_selector_then_next(selector: &str) -> ExecutionResult {
+        let root = std::env::temp_dir().join(format!("vtest-exec-selector-{}", new_record_id()));
+        fs::create_dir_all(&root).expect("create runner fixture root");
+        let test = |id: &str, selector: &str| {
+            let mut runnable = runnable_test_with_adapter(id, "fake-runner");
+            runnable.entity.execution.selector = selector.to_owned();
+            runnable
+        };
+        let result = run_tests_with_runner(
+            &root,
+            &vtest_store::VerifyLayout::new(&root),
+            &[
+                test("TEST-EXEC-SUBJECT", selector),
+                test("TEST-EXEC-NEXT", "next"),
+            ],
+            true,
+            &SelectorRunner,
+            &never_available_coverage("unused in fast mode"),
+        )
+        .expect("the run goes on to the end");
+        fs::remove_dir_all(root).expect("remove runner fixture root");
+        result
+    }
+
+    fn evidence_ids(result: &ExecutionResult) -> Vec<&str> {
+        result
+            .evidence
+            .iter()
+            .map(|record| record.test_id.as_str())
+            .collect()
+    }
+
+    fn diagnostic_codes(result: &ExecutionResult) -> Vec<&str> {
+        result
+            .diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.code.as_str())
+            .collect()
+    }
+
+    /// DS-1909, DS-1910, DS-1930, DS-1931: a runner that classifies the run
+    /// itself gets the code it names, whatever the process status was, and no
+    /// Evidence; the next Test is still run and recorded.
+    /// @vtest.id TEST-EXEC-CLASSIFIED-RESULTS-HAVE-THEIR-CODE-AND-NO-EVIDENCE
+    /// @vtest.covers VO-ADAPTER-GO-BUILD-FAILURE-IS-E-EXEC-001, VO-ADAPTER-GO-NO-RESULT-IS-E-EXEC-002, VO-ADAPTER-GO-SAME-NAME-TESTS-RECORD-NO-EVIDENCE
+    /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
+    /// @vtest.intent a runner observation of BuildFailed, NoResult or Ambiguous is reported as E-EXEC-001, E-EXEC-002 or E-EXEC-005 whether the process exited 0 or failed, records no Evidence for that Test, and the next Test of the run is recorded
+    #[test]
+    fn a_classified_result_has_its_code_whatever_the_status_and_the_next_test_runs() {
+        for (selector, code) in [
+            ("build-failed", "E-EXEC-001"),
+            ("build-failed-failing", "E-EXEC-001"),
+            ("no-result", "E-EXEC-002"),
+            ("no-result-failing", "E-EXEC-002"),
+            ("ambiguous", "E-EXEC-005"),
+            ("ambiguous-failing", "E-EXEC-005"),
+        ] {
+            let result = run_selector_then_next(selector);
+            assert_eq!(diagnostic_codes(&result), [code], "{selector}");
+            assert_eq!(evidence_ids(&result), ["TEST-EXEC-NEXT"], "{selector}");
+            assert!(result.has_errors(), "{selector}");
+        }
+    }
+
+    /// DS-1901, DS-1903, DS-1930, DS-2012: a runner that refuses one Test gets
+    /// the diagnostic the refusal names, or none for DS-2012, no Evidence, and
+    /// the next Test is still run and recorded.
+    /// @vtest.id TEST-EXEC-REFUSED-TEST-RECORDS-NO-EVIDENCE-AND-THE-RUN-GOES-ON
+    /// @vtest.covers VO-ADAPTER-GO-UNEXECUTABLE-TEST-DOES-NOT-STOP-THE-RUN, VO-ADAPTER-GO-UNEXECUTABLE-TEST-RECORDS-NO-EVIDENCE, VO-ADAPTER-GO-SAME-NAME-TESTS-RECORD-NO-EVIDENCE, VO-ADAPTER-GO-UNREADABLE-COUNTED-FILE-RECORDS-NO-EVIDENCE
+    /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
+    /// @vtest.intent a command refused as not executable gives the warning W-EXEC-102, as not uniquely selectable the error E-EXEC-005, and as undetermined no diagnostic, each without Evidence for that Test, and the next Test of the run is recorded
+    #[test]
+    fn a_refused_test_has_no_evidence_and_the_run_goes_on_with_the_next_test() {
+        for (selector, code, is_error) in [
+            ("refuse-not-executable", Some("W-EXEC-102"), false),
+            ("refuse-not-unique", Some("E-EXEC-005"), true),
+            ("refuse-undetermined", None, false),
+        ] {
+            let result = run_selector_then_next(selector);
+            assert_eq!(
+                diagnostic_codes(&result),
+                code.into_iter().collect::<Vec<_>>()
+            );
+            assert_eq!(result.has_errors(), is_error, "{selector}");
+            assert_eq!(evidence_ids(&result), ["TEST-EXEC-NEXT"], "{selector}");
+        }
     }
 
     fn runnable_test_with_target(id: &str, target_locator: Option<Locator>) -> RunnableTest {

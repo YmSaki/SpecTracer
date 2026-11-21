@@ -38,6 +38,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # The tests of the go runner start the real `go` command. The minor
+      # version is the one they were developed against; the `build-fail` events
+      # of `go test -json` that DES-677 reads need go 1.24 or later.
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache: false
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt, llvm-tools-preview

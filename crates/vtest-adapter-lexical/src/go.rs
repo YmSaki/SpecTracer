@@ -42,9 +42,10 @@
 //! So the `ExecutionDescriptor` this module puts on a Test (the project's
 //! default package name as `project`, no suite) is replaced there with the
 //! module and the package (DES-643 to DES-645, DES-684, DES-687). `adapter()`
-//! here declares `source_discovery` alone and is not registered. [`test_constructs`] is the one reader of the Test
-//! constructs of a `_test.go` file the runner uses, for the duplicate-name count
-//! (DS-1930, DS-2011) and the shape check (DS-1904).
+//! here declares `source_discovery` alone and is not registered.
+//! [`test_constructs`] is the one reader of the Test constructs of a `_test.go`
+//! file the runner uses, for the duplicate-name count (DS-1930, DS-2011) and
+//! the shape check (DS-1904).
 
 use std::{
     collections::BTreeMap,
