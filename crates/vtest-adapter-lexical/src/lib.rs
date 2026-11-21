@@ -196,50 +196,78 @@ impl<P: LanguageProfile> SourceDiscoveryAdapter for LexicalAdapter<P> {
         fallback_package: &str,
         config: &AdapterScanConfig,
     ) -> Result<DiscoveryOutcome, DiscoveryError> {
-        let mut paths = Vec::new();
-        for include_path in &config.include_paths {
-            let full = root.join(include_path);
-            collect_files(root, &full, &self.profile, &mut paths).map_err(|error| {
-                DiscoveryError {
-                    path: full.clone(),
-                    message: error.to_string(),
-                }
-            })?;
-        }
-        paths.sort();
-        paths.dedup();
-
-        let mut outcome = DiscoveryOutcome {
-            files_scanned: paths.len(),
-            tests: Vec::new(),
-            missing_tests: Vec::new(),
-            sources: Vec::new(),
-            diagnostics: Vec::new(),
-        };
-        for path in &paths {
-            let relative = path
-                .strip_prefix(root)
-                .unwrap_or(path)
-                .to_string_lossy()
-                .replace('\\', "/");
-            match fs::read_to_string(path) {
-                Ok(source) => FileScan::new(&self.profile, &relative, &source, fallback_package)
-                    .run(&mut outcome),
-                Err(error) => outcome.diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-001",
-                        format!("failed to read {}: {error}", path.display()),
-                    )
-                    .with_location(file_location(
-                        self.profile.adapter_id(),
-                        &relative,
-                        0,
-                    )),
-                ),
-            }
-        }
-        Ok(outcome)
+        let extensions = self.profile.extensions();
+        let excluded = self.profile.excluded_dirs();
+        discover_files(
+            self.profile.adapter_id(),
+            &|path| {
+                path.extension()
+                    .and_then(|value| value.to_str())
+                    .is_some_and(|extension| extensions.contains(&extension))
+            },
+            move |name, _| name == ".git" || name == "target" || excluded.contains(&name),
+            root,
+            config,
+            |relative, source, outcome| {
+                FileScan::new(&self.profile, relative, source, fallback_package).run(outcome);
+            },
+        )
     }
+}
+
+/// Walks the include paths of `config`, reads each file `wanted` accepts, and
+/// lets `scan_file` (project-relative path, text) add what it finds to the
+/// outcome. A file that cannot be read as text is `E-SCAN-001` and is not
+/// passed to `scan_file`. `skipped_dir` is given a directory's name and its
+/// depth below the project root (0 is the root itself) and says whether the
+/// walk stays out of it. Files are visited in path order, so the outcome does
+/// not depend on the walk order.
+pub(crate) fn discover_files(
+    adapter_id: &str,
+    wanted: &dyn Fn(&Path) -> bool,
+    skipped_dir: impl Fn(&str, usize) -> bool + Copy + Send + Sync + 'static,
+    root: &Path,
+    config: &AdapterScanConfig,
+    mut scan_file: impl FnMut(&str, &str, &mut DiscoveryOutcome),
+) -> Result<DiscoveryOutcome, DiscoveryError> {
+    let mut paths = Vec::new();
+    for include_path in &config.include_paths {
+        let full = root.join(include_path);
+        collect_files(root, &full, wanted, skipped_dir, &mut paths).map_err(|error| {
+            DiscoveryError {
+                path: full.clone(),
+                message: error.to_string(),
+            }
+        })?;
+    }
+    paths.sort();
+    paths.dedup();
+
+    let mut outcome = DiscoveryOutcome {
+        files_scanned: paths.len(),
+        tests: Vec::new(),
+        missing_tests: Vec::new(),
+        sources: Vec::new(),
+        diagnostics: Vec::new(),
+    };
+    for path in &paths {
+        let relative = path
+            .strip_prefix(root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        match fs::read_to_string(path) {
+            Ok(source) => scan_file(&relative, &source, &mut outcome),
+            Err(error) => outcome.diagnostics.push(
+                Diagnostic::error(
+                    "E-SCAN-001",
+                    format!("failed to read {}: {error}", path.display()),
+                )
+                .with_location(file_location(adapter_id, &relative, 0)),
+            ),
+        }
+    }
+    Ok(outcome)
 }
 
 /// Discovers the text of one file as if it were at the project-relative
@@ -266,18 +294,13 @@ pub fn discover_text(
 fn collect_files(
     project_root: &Path,
     path: &Path,
-    profile: &dyn LanguageProfile,
+    wanted: &dyn Fn(&Path) -> bool,
+    skipped_dir: impl Fn(&str, usize) -> bool + Send + Sync + 'static,
     output: &mut Vec<PathBuf>,
 ) -> Result<(), ignore::Error> {
     if !path.exists() {
         return Ok(());
     }
-    let wanted = |candidate: &Path| {
-        candidate
-            .extension()
-            .and_then(|value| value.to_str())
-            .is_some_and(|extension| profile.extensions().contains(&extension))
-    };
     if path.is_file() {
         if wanted(path) {
             output.push(path.to_owned());
@@ -285,7 +308,6 @@ fn collect_files(
         return Ok(());
     }
     let include_root = path.to_owned();
-    let excluded = profile.excluded_dirs();
     let mut builder = WalkBuilder::new(project_root);
     builder
         .standard_filters(false)
@@ -300,7 +322,7 @@ fn collect_files(
         .filter_entry(move |entry| {
             let name = entry.file_name().to_str().unwrap_or_default();
             let is_dir = entry.file_type().is_some_and(|kind| kind.is_dir());
-            !(is_dir && (name == ".git" || name == "target" || excluded.contains(&name)))
+            !(is_dir && skipped_dir(name, entry.depth()))
                 && (include_root.starts_with(entry.path())
                     || entry.path().starts_with(&include_root))
         });
@@ -313,7 +335,7 @@ fn collect_files(
     Ok(())
 }
 
-fn file_location(adapter: &str, relative: &str, length: usize) -> SourceLocation {
+pub(crate) fn file_location(adapter: &str, relative: &str, length: usize) -> SourceLocation {
     SourceLocation {
         adapter: AdapterId::new(adapter),
         path: ProjectPath::new(relative),
@@ -367,19 +389,12 @@ impl<'a> FileScan<'a> {
         let items = match self.profile.extract(self.source) {
             Ok(items) => items,
             Err(error) => {
-                outcome.diagnostics.push(
-                    Diagnostic::error(
-                        "E-SCAN-001",
-                        format!(
-                            "failed to parse {} at byte {}: {}",
-                            self.relative, error.offset, error.message
-                        ),
-                    )
-                    .with_location(file_location(
-                        self.profile.adapter_id(),
-                        self.relative,
-                        self.source.len(),
-                    )),
+                push_unreadable(
+                    outcome,
+                    self.profile.adapter_id(),
+                    self.relative,
+                    self.source.len(),
+                    &error,
                 );
                 return;
             }
@@ -498,20 +513,9 @@ impl<'a> FileScan<'a> {
         declaration: &SourceDeclaration,
         location: &SourceLocation,
     ) {
-        for (code, message) in &declaration.diagnostics {
-            let diagnostic = if code.starts_with('E') {
-                Diagnostic::error(code, message)
-            } else {
-                Diagnostic::warning(code, message)
-            };
-            outcome
-                .diagnostics
-                .push(diagnostic.with_location(location.clone()));
-        }
+        push_source_diagnostics(outcome, declaration, location);
     }
 
-    /// Builds the Test draft, or reports the construct as Missing with the
-    /// diagnostics that prevent it (DES-223, DS-1666).
     fn test(
         &self,
         outcome: &mut DiscoveryOutcome,
@@ -519,110 +523,171 @@ impl<'a> FileScan<'a> {
         location: SourceLocation,
         construct: &str,
     ) {
-        let missing = |outcome: &mut DiscoveryOutcome, diagnostics: Vec<Diagnostic>| {
-            let codes = diagnostics
-                .iter()
-                .map(|diagnostic| diagnostic.code.clone())
-                .collect();
-            for diagnostic in diagnostics {
-                outcome
-                    .diagnostics
-                    .push(diagnostic.with_location(location.clone()));
-            }
-            outcome.missing_tests.push(MissingTestConstruct {
-                location: location.clone(),
-                construct_text: construct.to_owned(),
-                codes,
-            });
-        };
-        let name = &location.locator;
-        if !declaration.diagnostics.is_empty() {
-            let diagnostics = declaration
-                .diagnostics
-                .iter()
-                .map(|(code, message)| Diagnostic::error(code, message))
-                .collect();
-            return missing(outcome, diagnostics);
-        }
-        let Some(id) = declaration.id.as_deref().filter(|value| !value.is_empty()) else {
-            return missing(
-                outcome,
-                vec![Diagnostic::error(
-                    "E-SCAN-007",
-                    format!("test `{name}` is missing required @vtest.id"),
-                )],
-            );
-        };
-        let covers = declaration
-            .covers
-            .as_deref()
-            .unwrap_or_default()
-            .split(',')
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(VoId::new)
-            .collect::<Vec<_>>();
-        if covers.is_empty() {
-            return missing(
-                outcome,
-                vec![Diagnostic::error(
-                    "E-SCAN-007",
-                    format!("test `{id}` has no VO in @vtest.covers"),
-                )],
-            );
-        }
-        let Some(intent) = declaration
-            .intent
-            .as_deref()
-            .filter(|value| !value.is_empty())
-        else {
-            return missing(
-                outcome,
-                vec![Diagnostic::error(
-                    "E-SCAN-007",
-                    format!("test `{id}` is missing required @vtest.intent"),
-                )],
-            );
-        };
-        let targets = declaration
-            .targets
-            .iter()
-            .map(|value| match value.strip_prefix("SRC-") {
-                Some(_) => TargetRef::SrcId(SrcId::new(value.clone())),
-                None => TargetRef::Locator(Locator {
-                    adapter: self.adapter(),
-                    value: value.clone(),
-                }),
-            })
-            .collect();
-        let related = declaration
-            .related
-            .iter()
-            .flat_map(|value| value.split(','))
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(TestId::new)
-            .collect();
-        outcome.tests.push(TestDraft {
-            id: TestId::new(id),
-            covers,
-            targets,
-            intent: intent.to_owned(),
-            input: declaration.input.clone(),
-            expect: declaration.expect.clone(),
-            kind: declaration.kind.clone(),
-            cases: declaration.cases.clone(),
-            related,
-            execution: ExecutionDescriptor {
-                adapter: self.adapter(),
-                project: Some(self.package.to_owned()),
-                suite: None,
-                selector: location.locator.clone(),
-            },
+        push_test(
+            outcome,
+            self.profile.adapter_id(),
+            self.package,
+            declaration,
             location,
-            construct_text: construct.to_owned(),
-        });
+            construct,
+        );
     }
+}
+
+/// Reports a file the language could not read with confidence: `E-SCAN-001`
+/// (DS-535), and nothing else is taken from the file.
+pub(crate) fn push_unreadable(
+    outcome: &mut DiscoveryOutcome,
+    adapter_id: &str,
+    relative: &str,
+    length: usize,
+    error: &ExtractError,
+) {
+    outcome.diagnostics.push(
+        Diagnostic::error(
+            "E-SCAN-001",
+            format!(
+                "failed to parse {relative} at byte {}: {}",
+                error.offset, error.message
+            ),
+        )
+        .with_location(file_location(adapter_id, relative, length)),
+    );
+}
+
+/// Reports the diagnostics of a surface-2 declaration (a Source Target's
+/// `@vtest.` lines) at `location`.
+pub(crate) fn push_source_diagnostics(
+    outcome: &mut DiscoveryOutcome,
+    declaration: &SourceDeclaration,
+    location: &SourceLocation,
+) {
+    for (code, message) in &declaration.diagnostics {
+        let diagnostic = if code.starts_with('E') {
+            Diagnostic::error(code, message)
+        } else {
+            Diagnostic::warning(code, message)
+        };
+        outcome
+            .diagnostics
+            .push(diagnostic.with_location(location.clone()));
+    }
+}
+
+/// Builds the Test draft of a surface-1 declaration, or reports the construct
+/// as Missing with the diagnostics that prevent it (DES-223, DS-1666).
+/// `location.locator` names the Test and is its execution selector.
+pub(crate) fn push_test(
+    outcome: &mut DiscoveryOutcome,
+    adapter_id: &str,
+    package: &str,
+    declaration: &TestDeclaration,
+    location: SourceLocation,
+    construct: &str,
+) {
+    let missing = |outcome: &mut DiscoveryOutcome, diagnostics: Vec<Diagnostic>| {
+        let codes = diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.code.clone())
+            .collect();
+        for diagnostic in diagnostics {
+            outcome
+                .diagnostics
+                .push(diagnostic.with_location(location.clone()));
+        }
+        outcome.missing_tests.push(MissingTestConstruct {
+            location: location.clone(),
+            construct_text: construct.to_owned(),
+            codes,
+        });
+    };
+    let name = &location.locator;
+    if !declaration.diagnostics.is_empty() {
+        let diagnostics = declaration
+            .diagnostics
+            .iter()
+            .map(|(code, message)| Diagnostic::error(code, message))
+            .collect();
+        return missing(outcome, diagnostics);
+    }
+    let Some(id) = declaration.id.as_deref().filter(|value| !value.is_empty()) else {
+        return missing(
+            outcome,
+            vec![Diagnostic::error(
+                "E-SCAN-007",
+                format!("test `{name}` is missing required @vtest.id"),
+            )],
+        );
+    };
+    let covers = declaration
+        .covers
+        .as_deref()
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(VoId::new)
+        .collect::<Vec<_>>();
+    if covers.is_empty() {
+        return missing(
+            outcome,
+            vec![Diagnostic::error(
+                "E-SCAN-007",
+                format!("test `{id}` has no VO in @vtest.covers"),
+            )],
+        );
+    }
+    let Some(intent) = declaration
+        .intent
+        .as_deref()
+        .filter(|value| !value.is_empty())
+    else {
+        return missing(
+            outcome,
+            vec![Diagnostic::error(
+                "E-SCAN-007",
+                format!("test `{id}` is missing required @vtest.intent"),
+            )],
+        );
+    };
+    let targets = declaration
+        .targets
+        .iter()
+        .map(|value| match value.strip_prefix("SRC-") {
+            Some(_) => TargetRef::SrcId(SrcId::new(value.clone())),
+            None => TargetRef::Locator(Locator {
+                adapter: AdapterId::new(adapter_id),
+                value: value.clone(),
+            }),
+        })
+        .collect();
+    let related = declaration
+        .related
+        .iter()
+        .flat_map(|value| value.split(','))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(TestId::new)
+        .collect();
+    outcome.tests.push(TestDraft {
+        id: TestId::new(id),
+        covers,
+        targets,
+        intent: intent.to_owned(),
+        input: declaration.input.clone(),
+        expect: declaration.expect.clone(),
+        kind: declaration.kind.clone(),
+        cases: declaration.cases.clone(),
+        related,
+        execution: ExecutionDescriptor {
+            adapter: AdapterId::new(adapter_id),
+            project: Some(package.to_owned()),
+            suite: None,
+            selector: location.locator.clone(),
+        },
+        location,
+        construct_text: construct.to_owned(),
+    });
 }
 
 /// The first identifier-like word of a construct, used to name a Test that
