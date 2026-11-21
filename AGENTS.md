@@ -189,7 +189,7 @@ crate の追加や責務の変更は、先にこの表を更新する PR で行�
 
 ### 4.1 依存の向きの決め方
 
-- **依存は上のレイヤーから下のレイヤーへ向ける。** モデルは何にも依存せず、adapter は `vtest-adapter-api` と `vtest-model` にだけ依存する。例外は `vtest-adapter-go` から `vtest-adapter-lexical` への依存だけで、Go の発見を委ねるために使う（第 9.2 節）。
+- **依存は上のレイヤーから下のレイヤーへ向ける。** モデルは何にも依存せず、adapter は `vtest-adapter-api` と `vtest-model` にだけ依存する。例外は `vtest-adapter-go` から `vtest-adapter-lexical` への依存だけで、Go の発見と、カバレッジで target の範囲を求めるための Go 構文の読み取り（`source_constructs`）に使う（第 9.2 節）。
 - **言語固有の処理が core で必要になったら、`vtest-adapter-api` に capability を定義し、adapter が実装する。** 例: Structured Test Operation の構文の問いは `StructuredTestAdapter` として adapter へ移す（#73、PR #155）。core が `syn` や特定の adapter crate を直接使うことはない。
 - **adapter crate に依存してよいのは操作層（コンポジションルート）だけ。** 上の `vtest-adapter-go` の例外を除く。オーケストレーション、永続化、モデルから adapter crate への通常依存は作らない。テストで adapter を使うときは dev-dependency にする。
 - **入口どうしは依存しない。** `vtest-cli` と `vtest-mcp` は操作層に依存し、互いには依存しない（#175 D2 の切り出し後。バイナリだけは両方に依存する）。
@@ -205,7 +205,7 @@ crate の追加や責務の変更は、先にこの表を更新する PR で行�
 | `vtest-store` | `vtest-model` | |
 | `vtest-adapter-api` | `vtest-model` | |
 | `vtest-adapter-rust`、`vtest-adapter-lexical`、`vtest-adapter-synthetic` | `vtest-adapter-api`、`vtest-model` | |
-| `vtest-adapter-go` | `vtest-adapter-lexical`、`vtest-adapter-api`、`vtest-model` | `vtest-adapter-lexical` へは Go の発見を委ねるためだけに依存する。`@vtest.` の文法を 2 か所に書かないため（第 11 節） |
+| `vtest-adapter-go` | `vtest-adapter-lexical`、`vtest-adapter-api`、`vtest-model` | `vtest-adapter-lexical` へは Go の発見と、カバレッジで target の範囲を求めるための Go 構文の読み取り（`source_constructs`）のためだけに依存する。`@vtest.` の文法と Go の構文の読み手を 2 か所に書かないため（第 11 節） |
 | `vtest-scan` | `vtest-adapter-api`、`vtest-store`、`vtest-model` | |
 | `vtest-exec` | `vtest-adapter-api`、`vtest-store`、`vtest-model` | |
 | `vtest-verify` | `vtest-scan`、`vtest-adapter-api`、`vtest-store`、`vtest-model` | `vtest-exec` へは依存しない（git HEAD は `vtest-store` の `git_head_commit` で読む） |

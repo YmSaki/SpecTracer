@@ -147,6 +147,15 @@ it, so a Test function that has no `@vtest.` declaration is still observed.
   better than `NO_EVIDENCE`, whatever its `target_binding` is. A Test that is
   `PASS` for `target_binding` has run its target under `go test`'s coverage,
   which says the code ran, not that its result was checked.
+- **Known false `PASS` of `target_binding`**: a target is told apart from code
+  outside the Test only by comparing the Test's run with the run that selects no
+  Test. Code that starts before any Test and reaches the target only while a
+  Test runs is counted as the Test's, so the target is `PASS` though the Test
+  never called it. Two examples: a goroutine started by an `init` function
+  that calls the target later, and a `TestMain` that calls it only when
+  `-test.run` is not `^$`. The aggregate of a Go Test cannot be `PASS` while
+  `oracle_presence` is not checked, but `target_binding` alone can be wrong in
+  this way.
 
 ```go
 // @vtest.id TEST-CALC-ADD
