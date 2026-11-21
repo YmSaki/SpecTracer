@@ -6387,7 +6387,7 @@
         {
           "id": "DS-2001",
           "statement": "`go`のdiscoveryは、adapter configのinclude配下にある、名前が`.go`で終わり`_`または`.`で始まらないファイルを、build constraint（`//go:build`の行・`// +build`の行と、`_<GOOS>`・`_<GOARCH>`のファイル名の接尾辞）を評価せずにすべて読む。名前が`testdata`・`vendor`であるdirectoryと、名前が`_`または`.`で始まるdirectoryの中は読まない。",
-          "description": "導出。build constraint は GOOS・GOARCH・build tag に依存するため、評価すると同じ repository 内容から発見結果が一意に決まらない（REQ-153 の決定論性）。また DS-1930 が discovery へ引き渡した義務 (1)（build constraint に関わらず package directory のすべての `_test.go` を列挙する）による。名前が `_` / `.` で始まるファイルと、名前が `testdata` であるか `_` / `.` で始まる directory は、go command がどの build constraint のもとでもパッケージに含めない。`vendor` の中は main module の外のパッケージである。どちらも `go test` が実行する Test（SPEC-484）を含みえない。本条は発見の対象を定める。DS-1930 の件数に使うファイルは DS-2011 が別に定める（include と ignore の設定に関わらない）。同じ層の DS-1930 は辺にしない。起草時の判断であり、Owner の裁定ではない。",
+          "description": "導出。build constraint は GOOS・GOARCH・build tag に依存するため、評価すると同じ repository 内容から発見結果が一意に決まらない（REQ-153 の決定論性）。また DS-1930 が discovery へ引き渡した義務 (1)（build constraint に関わらず package directory のすべての `_test.go` を列挙する）による。名前が `_` / `.` で始まるファイルと、名前が `testdata` であるか `_` / `.` で始まる directory は、go command がどの build constraint のもとでもパッケージに含めない。`vendor` の中は vendoring された依存のパッケージであり、`./...` の pattern にも一致しない。どちらも `go test` が実行する Test（SPEC-484）を含みえない。これらの go command の規則は go 1.26.4 の `go help packages` で確認した。名前が `vendor` で自身がコードを持つ directory（`cmd/vendor` のような命令）は vendoring された依存ではないが、本条では読まない（その中の Test は発見されず、W-SCAN-101 も出ない）。本条は発見の対象を定める。DS-1930 の件数に使うファイルは DS-2011 が別に定める（include と ignore の設定に関わらない）。同じ層の DS-1930 は辺にしない。起草時の判断であり、Owner の裁定ではない。",
           "derives_from": [
             "SPEC-484",
             "SPEC-486"
@@ -6404,7 +6404,7 @@
         {
           "id": "DS-2002",
           "statement": "`go`のdiscoveryは、名前が`_test.go`で終わるファイルの最上位に宣言された、レシーバを持たない関数のうち、名前が`Test`であるか`Test`に小文字以外の文字が続くものを、管理宣言の有無と、型引数・引数・戻り値の形に関わらず、Test constructとして発見する。ただし、名前が`TestMain`である関数は、引数が`*testing.T`型の1つだけである場合に限りTest constructとする。",
-          "description": "導出。SPEC-484 は `_test.go` にあり `go test` が実行する関数を対象とし、go command は名前がこの条件に合う最上位の関数を Test 関数として扱う（形が合わない関数はテストのビルドの失敗にする）。発見の条件を名前だけにし、DS-1904 の形の条件を含めないのは、形の合わない関数を発見から落とすと、REQ-195 の管理対象と DS-1930 の同名の件数の両方から漏れるためである（fail-closed）。形の合わない Test construct は DS-1901 の「runner が実行できない Test construct」であり、Evidence は生成されない（W-EXEC-102）。`TestMain` は、go command が `*testing.M` を受ける場合に Test ではなくテストの main として扱い、引数が `*testing.T` 型の1つだけの場合に限り Test 関数として扱う名前である。名前が `Benchmark`・`Fuzz`・`Example` で始まる関数を Test construct とするかは本条では定めない（未決）。lexical adapter の「`@vtest.` のコメントの直後の construct を Test construct とする」読み方は `go` には使わない。その読み方では管理宣言を持たない Test construct が存在しえず、REQ-195・DS-548・DS-1930 の義務 (2) を満たせない。同じ層の DS-1901・DS-1904・DS-1930 は辺にしない。起草時の判断であり、Owner の裁定ではない。",
+          "description": "導出。SPEC-484 は `_test.go` にあり `go test` が実行する関数を対象とし、go command は名前がこの条件に合う最上位の関数を Test 関数として扱う（形が合わない関数はテストのビルドの失敗にする）。発見の条件を名前だけにし、DS-1904 の形の条件を含めないのは、形の合わない関数を発見から落とすと、REQ-195 の管理対象と DS-1930 の同名の件数の両方から漏れるためである（fail-closed）。形の合わない Test construct は DS-1901 の「runner が実行できない Test construct」であり、Evidence は生成されない（W-EXEC-102）。`TestMain` は、go command が `*testing.M` を受ける場合に Test ではなくテストの main として扱い、引数が `*testing.T` 型の1つだけの場合に限り Test 関数として扱う名前である。名前・形・`TestMain` の扱いは go 1.26.4 の `cmd/go/internal/load/test.go`（`isTest`・`isTestFunc`・`checkTestFunc`・`load`）で確認した。名前が `Benchmark`・`Fuzz`・`Example` で始まる関数を Test construct とするかは本条では定めない（未決）。lexical adapter の「`@vtest.` のコメントの直後の construct を Test construct とする」読み方は `go` には使わない。その読み方では管理宣言を持たない Test construct が存在しえず、REQ-195・DS-548・DS-1930 の義務 (2) を満たせない。同じ層の DS-1901・DS-1904・DS-1930 は辺にしない。起草時の判断であり、Owner の裁定ではない。",
           "derives_from": [
             "SPEC-484",
             "SPEC-486",
@@ -6422,10 +6422,11 @@
         {
           "id": "DS-2003",
           "statement": "`go`のdiscoveryは、レシーバを持つメソッドを、名前とファイルに関わらずTest constructとして発見しない。メソッドの宣言に付いた`@vtest.`の宣言は、Test constructではない関数宣言の宣言（DS-2004の表面2）として読み、その宣言からTestは生じない。",
-          "description": "DS-1930 が discovery へ引き渡した義務 (3)（メソッドに `@vtest.` の宣言が付いていた場合の扱い）を閉じる。導出: DS-1904 はレシーバを持つメソッドを Test construct ではないと定め、`go test` が直接実行するのは最上位の関数だけである（SPEC-484）。testify の suite のメソッドのように Test 関数の中から呼ばれるメソッドも同じである。表面2では test-key は認識されないキーであり、W-SCAN-105（DS-501・DS-551）になる。宣言された Test ID は発見されないため、そのメソッドだけが `covers` で覆う VO は被覆する Test を持たないまま非 PASS に残り、そのメソッドの実行結果が Evidence になることもない。W-SCAN-105 は warning だが、宣言された Test を PASS にする経路は生じない。同じ層の DS-501・DS-551・DS-1904 は辺にしない。起草時の判断であり、Owner の裁定ではない。",
+          "description": "DS-1930 が discovery へ引き渡した義務 (3)（メソッドに `@vtest.` の宣言が付いていた場合の扱い）を閉じる。導出: DS-1904 はレシーバを持つメソッドを Test construct ではないと定め、`go test` が直接実行するのは最上位の関数だけである（SPEC-484）。testify の suite のメソッドのように Test 関数の中から呼ばれるメソッドも同じである。表面2では test-key は認識されないキーであり、W-SCAN-105（DS-501・DS-551）になる。宣言された Test ID は発見されないため、そのメソッドだけが `covers` で覆う leaf VO は、covers する Test を持たないため REQ-056・DS-808 により `chain_integrity = MISMATCH`（診断 `MISSING`）に残り、そのメソッドの実行結果が Evidence になることもない。W-SCAN-105 は warning だが、宣言された Test を PASS にする経路は生じない。同じ層の DS-501・DS-551・DS-1904 は辺にしない。起草時の判断であり、Owner の裁定ではない。",
           "derives_from": [
             "SPEC-484",
-            "SPEC-486"
+            "SPEC-486",
+            "REQ-056"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
@@ -6455,8 +6456,8 @@
         },
         {
           "id": "DS-2005",
-          "statement": "`go`の表面1はtest-annotation-lineを、表面2はsource-target-annotation-lineを認識し、行の文法、キーの値域、valueの扱い、キーの反復、`SRC-`で始まる`target`の値の扱い、および表面ごとの診断（E-SCAN-005・E-SCAN-006・W-SCAN-105）はDS-487〜DS-507・DS-511と同じとする。各行は、コメント記号（`//`・`/*`・`*/`）と、`/* */`の各行の先頭の空白に続く1個の`*`を除いて読む。",
-          "description": "SPEC-235 が詳細設計へ委ねた annotation syntax のうち、行の文法を定める。R-6 の「同様に」により、`rust-cargo` と同じ文法・キー・診断を使い、`go` に固有のキーは足さない。DS-487〜DS-507・DS-511 は `rust-cargo` の節にあるが、文法・キー・診断の規定は言語の構文に依存しない。同じ層の条項は辺にしない。起草時の判断であり、Owner の裁定ではない。",
+          "statement": "`go`の表面1はtest-annotation-lineを、表面2はsource-target-annotation-lineを認識し、行の文法、キーの値域、valueの扱い、キーの反復、`SRC-`で始まる`target`の値の扱い、および表面ごとの診断（E-SCAN-005・E-SCAN-006・W-SCAN-105）はDS-487〜DS-493・DS-497〜DS-507・DS-511・DS-1618・DS-1619と同じとする。各行は、コメント記号（`//`・`/*`・`*/`）と、`/* */`の各行の先頭の空白に続く1個の`*`を除いて読む。",
+          "description": "SPEC-235 が詳細設計へ委ねた annotation syntax のうち、行の文法を定める。R-6 の「同様に」により、`rust-cargo` と同じ文法・キー・診断を使い、`go` に固有のキーは足さない。DS-487〜DS-493・DS-497〜DS-507・DS-511・DS-1618・DS-1619 は `rust-cargo` の節にあるが、文法・キー・診断の規定は言語の構文に依存しない。同じ層の条項は辺にしない。起草時の判断であり、Owner の裁定ではない。",
           "derives_from": [
             "SPEC-235",
             "SPEC-486",
@@ -6614,8 +6615,8 @@
         },
         {
           "id": "DS-2015",
-          "statement": "`javascript`の表面1はtest-annotation-lineを、表面2はsource-target-annotation-lineを認識し、行の文法、キーの値域、valueの扱い、キーの反復、`SRC-`で始まる`target`の値の扱い、および表面ごとの診断（E-SCAN-005・E-SCAN-006・W-SCAN-105）はDS-487〜DS-507・DS-511と同じとする。各行は、コメント記号（`//`・`/*`・`/**`・`*/`）と、`/* */`・`/** */`の各行の先頭の空白に続く1個の`*`を除いて読む。",
-          "description": "SPEC-235 が詳細設計へ委ねた annotation syntax のうち、行の文法を定める。R-6 の「同様に」により、`rust-cargo` と同じ文法・キー・診断を使い、`javascript` に固有のキーは足さない。DS-487〜DS-507・DS-511 は `rust-cargo` の節にあるが、文法・キー・診断の規定は言語の構文に依存しない。同じ層の条項は辺にしない。起草時の判断であり、Owner の裁定ではない。",
+          "statement": "`javascript`の表面1はtest-annotation-lineを、表面2はsource-target-annotation-lineを認識し、行の文法、キーの値域、valueの扱い、キーの反復、`SRC-`で始まる`target`の値の扱い、および表面ごとの診断（E-SCAN-005・E-SCAN-006・W-SCAN-105）はDS-487〜DS-493・DS-497〜DS-507・DS-511・DS-1618・DS-1619と同じとする。各行は、コメント記号（`//`・`/*`・`/**`・`*/`）と、`/* */`・`/** */`の各行の先頭の空白に続く1個の`*`を除いて読む。",
+          "description": "SPEC-235 が詳細設計へ委ねた annotation syntax のうち、行の文法を定める。R-6 の「同様に」により、`rust-cargo` と同じ文法・キー・診断を使い、`javascript` に固有のキーは足さない。DS-487〜DS-493・DS-497〜DS-507・DS-511・DS-1618・DS-1619 は `rust-cargo` の節にあるが、文法・キー・診断の規定は言語の構文に依存しない。同じ層の条項は辺にしない。起草時の判断であり、Owner の裁定ではない。",
           "derives_from": [
             "SPEC-235",
             "SPEC-487",
@@ -11385,7 +11386,7 @@
             {
               "id": "DS-2011",
               "statement": "DS-1930の件数は、同じGo moduleの同じpackage directoryにある、名前が`_test.go`で終わり`_`または`.`で始まらないすべてのファイルのTest construct（DS-2002）から数える。build constraint、adapter configのinclude、ignoreの設定でdiscoveryの対象から外れるファイルも数える。",
-              "description": "DS-1930 が discovery へ引き渡した義務 (1)・(2) を閉じる。`go test` はパッケージをビルドするとき、include や `.gitignore` に関係なく directory の `_test.go` をすべて候補にし、build constraint で選ぶ。発見の対象から外れたファイルにある同名の Test 関数を数えないと、その関数の結果が宣言された Test の Evidence になりうる（DS-1930 が防ぐ偽 PASS）。名前が `_` / `.` で始まるファイルは、go command がパッケージに含めないため数えない。同じ層の DS-1930・DS-2002 は辺にしない。起草時の判断であり、Owner の裁定ではない。",
+              "description": "DS-1930 が discovery へ引き渡した義務 (1)・(2) を閉じる。`go test` はパッケージをビルドするとき、include や `.gitignore` に関係なく directory の `_test.go` をすべて候補にし、build constraint で選ぶ。発見の対象から外れたファイルにある同名の Test 関数を数えないと、その関数の結果が宣言された Test の Evidence になりうる（DS-1930 が防ぐ偽 PASS）。名前が `_` / `.` で始まるファイルは、go command がパッケージに含めないため数えない（go 1.26.4 の `go help packages` で確認した）。同じ層の DS-1930・DS-2002 は辺にしない。起草時の判断であり、Owner の裁定ではない。",
               "derives_from": [
                 "SPEC-486",
                 "REQ-265"
@@ -11401,8 +11402,8 @@
             },
             {
               "id": "DS-2012",
-              "statement": "DS-2011で数えるファイルのうち1件でも読めない、または構文を確定できない場合は、そのファイルをE-SCAN-001とし、そのpackage directoryのどのTestについてもEvidenceを記録しない。",
-              "description": "導出: REQ-265。同名の件数が確定しないため、DS-1930 の条件に当たらないことを確かめられない。新しい診断コードは足さない。`target_binding` は Evidence の不在として `NO_EVIDENCE`（診断 `NOT_EXECUTED`）になる。起草時の判断であり、Owner の裁定ではない。",
+              "statement": "DS-2011で数えるファイルのうち1件でも読めない、または構文を確定できない場合は、そのpackage directoryのどのTestについてもEvidenceを記録しない。",
+              "description": "導出: REQ-265。同名の件数が確定しないため、DS-1930 の条件に当たらないことを確かめられない。`target_binding` は Evidence の不在として `NO_EVIDENCE`（診断 `NOT_EXECUTED`）になる。発見の対象の中のファイルなら DS-2010 により E-SCAN-001 になり、DiscoveryBatch は `Incomplete` になる。発見の対象の外のファイルについて出す診断コードは本条では定めない（未決。E-SCAN-001 は DS-535 で DiscoveryBatch の `Incomplete` と結び付いており、発見の対象の外のファイルへ広げると意味が変わる）。起草時の判断であり、Owner の裁定ではない。",
               "derives_from": [
                 "SPEC-486",
                 "REQ-265"
@@ -22981,7 +22982,7 @@
         {
           "id": "DES-685",
           "statement": "`go` adapterは、関数の引数の型が`*testing.T`型であるか（DS-1904・DS-2002）を、その引数の型の式が`*T`または`*<識別子>.T`であるかで判定する。",
-          "description": "go command がテストの main を生成するときの判定と同じであり、import の別名（`import tt \"testing\"`）とドット import を含む。`<識別子>` が `testing` を指さない場合はテストのビルドが失敗し（DS-1910 の E-EXEC-001）、Evidence は記録されない。起草時の判断であり、Owner の裁定ではない。",
+          "description": "go command がテストの main を生成するときの判定（go 1.26.4 の `cmd/go/internal/load/test.go`（`isTest`・`isTestFunc`・`checkTestFunc`・`load`）で確認した）と同じであり、import の別名（`import tt \"testing\"`）とドット import を含む。`<識別子>` が `testing` を指さない場合はテストのビルドが失敗し（DS-1910 の E-EXEC-001）、Evidence は記録されない。起草時の判断であり、Owner の裁定ではない。",
           "derives_from": [
             "BD-357",
             "DS-1904",
