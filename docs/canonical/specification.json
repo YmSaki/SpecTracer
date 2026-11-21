@@ -24082,8 +24082,7 @@
           "statement": "`rust-cargo` の `scan.assertion_macros` に指定する名前は、マクロ名である。",
           "description": "DS-350 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
           "derives_from": [
-            "SPEC-486",
-            "SPEC-487"
+            "SPEC-010"
           ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -24099,8 +24098,7 @@
           "statement": "`go` の `scan.assertion_macros` に指定する名前は、呼出し先の名前である。",
           "description": "DS-350 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
           "derives_from": [
-            "SPEC-486",
-            "SPEC-487"
+            "SPEC-486"
           ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -24116,7 +24114,6 @@
           "statement": "`javascript` の `scan.assertion_macros` に指定する名前は、呼出し先の名前である。",
           "description": "DS-350 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
           "derives_from": [
-            "SPEC-486",
             "SPEC-487"
           ],
           "source": {
@@ -29907,7 +29904,7 @@
           "statement": "`rust-cargo`で、DA-005が見るTest constructの本体は関数本体である。",
           "description": "DS-625 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
           "derives_from": [
-            "SPEC-486"
+            "SPEC-010"
           ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -51084,8 +51081,7 @@
           "statement": "`rust-cargo` の言語固有の依存は、`syn`、`quote`、`rustc-demangle`、Cargo command である。",
           "description": "BD-114 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
           "derives_from": [
-            "SPEC-486",
-            "SPEC-487"
+            "SPEC-010"
           ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -51101,8 +51097,7 @@
           "statement": "`go` の言語固有の依存は、`go` command である。",
           "description": "BD-114 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
           "derives_from": [
-            "SPEC-486",
-            "SPEC-487"
+            "SPEC-486"
           ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -51118,7 +51113,6 @@
           "statement": "`javascript` の言語固有の依存は、Node.js・vitestの起動である。",
           "description": "BD-114 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
           "derives_from": [
-            "SPEC-486",
             "SPEC-487"
           ],
           "source": {
