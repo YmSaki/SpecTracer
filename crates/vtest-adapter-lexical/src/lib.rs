@@ -25,18 +25,19 @@
 //! the include paths, calls the profile for each file, and turns what it
 //! returns into Drafts: it parses the `@vtest.` lines (see [`annotation`]),
 //! reports their diagnostics, and builds Locators. The composition root
-//! (`vtest-cli`'s `adapters.rs`) injects each profile as
+//! (`vtest-ops`'s `registry.rs`) injects each profile as
 //! `LexicalAdapter::new(Profile)`.
 //!
 //! What means the same thing in every language (pairing brackets, and
 //! the rule that attaches a comment block to the construct after it) is
 //! in [`shared`], for the language modules to call.
 //!
-//! The adapters declare only the `source_discovery` capability (DES-350).
-//! Verification therefore reports `target_binding` as `NO_EVIDENCE`
+//! The adapters built here declare only the `source_discovery` capability
+//! (DES-350). Verification therefore reports `target_binding` as `NO_EVIDENCE`
 //! (`NOT_EXECUTED`, `NOT_CHECKED`) and `oracle_presence` as `NO_EVIDENCE`
 //! (`NOT_CHECKED`) for these Tests, and `vtest run` rejects them with
-//! `E-ADAPTER-004`.
+//! `E-ADAPTER-004`. The `go` adapter that `vtest-adapter-go` registers reuses
+//! only this crate's [`go`] discovery and adds its own `test_runner`.
 //!
 //! # Locators
 //!

@@ -27,13 +27,19 @@ item and an implementation detail differ.
 - The adapter API, `vtest-ops` registry, Rust adapter (`rust-cargo`), and
   test-only synthetic adapter exist. Only `rust-cargo` supports the full
   `scan` → `run` → `verify` path to `PASS` (`vtest run` needs
-  `cargo-llvm-cov` and `llvm-tools-preview` unless `--fast` is given). Eleven experimental,
-  discovery-only adapters are built on the framework-neutral
-  `vtest-adapter-lexical` engine (`c`, `cpp`, `csharp`, `go`, `java`,
-  `javascript` for JS/TS, `kotlin`, `php`, `python`, `ruby`, and `swift`; see
+  `cargo-llvm-cov` and `llvm-tools-preview` unless `--fast` is given).
+- The Go adapter (`go`, `vtest-adapter-go`) is in the canonical v0.1 production
+  scope and is still a preview. Discovery (by Test shape, delegated to the
+  lexical `go` module) and the `go test` runner with its Execution State are
+  done; see [docs/adapters/go.md](docs/adapters/go.md). Go coverage and static
+  analysis are not implemented, so `target_binding` and `oracle_presence` stay
+  `NO_EVIDENCE` and a completed `vtest verify` ends with `Result: NG`.
+- Ten experimental, discovery-only adapters are built on the framework-neutral
+  `vtest-adapter-lexical` engine (`c`, `cpp`, `csharp`, `java`, `javascript`
+  for JS/TS, `kotlin`, `php`, `python`, `ruby`, and `swift`; see
   [docs/adapters/](docs/adapters/lexical.md)); `vtest run` rejects them with
-  `E-ADAPTER-004`, and a completed `vtest verify` ends with `Result: NG`. `vtest init`
-  writes configuration for `rust-cargo` only.
+  `E-ADAPTER-004`, and a completed `vtest verify` ends with `Result: NG`.
+  `vtest init` writes configuration for `rust-cargo` only.
 - GitHub Actions runs the main/develop CI gate and publishes tagged binary
   releases. `v0.1.0-beta.1` is published as a pre-release on the
   [GitHub Releases list](https://github.com/YmSaki/SpecTracer/releases)
@@ -60,10 +66,13 @@ is in place. Remaining work:
    `E-INTERNAL-001` panic handling);
 2. bring this repository's own self-verification (`vtest run --all` +
    `vtest verify`) toward passing; and
-3. add test-runner, coverage, freshness, and static-analysis capabilities for
-   languages other than Rust only after canonical specification updates and
-   reproducible acceptance coverage (promoting any of the eleven experimental
-   discovery-only adapters beyond discovery requires that evidence).
+3. add Go coverage and Go static analysis (Go discovery and the `go test`
+   runner are done), and the specification of the JavaScript Test construct for
+   the `javascript` adapter, which is still discovery only; and
+4. add test-runner, coverage, freshness, and static-analysis capabilities for
+   other languages only after canonical specification updates and reproducible
+   acceptance coverage (promoting any of the ten experimental discovery-only
+   adapters beyond discovery requires that evidence).
 
 ## Later opportunities
 
