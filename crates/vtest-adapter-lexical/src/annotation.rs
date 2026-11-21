@@ -86,7 +86,12 @@ pub fn classify(lines: Vec<(String, String)>) -> Option<Declaration> {
     }
 }
 
-fn parse_test(lines: Vec<(String, String)>) -> TestDeclaration {
+/// Reads the `@vtest.` lines of a construct known to be a Test construct
+/// (surface 1) whatever keys they use: a line without a test-key, `src-id`
+/// included, is `E-SCAN-006` (DS-499, DS-500). [`classify`] chooses the
+/// surface from the keys instead; a language that knows from the construct
+/// which surface a comment is on calls this or [`parse_source`] directly.
+pub fn parse_test(lines: Vec<(String, String)>) -> TestDeclaration {
     let mut declaration = TestDeclaration::default();
     let mut single = BTreeMap::<String, String>::new();
     for (key, value) in lines {
@@ -129,7 +134,10 @@ fn parse_test(lines: Vec<(String, String)>) -> TestDeclaration {
     declaration
 }
 
-fn parse_source(lines: Vec<(String, String)>) -> SourceDeclaration {
+/// Reads the `@vtest.` lines of a construct known not to be a Test construct
+/// (surface 2) whatever keys they use: `src-id` is the only recognized key and
+/// any other, a test-key included, is `W-SCAN-105` (DS-501).
+pub fn parse_source(lines: Vec<(String, String)>) -> SourceDeclaration {
     let mut declaration = SourceDeclaration::default();
     let mut declared = Vec::new();
     for (key, value) in lines {
