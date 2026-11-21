@@ -53,9 +53,9 @@ it, so a Test function that has no `@vtest.` declaration is still observed.
 - **Unreadable files**: a file the adapter cannot read with confidence (not
   UTF-8 text, an unterminated string or comment, unbalanced brackets, a `func`
   without a name) is `E-SCAN-001` and contributes nothing, not even the
-  declarations before the fault. A Test function without a body has no
-  determinable construct, so it is reported as Missing with `E-SCAN-001`, not
-  as a Test.
+  declarations before the fault. A declared Test function without a body has
+  no determinable construct, so it is reported as Missing with `E-SCAN-001`,
+  not as a Test; an undeclared one is `W-SCAN-101` like any other.
 - **Comments that are not read**: a `@vtest.` line in a comment inside a
   function body, or on a `type`, `var`, `const`, or `import` declaration, is
   not on a declaration surface and is ignored.

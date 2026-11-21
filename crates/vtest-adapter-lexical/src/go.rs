@@ -218,17 +218,18 @@ fn push_test_construct(
 ) {
     let location = location(relative, &function.name, function.start, function.end);
     let construct = &source[function.start..function.end];
-    let (diagnostic, codes) = if !function.has_body {
+    let (diagnostic, codes) = if lines.is_empty() {
+        let message = format!("test function `{}` has no @vtest annotation", function.name);
+        (Diagnostic::warning("W-SCAN-101", message), "W-SCAN-101")
+    } else if !function.has_body {
         // The construct runs to the end of the body (DES-681); without one its
-        // extent is not determinable, so it is not returned as a Test (DS-2010).
+        // extent is not determinable, so a declared one is not returned as a
+        // Test (DS-2010).
         let message = format!(
             "cannot determine the construct of test function `{}`: it has no body",
             function.name
         );
         (Diagnostic::error("E-SCAN-001", message), "E-SCAN-001")
-    } else if lines.is_empty() {
-        let message = format!("test function `{}` has no @vtest annotation", function.name);
-        (Diagnostic::warning("W-SCAN-101", message), "W-SCAN-101")
     } else {
         let declaration = parse_test(lines);
         push_test(
@@ -1211,7 +1212,7 @@ func TestAdd(t *testing.T) {
     /// @vtest.id TEST-ADAPTER-GO-UNREADABLE-FILE-IS-E-SCAN-001
     /// @vtest.covers VO-ADAPTER-LEXICAL-UNPARSEABLE-DECLARATION-MISSING
     /// @vtest.target crates/vtest-adapter-lexical/src/go.rs::discover_source
-    /// @vtest.intent verifies that a file with an unterminated raw string, an unclosed bracket, or a func without a name is E-SCAN-001 and returns no Test, no Missing construct, and no Source Target even when valid declarations precede the fault, and that a Test function without a body is a Missing construct with E-SCAN-001 instead of a Test
+    /// @vtest.intent verifies that a file with an unterminated raw string, an unclosed bracket, or a func without a name is E-SCAN-001 and returns no Test, no Missing construct, and no Source Target even when valid declarations precede the fault, and that a declared Test function without a body is a Missing construct with E-SCAN-001 instead of a Test while an undeclared one is W-SCAN-101
     #[test]
     fn unreadable_files_are_e_scan_001_and_contribute_nothing() {
         let valid = "// @vtest.id TEST-GO-OK\n// @vtest.covers VO-GO-ADD\n// @vtest.intent valid\nfunc TestOk(t *testing.T) {}\n\nfunc Helper() {}\n\n";
@@ -1245,6 +1246,17 @@ func TestAdd(t *testing.T) {
             vec!["E-SCAN-001".to_owned()]
         );
         assert!(bodyless.sources.is_empty());
+
+        let undeclared = discover_text(
+            "calc/calc_test.go",
+            "package calc\n\nfunc TestNoBody(t *testing.T)\n",
+        );
+        assert_eq!(diagnostic_codes(&undeclared), vec!["W-SCAN-101"]);
+        assert_eq!(undeclared.missing_tests.len(), 1);
+        assert_eq!(
+            undeclared.missing_tests[0].codes,
+            vec!["W-SCAN-101".to_owned()]
+        );
     }
 
     const BROKEN: &[u8] = b"package x\n\nconst raw = `open\n";
