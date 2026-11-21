@@ -514,7 +514,7 @@ fn a_test_file_outside_discovery_is_counted_and_an_unreadable_one_blocks_the_dir
         ),
     ]);
     // Discovery reads only these two files; b_test.go is outside it.
-    let limited = "version: 2\nproject:\n  name: lexical-fixture\nadapters:\n  - id: go\n    roots:\n      - '.'\n    scan:\n      include:\n        - 'app/a_test.go'\n        - 'app/calc.go'\n      assertion_macros: []\n    run:\n      coverage: none\nverify:\n  full_scope:\n    - chain_integrity\n    - orphan_detection\n    - target_binding\n    - oracle_presence\n";
+    let limited = "version: 2\nproject:\n  name: lexical-fixture\nadapters:\n  - id: go\n    roots:\n      - '.'\n    scan:\n      include:\n        - 'app/a_test.go'\n        - 'app/calc.go'\n      assertion_macros: []\n    run:\n      coverage: go-cover\nverify:\n  full_scope:\n    - chain_integrity\n    - orphan_detection\n    - target_binding\n    - oracle_presence\n";
     fs::write(fixture.root.join(".verify/config.yaml"), limited).expect("write config");
     let (result, _) = run_and_verify(&fixture, true);
     assert!(result.evidence.is_empty());

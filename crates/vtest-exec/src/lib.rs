@@ -11,8 +11,8 @@ use std::{
 use serde::Serialize;
 use thiserror::Error;
 use vtest_adapter_api::{
-    AdapterRegistry, CoverageAdapter, CoverageTargetMeasurement, CoverageUnavailable, RunnerOutput,
-    RunnerTestResult, TestRunnerAdapter,
+    AdapterRegistry, BaselineRun, CoverageAdapter, CoverageRun, CoverageTargetMeasurement,
+    CoverageUnavailable, RunnerOutput, RunnerTestResult, TestRunnerAdapter,
 };
 use vtest_model::{
     ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, Locator, Revision, RunnerInfo,
@@ -258,8 +258,8 @@ pub fn run_tests_with_runner(
     let mut diagnostics = Vec::new();
     for test in tests {
         let record_id = new_record_id();
-        let coverage_path =
-            coverage_is_available.then(|| cov_dir.join(format!("{record_id}.json")));
+        let coverage_path = coverage_is_available
+            .then(|| cov_dir.join(coverage_file_name(&record_id, coverage.output_extension())));
         let command_spec = match runner.command(
             root,
             &test.entity.execution,
@@ -309,6 +309,34 @@ pub fn run_tests_with_runner(
             path: root.to_owned(),
             source,
         })?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let observation = runner.parse(
+            &test.entity.execution,
+            RunnerOutput {
+                stdout: &stdout,
+                stderr: &stderr,
+                exit_code: output.status.code(),
+            },
+        );
+        // DES-675: the run that selects no Test is made while the Execution
+        // State is still watched, as the Test's own run is, and only when its
+        // profile will be read: a Test with a result and a target to measure.
+        let baseline = coverage_path
+            .as_deref()
+            .filter(|_| {
+                matches!(observation, RunnerTestResult::Pass | RunnerTestResult::Fail)
+                    && !test.target_locators.is_empty()
+            })
+            .and_then(|_| {
+                let path = cov_dir.join(coverage_file_name(
+                    &new_record_id(),
+                    coverage.output_extension(),
+                ));
+                runner
+                    .coverage_baseline_command(root, &test.entity.execution, &path)
+                    .map(|spec| run_baseline(&spec, path))
+            });
         let after_revision = git_revision(root);
         let after_draft = runner
             .execution_state(
@@ -350,22 +378,15 @@ pub fn run_tests_with_runner(
             complete: false,
             hash: None,
         });
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let raw_log = format!("$ {}\n{}{}", command_spec.command_line, stdout, stderr);
+        let mut raw_log = format!("$ {}\n{}{}", command_spec.command_line, stdout, stderr);
+        if let Some(baseline) = &baseline {
+            raw_log.push_str(&baseline.log);
+        }
         let log_path = log_dir.join(format!("{record_id}.log"));
         fs::write(&log_path, raw_log).map_err(|source| ExecutionError::Io {
             path: log_path.clone(),
             source,
         })?;
-        let observation = runner.parse(
-            &test.entity.execution,
-            RunnerOutput {
-                stdout: &stdout,
-                stderr: &stderr,
-                exit_code: output.status.code(),
-            },
-        );
         match observation {
             RunnerTestResult::Ignored => {}
             RunnerTestResult::Pass | RunnerTestResult::Fail => {
@@ -390,7 +411,18 @@ pub fn run_tests_with_runner(
                     let measurements = if test.target_locators.is_empty() {
                         Vec::new()
                     } else {
-                        coverage.measure(root, coverage_path, &test.target_locators)
+                        coverage.measure_run(
+                            &CoverageRun {
+                                root,
+                                execution: &test.entity.execution,
+                                output_path: coverage_path,
+                                baseline: baseline.as_ref().map(|baseline| BaselineRun {
+                                    output_path: &baseline.output_path,
+                                    exit_code: baseline.exit_code,
+                                }),
+                            },
+                            &test.target_locators,
+                        )
                     };
                     target_coverage_from_measurements(
                         coverage.method(),
@@ -524,6 +556,50 @@ pub fn run_tests_with_runner(
         evidence,
         diagnostics,
     })
+}
+
+/// The name of a coverage output file for the record `id`: the id, and the
+/// adapter's extension when its output has one (DES-455, DES-673).
+fn coverage_file_name(id: &str, extension: Option<&str>) -> String {
+    match extension {
+        Some(extension) => format!("{id}.{extension}"),
+        None => id.to_owned(),
+    }
+}
+
+/// How the run that selects no Test ended (DES-675), and what it printed.
+struct BaselineOutcome {
+    output_path: PathBuf,
+    /// `None` when the process did not start or ended without an exit code.
+    exit_code: Option<i32>,
+    log: String,
+}
+
+/// Runs `spec`. A process that cannot be started is a run with no exit code,
+/// which reads as no usable profile (DES-679), not as an error that stops the
+/// batch: the Test's own run has already happened.
+fn run_baseline(spec: &vtest_adapter_api::RunnerCommand, output_path: PathBuf) -> BaselineOutcome {
+    let mut command = Command::new(&spec.program);
+    command.current_dir(&spec.current_dir).args(&spec.args);
+    for (key, value) in &spec.env {
+        command.env(key, value);
+    }
+    let (exit_code, printed) = match command.output() {
+        Ok(output) => (
+            output.status.code(),
+            format!(
+                "{}{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            ),
+        ),
+        Err(error) => (None, format!("could not be started: {error}\n")),
+    };
+    BaselineOutcome {
+        output_path,
+        exit_code,
+        log: format!("\n$ {}\n{printed}", spec.command_line),
+    }
 }
 
 /// The diagnostic a runner's refusal of one Test is reported as: `W-EXEC-102`

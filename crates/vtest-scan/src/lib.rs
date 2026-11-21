@@ -99,6 +99,12 @@ pub enum ScanError {
     /// 無し」という別の事実であり、正本監査で誤りと確認して分離した)。
     #[error("[E-ADAPTER-004] {message}")]
     MissingCapability { message: String },
+    /// `config.yaml`'s `adapters[].run.coverage` is not one of the values the
+    /// adapter defines for it (DS-1881): an invalid adapter setting, which
+    /// DS-352 gives `E-CONFIG-001` because the value violated is the config's,
+    /// though the adapter is what knows the range (BD-155).
+    #[error("[E-CONFIG-001] {message}")]
+    InvalidAdapterConfig { message: String },
     #[error("config load error: {0}")]
     ConfigLoad(StoreError),
     #[error("config error: {0}")]
@@ -121,7 +127,9 @@ impl ScanError {
     pub fn code(&self) -> Option<&'static str> {
         match self {
             Self::Discovery { .. } => Some("E-ADAPTER-002"),
-            Self::UnknownAdapterId { .. } => Some("E-CONFIG-001"),
+            Self::UnknownAdapterId { .. } | Self::InvalidAdapterConfig { .. } => {
+                Some("E-CONFIG-001")
+            }
             Self::MissingCapability { .. } => Some("E-ADAPTER-004"),
             Self::ConfigLoad(error) => error.config_load_code(),
             Self::Store(error) => error.record_read_code(),
@@ -319,6 +327,26 @@ pub fn scan_project_with_config(
         // adapter は現に registry に存在するので、それを「未登録」と呼ぶの
         // は事実として誤り。`vtest_exec::run_tests` が Test Runner
         // capability について行う同型の分離をここでも行う。
+        // DS-1881, BD-155: an adapter that defines the values of `run.coverage`
+        // judges the config's value, and a value outside them stops the scan
+        // before anything is read or run.
+        if let Some(values) = entry.run_coverage_values() {
+            if !values.contains(&adapter_config.run.coverage.as_str()) {
+                return Err(ScanError::InvalidAdapterConfig {
+                    message: format!(
+                        "config.yaml sets run.coverage of adapter `{}` to `{}`; its values are {} \
+                         (DS-1881)",
+                        adapter_config.id,
+                        adapter_config.run.coverage,
+                        values
+                            .iter()
+                            .map(|value| format!("`{value}`"))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
+                });
+            }
+        }
         let Some(adapter) = entry.as_source_discovery() else {
             return Err(ScanError::MissingCapability {
                 message: format!(

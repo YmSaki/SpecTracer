@@ -2,13 +2,14 @@
 //! DS-2011, DS-2012, DES-647 to DES-651, DES-677, DES-678).
 //!
 //! Responsibility: turn a Test's execution coordinates into a `go test`
-//! command, refuse the Tests that command cannot run for sure, and read the
-//! command's `-json` events as the Test's result.
+//! command, with or without the coverage measurement (DES-663, DES-675), refuse
+//! the Tests that command cannot run for sure, and read the command's `-json`
+//! events as the Test's result.
 //!
 //! Boundary: starting the process and recording Evidence are `vtest-exec`'s;
-//! the Execution State is [`crate::execution_state`]'s; reading Go source is
-//! `vtest-adapter-lexical`'s. Coverage is not provided: the adapter declares no
-//! Coverage capability, so the runner is never asked for it.
+//! the Execution State is [`crate::execution_state`]'s; reading the profiles the
+//! measured runs write is [`crate::coverage`]'s; reading Go source is
+//! `vtest-adapter-lexical`'s.
 
 use std::{collections::BTreeMap, fs, path::Path};
 
@@ -27,6 +28,50 @@ use crate::{
 
 /// The runner kind Evidence records for a Test run by `go test` (DES-647).
 pub const RUNNER_KIND: &str = "go-test";
+
+/// The runner kind of a Test run by `go test` with coverage measured (DES-663).
+///
+/// This is derived, not stated: DES-647 gives one kind, but the Execution State
+/// binds the runner kind and the canonical invocation (DES-097), the invocation
+/// is the one actually used (DES-369), and a measured run's invocation has the
+/// measurement options a plain run's has not. `vtest verify` rebuilds the state
+/// from the Evidence's runner kind alone, so a mode with its own invocation needs
+/// a kind of its own, or one of the two modes would never match its own state.
+pub const COVERAGE_RUNNER_KIND: &str = "go-test-cover";
+
+/// How a Test is run: with the coverage measured or without (DS-1923, DS-1926).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum RunMode {
+    Plain,
+    Measured,
+}
+
+impl RunMode {
+    /// The mode whose runner kind is `kind`, or `None` for a kind this adapter
+    /// does not write.
+    pub(crate) fn of_kind(kind: &str) -> Option<Self> {
+        match kind {
+            RUNNER_KIND => Some(Self::Plain),
+            COVERAGE_RUNNER_KIND => Some(Self::Measured),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn kind(self) -> &'static str {
+        match self {
+            Self::Plain => RUNNER_KIND,
+            Self::Measured => COVERAGE_RUNNER_KIND,
+        }
+    }
+}
+
+/// The stand-in for the Test run's profile in the canonical invocation: the
+/// profile's name is a new record id every run (DES-673), and the invocation must
+/// not change with it or hold a machine path (DES-370).
+pub(crate) const PROFILE_MARKER: &str = "<coverage-output>";
+
+/// The same for the profile of the run that selects no Test.
+pub(crate) const BASELINE_PROFILE_MARKER: &str = "<baseline-coverage-output>";
 
 /// The command that runs the tests (BD-360).
 pub(crate) const PROGRAM: &str = "go";
@@ -57,6 +102,29 @@ impl GoTestRunner {
     #[must_use]
     pub fn with_environment(environment: BTreeMap<String, String>) -> Self {
         Self { environment }
+    }
+
+    /// The command `go` is started with: `args` is what runs, `shown` is the same
+    /// with no machine path, which the command line keeps.
+    fn command_of(
+        &self,
+        root: &Path,
+        coordinates: &Coordinates<'_>,
+        args: Vec<String>,
+        shown: &[String],
+        mode: RunMode,
+    ) -> RunnerCommand {
+        RunnerCommand {
+            command_line: std::iter::once(PROGRAM.to_owned())
+                .chain(shown.iter().cloned())
+                .collect::<Vec<_>>()
+                .join(" "),
+            program: PROGRAM.to_owned(),
+            args,
+            current_dir: root.join(coordinates.module),
+            env: self.environment.clone(),
+            runner_kind: mode.kind().to_owned(),
+        }
     }
 }
 
@@ -125,14 +193,56 @@ pub(crate) fn coordinates(
 /// instruction not to use a cached result (DS-1906), and `^<selector>$` selects
 /// the one function by its exact name (DS-1905).
 pub(crate) fn invocation_args(coordinates: &Coordinates<'_>) -> Vec<String> {
-    vec![
+    go_test_args(
+        coordinates.suite,
+        &format!("^{}$", coordinates.selector),
+        None,
+    )
+}
+
+/// DES-663: the arguments of the Test's own run when coverage is measured: the
+/// ones of [`invocation_args`], and `-covermode=atomic`, `-coverpkg=./...` (every
+/// package of the module) and `-coverprofile` (to `profile`).
+pub(crate) fn measured_args(coordinates: &Coordinates<'_>, profile: &str) -> Vec<String> {
+    go_test_args(
+        coordinates.suite,
+        &format!("^{}$", coordinates.selector),
+        Some(profile),
+    )
+}
+
+/// DES-675: the arguments of the run that selects no Test (`-run ^$`), measured
+/// with the same options as [`measured_args`].
+pub(crate) fn baseline_args(coordinates: &Coordinates<'_>, profile: &str) -> Vec<String> {
+    go_test_args(coordinates.suite, "^$", Some(profile))
+}
+
+fn go_test_args(suite: &str, run_pattern: &str, profile: Option<&str>) -> Vec<String> {
+    let mut args = vec![
         "test".to_owned(),
-        format!("./{}", coordinates.suite),
+        format!("./{suite}"),
         "-run".to_owned(),
-        format!("^{}$", coordinates.selector),
+        run_pattern.to_owned(),
         "-count=1".to_owned(),
         "-json".to_owned(),
-    ]
+    ];
+    if let Some(profile) = profile {
+        args.extend([
+            "-covermode=atomic".to_owned(),
+            "-coverpkg=./...".to_owned(),
+            format!("-coverprofile={profile}"),
+        ]);
+    }
+    args
+}
+
+/// `path` as the command line shows it: relative to the project root with `/`
+/// when it is under it.
+fn display_path(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/")
 }
 
 /// DS-1930, DS-2011, DS-2012, DS-1904: whether the Test can be selected by its
@@ -314,29 +424,45 @@ impl TestRunnerAdapter for GoTestRunner {
         crate::ADAPTER_ID
     }
 
-    /// `coverage` is ignored: the adapter declares no Coverage capability, so
-    /// orchestration never asks for it.
+    /// DS-1923, DS-1926: with `coverage` the command measures coverage into
+    /// `coverage_output_path` (DES-663) and is of the runner kind of a measured
+    /// run; without it the command specifies no measurement. A measured run has
+    /// nowhere to write its profile without a path
+    /// (`TestRunnerError::MissingCoverageOutputPath`).
     fn command(
         &self,
         root: &Path,
         execution: &ExecutionDescriptor,
-        _coverage: bool,
-        _coverage_output_path: Option<&Path>,
+        coverage: bool,
+        coverage_output_path: Option<&Path>,
     ) -> Result<RunnerCommand, TestRunnerError> {
         let coordinates = coordinates(execution)?;
         check_selection(root, &coordinates)?;
-        let args = invocation_args(&coordinates);
-        Ok(RunnerCommand {
-            command_line: std::iter::once(PROGRAM.to_owned())
-                .chain(args.iter().cloned())
-                .collect::<Vec<_>>()
-                .join(" "),
-            program: PROGRAM.to_owned(),
-            args,
-            current_dir: root.join(coordinates.module),
-            env: self.environment.clone(),
-            runner_kind: RUNNER_KIND.to_owned(),
-        })
+        let (args, shown, mode) = if coverage {
+            let profile = coverage_output_path.ok_or(TestRunnerError::MissingCoverageOutputPath)?;
+            (
+                measured_args(&coordinates, &profile.to_string_lossy()),
+                measured_args(&coordinates, &display_path(root, profile)),
+                RunMode::Measured,
+            )
+        } else {
+            let args = invocation_args(&coordinates);
+            (args.clone(), args, RunMode::Plain)
+        };
+        Ok(self.command_of(root, &coordinates, args, &shown, mode))
+    }
+
+    /// DES-675: the run that selects no Test, measured as the Test's own run is.
+    fn coverage_baseline_command(
+        &self,
+        root: &Path,
+        execution: &ExecutionDescriptor,
+        coverage_output_path: &Path,
+    ) -> Option<RunnerCommand> {
+        let coordinates = coordinates(execution).ok()?;
+        let args = baseline_args(&coordinates, &coverage_output_path.to_string_lossy());
+        let shown = baseline_args(&coordinates, &display_path(root, coverage_output_path));
+        Some(self.command_of(root, &coordinates, args, &shown, RunMode::Measured))
     }
 
     fn parse(&self, execution: &ExecutionDescriptor, output: RunnerOutput<'_>) -> RunnerTestResult {

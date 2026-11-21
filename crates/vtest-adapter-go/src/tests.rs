@@ -150,21 +150,26 @@ mod captured {
 "#;
 }
 
-/// DES-350, DES-621: the adapter declares discovery and the runner, and no
-/// capability it does not implement; the registry resolves the runner.
-/// @vtest.id TEST-ADAPTER-GO-DECLARES-DISCOVERY-AND-RUNNER
-/// @vtest.covers VO-ADAPTER-LEXICAL-DECLARES-DISCOVERY-ONLY, VO-ADAPTER-GO-REGISTERS-WITHOUT-CORE-CHANGES
+/// DES-350, DES-621, BD-354: the adapter declares discovery, the runner and
+/// coverage, and no capability it does not implement; the registry resolves
+/// them, and the values it defines for `run.coverage`.
+/// @vtest.id TEST-ADAPTER-GO-DECLARES-DISCOVERY-RUNNER-AND-COVERAGE
+/// @vtest.covers VO-ADAPTER-LEXICAL-DECLARES-DISCOVERY-ONLY, VO-ADAPTER-GO-REGISTERS-WITHOUT-CORE-CHANGES, VO-ADAPTER-GO-COVERAGE-USES-GO-TEST-COVER, VO-ADAPTER-GO-RUN-COVERAGE-VALUES-ARE-GO-COVER-OR-OFF
 /// @vtest.target crates/vtest-adapter-go/src/lib.rs::adapter
-/// @vtest.intent the go adapter declares its id, its language, its config namespace, source_discovery and test_runner and neither coverage nor static analysis, registers, and resolves its runner by the id go
+/// @vtest.intent the go adapter declares its id, its language, its config namespace, source_discovery, test_runner and coverage and no static analysis, registers, resolves its runner and its coverage by the id go, names the method go-cover, and defines the values go-cover and off for run.coverage
 #[test]
-fn the_go_adapter_declares_discovery_and_the_runner_only() {
+fn the_go_adapter_declares_discovery_the_runner_and_coverage() {
     let descriptor = adapter().descriptor();
     assert_eq!(descriptor.id, "go");
     assert_eq!(descriptor.languages, vec!["go".to_owned()]);
     assert_eq!(descriptor.config_namespace, "go");
     assert_eq!(
         descriptor.capabilities,
-        vec![Capability::SourceDiscovery, Capability::TestRunner]
+        vec![
+            Capability::SourceDiscovery,
+            Capability::TestRunner,
+            Capability::Coverage
+        ]
     );
     let mut registry = AdapterRegistry::new();
     registry
@@ -175,7 +180,12 @@ fn the_go_adapter_declares_discovery_and_the_runner_only() {
         registry.test_runner("go").map(|runner| runner.id()),
         Some("go")
     );
-    assert!(registry.coverage("go").is_none());
+    let coverage = registry.coverage("go").expect("a coverage capability");
+    assert_eq!((coverage.id(), coverage.method()), ("go", "go-cover"));
+    assert_eq!(
+        registry.get("go").and_then(Adapter::run_coverage_values),
+        Some(&["go-cover", "off"][..])
+    );
     assert!(registry.static_analysis("go").is_none());
 }
 
@@ -298,7 +308,7 @@ fn a_test_with_no_go_mod_has_no_module_and_the_runner_refuses_it() {
 /// @vtest.id TEST-ADAPTER-GO-COMMAND-IS-GO-TEST-ONE-NAME-NO-CACHE
 /// @vtest.covers VO-ADAPTER-GO-RUNNER-KIND-IS-GO-TEST, VO-ADAPTER-GO-RUNS-ONE-TEST-PER-INVOCATION, VO-ADAPTER-GO-SELECTS-ONE-TEST-BY-EXACT-NAME, VO-ADAPTER-GO-RUNS-WITHOUT-THE-RESULT-CACHE, VO-ADAPTER-GO-FAST-MODE-HAS-NO-COVERAGE
 /// @vtest.target crates/vtest-adapter-go/src/runner.rs::invocation_args
-/// @vtest.intent the go command runs go test for the one package, selects the function by the exact-name pattern, turns the result cache off, asks for json, starts in the module root, is of kind go-test, and is the same whether or not coverage is asked for
+/// @vtest.intent the go command without coverage runs go test for the one package, selects the function by the exact-name pattern, turns the result cache off, asks for json, starts in the module root, is of kind go-test, and specifies no coverage option
 #[test]
 fn the_command_is_go_test_for_one_package_by_exact_name_without_the_cache() {
     let fixture = project(&[
@@ -322,12 +332,11 @@ fn the_command_is_go_test_for_one_package_by_exact_name_without_the_cache() {
     assert_eq!(spec.current_dir, fixture.root.join("services/api"));
     assert_eq!(spec.runner_kind, "go-test");
     assert!(spec.env.is_empty());
-    // No coverage capability is declared, so the flag is never set; if it were,
-    // the command would not change.
-    let with_coverage = GoTestRunner::new()
-        .command(&fixture.root, &execution, true, Some(Path::new("c.out")))
-        .expect("a command");
-    assert_eq!(with_coverage, spec);
+    assert!(
+        spec.args.iter().all(|arg| !arg.contains("cover")),
+        "{:?}",
+        spec.args
+    );
     // The module root as a package is `./.`.
     let root_package = coordinates(&self::execution(Some("."), Some("."), "TestX"))
         .map(|c| invocation_args(&c))

@@ -12,7 +12,10 @@ use vtest_adapter_api::{ExecutionStateReader, TestRunnerAdapter};
 use vtest_model::{ExecutionDescriptor, ExecutionStateDraft};
 
 use super::*;
-use crate::tests::{execution, project, Project};
+use crate::{
+    runner::{COVERAGE_RUNNER_KIND, RUNNER_KIND},
+    tests::{execution, project, Project},
+};
 
 const HEAD: &str = "0123456789abcdef0123456789abcdef01234567";
 const GO_MOD: &[u8] = b"module app\n\ngo 1.21\n";

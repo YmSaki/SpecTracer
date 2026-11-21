@@ -74,7 +74,19 @@ impl Fixture {
     }
 }
 
+/// The `run.coverage` value of the adapter's entry: the value `go` defines for
+/// its measurement (DS-1879, DS-1926), where it defines a range and rejects a
+/// value outside it (DS-1881), and a value none of the other adapters here reads.
+fn coverage_value(adapter_id: &str) -> &'static str {
+    if adapter_id == "go" {
+        "go-cover"
+    } else {
+        "none"
+    }
+}
+
 fn write_config(root: &Path, adapter_id: &str) {
+    let coverage = coverage_value(adapter_id);
     let yaml = format!(
         "version: 2\n\
          project:\n  name: lexical-fixture\n\
@@ -82,7 +94,7 @@ fn write_config(root: &Path, adapter_id: &str) {
            - id: {adapter_id}\n    \
              roots:\n      - '.'\n    \
              scan:\n      include:\n        - '.'\n      assertion_macros: []\n    \
-             run:\n      coverage: none\n\
+             run:\n      coverage: {coverage}\n\
          verify:\n  full_scope:\n    - chain_integrity\n    - orphan_detection\n    - target_binding\n    - oracle_presence\n"
     );
     fs::write(root.join(".verify").join("config.yaml"), yaml).expect("write config.yaml");
