@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-003-PROJECTION-ASSIGNMENT
+parent: null
+derives_from:
+- doc: DS-1956
+claim: '`rust-cargo`のDA-003で、Test constructの中で構文として見える射影代入`x.p = e`（`x.f = e`、`x.0 = e`、`x[i] = e`、`x.f.g = e`など）の後は、射影の経路`p`を構文から確定できる場合（フィールド名、タプルの番号、整数リテラルの添字だけからなる場合）、`x`の`p`の位置の派生を`e`の派生に置き換え、`x`のそれ以外の位置の派生を保つ。複合代入`x.p op= e`では、`p`の位置を、元の値と`e`のどちらかが派生であれば派生とする。経路を構文から確定できない場合は、`x`全体の派生をUNKNOWNとする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-19T00:00:00Z
+updated: 2026-11-19T00:00:00Z

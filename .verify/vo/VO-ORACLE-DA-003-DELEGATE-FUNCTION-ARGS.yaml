@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-003-DELEGATE-FUNCTION-ARGS
+parent: null
+derives_from:
+- doc: DS-1960
+claim: '`rust-cargo`で、assert相当の引数とそこへ流れる束縛に現れる呼出のうち、構築子（列挙子・タプル構造体の構築）とDS-1961の標準変換だけを値の変換としてその引数を値が流れる位置とし、それ以外の関数呼出と、派生した値を引数に渡すメソッド呼出（`v.contains(&x)`など）は、宣言targetの呼出を除き、DS-641の照合の委譲先とする。メソッドの受け手として流れる値はDS-1937による。構築子であることを構文から確定できない呼出は関数呼出として扱う。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-19T00:00:00Z
+updated: 2026-11-19T00:00:00Z

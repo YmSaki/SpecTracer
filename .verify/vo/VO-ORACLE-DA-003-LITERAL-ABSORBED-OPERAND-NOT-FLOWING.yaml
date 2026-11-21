@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-003-LITERAL-ABSORBED-OPERAND-NOT-FLOWING
+parent: null
+derives_from:
+- doc: DS-1948
+claim: 'DA-003で、演算の結果が真偽値になる言語と演算子（`rust-cargo`の`||`・`&&`・`|`・`&`、`go`の`||`・`&&`）について、リテラルに吸収されるオペランドの位置（`X || true`、`true || X`、`X && false`、`false && X`、`X | true`、`true | X`、`X & false`、`false & X`の`X`）は、値が流れる位置に数えない。`javascript`の`||`・`&&`・`|`・`&`は、演算の結果が真偽値にならないため対象としない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-19T00:00:00Z
+updated: 2026-11-19T00:00:00Z

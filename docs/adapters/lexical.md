@@ -4,11 +4,14 @@ The adapters built on `vtest-adapter-lexical` discover Tests and Source Targets
 in languages other than Rust. They do not depend on a test framework, so the
 same rules work with pytest, JUnit, Jest, GoogleTest, or a hand-written runner.
 
-> **Status: experimental.** These adapters are merged ahead of the canonical
-> scope as an experimental implementation. REQ-264, SPEC-218, SPEC-361, and
-> SPEC-458 still list `rust-cargo` as the only production language adapter in
-> v0.1, and this page does not change that scope. Until the canonical
-> documents are revised, treat their behavior as subject to change.
+> **Status: experimental (early-access preview).** Rust (`rust-cargo`) is the
+> only officially supported language in this release. These adapters may change.
+>
+> REQ-264, SPEC-218, SPEC-361, and SPEC-458 include `go` and `javascript`,
+> alongside `rust-cargo`, as v0.1 production language adapters. The `go` and
+> `javascript` adapters here do not meet that contract yet. They implement only
+> `source_discovery`: there is no runner, no coverage, and no oracle check.
+> Every other language is outside the v0.1 production scope.
 
 ## Declaring a Test
 
@@ -78,7 +81,7 @@ adapters:
       include: [src, tests]
       assertion_macros: []
     run:
-      coverage: none
+      coverage: off
 ```
 
 Each language adapter has its own page in this directory.

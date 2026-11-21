@@ -215,3 +215,39 @@ so no observation depends on `cargo-llvm-cov`.
 | DS-1875 | `the_mcp_tools_return_what_the_cli_prints` (`acceptance_18_3_14.rs`) | PASS |
 | DS-1876 | `the_mcp_tools_return_what_the_cli_prints` (`acceptance_18_3_14.rs`) | PASS |
 | DS-1877 | `show_reports_the_latest_evidence_and_prints_every_field_as_text` (`acceptance_18_3_14.rs`) | PASS |
+
+## Issue #294: DA-001 constancy of a failure divergence
+
+`rust-cargo` collects each failure divergence (DS-1951) with the positions that
+decide whether it runs (DS-1947, DS-1983). DA-003 counts a target result that
+flows to one of them (`TEST-ORACLE-DIVERGENCE-DECIDING-POSITION-REACH`,
+`TEST-ORACLE-FAILURE-DIVERGENCE-CONSTRUCTS-COUNT`), except after an irrefutable
+arm (DS-1952, `TEST-ORACLE-DIVERGENCE-AFTER-IRREFUTABLE-ARM-NOT-REACHED`), under
+a constant `false` (DS-1953, `TEST-ORACLE-DIVERGENCE-UNDER-CONSTANT-FALSE-NOT-REACHED`),
+where syntax does not fix the reach (DS-1963,
+`TEST-ORACLE-DIVERGENCE-REACH-UNDECIDABLE-IS-UNKNOWN`), and where an earlier exit
+leaves it undecided (DS-1983, `TEST-ORACLE-DIVERGENCE-AFTER-EXIT-DECIDED-BY-EXIT`).
+DA-001 judges `panic!`, `unreachable!`, `todo!`, `unimplemented!` and
+`assert!(<fixed false>)` by those positions (DS-1950,
+`TEST-ORACLE-DA-001-DIVERGENCE-CONSTANCY-BY-DECIDER`,
+`TEST-ORACLE-DA-001-UNCONDITIONAL-DIVERGENCE-IS-CONSTANT`).
+
+| Clause | Gap | Status |
+|---|---|---|
+| DS-1950 | A divergence that is not reached while one of its deciding positions is not constant (`while false { if r != 4 { panic!() } }`, `for _ in 0..0 { .. }`, after an unconditional `return`) is constant; DA-001 reports `UNKNOWN`. | NOT_CHECKED |
+| DS-1950 | Under `#[should_panic]`, a divergence with a non-constant deciding position is not constant by DS-1950, yet one on every path (`if double(2) != 4 { panic!() } else { panic!() }`) passes whatever the target returns; DA-001 reports `UNKNOWN` for every such divergence, also where some path avoids them. | NOT_CHECKED |
+| DS-1950 | An unconditional `return Err(..)` (DS-1951) is not counted by DA-001, which still reads only assert macros, so it is not reported as a constant assertion. | NOT_CHECKED |
+| DS-1947 | A guard that reads a name its arm binds (`x if x == 4`) is not traced to the scrutinee, so DA-003 reports `UNKNOWN`. | NOT_CHECKED |
+| DS-1947 | A pattern identifier starting with an uppercase letter, a struct / tuple-struct / fixed-length slice pattern before the arm, a literal-only guard or condition whose value is not evaluated, and a `for` over anything but a range of two integer literals or an array literal leave the reach undecided, so DA-003 and DA-001 report `UNKNOWN`. | NOT_CHECKED |
+| DS-1947 | A pattern that checks a literal element of the scrutinee (`(_, 1)` over `(x, 1)`), or elements of more than one scrutinee element together (`(4, 2)` over `(double(2), k)`), leaves its arm and the later ones undecided, so DA-003 and DA-001 report `UNKNOWN`. | NOT_CHECKED |
+| DS-1947 | A divergence on the right side of `&&` / `||`, or in one expression beside an exit, is undecided, so DA-003 and DA-001 report `UNKNOWN`. | NOT_CHECKED |
+| DS-1947 | The variant check of a sub-position of a binding that holds the target's result only in part is not read, so DA-003 reports `UNKNOWN`. | NOT_CHECKED |
+| DS-1983 | Any method call in a loop body is read as changing what the loop condition reads, so the reach is undecided and DA-003 reports `UNKNOWN`. | NOT_CHECKED |
+| DS-1983 | A `?` is not read as a deciding position, and a divergence after it is undecided, so DA-003 and DA-001 report `UNKNOWN`. | NOT_CHECKED |
+| DS-1947 | Remaining false PASS: complementary conditions (`if c {} else if !c {} else { panic!() }`) are not compared, so DA-003 counts the last `else` as reached. | NOT_CHECKED |
+| DS-1963 | The pattern of an `if let` and of a `let ... else` (with the patterns refuted on the path to it) is also read by DS-1963 (2), which names `match` arms only: one that may match every value at a position leaves the `else` undecided even where the value is not exhausted (`let Some(Kind::A(x)) = f() else { .. }`), so DA-003 and DA-001 report `UNKNOWN`; three Tests of this repository (`TEST-ADAPTER-LEXICAL-ANNOTATION-GRAMMAR-DIAGNOSTICS`, `TEST-ADAPTER-LEXICAL-ANNOTATION-SOURCE-SURFACE`, `TEST-VERIFY-UNDEFINED-GATE-LISTS-DEFINED`) stay `UNKNOWN` by it. | NOT_CHECKED |
+| DS-1963 | The patterns refuted on the path to an `if let`, a `let ... else` or a `match` at any depth (inside the `else` of an `if let` or a `let ... else`, in a statement, a block or parentheses there, inside an arm after earlier arms without a guard, or after an `if let` whose `then` block or a `match` whose unguarded arms leave on every path, also in a `let` initializer) are read with its own: where they may together match every value, or where one refuted by an enclosing `else` or arm checks a scrutinee not shown to be the same expression (after parentheses, references and a block's tail are removed), the `else` or the later arms are undecided, and so is a branch whose pattern one refuted pattern over the same scrutinee covers (read pairwise: `Some(5)` after `Some(_)`), so DA-003 and DA-001 report `UNKNOWN`. | NOT_CHECKED |
+| DS-1963 | Remaining false PASS: a pattern refuted by a statement that leaves for it is not compared with a later check of the value through another name (`if let Some(_) = o { return }` then `let p = o;` and `if let None = p`), and a check through a method or a macro (`o.is_some()`, `matches!(o, Some(_))` in place of an `if let`) refutes nothing, so DA-003 counts the later `else` as reached. | NOT_CHECKED |
+| DS-1963 | Remaining false PASS: a pattern whose values earlier refuted patterns cover only together (`Some(4) \| Some(5)` after arms `Some(4)` and `Some(5)`), or that repeats values matched before it (inside the `then` of `if let Some(_)`, or in a `match` arm that checks again the value the arm already checked), is not read as covered, so DA-003 counts its branch as reached though it never runs. | NOT_CHECKED |
+| DS-1947 | Remaining false PASS: an arm or an exit at a non-constant position that is not derived (`let k = 1;`) and always matches or always runs is not evaluated, so DA-003 counts the divergence after it as reached. | NOT_CHECKED |
+| DS-1983 | Remaining false PASS: an exit decided by the target's result beside an unrelated non-constant condition (`if double(2) == 99 { return } if flag() { panic!() }`) makes DA-003 count the divergence as reached, though a wrong result may skip it. | NOT_CHECKED |

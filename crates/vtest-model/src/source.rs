@@ -173,7 +173,7 @@ mod tests {
 
     /// @vtest.id TEST-MODEL-LOCATOR-CANONICAL-SPELLING
     /// @vtest.covers VO-MODEL-LOCATOR-OPAQUE-VALUE-EQUALITY
-    /// @vtest.target crates/vtest-model/src/source.rs::Locator
+    /// @vtest.target crates/vtest-model/src/source.rs::Locator::fmt
     /// @vtest.intent verifies a Locator is spelled `<adapter>::<value>` with the opaque value written verbatim, so two adapters sharing a value stay distinct (DES-217, DS-1412)
     #[test]
     fn locator_is_spelled_as_adapter_then_verbatim_value() {

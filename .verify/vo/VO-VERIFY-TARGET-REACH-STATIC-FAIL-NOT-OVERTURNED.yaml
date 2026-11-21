@@ -1,0 +1,11 @@
+id: VO-VERIFY-TARGET-REACH-STATIC-FAIL-NOT-OVERTURNED
+parent: null
+derives_from:
+  - doc: DS-672
+claim: 'DA-002 verdict = FAIL（解析境界内で到達を静的に否定）はruntime証明で覆さない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-20T12:00:00+09:00
+updated: 2026-11-20T12:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-002-ANALYSIS-BOUNDARY
+parent: null
+derives_from:
+  - doc: DS-659
+claim: 'DA-002は§7.2の解析境界（少なくとも関数本体および同一ファイル内helper1段。追跡しなかった、または追跡できなかったクロージャ内・マクロ展開内・他ファイル・他クレートへの呼出は§7.1 / §7.2に従いUNKNOWN）で行う静的なtarget到達証明である。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-20T12:00:00+09:00
+updated: 2026-11-20T12:00:00+09:00

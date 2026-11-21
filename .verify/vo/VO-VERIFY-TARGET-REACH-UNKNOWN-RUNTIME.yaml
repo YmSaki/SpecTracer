@@ -1,0 +1,11 @@
+id: VO-VERIFY-TARGET-REACH-UNKNOWN-RUNTIME
+parent: null
+derives_from:
+  - doc: DS-668
+claim: 'DA-002 verdictがUNKNOWN（静的に証明できない）であるtargetは、runtime証明が成立するときに限り到達要件を満たす。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-20T12:00:00+09:00
+updated: 2026-11-20T12:00:00+09:00

@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-001-IRREFUTABLE-MATCHES-IS-CONSTANT
+parent: null
+derives_from:
+- doc: DS-1965
+claim: '`rust-cargo`で、DA-001の定数式は、第2引数のパターンが反駁不能（DS-1952）でガードが無いかDA-001の定数判定で真となる`matches!(..)`（値は真）と、ガードがDA-001の定数判定で偽となる`matches!(..)`（値は偽）と、それらの否定を含む。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-20T00:00:00Z
+updated: 2026-11-20T00:00:00Z

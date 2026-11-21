@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-001-LITERAL-FIXED-LOGIC-IS-CONSTANT
+parent: null
+derives_from:
+- doc: DS-1949
+claim: 'DA-001の定数式は、演算の結果が真偽値になる言語と演算子（DS-1948と同じ）について、オペランドの値にかかわらずリテラルによって値が確定する論理式（`X || true`、`true || X`、`X && false`、`false && X`、`X | true`、`true | X`、`X & false`、`false & X`と、それらの否定）を含む。`javascript`の`||`・`&&`・`|`・`&`は対象としない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-19T00:00:00Z
+updated: 2026-11-19T00:00:00Z

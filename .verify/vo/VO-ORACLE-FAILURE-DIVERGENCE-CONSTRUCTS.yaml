@@ -1,0 +1,11 @@
+id: VO-ORACLE-FAILURE-DIVERGENCE-CONSTRUCTS
+parent: null
+derives_from:
+- doc: DS-1951
+claim: '`rust-cargo`で、失敗としての発散に数えるのは、`panic!` / `unreachable!` / `todo!` / `unimplemented!`、DA-001の定数判定で照合が偽と確定するassert相当（`assert!(false)`など）、`Result`を返すTest関数の本体から返る`return Err(..)`（DS-620）だけとし、それ以外の`return`と`break` / `continue` / `process::exit`で抜ける腕は数えない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-19T00:00:00Z
+updated: 2026-11-19T00:00:00Z

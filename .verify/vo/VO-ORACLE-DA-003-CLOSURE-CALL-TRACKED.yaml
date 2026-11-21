@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-003-CLOSURE-CALL-TRACKED
+parent: null
+derives_from:
+- doc: DS-1941
+claim: '`rust-cargo`のDA-002 / DA-003のデータフロー解析は、少なくとも、Test本体の中で`let f = |..| body;`と束縛したクロージャを、DS-1962の数える位置で`f(..)`と直接呼ぶ形（`f`はその位置で有効な直近の`let`束縛を指す）について、その呼出をクロージャ本体の実行として追跡し、DA-003ではその呼出の値をクロージャ本体の値とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-20T00:00:00Z
+updated: 2026-11-20T00:00:00Z

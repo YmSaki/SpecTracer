@@ -365,7 +365,7 @@ mod tests {
 
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-DOMAIN-SEPARATION
     /// @vtest.covers VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR, VO-MODEL-CANONICAL-HASH-FIELD-NAME, VO-MODEL-CANONICAL-HASH-KIND-TAG, VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
-    /// @vtest.target crates/vtest-model/src/hash.rs::SubjectHashInput
+    /// @vtest.target crates/vtest-model/src/hash.rs::SubjectHashInput::new
     /// @vtest.intent verifies each of the five §1.3 domains yields a distinct hash for identical field content (本冊:87-91)
     #[test]
     fn canonical_hash_domain_separator_distinguishes_all_five_domains() {
@@ -400,7 +400,7 @@ mod tests {
 
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-NULL-EMPTY-DISTINCT
     /// @vtest.covers VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR, VO-MODEL-CANONICAL-HASH-FIELD-NAME, VO-MODEL-CANONICAL-HASH-KIND-TAG, VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
-    /// @vtest.target crates/vtest-model/src/hash.rs::SubjectHashInput
+    /// @vtest.target crates/vtest-model/src/hash.rs::encode_field_into
     /// @vtest.intent verifies null, empty string, and empty list encode to three pairwise distinct hashes (本冊:85 "null、空文字、空listは異なる値としてencodeする")
     #[test]
     fn canonical_hash_null_empty_string_and_empty_list_are_pairwise_distinct() {
@@ -469,21 +469,31 @@ mod tests {
 
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-LENGTH-PREFIX-PREVENTS-COLLISION
     /// @vtest.covers VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR, VO-MODEL-CANONICAL-HASH-FIELD-NAME, VO-MODEL-CANONICAL-HASH-KIND-TAG, VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
-    /// @vtest.target crates/vtest-model/src/hash.rs::SubjectHashInput
-    /// @vtest.intent verifies length-prefixed field encoding avoids the classic concatenation collision (本冊:85 "単純な文字列連結を行わない")
+    /// @vtest.target crates/vtest-model/src/hash.rs::push_len_prefixed
+    /// @vtest.intent verifies length-prefixed encoding avoids the classic concatenation collision where adjacent variable-length values shift their boundary (本冊:85 "単純な文字列連結を行わない")
     #[test]
     fn canonical_hash_length_prefixing_distinguishes_inputs_that_would_naively_collide() {
-        // Under naive string concatenation, {a:"xy", b:"z"} and {a:"x", b:"yz"}
-        // both produce the literal byte string "xyz" and would collide.
-        let split_ab = SubjectHashInput::new(SubjectDomain::TestSubject)
-            .field("a", FieldValue::exact_bytes(b"xy".to_vec()))
-            .field("b", FieldValue::exact_bytes(b"z".to_vec()))
-            .finish();
-        let split_a_b2 = SubjectHashInput::new(SubjectDomain::TestSubject)
-            .field("a", FieldValue::exact_bytes(b"x".to_vec()))
-            .field("b", FieldValue::exact_bytes(b"yz".to_vec()))
-            .finish();
-        assert_ne!(split_ab, split_a_b2);
+        // Each pair below concatenates to the same bytes ("abc") when the
+        // elements carry no length prefix, with nothing else (field name or
+        // kind tag) between them to tell the two apart.
+        let hash = |value: FieldValue| {
+            SubjectHashInput::new(SubjectDomain::TestSubject)
+                .field("f", value)
+                .finish()
+        };
+        let list = |items: [&[u8]; 2]| items.iter().map(|item| item.to_vec()).collect::<Vec<_>>();
+        assert_ne!(
+            hash(FieldValue::Ordered(list([b"ab", b"c"]))),
+            hash(FieldValue::Ordered(list([b"a", b"bc"])))
+        );
+        assert_ne!(
+            hash(FieldValue::Set(list([b"ab", b"c"]))),
+            hash(FieldValue::Set(list([b"a", b"bc"])))
+        );
+        let map = |key: &str, value: &[u8]| {
+            FieldValue::Map(BTreeMap::from([(key.to_string(), value.to_vec())]))
+        };
+        assert_ne!(hash(map("ab", b"c")), hash(map("a", b"bc")));
     }
 
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-MAP-KEY-ORDER-INDEPENDENT
@@ -509,9 +519,38 @@ mod tests {
         assert_eq!(hash_ab, hash_ba);
     }
 
+    /// @vtest.id TEST-MODEL-CANONICAL-HASH-MAP-FIELD-ENCODING
+    /// @vtest.covers VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR, VO-MODEL-CANONICAL-HASH-FIELD-NAME, VO-MODEL-CANONICAL-HASH-KIND-TAG, VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
+    /// @vtest.target crates/vtest-model/src/hash.rs::encode_field_into
+    /// @vtest.intent verifies a map field encodes as the map kind tag, the entry count, then each key and value length-prefixed in ascending key order (本冊:85 "mapはkey昇順")
+    #[test]
+    fn canonical_hash_map_field_encodes_count_and_prefixed_pairs_in_key_order() {
+        fn prefixed(bytes: &[u8]) -> Vec<u8> {
+            let mut out = (bytes.len() as u64).to_be_bytes().to_vec();
+            out.extend_from_slice(bytes);
+            out
+        }
+        let map = BTreeMap::from([
+            ("b".to_string(), b"2".to_vec()),
+            ("a".to_string(), b"1".to_vec()),
+        ]);
+        let actual = SubjectHashInput::new(SubjectDomain::ExecutionState)
+            .field("config", FieldValue::Map(map))
+            .finish();
+
+        let mut expected = prefixed(SubjectDomain::ExecutionState.as_str().as_bytes());
+        expected.extend(prefixed(b"config"));
+        expected.push(field_tag::MAP);
+        expected.extend(2u64.to_be_bytes());
+        for part in [b"a", b"1", b"b", b"2"] {
+            expected.extend(prefixed(part));
+        }
+        assert_eq!(actual, ContentHash::from_canonical_bytes(&expected));
+    }
+
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-SET-FIELD-ORDER-INDEPENDENT
     /// @vtest.covers VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR, VO-MODEL-CANONICAL-HASH-FIELD-NAME, VO-MODEL-CANONICAL-HASH-KIND-TAG, VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
-    /// @vtest.target crates/vtest-model/src/hash.rs::SubjectHashInput
+    /// @vtest.target crates/vtest-model/src/hash.rs::encode_field_into
     /// @vtest.intent verifies set-typed fields (covers/targets/related) hash the same regardless of declared order (本冊:85)
     #[test]
     fn canonical_hash_set_field_is_independent_of_declared_order() {
@@ -534,7 +573,7 @@ mod tests {
 
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-SET-FIELD-DEDUPLICATES
     /// @vtest.covers VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR, VO-MODEL-CANONICAL-HASH-FIELD-NAME, VO-MODEL-CANONICAL-HASH-KIND-TAG, VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
-    /// @vtest.target crates/vtest-model/src/hash.rs::SubjectHashInput
+    /// @vtest.target crates/vtest-model/src/hash.rs::encode_field_into
     /// @vtest.intent verifies a set-typed field with a repeated element hashes the same as the deduplicated set (本冊:85 "集合として扱うcovers・targets・related" — a set containing an element twice is the same set as containing it once)
     #[test]
     fn canonical_hash_set_field_deduplicates_repeated_elements() {
@@ -560,7 +599,7 @@ mod tests {
 
     /// @vtest.id TEST-MODEL-CANONICAL-HASH-ORDERED-FIELD-ORDER-DEPENDENT
     /// @vtest.covers VO-MODEL-CANONICAL-HASH-DOMAIN-SEPARATOR, VO-MODEL-CANONICAL-HASH-FIELD-NAME, VO-MODEL-CANONICAL-HASH-KIND-TAG, VO-MODEL-CANONICAL-HASH-BIG-ENDIAN-LENGTH
-    /// @vtest.target crates/vtest-model/src/hash.rs::SubjectHashInput
+    /// @vtest.target crates/vtest-model/src/hash.rs::encode_field_into
     /// @vtest.intent verifies order-significant fields (cases) change hash when declaration order changes (本冊:85 "順序に意味があるcasesは宣言順とする")
     #[test]
     fn canonical_hash_ordered_field_changes_when_declaration_order_changes() {

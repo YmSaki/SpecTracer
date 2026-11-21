@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-002-TRACKING-RANGE
+parent: null
+derives_from:
+  - doc: DS-628
+claim: 'DA-002 / DA-003のデータフロー解析は、Test constructの本体の内側の構文（DA-002ではDS-622の呼出先helperの本体を含む）を追跡してよく、追跡する範囲に上限を置かない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-20T12:00:00+09:00
+updated: 2026-11-20T12:00:00+09:00

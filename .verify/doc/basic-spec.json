@@ -169,8 +169,38 @@
           }
         },
         {
+          "id": "SPEC-484",
+          "statement": "`go` はGoのTest関数（`_test.go` ファイルにあり `go test` が実行する関数）を対象とする。",
+          "derives_from": [
+            "REQ-344"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "目的",
+            "lines": [
+              5,
+              5
+            ]
+          }
+        },
+        {
+          "id": "SPEC-485",
+          "statement": "`javascript` はJavaScript・TypeScriptのTest（vitest が実行する `test(...)` / `it(...)` の呼出し）を対象とする。",
+          "derives_from": [
+            "REQ-345"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "目的",
+            "lines": [
+              5,
+              5
+            ]
+          }
+        },
+        {
           "id": "SPEC-011",
-          "statement": "`rust-cargo` 以外の production language adapter はv0.1の提供範囲に含めない。",
+          "statement": "`rust-cargo`・`go`・`javascript` 以外の production language adapter はv0.1の提供範囲に含めない。",
           "derives_from": [
             "REQ-258",
             "REQ-259",
@@ -4973,10 +5003,42 @@
           }
         },
         {
-          "id": "SPEC-218",
-          "statement": "`rust-cargo` 以外のproduction language adapterはv0.1の提供範囲に含めない。",
+          "id": "SPEC-486",
+          "statement": "`go` はGo・`go test` で実行するTestを対象とする。",
           "derives_from": [
-            "R-2"
+            "REQ-344"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "目的",
+            "lines": [
+              5,
+              5
+            ]
+          }
+        },
+        {
+          "id": "SPEC-487",
+          "statement": "`javascript` はJavaScript・TypeScript・vitest で実行するTestを対象とする。",
+          "derives_from": [
+            "REQ-345"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "目的",
+            "lines": [
+              5,
+              5
+            ]
+          }
+        },
+        {
+          "id": "SPEC-218",
+          "statement": "`rust-cargo`・`go`・`javascript` 以外のproduction language adapterはv0.1の提供範囲に含めない。",
+          "derives_from": [
+            "R-2",
+            "REQ-263",
+            "REQ-264"
           ],
           "cites": [
             "要件定義 R-2"
@@ -7808,8 +7870,10 @@
             },
             {
               "id": "DS-125",
-              "statement": "別プロセス（起動したsubprocess）・別スレッド・クロージャ・他ファイル等、静的解析の到達境界を越えてtargetを実行するTestでは静的に到達を証明できず `UNKNOWN` となる。",
-              "derives_from": [],
+              "statement": "別プロセス（起動したsubprocess）・別スレッド、および静的解析が追跡しなかった、または追跡できなかったクロージャ・他ファイル等、静的解析の到達境界を越えてtargetを実行するTestでは静的に到達を証明できず `UNKNOWN` となる。",
+              "derives_from": [
+                "ROOT-053"
+              ],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
                 "heading": "5.3 target_binding — 宣言対象の振る舞いの実現",
@@ -11722,8 +11786,11 @@
         },
         {
           "id": "BD-003",
-          "statement": "組込 production adapter は `rust-cargo` とする。",
-          "derives_from": [],
+          "statement": "組込 production adapter は `rust-cargo`、`go`、`javascript` とする。",
+          "derives_from": [
+            "SPEC-011",
+            "SPEC-218"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "0. 本書の位置付け",
@@ -11777,6 +11844,36 @@
             "lines": [
               19,
               19
+            ]
+          }
+        },
+        {
+          "id": "BD-350",
+          "statement": "Go固有処理は組込 `go` adapter が所有する。",
+          "derives_from": [
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "目的",
+            "lines": [
+              5,
+              5
+            ]
+          }
+        },
+        {
+          "id": "BD-351",
+          "statement": "JavaScript・TypeScript固有処理は組込 `javascript` adapter が所有する。",
+          "derives_from": [
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "目的",
+            "lines": [
+              5,
+              5
             ]
           }
         },
@@ -13612,8 +13709,10 @@
         },
         {
           "id": "BD-104",
-          "statement": "組込production adapterは `rust-cargo` とする。",
-          "derives_from": [],
+          "statement": "組込production adapterは `rust-cargo`、`go`、`javascript` とする。",
+          "derives_from": [
+            "SPEC-218"
+          ],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 基本仕様 v0.1.md",
             "heading": "27. 対応範囲と adapter 境界",
@@ -14354,6 +14453,36 @@
               261
             ]
           }
+        },
+        {
+          "id": "DES-619",
+          "statement": "`go` adapterのStatic Audit capabilityは、§8.3の不成立構造を決定論的に検出する。",
+          "derives_from": [
+            "BD-357"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              27,
+              27
+            ]
+          }
+        },
+        {
+          "id": "DES-620",
+          "statement": "`javascript` adapterのStatic Audit capabilityは、§8.3の不成立構造を決定論的に検出する。",
+          "derives_from": [
+            "BD-358"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              28,
+              28
+            ]
+          }
         }
       ]
     },
@@ -14439,6 +14568,36 @@
             "lines": [
               287,
               287
+            ]
+          }
+        },
+        {
+          "id": "DES-621",
+          "statement": "`go` adapterにおける判定権威は `go test` である。",
+          "derives_from": [
+            "REQ-346"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              27,
+              27
+            ]
+          }
+        },
+        {
+          "id": "DES-622",
+          "statement": "`javascript` adapterにおける判定権威は vitest である。",
+          "derives_from": [
+            "REQ-347"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
+            "heading": "B. Rust 以外の run → verify(仕様変更が先)",
+            "lines": [
+              28,
+              28
             ]
           }
         }

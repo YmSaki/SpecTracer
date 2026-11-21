@@ -1,0 +1,11 @@
+id: VO-STORE-CONFIG-INVARIANT-VIOLATION-E-CONFIG-001
+parent: null
+derives_from:
+  - doc: DS-1662
+claim: '`E-CONFIG-001`はerrorであり、config version、`verify.full_scope`（固定4検査）、`gates`（名前重複、`require` / `require.verification`欠落、`require.verification`が5状態語彙外、`require.approvals`の不正・未解決ロール）、`adapters`（設定内のadapter ID重複、同一adapter内のroot重複、未知adapter）、config field型または登録adapterが検証する設定値が現在のconfig invariantに違反することである（registryのadapter ID重複およびregistryの宣言と実装の不一致はE-ADAPTER-001）。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-20T12:00:00+09:00
+updated: 2026-11-20T12:00:00+09:00

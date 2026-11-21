@@ -1,0 +1,11 @@
+id: VO-ORACLE-DIVERGENCE-AFTER-EXIT
+parent: null
+derives_from:
+- doc: DS-1983
+claim: DA-001・DA-003で、失敗として発散する構文（`rust-cargo`ではDS-1951、`go`ではDS-1973、`javascript`ではDS-1974）の決める位置（DS-1947。`go`ではDS-1887、`javascript`ではDS-1897）には、その構文を囲む条件式のほか、同じ関数本体の中でその構文より前にあり、失敗として発散しない抜け方（`return`、`break`、`continue`と、DS-1951・DS-1973・DS-1974が失敗に数えない抜け方）で、その構文に達する前に条件付きで抜けうる文について、その抜ける枝を選ぶ条件式・ガード・パターンが検査する位置を、DS-1947と同じ規則で含める。抜ける枝を選ぶ条件を構文から確定できない場合（`goto`・ラベル付きの`break` / `continue`で抜ける場合と、ループの本体の中から抜ける場合を含む）は、その失敗として発散する構文について、DA-001の定数アサーションとせず、DA-003で到達しないことを理由にFAILとせず、どちらもUNKNOWNとする。失敗として発散する構文を本体に含むループ（`rust-cargo`の`while`・`while let`・`for ... in`、`go`の`for`文、`javascript`の`while`・`do ... while`・`for`・`for ... of`・`for ... in`）について、ループの条件式と、繰り返す対象の式（`range`・`for ... in`・`for ... of`の式）も、DS-1947と同じ規則で決める位置に含める（`while let`ではそのパターンが検査する位置）。ループの本体の中で、条件式・繰り返す対象の式が読む変数へ代入する場合（`for`文の後処理文によるものを除く）は、繰り返すかどうかを構文から確定できないものとし、その構文についてDA-001の定数アサーションとせず、DA-003で到達しないことを理由にFAILとせず、どちらもUNKNOWNとする。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-19T00:00:00Z
+updated: 2026-11-19T00:00:00Z

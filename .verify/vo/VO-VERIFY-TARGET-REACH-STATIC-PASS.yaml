@@ -1,0 +1,11 @@
+id: VO-VERIFY-TARGET-REACH-STATIC-PASS
+parent: null
+derives_from:
+  - doc: DS-666
+claim: '到達要件は、targetごとに、静的証明：当該targetのDA-002 verdict = PASS（§7.2の解析境界内で呼出を確認）のいずれかで充足される。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-20T12:00:00+09:00
+updated: 2026-11-20T12:00:00+09:00

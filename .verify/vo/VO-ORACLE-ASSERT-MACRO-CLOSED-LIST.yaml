@@ -1,0 +1,11 @@
+id: VO-ORACLE-ASSERT-MACRO-CLOSED-LIST
+parent: null
+derives_from:
+- doc: DS-617
+claim: '`rust-cargo`のassert相当の構文のうちマクロは、標準マクロの`assert!` / `assert_eq!` / `assert_ne!` / `panic!` / `unreachable!` / `todo!` / `unimplemented!`と、`rust-cargo` configの`assertion_macros`に列挙されたマクロに限る。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-19T00:00:00Z
+updated: 2026-11-19T00:00:00Z

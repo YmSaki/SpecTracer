@@ -1,0 +1,11 @@
+id: VO-ORACLE-DIVERGENCE-REACH-UNDECIDABLE
+parent: null
+derives_from:
+- doc: DS-1963
+claim: '`rust-cargo`で、失敗として発散する構文が実行されうることを構文から確定できない場合は、その構文への到達を数えず、DA-003をFAILではなくUNKNOWNとする。次のいずれかに当たる場合は確定できないものとする。(1) 派生した値が流れる決める位置（DS-1947）が、範囲パターンか`Some` / `None` / `Ok` / `Err`以外のパス・列挙子のパターンだけで検査されるscrutineeの位置しかない場合。(2) 失敗として発散する腕より前のガードのない腕のパターンが、同じ位置について、範囲パターンか`Some` / `None` / `Ok` / `Err`以外のパス・列挙子のパターンを含むか、`true`と`false`、`Some`と`None`、`Ok`と`Err`の組のいずれかを両方とも検査するか、256個以上のリテラルを検査する場合。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-19T00:00:00Z
+updated: 2026-11-19T00:00:00Z

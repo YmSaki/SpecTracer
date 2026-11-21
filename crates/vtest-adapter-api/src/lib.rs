@@ -302,6 +302,18 @@ pub trait TestRunnerAdapter {
         None
     }
 
+    /// A reader of Execution States for one operation that checks many Tests
+    /// against a workspace it does not change (`vtest verify`). Each call
+    /// returns what [`TestRunnerAdapter::execution_state`] returns for the
+    /// same arguments; an adapter may collect the inputs every Test shares
+    /// once per reader. A caller that must observe a change between two
+    /// readings (the before/after snapshots around a Test run, DS-532) calls
+    /// `execution_state` instead, and a reader is dropped when its operation
+    /// ends so a later operation never sees an earlier tree.
+    fn execution_state_reader(&self) -> Box<dyn ExecutionStateReader + '_> {
+        Box::new(PerCallExecutionStateReader { runner: self })
+    }
+
     fn id(&self) -> &'static str;
 
     fn command(
@@ -313,6 +325,37 @@ pub trait TestRunnerAdapter {
     ) -> Result<RunnerCommand, TestRunnerError>;
 
     fn parse(&self, execution: &ExecutionDescriptor, output: RunnerOutput<'_>) -> RunnerTestResult;
+}
+
+/// See [`TestRunnerAdapter::execution_state_reader`].
+pub trait ExecutionStateReader {
+    /// The same result as [`TestRunnerAdapter::execution_state`] for the same
+    /// arguments.
+    fn execution_state(
+        &self,
+        root: &Path,
+        execution: &ExecutionDescriptor,
+        head_revision: Option<&str>,
+        runner_kind: &str,
+    ) -> Option<vtest_model::ExecutionStateDraft>;
+}
+
+/// The default reader: every call is a fresh `execution_state` call.
+struct PerCallExecutionStateReader<'a, R: ?Sized> {
+    runner: &'a R,
+}
+
+impl<R: TestRunnerAdapter + ?Sized> ExecutionStateReader for PerCallExecutionStateReader<'_, R> {
+    fn execution_state(
+        &self,
+        root: &Path,
+        execution: &ExecutionDescriptor,
+        head_revision: Option<&str>,
+        runner_kind: &str,
+    ) -> Option<vtest_model::ExecutionStateDraft> {
+        self.runner
+            .execution_state(root, execution, head_revision, runner_kind)
+    }
 }
 
 /// Per-target reachability measurement returned by [`CoverageAdapter::
@@ -572,12 +615,53 @@ pub struct AdapterDescriptor {
 /// 引き回さない。「選択adapterの現在config」は config namespace の型
 /// （本 PR 範囲外）を新設せず、現在の唯一の消費対象（DS-617
 /// `assertion_macros`）だけをプレーンな `Vec<String>` として渡す。
-#[derive(Debug)]
+///
+/// `file_text` is the whole text of the file that holds the Test construct,
+/// read from the same bytes as `construct_text` (`test.location.byte_range`
+/// places the construct in it). DES-408's input list does not name it; it is
+/// derived from DS-622 and DS-659, under which DA-002 searches the helpers that
+/// file defines. It is `None` when the file is not valid UTF-8 as a whole;
+/// an adapter then proves no reach through a helper.
+#[derive(Clone, Copy, Debug)]
 pub struct StaticAnalysisInput<'a> {
     pub test: &'a TestEntity,
     pub construct_text: &'a str,
+    pub file_text: Option<&'a str>,
     pub content_hash: &'a ContentHash,
     pub extra_assertion_macros: &'a [String],
+}
+
+/// DS-666/DS-676/DS-678: one declared target's DA-002 verdict. `Pass` is
+/// "the call is confirmed within the analysis boundary"; `Unknown` only means
+/// the boundary does not prove reach (DS-612), never that the target is not
+/// called.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ReachOutcome {
+    Pass,
+    Fail,
+    Unknown,
+}
+
+impl From<ReachOutcome> for RuleOutcome {
+    /// DA-002's rule-level form for `audit static` (DS-1074/DS-1075): a target
+    /// whose call is confirmed has no "対象未呼出" violation.
+    fn from(outcome: ReachOutcome) -> Self {
+        match outcome {
+            ReachOutcome::Pass => Self::NoViolation,
+            ReachOutcome::Fail => Self::Fail,
+            ReachOutcome::Unknown => Self::Unknown,
+        }
+    }
+}
+
+/// DS-630/DS-671: DA-002's verdict for one declared target, reported in the
+/// order of `test.targets`. `target` names the target it is for, so a caller
+/// can check that no verdict is taken for another target (DS-1363).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TargetReach {
+    pub target: TargetRef,
+    pub outcome: ReachOutcome,
+    pub reason: String,
 }
 
 /// DS-606/607/608 が合成する `oracle_presence` の3値判定。
@@ -640,6 +724,26 @@ pub trait StaticAnalysisAdapter {
     fn audit_rules(&self, input: StaticAnalysisInput<'_>) -> Vec<RuleVerdict> {
         let _ = input;
         Vec::new()
+    }
+
+    /// DS-622/DS-671/DS-675: DA-002, one verdict per declared target in the
+    /// order of `input.test.targets`, read by `target_binding`. An adapter
+    /// that reports DA-002 in `audit_rules` takes those rows from here, so the
+    /// two do not differ. The default proves no reach: every target is
+    /// `Unknown` (DS-612), which leaves reach to runtime measurement (DS-613).
+    fn target_reach(&self, input: StaticAnalysisInput<'_>) -> Vec<TargetReach> {
+        input
+            .test
+            .targets
+            .iter()
+            .map(|target| TargetReach {
+                target: target.clone(),
+                outcome: ReachOutcome::Unknown,
+                reason: "this adapter does not analyze static target reachability (DA-002); \
+                         only runtime measurement can establish it (DS-612/DS-613)"
+                    .to_owned(),
+            })
+            .collect()
     }
 }
 
