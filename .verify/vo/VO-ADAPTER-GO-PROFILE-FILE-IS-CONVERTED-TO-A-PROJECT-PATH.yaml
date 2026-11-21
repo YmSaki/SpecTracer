@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-PROFILE-FILE-IS-CONVERTED-TO-A-PROJECT-PATH
+parent: null
+derives_from:
+- doc: DES-664
+claim: 'カバレッジプロファイルの各block行（`<import path>/<file>:<開始行>.<開始桁>,<終了行>.<終了桁> <文の数> <実行回数>`）のfileは、module pathとmodule rootからproject rootの相対pathへ換算して扱う。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T10:20:00Z
+updated: 2026-11-21T10:20:00Z

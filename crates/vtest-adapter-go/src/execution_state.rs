@@ -25,7 +25,8 @@ use vtest_adapter_api::ExecutionStateReader;
 use vtest_model::{ExecutionInputDraft, ExecutionStateDraft};
 
 use crate::runner::{
-    coordinates, invocation_args, Coordinates, GoTestRunner, PROGRAM, RUNNER_KIND,
+    baseline_args, coordinates, invocation_args, measured_args, Coordinates, GoTestRunner, RunMode,
+    BASELINE_PROFILE_MARKER, PROFILE_MARKER, PROGRAM,
 };
 
 /// DES-623 names the schema `go-execution-state-v1`.
@@ -124,16 +125,15 @@ pub(crate) struct ModuleInputs {
     incomplete: Vec<String>,
 }
 
-/// The coordinates of `execution` when this runner and `runner_kind` are the
-/// ones that describe it.
+/// The coordinates of `execution` and the mode it is run in, when this runner and
+/// `runner_kind` are the ones that describe it. The mode is read from the runner
+/// kind alone, which is all the Evidence of a run keeps (DES-097).
 fn described<'a>(
     execution: &'a vtest_model::ExecutionDescriptor,
     runner_kind: &str,
-) -> Option<Coordinates<'a>> {
-    if runner_kind != RUNNER_KIND {
-        return None;
-    }
-    coordinates(execution).ok()
+) -> Option<(Coordinates<'a>, RunMode)> {
+    let mode = RunMode::of_kind(runner_kind)?;
+    Some((coordinates(execution).ok()?, mode))
 }
 
 /// The snapshot of `execution`, and why it is incomplete when it is
@@ -146,10 +146,10 @@ pub(crate) fn snapshot_with_reasons(
     head_revision: Option<&str>,
     runner_kind: &str,
 ) -> Option<(ExecutionStateDraft, Vec<String>)> {
-    let coordinates = described(execution, runner_kind)?;
+    let (coordinates, mode) = described(execution, runner_kind)?;
     let inputs = runner.collect_module(root, coordinates.module);
     let cgo = runner.cgo_reason(root, &coordinates);
-    Some(runner.draft(&coordinates, head_revision, &inputs, cgo))
+    Some(runner.draft(&coordinates, mode, head_revision, &inputs, cgo))
 }
 
 /// [`snapshot_with_reasons`] without the reasons.
@@ -162,6 +162,31 @@ pub(crate) fn snapshot(
 ) -> Option<ExecutionStateDraft> {
     snapshot_with_reasons(runner, root, execution, head_revision, runner_kind)
         .map(|(draft, _)| draft)
+}
+
+/// DES-369, DES-370: the canonical invocation of the commands a Test is run
+/// with in `mode`, as they are started: no machine path (the working directory is
+/// the module's place in the project, and the profiles are stood for by
+/// markers), and, for a measured run, both the Test's own command and the run
+/// that selects no Test (DES-675).
+fn invocation(
+    coordinates: &Coordinates<'_>,
+    mode: RunMode,
+    environment: &BTreeMap<String, String>,
+) -> Value {
+    let mut invocation = json!({
+        "program": PROGRAM,
+        "args": match mode {
+            RunMode::Plain => invocation_args(coordinates),
+            RunMode::Measured => measured_args(coordinates, PROFILE_MARKER),
+        },
+        "working_directory": coordinates.module,
+        "env": environment,
+    });
+    if mode == RunMode::Measured {
+        invocation["baseline_args"] = json!(baseline_args(coordinates, BASELINE_PROFILE_MARKER));
+    }
+    invocation
 }
 
 /// The reader of one operation that checks many Tests against a project it does
@@ -191,7 +216,7 @@ impl ExecutionStateReader for GoExecutionStateReader<'_> {
         head_revision: Option<&str>,
         runner_kind: &str,
     ) -> Option<ExecutionStateDraft> {
-        let coordinates = described(execution, runner_kind)?;
+        let (coordinates, mode) = described(execution, runner_kind)?;
         let module_key = (root.to_owned(), coordinates.module.to_owned());
         let inputs = Rc::clone(
             self.modules
@@ -207,7 +232,7 @@ impl ExecutionStateReader for GoExecutionStateReader<'_> {
             .clone();
         Some(
             self.runner
-                .draft(&coordinates, head_revision, &inputs, cgo)
+                .draft(&coordinates, mode, head_revision, &inputs, cgo)
                 .0,
         )
     }
@@ -292,10 +317,12 @@ impl GoTestRunner {
         None
     }
 
-    /// The draft for `coordinates`, and why it is incomplete when it is.
+    /// The draft for `coordinates` run in `mode`, and why it is incomplete when
+    /// it is.
     fn draft(
         &self,
         coordinates: &Coordinates<'_>,
+        mode: RunMode,
         head_revision: Option<&str>,
         inputs: &ModuleInputs,
         cgo: Option<String>,
@@ -312,15 +339,8 @@ impl GoTestRunner {
             schema_version: SCHEMA_VERSION.to_owned(),
             complete,
             head_revision: head_revision.map(str::to_owned),
-            runner_kind: RUNNER_KIND.to_owned(),
-            // DES-370: no machine path; the working directory is the module's
-            // place in the project.
-            invocation: json!({
-                "program": PROGRAM,
-                "args": invocation_args(coordinates),
-                "working_directory": coordinates.module,
-                "env": self.environment,
-            }),
+            runner_kind: mode.kind().to_owned(),
+            invocation: invocation(coordinates, mode, &self.environment),
             toolchain_identity: inputs.toolchain.clone().unwrap_or_default(),
             // No adapter configuration changes what `go test` does; what does is
             // the environment, which the toolchain identity binds (DES-624).
@@ -691,7 +711,7 @@ fn walk(
 /// `path` in a form two paths can be compared in: resolved when it exists,
 /// otherwise made absolute and cleaned of `.` and `..`, and without the
 /// verbatim prefix Windows adds when it resolves.
-fn comparable(path: &Path) -> PathBuf {
+pub(crate) fn comparable(path: &Path) -> PathBuf {
     match fs::canonicalize(path) {
         Ok(resolved) => strip_verbatim(resolved),
         Err(_) => lexical(&std::path::absolute(path).unwrap_or_else(|_| path.to_owned())),

@@ -177,20 +177,14 @@ fn discover_source(relative: &str, source: &str, package: &str, outcome: &mut Di
     let in_test_file = relative.ends_with(TEST_FILE_SUFFIX);
     for function in functions {
         let is_test = function.is_test_construct(in_test_file);
-        let declaration_start = function
-            .doc
-            .as_ref()
-            .map_or(function.start, |doc| doc.start);
+        let declaration_start = function.declaration_start();
         let lines = function
             .doc
             .iter()
             .flat_map(|doc| &doc.lines)
             .filter_map(|line| parse_line(line))
             .collect::<Vec<_>>();
-        let item = match &function.receiver {
-            Some(receiver) => format!("{receiver}::{}", function.name),
-            None => function.name.clone(),
-        };
+        let item = function.item();
         let item_location = location(relative, &item, declaration_start, function.end);
 
         let mut src_id = None;
@@ -327,6 +321,38 @@ pub fn test_constructs(source: &str) -> Result<Vec<TestConstruct>, ExtractError>
         .collect())
 }
 
+/// The Source Target construct of one function with a body, as discovery
+/// reports it (DS-2008): the end of its Locator and where it is in its file.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SourceConstruct {
+    /// The Locator value: `<file>::<name>` or `<file>::<Type>::<name>`.
+    pub locator: String,
+    /// The byte range of the construct, doc comment included, in the file text
+    /// it was read from. `end` is the first byte after it.
+    pub start: usize,
+    pub end: usize,
+}
+
+/// The Source Target constructs in `source`, the text of the `.go` file
+/// `relative` (project-relative, as discovery names it), in source order. A
+/// coverage adapter asks for them to place a Locator in its file with the same
+/// range discovery gave it, so the two cannot disagree. A text that cannot be
+/// read with confidence is an error (DS-2010): nothing is returned from it.
+pub fn source_constructs(
+    relative: &str,
+    source: &str,
+) -> Result<Vec<SourceConstruct>, ExtractError> {
+    Ok(read_functions(source)?
+        .into_iter()
+        .filter(|function| function.has_body)
+        .map(|function| SourceConstruct {
+            locator: format!("{relative}::{}", function.item()),
+            start: function.declaration_start(),
+            end: function.end,
+        })
+        .collect())
+}
+
 /// The comment block that ends on the line above a declaration (DS-2004).
 #[derive(Debug)]
 struct Doc {
@@ -336,6 +362,21 @@ struct Doc {
 }
 
 impl Func {
+    /// Where the function's Source Target construct starts: its doc comment
+    /// when it has one, otherwise `func` (DS-2004).
+    fn declaration_start(&self) -> usize {
+        self.doc.as_ref().map_or(self.start, |doc| doc.start)
+    }
+
+    /// The function's name inside its file, the receiver's type name and `::`
+    /// before it for a method (DS-2008), which is the end of its Locator.
+    fn item(&self) -> String {
+        match &self.receiver {
+            Some(receiver) => format!("{receiver}::{}", self.name),
+            None => self.name.clone(),
+        }
+    }
+
     /// DS-2002: in a `_test.go` file, a function without a receiver whose
     /// name is `Test` or `Test` followed by a character that is not a
     /// lowercase letter, whatever its type arguments, parameters, and results

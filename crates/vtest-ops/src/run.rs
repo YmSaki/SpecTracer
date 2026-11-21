@@ -19,9 +19,9 @@
 //! against the library entry points directly (that test file's own comment
 //! disclosed no `vtest run`/`vtest exec` CLI surface existed yet).
 
-use std::path::Path;
+use std::{collections::BTreeSet, path::Path};
 
-use vtest_adapter_api::AdapterRegistry;
+use vtest_adapter_api::{AdapterRegistry, COVERAGE_OFF};
 use vtest_exec::{run_tests, ExecutionError, ExecutionResult, RunnableTest};
 use vtest_model::{Diagnostic, SourceFunction, TargetRef, TestEntity, TestId};
 use vtest_scan::ScanResult;
@@ -214,11 +214,44 @@ pub fn run(
         })
         .map(|entity| build_runnable(entity, scan))
         .collect::<Vec<_>>();
-    let mut result = run_tests(root, layout, &runnables, fast, registry)?;
+    // DS-1879, DS-1878, DS-778: a Test of an adapter whose `run.coverage` is
+    // `off` is run as `--fast` runs it, with no measurement and a target_coverage
+    // that is not checked, and it says nothing about it: the setting is the
+    // project's own. Only an adapter that defines the values of `run.coverage`
+    // is read this way (DS-1881); for the others the setting is not read here.
+    let switched_off = adapters_with_coverage_off(root, registry)?;
+    let (unmeasured, measured): (Vec<_>, Vec<_>) = runnables
+        .into_iter()
+        .partition(|runnable| switched_off.contains(runnable.entity.execution.adapter.as_str()));
+    let mut result = run_tests(root, layout, &measured, fast, registry)?;
+    if !unmeasured.is_empty() {
+        let off = run_tests(root, layout, &unmeasured, true, registry)?;
+        result.evidence.extend(off.evidence);
+        result.diagnostics.extend(off.diagnostics);
+    }
     // The skipped Tests' diagnostics stay in the result, so the run is
     // reported as failed rather than as a successful run of fewer Tests.
     result.diagnostics.splice(0..0, unresolved);
     Ok(result)
+}
+
+/// The ids of the configured adapters whose `run.coverage` is `off` and that
+/// define the values of `run.coverage` (DS-1881).
+fn adapters_with_coverage_off(
+    root: &Path,
+    registry: &AdapterRegistry,
+) -> Result<BTreeSet<String>, RunOpError> {
+    Ok(vtest_store::load_config(root)?
+        .adapters
+        .into_iter()
+        .filter(|adapter| {
+            adapter.run.coverage == COVERAGE_OFF
+                && registry
+                    .get(&adapter.id)
+                    .is_some_and(|entry| entry.run_coverage_values().is_some())
+        })
+        .map(|adapter| adapter.id)
+        .collect())
 }
 
 /// DS-1374/DS-1382/DS-1383: Evidence is generated only when every declared

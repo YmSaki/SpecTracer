@@ -29,12 +29,7 @@ const GO_MOD: &str = "go.mod";
 pub(crate) fn execution_for(root: &Path, file: &str, selector: &str) -> ExecutionDescriptor {
     let mut directory: Vec<&str> = file.split('/').collect();
     directory.pop();
-    let module_depth = (0..=directory.len()).rev().find(|depth| {
-        root.join(directory[..*depth].join("/"))
-            .join(GO_MOD)
-            .is_file()
-    });
-    let (project, suite) = match module_depth {
+    let (project, suite) = match module_depth(root, &directory) {
         Some(depth) => (
             Some(relative(&directory[..depth])),
             Some(TestSuite {
@@ -50,6 +45,26 @@ pub(crate) fn execution_for(root: &Path, file: &str, selector: &str) -> Executio
         suite,
         selector: selector.to_owned(),
     }
+}
+
+/// How many of the components of `directory` (a project-relative directory)
+/// lead to its module: the nearest directory with a `go.mod`, from `directory` up
+/// to the project root and no further (DES-684).
+fn module_depth(root: &Path, directory: &[&str]) -> Option<usize> {
+    (0..=directory.len()).rev().find(|depth| {
+        root.join(directory[..*depth].join("/"))
+            .join(GO_MOD)
+            .is_file()
+    })
+}
+
+/// The module directory of the project-relative file `file` (DES-684), relative
+/// to the project root and `.` for the root itself; `None` when no `go.mod` is
+/// above it inside the project.
+pub(crate) fn module_of(root: &Path, file: &str) -> Option<String> {
+    let mut directory: Vec<&str> = file.split('/').collect();
+    directory.pop();
+    module_depth(root, &directory).map(|depth| relative(&directory[..depth]))
 }
 
 /// `components` as a `/`-separated relative path, `.` when there are none.

@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-COVERAGE-USES-GO-TEST-COVER
+parent: null
+derives_from:
+- doc: BD-354
+claim: '`go` CoverageAdapterは`go test`のカバレッジ計測を使用する（adapter configの`run.coverage: go-cover`）。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T10:20:00Z
+updated: 2026-11-21T10:20:00Z

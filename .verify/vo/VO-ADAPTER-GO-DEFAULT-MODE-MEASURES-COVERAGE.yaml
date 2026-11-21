@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-DEFAULT-MODE-MEASURES-COVERAGE
+parent: null
+derives_from:
+- doc: DS-1926
+claim: '`go`の既定モードは、`go test`のカバレッジ計測（`run.coverage: go-cover`）によるTest単位実行とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T10:20:00Z
+updated: 2026-11-21T10:20:00Z

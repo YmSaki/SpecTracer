@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-MEASURES-THE-RUN-THAT-SELECTS-NO-TEST
+parent: null
+derives_from:
+- doc: DES-675
+claim: '計測時は、同じパッケージに対してTestを選ばない実行（`-run`に`^$`）も同じ指定で計測する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T10:20:00Z
+updated: 2026-11-21T10:20:00Z

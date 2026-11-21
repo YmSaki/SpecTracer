@@ -6,7 +6,7 @@
 
 use std::{
     fs,
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::atomic::{AtomicU64, Ordering},
 };
 
@@ -150,21 +150,26 @@ mod captured {
 "#;
 }
 
-/// DES-350, DES-621: the adapter declares discovery and the runner, and no
-/// capability it does not implement; the registry resolves the runner.
-/// @vtest.id TEST-ADAPTER-GO-DECLARES-DISCOVERY-AND-RUNNER
-/// @vtest.covers VO-ADAPTER-LEXICAL-DECLARES-DISCOVERY-ONLY, VO-ADAPTER-GO-REGISTERS-WITHOUT-CORE-CHANGES
+/// DES-350, DES-621, BD-354: the adapter declares discovery, the runner and
+/// coverage, and no capability it does not implement; the registry resolves
+/// them, and the values it defines for `run.coverage`.
+/// @vtest.id TEST-ADAPTER-GO-DECLARES-DISCOVERY-RUNNER-AND-COVERAGE
+/// @vtest.covers VO-ADAPTER-LEXICAL-DECLARES-DISCOVERY-ONLY, VO-ADAPTER-GO-REGISTERS-WITHOUT-CORE-CHANGES, VO-ADAPTER-GO-COVERAGE-USES-GO-TEST-COVER, VO-ADAPTER-GO-RUN-COVERAGE-VALUES-ARE-GO-COVER-OR-OFF
 /// @vtest.target crates/vtest-adapter-go/src/lib.rs::adapter
-/// @vtest.intent the go adapter declares its id, its language, its config namespace, source_discovery and test_runner and neither coverage nor static analysis, registers, and resolves its runner by the id go
+/// @vtest.intent the go adapter declares its id, its language, its config namespace, source_discovery, test_runner and coverage and no static analysis, registers, resolves its runner and its coverage by the id go, names the method go-cover, and defines the values go-cover and off for run.coverage
 #[test]
-fn the_go_adapter_declares_discovery_and_the_runner_only() {
+fn the_go_adapter_declares_discovery_the_runner_and_coverage() {
     let descriptor = adapter().descriptor();
     assert_eq!(descriptor.id, "go");
     assert_eq!(descriptor.languages, vec!["go".to_owned()]);
     assert_eq!(descriptor.config_namespace, "go");
     assert_eq!(
         descriptor.capabilities,
-        vec![Capability::SourceDiscovery, Capability::TestRunner]
+        vec![
+            Capability::SourceDiscovery,
+            Capability::TestRunner,
+            Capability::Coverage
+        ]
     );
     let mut registry = AdapterRegistry::new();
     registry
@@ -175,7 +180,12 @@ fn the_go_adapter_declares_discovery_and_the_runner_only() {
         registry.test_runner("go").map(|runner| runner.id()),
         Some("go")
     );
-    assert!(registry.coverage("go").is_none());
+    let coverage = registry.coverage("go").expect("a coverage capability");
+    assert_eq!((coverage.id(), coverage.method()), ("go", "go-cover"));
+    assert_eq!(
+        registry.get("go").and_then(Adapter::run_coverage_values),
+        Some(&["go-cover", "off"][..])
+    );
     assert!(registry.static_analysis("go").is_none());
 }
 
@@ -298,7 +308,7 @@ fn a_test_with_no_go_mod_has_no_module_and_the_runner_refuses_it() {
 /// @vtest.id TEST-ADAPTER-GO-COMMAND-IS-GO-TEST-ONE-NAME-NO-CACHE
 /// @vtest.covers VO-ADAPTER-GO-RUNNER-KIND-IS-GO-TEST, VO-ADAPTER-GO-RUNS-ONE-TEST-PER-INVOCATION, VO-ADAPTER-GO-SELECTS-ONE-TEST-BY-EXACT-NAME, VO-ADAPTER-GO-RUNS-WITHOUT-THE-RESULT-CACHE, VO-ADAPTER-GO-FAST-MODE-HAS-NO-COVERAGE
 /// @vtest.target crates/vtest-adapter-go/src/runner.rs::invocation_args
-/// @vtest.intent the go command runs go test for the one package, selects the function by the exact-name pattern, turns the result cache off, asks for json, starts in the module root, is of kind go-test, and is the same whether or not coverage is asked for
+/// @vtest.intent the go command without coverage runs go test for the one package, selects the function by the exact-name pattern, turns the result cache off, asks for json, starts in the module root, is of kind go-test, and specifies no coverage option
 #[test]
 fn the_command_is_go_test_for_one_package_by_exact_name_without_the_cache() {
     let fixture = project(&[
@@ -322,17 +332,89 @@ fn the_command_is_go_test_for_one_package_by_exact_name_without_the_cache() {
     assert_eq!(spec.current_dir, fixture.root.join("services/api"));
     assert_eq!(spec.runner_kind, "go-test");
     assert!(spec.env.is_empty());
-    // No coverage capability is declared, so the flag is never set; if it were,
-    // the command would not change.
-    let with_coverage = GoTestRunner::new()
-        .command(&fixture.root, &execution, true, Some(Path::new("c.out")))
-        .expect("a command");
-    assert_eq!(with_coverage, spec);
+    assert!(
+        spec.args.iter().all(|arg| !arg.contains("cover")),
+        "{:?}",
+        spec.args
+    );
     // The module root as a package is `./.`.
     let root_package = coordinates(&self::execution(Some("."), Some("."), "TestX"))
         .map(|c| invocation_args(&c))
         .expect("coordinates");
     assert_eq!(root_package[1], "./.");
+}
+
+/// DES-663, DES-675, DES-673, DS-1926: the measured command adds the cover
+/// options and the profile to the Test's command, the run that selects no Test
+/// is the same with `-run ^$` and a profile of its own, and both are of the
+/// runner kind of a measured run; a measured run has nowhere to write without a
+/// path.
+/// @vtest.id TEST-ADAPTER-GO-MEASURED-COMMANDS-ADD-THE-COVER-OPTIONS
+/// @vtest.covers VO-ADAPTER-GO-MEASURED-RUN-ADDS-COVER-OPTIONS, VO-ADAPTER-GO-DEFAULT-MODE-MEASURES-COVERAGE, VO-ADAPTER-GO-MEASURES-THE-RUN-THAT-SELECTS-NO-TEST, VO-ADAPTER-GO-PROFILES-ARE-SEPARATE-FILES-UNDER-CACHE-COV
+/// @vtest.target crates/vtest-adapter-go/src/runner.rs::measured_args
+/// @vtest.intent the command with coverage is the plain command with -covermode=atomic, -coverpkg=./... and -coverprofile to the given path, of kind go-test-cover with the path relative to the project root in its command line, the command of the run that selects no Test differs from it in -run ^$ and in the path of its own profile only, a measured command without a path is an error, and no baseline command is made for a descriptor that is not the adapter's
+#[test]
+fn the_measured_commands_add_the_cover_options_and_the_run_that_selects_no_test() {
+    let fixture = project(&[
+        ("services/api/go.mod", b"module api\n\ngo 1.21\n"),
+        (
+            "services/api/h/h_test.go",
+            &test_file(&declared("TEST-GO-COV", "TestCmd")),
+        ),
+    ]);
+    let execution = execution(Some("services/api"), Some("h"), "TestCmd");
+    let runner = GoTestRunner::new();
+    let selected = fixture.root.join(".verify/cache/cov/01SELECTED");
+    let baseline = fixture.root.join(".verify/cache/cov/01BASELINE");
+
+    let spec = runner
+        .command(&fixture.root, &execution, true, Some(&selected))
+        .expect("a measured command");
+    assert_eq!(
+        spec.args,
+        [
+            "test",
+            "./h",
+            "-run",
+            "^TestCmd$",
+            "-count=1",
+            "-json",
+            "-covermode=atomic",
+            "-coverpkg=./...",
+            &format!("-coverprofile={}", selected.to_string_lossy())
+        ]
+    );
+    assert_eq!(
+        spec.command_line,
+        "go test ./h -run ^TestCmd$ -count=1 -json -covermode=atomic -coverpkg=./... \
+         -coverprofile=.verify/cache/cov/01SELECTED"
+    );
+    assert_eq!(spec.runner_kind, "go-test-cover");
+    assert_eq!(spec.current_dir, fixture.root.join("services/api"));
+
+    let other = runner
+        .coverage_baseline_command(&fixture.root, &execution, &baseline)
+        .expect("a command for the run that selects no Test");
+    assert_eq!(other.runner_kind, "go-test-cover");
+    assert_eq!(other.current_dir, spec.current_dir);
+    let mut expected = spec.args.clone();
+    expected[3] = "^$".to_owned();
+    *expected.last_mut().expect("an argument") =
+        format!("-coverprofile={}", baseline.to_string_lossy());
+    assert_eq!(other.args, expected);
+    assert_ne!(other.args.last(), spec.args.last());
+
+    assert_eq!(
+        runner.command(&fixture.root, &execution, true, None),
+        Err(TestRunnerError::MissingCoverageOutputPath)
+    );
+    let foreign = ExecutionDescriptor {
+        project: None,
+        ..execution
+    };
+    assert!(runner
+        .coverage_baseline_command(&fixture.root, &foreign, &baseline)
+        .is_none());
 }
 
 /// An execution descriptor that is not the go adapter's stops the run

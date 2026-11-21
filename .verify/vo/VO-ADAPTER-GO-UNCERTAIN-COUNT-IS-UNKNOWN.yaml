@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-UNCERTAIN-COUNT-IS-UNKNOWN
+parent: null
+derives_from:
+- doc: DS-1406
+claim: '各宣言targetについて、確実に同定または計測できなければtarget別UNKNOWNになる。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T10:20:00Z
+updated: 2026-11-21T10:20:00Z

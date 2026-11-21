@@ -12,7 +12,10 @@ use vtest_adapter_api::{ExecutionStateReader, TestRunnerAdapter};
 use vtest_model::{ExecutionDescriptor, ExecutionStateDraft};
 
 use super::*;
-use crate::tests::{execution, project, Project};
+use crate::{
+    runner::{COVERAGE_RUNNER_KIND, RUNNER_KIND},
+    tests::{execution, project, Project},
+};
 
 const HEAD: &str = "0123456789abcdef0123456789abcdef01234567";
 const GO_MOD: &[u8] = b"module app\n\ngo 1.21\n";
@@ -96,6 +99,71 @@ fn assert_incomplete(
     assert!(
         reasons.iter().any(|reason| reason.contains(clause)),
         "no reason names {clause}: {reasons:?}"
+    );
+}
+
+/// DES-097, DES-369, DES-370, DS-778: a measured run and a plain run have a
+/// runner kind each and the canonical invocation of their own commands, so the
+/// state rebuilt from the kind of an Evidence is the state of the run it
+/// records; the invocation stands for the profiles by markers and holds no
+/// machine path, so it does not change with the name of a profile.
+/// @vtest.id TEST-ADAPTER-GO-STATE-OF-A-MEASURED-RUN-BINDS-THE-MEASURED-INVOCATION
+/// @vtest.covers VO-EXEC-STATE-CANONICAL-INVOCATION, VO-ADAPTER-GO-MEASURED-RUN-ADDS-COVER-OPTIONS
+/// @vtest.target crates/vtest-adapter-go/src/execution_state.rs::invocation
+/// @vtest.intent the snapshot of kind go-test has the plain arguments and the snapshot of kind go-test-cover the cover options with a marker for the profile and the arguments of the run that selects no Test with a marker for its profile, both are complete and hold no absolute path, the two differ, a kind this adapter does not write has no snapshot, and the reader of an operation gives the measured snapshot the same
+#[test]
+fn the_state_of_a_measured_run_binds_the_measured_invocation() {
+    require_go();
+    let fixture = clean();
+    let runner = GoTestRunner::with_environment(env(&[]));
+    let at = |kind: &str| runner.execution_state(&fixture.root, &here(), Some(HEAD), kind);
+    let plain = at(RUNNER_KIND).expect("a plain snapshot");
+    let measured = at(COVERAGE_RUNNER_KIND).expect("a measured snapshot");
+    assert_eq!(plain.runner_kind, "go-test");
+    assert_eq!(measured.runner_kind, "go-test-cover");
+    assert!(plain.complete && measured.complete);
+    assert_eq!(
+        plain.invocation["args"],
+        serde_json::json!(["test", "./app", "-run", "^TestCalc$", "-count=1", "-json"])
+    );
+    assert!(plain.invocation.get("baseline_args").is_none());
+    assert_eq!(
+        measured.invocation["args"],
+        serde_json::json!([
+            "test",
+            "./app",
+            "-run",
+            "^TestCalc$",
+            "-count=1",
+            "-json",
+            "-covermode=atomic",
+            "-coverpkg=./...",
+            "-coverprofile=<coverage-output>"
+        ])
+    );
+    assert_eq!(
+        measured.invocation["baseline_args"],
+        serde_json::json!([
+            "test",
+            "./app",
+            "-run",
+            "^$",
+            "-count=1",
+            "-json",
+            "-covermode=atomic",
+            "-coverpkg=./...",
+            "-coverprofile=<baseline-coverage-output>"
+        ])
+    );
+    assert_ne!(plain.invocation, measured.invocation);
+    let root = fixture.root.to_string_lossy().replace('\\', "\\\\");
+    assert!(!measured.invocation.to_string().contains(&root));
+    assert!(at("go-test-other").is_none());
+    assert!(at("cargo-test").is_none());
+    let reader = runner.execution_state_reader();
+    assert_eq!(
+        reader.execution_state(&fixture.root, &here(), Some(HEAD), COVERAGE_RUNNER_KIND),
+        Some(measured)
     );
 }
 
