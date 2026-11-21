@@ -27424,7 +27424,7 @@
         {
           "id": "DS-2005",
           "statement": "`go`の表面1はtest-annotation-lineを、表面2はsource-target-annotation-lineを認識し、行の文法、キーの値域、valueの扱い、キーの反復、`SRC-`で始まる`target`の値の扱い、および表面ごとの診断（E-SCAN-005・E-SCAN-006・W-SCAN-105）はDS-487〜DS-493・DS-497〜DS-507・DS-511・DS-1618・DS-1619と同じとする。各行は、コメント記号（`//`・`/*`・`*/`）と、`/* */`の各行の先頭の空白に続く1個の`*`を除いて読む。",
-          "description": "SPEC-235 が詳細設計へ委ねた annotation syntax のうち、行の文法を定める。R-6 の「同様に」により、`rust-cargo` と同じ文法・キー・診断を使い、`go` に固有のキーは足さない。DS-487〜DS-493・DS-497〜DS-507・DS-511・DS-1618・DS-1619 は `rust-cargo` の節にあるが、文法・キー・診断の規定は言語の構文に依存しない。同じ層の条項は辺にしない。起草時の判断であり、Owner の裁定ではない。",
+          "description": "SPEC-235 が詳細設計へ委ねた annotation syntax のうち、行の文法を定める。ROOT-051 の「同様に」（R-6 の導出元）により、`rust-cargo` と同じ文法・キー・診断を使い、`go` に固有のキーは足さない。DS-487〜DS-493・DS-497〜DS-507・DS-511・DS-1618・DS-1619 は `rust-cargo` の節にあるが、文法・キー・診断の規定は言語の構文に依存しない。同じ層の条項は辺にしない。起草時の判断であり、Owner の裁定ではない。",
           "derives_from": [
             "SPEC-235",
             "SPEC-486",
@@ -27583,7 +27583,7 @@
         {
           "id": "DS-2015",
           "statement": "`javascript`の表面1はtest-annotation-lineを、表面2はsource-target-annotation-lineを認識し、行の文法、キーの値域、valueの扱い、キーの反復、`SRC-`で始まる`target`の値の扱い、および表面ごとの診断（E-SCAN-005・E-SCAN-006・W-SCAN-105）はDS-487〜DS-493・DS-497〜DS-507・DS-511・DS-1618・DS-1619と同じとする。各行は、コメント記号（`//`・`/*`・`/**`・`*/`）と、`/* */`・`/** */`の各行の先頭の空白に続く1個の`*`を除いて読む。",
-          "description": "SPEC-235 が詳細設計へ委ねた annotation syntax のうち、行の文法を定める。R-6 の「同様に」により、`rust-cargo` と同じ文法・キー・診断を使い、`javascript` に固有のキーは足さない。DS-487〜DS-493・DS-497〜DS-507・DS-511・DS-1618・DS-1619 は `rust-cargo` の節にあるが、文法・キー・診断の規定は言語の構文に依存しない。同じ層の条項は辺にしない。起草時の判断であり、Owner の裁定ではない。",
+          "description": "SPEC-235 が詳細設計へ委ねた annotation syntax のうち、行の文法を定める。ROOT-051 の「同様に」（R-6 の導出元）により、`rust-cargo` と同じ文法・キー・診断を使い、`javascript` に固有のキーは足さない。DS-487〜DS-493・DS-497〜DS-507・DS-511・DS-1618・DS-1619 は `rust-cargo` の節にあるが、文法・キー・診断の規定は言語の構文に依存しない。同じ層の条項は辺にしない。起草時の判断であり、Owner の裁定ではない。",
           "derives_from": [
             "SPEC-235",
             "SPEC-487",
@@ -62694,10 +62694,28 @@
         {
           "id": "DES-684",
           "statement": "`go` adapterは、Test関数のファイルがあるdirectoryから親のdirectoryへ順にproject rootまで辿り、最初に`go.mod`があるdirectoryを、そのTest関数を含むGo module（DES-643）とする。",
-          "description": "Go の module の規則（directory を含む module は、そこから上へ辿って最初に見つかる `go.mod` の module）による。DES-643 は module を project root からの相対 path で表すため、project root の外は辿らない。`go.mod` が見つからない場合の扱いは本条では定めない（未決）。起草時の判断であり、Owner の裁定ではない。",
+          "description": "Go の module の規則（directory を含む module は、そこから上へ辿って最初に見つかる `go.mod` の module）による。DES-643 は module を project root からの相対 path で表すため、project root の外は辿らない。`go.mod` が見つからない場合は DES-687 が定める。起草時の判断であり、Owner の裁定ではない。",
           "derives_from": [
             "BD-357",
             "DS-S168"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        },
+        {
+          "id": "DES-687",
+          "statement": "DES-684で`go.mod`のあるdirectoryが見つからない`go`のTest constructは、runnerが実行できないTest construct（DS-1901）とし、runnerはそのTestのEvidenceを生成せず、W-EXEC-102を出す。",
+          "description": "導出: DES-643 は `ExecutionDescriptor.project` を Test 関数を含む Go module の directory とし、DES-648 は module root を working directory として `go test` を起動する。module が見つからない Test では、その実行座標を作れず、runner は DES-648 のとおりに起動できない。DS-1901 は runner が実行できない Test construct について Evidence を生成せず W-EXEC-102 を出すと定め、DS-1902 はその Test の `target_binding` を `NO_EVIDENCE`（診断 `NOT_EXECUTED`）とする。新しい診断コードと状態は足さない。DS-1903 により、同じ `vtest run` の他の Test の実行は妨げない。",
+          "derives_from": [
+            "BD-357",
+            "DS-1901",
+            "DS-1902"
           ],
           "source": {
             "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
