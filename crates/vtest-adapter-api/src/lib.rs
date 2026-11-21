@@ -273,8 +273,7 @@ pub enum RunnerTestResult {
 ///
 /// The first five say the descriptor is not one this adapter can read; they
 /// stop the whole run (`E-ADAPTER-003`). The last three refuse one Test and
-/// the run goes on with the others (DS-1903): see
-/// [`TestRunnerError::refuses_one_test`].
+/// the run goes on with the others: see [`TestRunnerError::refuses_one_test`].
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TestRunnerError {
     MissingProject,
@@ -306,7 +305,11 @@ pub enum TestRunnerError {
 
 impl TestRunnerError {
     /// Whether this refuses only the Test it was returned for, so that the run
-    /// goes on with the others (DS-1903), instead of stopping the run.
+    /// goes on with the others, instead of stopping the run. DS-1903 says so for
+    /// a Test construct the runner cannot execute (`NotExecutable`). For
+    /// `NotUniquelySelectable` (DS-1930) and `SelectionUndetermined` (DS-2012)
+    /// the canon states no such rule: continuing is derived from the other
+    /// E-EXEC errors, which do not stop the run either. It is a derivation.
     #[must_use]
     pub fn refuses_one_test(&self) -> bool {
         match self {

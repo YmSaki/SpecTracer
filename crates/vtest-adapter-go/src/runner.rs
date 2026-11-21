@@ -100,6 +100,20 @@ pub(crate) fn coordinates(
         .ok_or_else(|| TestRunnerError::MissingSuiteName {
             kind: suite.kind.clone(),
         })?;
+    // `go` reads `...` in a package pattern as a wildcard, so `./a...b` also
+    // matches `axb`, and the result of the Test of another package could be
+    // taken for this one's (DS-1905: the Test's own package is the target). A
+    // directory with `...` in its name cannot be named by a literal pattern, so
+    // its Tests are not run.
+    if name.contains("...") {
+        return Err(TestRunnerError::NotExecutable {
+            reason: format!(
+                "the package directory {name} has `...` in its name, which go reads as a \
+                 wildcard in a package pattern, so the one package cannot be selected by its \
+                 path (DS-1905)"
+            ),
+        });
+    }
     Ok(Coordinates {
         module,
         suite: name,
@@ -211,16 +225,31 @@ fn check_selection(root: &Path, coordinates: &Coordinates<'_>) -> Result<(), Tes
     Ok(())
 }
 
-/// DES-649 to DES-651, DES-677: the result of the Test named `selector` in the
-/// stdout of `go test -json`.
+/// Whether the `Package` of an event is the package `suite` names (DS-1905). The
+/// import path of that package is the module path and `/` and the suite (the
+/// module path alone for `.`). The module path is not known here, so what is
+/// checked is that the package ends in `/` and the whole suite, which a package
+/// whose directory merely resembles it (`axb` for `a...b`) does not. The pattern
+/// handed to `go` is literal (see [`coordinates`]), so `go` itself selects one
+/// package; this keeps the result of another package out when it does not.
+fn is_selected_package(package: &str, suite: &str) -> bool {
+    suite == "."
+        || package
+            .strip_suffix(suite)
+            .is_some_and(|rest| rest.ends_with('/'))
+}
+
+/// DES-649 to DES-651, DES-677: the result of the Test named `selector` of the
+/// package `suite` in the stdout of `go test -json`.
 ///
 /// A build failure outranks every other event (DES-677). Otherwise the result
-/// is the one event whose `Test` is exactly the selector and whose `Action` is
-/// `pass`, `fail` or `skip` (events of subtests carry another name). No such
+/// is the one event of the selected package whose `Test` is exactly the
+/// selector and whose `Action` is `pass`, `fail` or `skip` (events of subtests
+/// carry another name, events of another package another `Package`). No such
 /// event is no result and more than one is an ambiguous result (DES-651). A line
 /// that is not a JSON object leaves the run unclassified, and orchestration
 /// records no Evidence for it.
-pub(crate) fn interpret(stdout: &str, selector: &str) -> RunnerTestResult {
+pub(crate) fn interpret(stdout: &str, selector: &str, suite: &str) -> RunnerTestResult {
     let mut build_failed = false;
     let mut results = Vec::new();
     for line in stdout
@@ -242,7 +271,11 @@ pub(crate) fn interpret(stdout: &str, selector: &str) -> RunnerTestResult {
         {
             build_failed = true;
         }
-        if test == Some(selector) {
+        let in_selected_package = event
+            .get("Package")
+            .and_then(Value::as_str)
+            .is_some_and(|package| is_selected_package(package, suite));
+        if test == Some(selector) && in_selected_package {
             if let Some(action @ ("pass" | "fail" | "skip")) = action {
                 results.push(action.to_owned());
             }
@@ -307,6 +340,10 @@ impl TestRunnerAdapter for GoTestRunner {
     }
 
     fn parse(&self, execution: &ExecutionDescriptor, output: RunnerOutput<'_>) -> RunnerTestResult {
-        interpret(output.stdout, &execution.selector)
+        match coordinates(execution) {
+            Ok(coordinates) => interpret(output.stdout, coordinates.selector, coordinates.suite),
+            // A descriptor `command` would not have turned into this run.
+            Err(_) => RunnerTestResult::Unknown,
+        }
     }
 }

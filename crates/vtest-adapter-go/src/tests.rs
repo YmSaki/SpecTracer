@@ -526,39 +526,39 @@ fn a_construct_of_the_wrong_shape_is_refused_as_not_executable() {
 #[test]
 fn the_result_is_the_one_event_of_the_exact_name() {
     assert_eq!(
-        interpret(captured::PASS, "TestPass"),
+        interpret(captured::PASS, "TestPass", "app"),
         RunnerTestResult::Pass
     );
     assert_eq!(
-        interpret(captured::FAIL, "TestFail"),
+        interpret(captured::FAIL, "TestFail", "app"),
         RunnerTestResult::Fail
     );
     assert_eq!(
-        interpret(captured::SKIP, "TestSkip"),
+        interpret(captured::SKIP, "TestSkip", "app"),
         RunnerTestResult::Ignored
     );
     // The parent's own event decides; the passing subtest and the package
     // event do not.
     assert_eq!(
-        interpret(captured::SUBTESTS, "TestSub"),
+        interpret(captured::SUBTESTS, "TestSub", "app"),
         RunnerTestResult::Fail
     );
     // A name that only a subtest or another Test has is not the Test's result.
     assert_eq!(
-        interpret(captured::SUBTESTS, "TestSub/a"),
+        interpret(captured::SUBTESTS, "TestSub/a", "app"),
         RunnerTestResult::Pass
     );
     assert_eq!(
-        interpret(captured::PASS, "TestPas"),
+        interpret(captured::PASS, "TestPas", "app"),
         RunnerTestResult::NoResult
     );
     assert_eq!(
-        interpret(captured::PASS, "TestPasss"),
+        interpret(captured::PASS, "TestPasss", "app"),
         RunnerTestResult::NoResult
     );
     // The package line passed, the named Test is not in the stream.
     assert_eq!(
-        interpret(captured::FAIL, "TestPass"),
+        interpret(captured::FAIL, "TestPass", "app"),
         RunnerTestResult::NoResult
     );
 }
@@ -571,11 +571,11 @@ fn the_result_is_the_one_event_of_the_exact_name() {
 #[test]
 fn no_result_and_several_results_are_told_apart() {
     assert_eq!(
-        interpret(captured::NONE, "TestNothing"),
+        interpret(captured::NONE, "TestNothing", "app"),
         RunnerTestResult::NoResult
     );
     assert_eq!(
-        interpret(captured::SAME_NAME_TWICE, "TestDup"),
+        interpret(captured::SAME_NAME_TWICE, "TestDup", "dupx"),
         RunnerTestResult::Ambiguous
     );
 }
@@ -588,7 +588,7 @@ fn no_result_and_several_results_are_told_apart() {
 #[test]
 fn a_build_failure_outranks_every_other_event() {
     assert_eq!(
-        interpret(captured::BUILD_FAILED, "TestB"),
+        interpret(captured::BUILD_FAILED, "TestB", "bfail"),
         RunnerTestResult::BuildFailed
     );
     // Both markers are enough alone, and a Test's pass event does not outrank
@@ -598,19 +598,22 @@ fn a_build_failure_outranks_every_other_event() {
         r#"{"Action":"fail","Package":"app","Elapsed":0,"FailedBuild":"app [app.test]"}"#;
     let pass = r#"{"Action":"pass","Package":"app","Test":"TestB","Elapsed":0}"#;
     for stream in [build_fail_only, failed_build_only] {
-        assert_eq!(interpret(stream, "TestB"), RunnerTestResult::BuildFailed);
         assert_eq!(
-            interpret(&format!("{pass}\n{stream}\n"), "TestB"),
+            interpret(stream, "TestB", "."),
             RunnerTestResult::BuildFailed
         );
         assert_eq!(
-            interpret(&format!("{stream}\n{pass}\n"), "TestB"),
+            interpret(&format!("{pass}\n{stream}\n"), "TestB", "."),
+            RunnerTestResult::BuildFailed
+        );
+        assert_eq!(
+            interpret(&format!("{stream}\n{pass}\n"), "TestB", "."),
             RunnerTestResult::BuildFailed
         );
     }
     // A package `fail` of an ordinary failing Test has no FailedBuild.
     assert_eq!(
-        interpret(captured::FAIL, "TestFail"),
+        interpret(captured::FAIL, "TestFail", "app"),
         RunnerTestResult::Fail
     );
 }
@@ -624,7 +627,108 @@ fn a_build_failure_outranks_every_other_event() {
 #[test]
 fn output_that_is_not_json_is_not_classified() {
     let noisy = format!("go: downloading example.com/x v1.0.0\n{}", captured::PASS);
-    assert_eq!(interpret(&noisy, "TestPass"), RunnerTestResult::Unknown);
-    assert_eq!(interpret("[1,2]\n", "TestPass"), RunnerTestResult::Unknown);
-    assert_eq!(interpret("", "TestPass"), RunnerTestResult::NoResult);
+    assert_eq!(
+        interpret(&noisy, "TestPass", "app"),
+        RunnerTestResult::Unknown
+    );
+    assert_eq!(
+        interpret("[1,2]\n", "TestPass", "app"),
+        RunnerTestResult::Unknown
+    );
+    assert_eq!(interpret("", "TestPass", "app"), RunnerTestResult::NoResult);
+}
+
+/// DS-1905: a directory whose name holds `...` cannot be named by a literal
+/// package pattern, because go reads `...` as a wildcard.
+/// @vtest.id TEST-ADAPTER-GO-WILDCARD-IN-A-PACKAGE-DIRECTORY-IS-NOT-RUN
+/// @vtest.covers VO-ADAPTER-GO-SELECTS-ONE-TEST-BY-EXACT-NAME, VO-ADAPTER-GO-UNEXECUTABLE-TEST-RECORDS-NO-EVIDENCE
+/// @vtest.target crates/vtest-adapter-go/src/runner.rs::coordinates
+/// @vtest.intent a Test whose package directory has three dots in its name is refused as not executable, so no go test pattern that matches other directories is started, while a directory with one or two dots is run
+#[test]
+fn a_package_directory_with_a_wildcard_in_its_name_is_not_run() {
+    let fixture = project(&[
+        ("go.mod", b"module app\n\ngo 1.21\n"),
+        (
+            "a...b/a_test.go",
+            &test_file("func TestAdd(t *testing.T) {}\n"),
+        ),
+        (
+            "a.b/a_test.go",
+            &test_file("func TestAdd(t *testing.T) {}\n"),
+        ),
+        (
+            "a..b/a_test.go",
+            &test_file("func TestAdd(t *testing.T) {}\n"),
+        ),
+    ]);
+    match command(&fixture, &execution(Some("."), Some("a...b"), "TestAdd")) {
+        Err(error @ TestRunnerError::NotExecutable { .. }) => {
+            assert!(error.refuses_one_test());
+            assert!(error.to_string().contains("DS-1905"), "{error}");
+        }
+        other => panic!("expected NotExecutable, got {other:?}"),
+    }
+    for suite in ["a.b", "a..b"] {
+        let spec = command(&fixture, &execution(Some("."), Some(suite), "TestAdd"))
+            .expect("a command for a literal pattern");
+        assert_eq!(spec.args[1], format!("./{suite}"));
+    }
+    // The module directory is the working directory, not a pattern.
+    let nested = project(&[
+        ("x...y/go.mod", b"module nested\n\ngo 1.21\n"),
+        (
+            "x...y/a_test.go",
+            &test_file("func TestAdd(t *testing.T) {}\n"),
+        ),
+    ]);
+    assert!(command(&nested, &execution(Some("x...y"), Some("."), "TestAdd")).is_ok());
+}
+
+/// DS-1905: only the events of the selected package are the Test's result.
+/// @vtest.id TEST-ADAPTER-GO-EVENTS-OF-ANOTHER-PACKAGE-ARE-NOT-THE-RESULT
+/// @vtest.covers VO-ADAPTER-GO-SELECTS-ONE-TEST-BY-EXACT-NAME, VO-ADAPTER-GO-RESULT-IS-THE-EXACT-NAME-EVENT
+/// @vtest.target crates/vtest-adapter-go/src/runner.rs::interpret
+/// @vtest.intent a pass event of the same Test name from package app/axb is no result for the Test of package a...b, and so is one from a package whose path only ends like the suite, or one with no Package, while the event of app/a...b is its PASS
+#[test]
+fn the_events_of_another_package_are_not_the_result() {
+    let pass_of = |package: &str| {
+        format!("{{\"Action\":\"pass\",\"Package\":\"{package}\",\"Test\":\"TestAdd\",\"Elapsed\":0}}\n")
+    };
+    assert_eq!(
+        interpret(&pass_of("app/axb"), "TestAdd", "a...b"),
+        RunnerTestResult::NoResult
+    );
+    assert_eq!(
+        interpret(&pass_of("app/xa...b"), "TestAdd", "a...b"),
+        RunnerTestResult::NoResult
+    );
+    assert_eq!(
+        interpret(
+            "{\"Action\":\"pass\",\"Test\":\"TestAdd\"}\n",
+            "TestAdd",
+            "a...b"
+        ),
+        RunnerTestResult::NoResult
+    );
+    assert_eq!(
+        interpret(&pass_of("app/a...b"), "TestAdd", "a...b"),
+        RunnerTestResult::Pass
+    );
+    // A nested package is the suite's own only with its whole path, and the
+    // module root package (`.`) is the module path itself.
+    assert_eq!(
+        interpret(&pass_of("app/x/y"), "TestAdd", "x/y"),
+        RunnerTestResult::Pass
+    );
+    assert_eq!(
+        interpret(&pass_of("app/y"), "TestAdd", "x/y"),
+        RunnerTestResult::NoResult
+    );
+    assert_eq!(
+        interpret(&pass_of("app"), "TestAdd", "."),
+        RunnerTestResult::Pass
+    );
+    // Another package's result next to the selected one's is not a second one.
+    let both = format!("{}{}", pass_of("app/axb"), pass_of("app/a...b"));
+    assert_eq!(interpret(&both, "TestAdd", "a...b"), RunnerTestResult::Pass);
 }

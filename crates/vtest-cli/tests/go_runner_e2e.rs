@@ -742,3 +742,49 @@ fn a_change_after_the_run_is_never_a_pass_and_stays_not_checked() {
         )
     );
 }
+
+/// DS-1905: `./a...b` is a go wildcard that also matches `axb`; the Test of a
+/// package that go could not select by its own path must not take the passing
+/// result of another package's Test of the same name.
+/// @vtest.id TEST-CLI-GO-WILDCARD-DIRECTORY-DOES-NOT-TAKE-ANOTHER-PACKAGES-RESULT
+/// @vtest.covers VO-ADAPTER-GO-SELECTS-ONE-TEST-BY-EXACT-NAME, VO-ADAPTER-GO-UNEXECUTABLE-TEST-RECORDS-NO-EVIDENCE
+/// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
+/// @vtest.intent a Go Test in directory a...b whose only file is left out of the build by a constraint records no Evidence and gives W-EXEC-102 although package axb has a passing Test of the same name, which records its own PASS Evidence
+#[test]
+fn a_directory_with_a_wildcard_in_its_name_takes_no_other_packages_result() {
+    let build_excluded = format!(
+        "//go:build never_built\n\n{}",
+        test_file(
+            &["testing"],
+            &declared("TEST-E2E-GO-WILD-A", "TestAdd", "\t_ = Add(1, 2)"),
+        )
+    );
+    let fixture = project(&[
+        ("go.mod", GO_MOD),
+        ("app/calc.go", CALC),
+        ("a...b/a_test.go", &build_excluded),
+        (
+            "axb/b_test.go",
+            &test_file(
+                &["testing"],
+                &declared("TEST-E2E-GO-WILD-B", "TestAdd", "\tt.Log(\"passes\")"),
+            ),
+        ),
+    ]);
+    let (result, outcome) = run_and_verify(&fixture, true);
+    let ids: Vec<&str> = result
+        .evidence
+        .iter()
+        .map(|record| record.test_id.as_str())
+        .collect();
+    assert_eq!(ids, ["TEST-E2E-GO-WILD-B"], "{:?}", result.diagnostics);
+    assert_eq!(
+        result.evidence[0].runner.command,
+        "go test ./axb -run ^TestAdd$ -count=1 -json"
+    );
+    assert_eq!(codes(&result), ["W-EXEC-102"]);
+    assert_eq!(
+        state_of(&outcome, VerificationCheck::TargetBinding).0,
+        VerificationState::NoEvidence
+    );
+}
