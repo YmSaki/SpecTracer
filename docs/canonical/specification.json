@@ -5152,7 +5152,8 @@
         },
         {
           "id": "REQ-263",
-          "statement": "組込 production adapter は `rust-cargo`、`go`、`javascript` とする。",
+          "statement": "組込 production adapter は、本節の「`<adapter ID>` は…を対象とする」の形の条項が対象を定める adapter とする。",
+          "description": "adapterの一覧を要件定義 §21 のadapterごとの条項（REQ-343、REQ-344、REQ-345）だけに置くため、列挙を参照に替えた（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "R-6"
           ],
@@ -5212,7 +5213,8 @@
         },
         {
           "id": "REQ-264",
-          "statement": "`rust-cargo`、`go`、`javascript` 以外の production language adapter は v0.1 の提供範囲に含めない。",
+          "statement": "組込 production adapter 以外の production language adapter は v0.1 の提供範囲に含めない。",
+          "description": "adapterの一覧を要件定義 §21 のadapterごとの条項（REQ-343、REQ-344、REQ-345）だけに置くため、列挙を参照に替えた（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "R-2",
             "R-6"
@@ -6585,7 +6587,8 @@
         },
         {
           "id": "SPEC-011",
-          "statement": "`rust-cargo`・`go`・`javascript` 以外の production language adapter はv0.1の提供範囲に含めない。",
+          "statement": "組込 production adapter（要件定義 §21）以外の production language adapter はv0.1の提供範囲に含めない。",
+          "description": "adapterの一覧を要件定義 §21 のadapterごとの条項（REQ-343、REQ-344、REQ-345）だけに置くため、列挙を参照に替えた（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "REQ-258",
             "REQ-259",
@@ -11419,7 +11422,8 @@
         },
         {
           "id": "SPEC-218",
-          "statement": "`rust-cargo`・`go`・`javascript` 以外のproduction language adapterはv0.1の提供範囲に含めない。",
+          "statement": "組込 production adapter（要件定義 §21）以外のproduction language adapterはv0.1の提供範囲に含めない。",
+          "description": "adapterの一覧を要件定義 §21 のadapterごとの条項（REQ-343、REQ-344、REQ-345）だけに置くため、列挙を参照に替えた（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "R-2",
             "REQ-263",
@@ -14392,7 +14396,8 @@
         },
         {
           "id": "SPEC-361",
-          "statement": "`rust-cargo`・`go`・`javascript`以外のproduction language adapter（synthetic adapterは受入fixture専用）は提供範囲外とする。",
+          "statement": "組込 production adapter（要件定義 §21）以外のproduction language adapter（synthetic adapterは受入fixture専用）は提供範囲外とする。",
+          "description": "adapterの一覧を要件定義 §21 のadapterごとの条項（REQ-343、REQ-344、REQ-345）だけに置くため、列挙を参照に替えた（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "REQ-263",
             "REQ-264"
@@ -17265,7 +17270,8 @@
         },
         {
           "id": "SPEC-458",
-          "statement": "`rust-cargo`・`go`・`javascript`以外のproduction language adapterは提供範囲外である。",
+          "statement": "組込 production adapter（要件定義 §21）以外のproduction language adapterは提供範囲外である。",
+          "description": "adapterの一覧を要件定義 §21 のadapterごとの条項（REQ-343、REQ-344、REQ-345）だけに置くため、列挙を参照に替えた（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "REQ-263",
             "REQ-264"
@@ -23624,7 +23630,8 @@
         },
         {
           "id": "DS-350",
-          "statement": "`config.yaml` の各adapterの `scan` 設定の `assertion_macros` は、追加でassert相当として扱う名前（`rust-cargo` ではマクロ名、`go`・`javascript` では呼出し先の名前）を指定する。",
+          "statement": "`config.yaml` の各adapterの `scan` 設定の `assertion_macros` は、追加でassert相当として扱う名前を指定し、名前の種類はadapterごとの条項が定める。",
+          "description": "言語ごとの記述をadapterごとの条項（DS-1988、DS-1989、DS-1990）へ移した（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "SPEC-486",
             "SPEC-487"
@@ -23700,7 +23707,8 @@
         },
         {
           "id": "DS-1881",
-          "statement": "`rust-cargo`・`go`・`javascript` の `run.coverage` の値がそのadapterの値域にない場合は、無効なadapter設定（E-CONFIG-001）とする。",
+          "statement": "値域を定めたadapterの `run.coverage` の値がそのadapterの値域にない場合は、無効なadapter設定（E-CONFIG-001）とする。",
+          "description": "adapterの名指しを、adapterごとの条項への参照に替えた（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "SPEC-217",
             "SPEC-486",
@@ -24066,6 +24074,54 @@
             "lines": [
               173,
               173
+            ]
+          }
+        },
+        {
+          "id": "DS-1988",
+          "statement": "`rust-cargo` の `scan.assertion_macros` に指定する名前は、マクロ名である。",
+          "description": "DS-350 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "SPEC-010"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "### 2.2 `config.yaml`",
+            "lines": [
+              142,
+              142
+            ]
+          }
+        },
+        {
+          "id": "DS-1989",
+          "statement": "`go` の `scan.assertion_macros` に指定する名前は、呼出し先の名前である。",
+          "description": "DS-350 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "### 2.2 `config.yaml`",
+            "lines": [
+              142,
+              142
+            ]
+          }
+        },
+        {
+          "id": "DS-1990",
+          "statement": "`javascript` の `scan.assertion_macros` に指定する名前は、呼出し先の名前である。",
+          "description": "DS-350 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "### 2.2 `config.yaml`",
+            "lines": [
+              142,
+              142
             ]
           }
         }
@@ -28111,8 +28167,8 @@
             },
             {
               "id": "DS-641",
-              "statement": "assert相当の引数、または引数へ到達する束縛（§7.2のデータフロー解析の範囲内）に現れる関数呼出は当該Testの照合の委譲先とする（関数呼出に数える範囲は、`rust-cargo`ではDS-1960、`go`ではDS-1986、`javascript`ではDS-1987）。",
-              "description": "呼出先はadapterが列挙するassert相当の構文に含まれないものに限る。",
+              "statement": "assert相当の引数、または引数へ到達する束縛（§7.2のデータフロー解析の範囲内）に現れる関数呼出は当該Testの照合の委譲先とする（関数呼出に数える範囲は、adapterごとの条項が定める）。",
+              "description": "呼出先はadapterが列挙するassert相当の構文に含まれないものに限る。 adapterの名指しを、adapterごとの条項への参照に替えた（Issue #335）。規範の内容は変えていない。",
               "derives_from": [],
               "source": {
                 "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -29453,7 +29509,8 @@
         },
         {
           "id": "DS-623",
-          "statement": "DA-003（結果未検証）はoracle_presenceへ供給する検査であり、targetを呼ぶがその結果をassert相当で一切検証しないこと（照合の委譲先がある場合は§7.2.1で終端を確認する）を内容とし、target呼出結果（戻り値、および結果から派生した束縛）がassert相当に到達しない、かつ期待する失敗を宣言する構文（`rust-cargo`では`#[should_panic]`）がないことをFAIL条件とし、結果が可変参照・グローバル状態経由で検証される可能性がある場合をUNKNOWNへ退避する例とする。",
+          "statement": "DA-003（結果未検証）はoracle_presenceへ供給する検査であり、targetを呼ぶがその結果をassert相当で一切検証しないこと（照合の委譲先がある場合は§7.2.1で終端を確認する）を内容とし、target呼出結果（戻り値、および結果から派生した束縛）がassert相当に到達しない、かつ期待する失敗を宣言する構文（adapterごとの条項が定める）がないことをFAIL条件とし、結果が可変参照・グローバル状態経由で検証される可能性がある場合をUNKNOWNへ退避する例とする。",
+          "description": "言語ごとの記述をadapterごとの条項（DS-1991）へ移した（Issue #335）。規範の内容は変えていない。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -29466,7 +29523,8 @@
         },
         {
           "id": "DS-624",
-          "statement": "DA-004（自己比較）はoracle_presenceへ供給する検査であり、2つの値を照合するassert相当（`rust-cargo`では`assert_eq!(a, b)`に限る）で、照合する2つの値がトークン列として同一であることを内容とし、該当assertが存在することをFAIL条件とし、UNKNOWNへ退避する例は無い（構文的に確定）。",
+          "statement": "DA-004（自己比較）はoracle_presenceへ供給する検査であり、2つの値を照合するassert相当（adapterごとの条項が定める）で、照合する2つの値がトークン列として同一であることを内容とし、該当assertが存在することをFAIL条件とし、UNKNOWNへ退避する例は無い（構文的に確定）。",
+          "description": "言語ごとの記述をadapterごとの条項（DS-1992）へ移した（Issue #335）。規範の内容は変えていない。",
           "derives_from": [],
           "source": {
             "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
@@ -29479,7 +29537,8 @@
         },
         {
           "id": "DS-625",
-          "statement": "DA-005（空テスト）はoracle_presenceへ供給する検査であり、Test constructの本体（`rust-cargo`・`go`では関数本体）に文が存在しないことを内容とし、該当することをFAIL条件とし、UNKNOWNへ退避する例は無い。",
+          "statement": "DA-005（空テスト）はoracle_presenceへ供給する検査であり、Test constructの本体（adapterごとの条項が定める）に文が存在しないことを内容とし、該当することをFAIL条件とし、UNKNOWNへ退避する例は無い。",
+          "description": "言語ごとの記述をadapterごとの条項（DS-1993、DS-1994）へ移した（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "SPEC-486"
           ],
@@ -29568,8 +29627,8 @@
         },
         {
           "id": "DS-1936",
-          "statement": "DA-003で、Test constructの外にある関数の呼出（`rust-cargo`ではDS-1960、`go`ではDS-1986、`javascript`ではDS-1987の値の変換・比較を除く）を通る経路は、照合の委譲先として§7.2.1で判定し、終端を確認できない場合はUNKNOWNとする。",
-          "description": "PM の判断（2026-11-19、設計相談の結果）。本ノードは追跡を禁じるものではなく、外の関数を通る経路の判定を §7.2.1 に委ね、確認できなければ UNKNOWN に倒す規定である。外の関数の本体は Test construct の構文の外にあり、DS-629 の「構文から確定できる経路」に当たらない。外の関数の本体を派生の経路として数えると、§7.2.1 の委譲先の終端（DS-643、DS-644）と同じ問いに 2 つの経路で答えることになる。値の変換として数える呼出の範囲は Owner の承認（Issue #300、#299 の案 a、ROOT-054）による（DS-1960、DS-1961）。DA-002 の呼出先 helper の探索（DS-622）は本ノードの対象ではない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "statement": "DA-003で、Test constructの外にある関数の呼出（adapterごとの条項が値の変換・比較とする呼出を除く）を通る経路は、照合の委譲先として§7.2.1で判定し、終端を確認できない場合はUNKNOWNとする。",
+          "description": "PM の判断（2026-11-19、設計相談の結果）。本ノードは追跡を禁じるものではなく、外の関数を通る経路の判定を §7.2.1 に委ね、確認できなければ UNKNOWN に倒す規定である。外の関数の本体は Test construct の構文の外にあり、DS-629 の「構文から確定できる経路」に当たらない。外の関数の本体を派生の経路として数えると、§7.2.1 の委譲先の終端（DS-643、DS-644）と同じ問いに 2 つの経路で答えることになる。値の変換として数える呼出の範囲は Owner の承認（Issue #300、#299 の案 a、ROOT-054）による（DS-1960、DS-1961）。DA-002 の呼出先 helper の探索（DS-622）は本ノードの対象ではない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。 adapterの名指しを、adapterごとの条項への参照に替えた（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "ROOT-053"
           ],
@@ -29600,8 +29659,8 @@
         },
         {
           "id": "DS-1948",
-          "statement": "DA-003で、演算の結果が真偽値になる言語と演算子（`rust-cargo`の`||`・`&&`・`|`・`&`、`go`の`||`・`&&`）について、リテラルに吸収されるオペランドの位置（`X || true`、`true || X`、`X && false`、`false && X`、`X | true`、`true | X`、`X & false`、`false & X`の`X`）は、値が流れる位置に数えない。`javascript`の`||`・`&&`・`|`・`&`は、演算の結果が真偽値にならないため対象としない。",
-          "description": "Owner の承認（Issue #300 の提案 (5)、ROOT-054）。新しい検査は作らない。範囲はリテラルによる吸収までとする。短絡しない `|` / `&` はレビュー指摘 S1 / S2 により加えた（PM の判断）。これ以外の吸収（`X * 0`、`X - X` などの算術、`always_true()` や名前付き定数などリテラルでない定数による吸収）は数えず、DA-003 が違反なしになりうる（残る偽 PASS）。同じく、実行時にいつも真になるリテラルでないガードや条件（`x if x > 0 || always_true()`）は定数と判定せず、失敗として発散する腕へ到達したものとして数えるため、DA-003 が違反なしになりうる（残る偽 PASS）。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。 対象を演算の結果が真偽値になる言語と演算子に絞ったのは、PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。`javascript` の `||` / `&&` はオペランドの値をそのまま返し、`|` / `&` は数値を返すため、`expect(target() || true).toBe(4)` では `X` が照合する値になる（吸収とすると誤った FAIL になる）。`javascript` を対象外にした結果、真偽だけを見る位置（`assert(target() || true)`）では DA-003 が違反なしになりうる（残る偽 PASS）。",
+          "statement": "DA-003で、演算の結果が真偽値になる演算子（adapterごとの条項が定める）について、リテラルに吸収されるオペランドの位置（`X || true`、`true || X`、`X && false`、`false && X`、`X | true`、`true | X`、`X & false`、`false & X`の`X`）は、値が流れる位置に数えない。",
+          "description": "Owner の承認（Issue #300 の提案 (5)、ROOT-054）。新しい検査は作らない。範囲はリテラルによる吸収までとする。短絡しない `|` / `&` はレビュー指摘 S1 / S2 により加えた（PM の判断）。これ以外の吸収（`X * 0`、`X - X` などの算術、`always_true()` や名前付き定数などリテラルでない定数による吸収）は数えず、DA-003 が違反なしになりうる（残る偽 PASS）。同じく、実行時にいつも真になるリテラルでないガードや条件（`x if x > 0 || always_true()`）は定数と判定せず、失敗として発散する腕へ到達したものとして数えるため、DA-003 が違反なしになりうる（残る偽 PASS）。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。 対象を演算の結果が真偽値になる言語と演算子に絞ったのは、PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。`javascript` の `||` / `&&` はオペランドの値をそのまま返し、`|` / `&` は数値を返すため、`expect(target() || true).toBe(4)` では `X` が照合する値になる（吸収とすると誤った FAIL になる）。`javascript` を対象外にした結果、真偽だけを見る位置（`assert(target() || true)`）では DA-003 が違反なしになりうる（残る偽 PASS）。 言語ごとの記述をadapterごとの条項（DS-1995、DS-1996、DS-1997）へ移した（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "ROOT-054"
           ],
@@ -29616,8 +29675,8 @@
         },
         {
           "id": "DS-1949",
-          "statement": "DA-001の定数式は、演算の結果が真偽値になる言語と演算子（DS-1948と同じ）について、オペランドの値にかかわらずリテラルによって値が確定する論理式（`X || true`、`true || X`、`X && false`、`false && X`、`X | true`、`true | X`、`X & false`、`false & X`と、それらの否定）を含む。`javascript`の`||`・`&&`・`|`・`&`は対象としない。",
-          "description": "Owner の承認（Issue #300 の提案 (5)、ROOT-054）。DS-621 の定数式の範囲を明文にする。新しい検査は作らない。範囲はリテラルによる吸収までとする。短絡しない `|` / `&` はレビュー指摘 S1 / S2 により加えた（PM の判断）。これ以外の吸収（`X * 0 == 0` などの算術、リテラルでない定数による吸収）は定数式に数えず、DA-001 が違反なしになりうる（残る偽 PASS。DA-003 の側は DS-1948 の description）。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。 対象を DS-1948 と同じく絞ったのは、PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。`expect(target() || true).toBe(4)` を定数アサーションとしないため。`javascript` を対象外にした結果、`assert(target() || true)` は DA-001 でも違反なしになりうる（残る偽 PASS。DS-1948 と同じ）。",
+          "statement": "DA-001の定数式は、演算の結果が真偽値になる演算子（DS-1948と同じ）について、オペランドの値にかかわらずリテラルによって値が確定する論理式（`X || true`、`true || X`、`X && false`、`false && X`、`X | true`、`true | X`、`X & false`、`false & X`と、それらの否定）を含む。",
+          "description": "Owner の承認（Issue #300 の提案 (5)、ROOT-054）。DS-621 の定数式の範囲を明文にする。新しい検査は作らない。範囲はリテラルによる吸収までとする。短絡しない `|` / `&` はレビュー指摘 S1 / S2 により加えた（PM の判断）。これ以外の吸収（`X * 0 == 0` などの算術、リテラルでない定数による吸収）は定数式に数えず、DA-001 が違反なしになりうる（残る偽 PASS。DA-003 の側は DS-1948 の description）。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。 対象を DS-1948 と同じく絞ったのは、PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。`expect(target() || true).toBe(4)` を定数アサーションとしないため。`javascript` を対象外にした結果、`assert(target() || true)` は DA-001 でも違反なしになりうる（残る偽 PASS。DS-1948 と同じ）。 adapterの名指しを、adapterごとの条項への参照に替えた（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "ROOT-054"
           ],
@@ -29632,8 +29691,8 @@
         },
         {
           "id": "DS-1950",
-          "statement": "DA-001で、失敗として発散する構文（`rust-cargo`ではDS-1951）の定数性は、そのメッセージ引数ではなく、その構文が実行されるかどうかを決める位置（DS-1947）で判定する。決める位置が1つも無い構文（反駁不能なパターン（`rust-cargo`ではDS-1952）だけの腕にあり、支配する条件式とガードが無いものを含む）と、決める位置がすべてDA-001の定数判定で確定する構文は、定数アサーションとする。",
-          "description": "Owner の承認（Issue #300 の提案 (2)、ROOT-054）から導いた帰結であり（PM の判断）、提案 (2) そのものではない。DS-621 での `panic!(\"msg\")` の扱いを明文にする。反駁不能性の判定を DA-003（DS-1952）と揃えたのはレビュー指摘 B3 による（`#[should_panic]` の下の `match double(2) { _ => panic!() }` は定数アサーションになる）。ただし DS-621 は関数内の assert 相当がすべて定数のときだけ FAIL とするため、関係のない非定数の assert 相当を 1 つ足すと DA-001 は違反なしになり、`#[should_panic]` の Test では DA-003 も FAIL にならない（DS-623）。この組合せは残る偽 PASS である。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "statement": "DA-001で、失敗として発散する構文（adapterごとの条項が定める）の定数性は、そのメッセージ引数ではなく、その構文が実行されるかどうかを決める位置（DS-1947）で判定する。決める位置が1つも無い構文（反駁不能なパターン（adapterごとの条項が定める）だけの腕にあり、支配する条件式とガードが無いものを含む）と、決める位置がすべてDA-001の定数判定で確定する構文は、定数アサーションとする。",
+          "description": "Owner の承認（Issue #300 の提案 (2)、ROOT-054）から導いた帰結であり（PM の判断）、提案 (2) そのものではない。DS-621 での `panic!(\"msg\")` の扱いを明文にする。反駁不能性の判定を DA-003（DS-1952）と揃えたのはレビュー指摘 B3 による（`#[should_panic]` の下の `match double(2) { _ => panic!() }` は定数アサーションになる）。ただし DS-621 は関数内の assert 相当がすべて定数のときだけ FAIL とするため、関係のない非定数の assert 相当を 1 つ足すと DA-001 は違反なしになり、`#[should_panic]` の Test では DA-003 も FAIL にならない（DS-623）。この組合せは残る偽 PASS である。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。 adapterの名指しを、adapterごとの条項への参照に替えた（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "ROOT-054"
           ],
@@ -29648,8 +29707,8 @@
         },
         {
           "id": "DS-1983",
-          "statement": "DA-001・DA-003で、失敗として発散する構文（`rust-cargo`ではDS-1951、`go`ではDS-1973、`javascript`ではDS-1974）の決める位置（DS-1947。`go`ではDS-1887、`javascript`ではDS-1897）には、その構文を囲む条件式のほか、同じ関数本体の中でその構文より前にあり、失敗として発散しない抜け方（`return`、`break`、`continue`と、DS-1951・DS-1973・DS-1974が失敗に数えない抜け方）で、その構文に達する前に条件付きで抜けうる文について、その抜ける枝を選ぶ条件式・ガード・パターンが検査する位置を、DS-1947と同じ規則で含める。抜ける枝を選ぶ条件を構文から確定できない場合（`goto`・ラベル付きの`break` / `continue`で抜ける場合と、ループの本体の中から抜ける場合を含む）は、その失敗として発散する構文について、DA-001の定数アサーションとせず、DA-003で到達しないことを理由にFAILとせず、どちらもUNKNOWNとする。失敗として発散する構文を本体に含むループ（`rust-cargo`の`while`・`while let`・`for ... in`、`go`の`for`文、`javascript`の`while`・`do ... while`・`for`・`for ... of`・`for ... in`）について、ループの条件式と、繰り返す対象の式（`range`・`for ... in`・`for ... of`の式）も、DS-1947と同じ規則で決める位置に含める（`while let`ではそのパターンが検査する位置）。ループの本体の中で、条件式・繰り返す対象の式が読む変数へ代入する場合（`for`文の後処理文によるものを除く）は、繰り返すかどうかを構文から確定できないものとし、その構文についてDA-001の定数アサーションとせず、DA-003で到達しないことを理由にFAILとせず、どちらもUNKNOWNとする。",
-          "description": "DS-1947 の「支配する条件式」は、その構文を囲む条件式とも、前にある早期の `return` の条件とも読め、決まっていなかった。囲む条件式だけと読むと、`if got == 4 { return }; t.Fatal()`（`go`）や `if x == 4 { return; } panic!()`（`rust-cargo`）で、失敗として発散する構文の決める位置が無くなり、DS-1950 により定数アサーション（DA-001 の FAIL）になり、DA-003 も到達なしで FAIL になる（誤った FAIL。DS-1680）。`rust-cargo` にも同じ形があるため、言語共通の文とした。ループの本体の中から抜ける形（`for _, v := range xs { if v == 4 { return } }; t.Fatal()`）は、抜ける条件が繰り返しにわたるため構文から確定せず、UNKNOWN にする。PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。根拠は DS-615・DS-1680（違反なしと推測しない）だが、同じ層の参照は辺にしない規則のため `derives_from` には入れない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。 ループの条件式と繰り返す対象の式を加えたのは、PR #278 の独立レビューの指摘による。PM の判断であり、Owner の裁定ではない。`for range got { t.Error() }`、`for (const x of target()) { throw .. }`、`for x in target() { panic!() }` で、ループの中の失敗として発散する構文に決める位置が無くなり、定数アサーション（DA-001 の FAIL）と到達なし（DA-003 の FAIL）になる誤りを塞ぐ。`rust-cargo` にも同じ形があるため、言語共通の文とした。",
+          "statement": "DA-001・DA-003で、失敗として発散する構文（adapterごとの条項が定める）の決める位置（DS-1947と、adapterごとの条項が定める式）には、その構文を囲む条件式のほか、同じ関数本体の中でその構文より前にあり、失敗として発散しない抜け方（`return`、`break`、`continue`と、adapterごとの条項が失敗としての発散に数えない抜け方）で、その構文に達する前に条件付きで抜けうる文について、その抜ける枝を選ぶ条件式・ガード・パターンが検査する位置を、DS-1947と同じ規則で含める。抜ける枝を選ぶ条件を構文から確定できない場合（`goto`・ラベル付きの`break` / `continue`で抜ける場合と、ループの本体の中から抜ける場合を含む）は、その失敗として発散する構文について、DA-001の定数アサーションとせず、DA-003で到達しないことを理由にFAILとせず、どちらもUNKNOWNとする。失敗として発散する構文を本体に含むループ（adapterごとの条項が定める）について、ループの条件式と、繰り返す対象の式（`range`・`for ... in`・`for ... of`の式）も、DS-1947と同じ規則で決める位置に含める（`while let`ではそのパターンが検査する位置）。ループの本体の中で、条件式・繰り返す対象の式が読む変数へ代入する場合（`for`文の後処理文によるものを除く）は、繰り返すかどうかを構文から確定できないものとし、その構文についてDA-001の定数アサーションとせず、DA-003で到達しないことを理由にFAILとせず、どちらもUNKNOWNとする。",
+          "description": "DS-1947 の「支配する条件式」は、その構文を囲む条件式とも、前にある早期の `return` の条件とも読め、決まっていなかった。囲む条件式だけと読むと、`if got == 4 { return }; t.Fatal()`（`go`）や `if x == 4 { return; } panic!()`（`rust-cargo`）で、失敗として発散する構文の決める位置が無くなり、DS-1950 により定数アサーション（DA-001 の FAIL）になり、DA-003 も到達なしで FAIL になる（誤った FAIL。DS-1680）。`rust-cargo` にも同じ形があるため、言語共通の文とした。ループの本体の中から抜ける形（`for _, v := range xs { if v == 4 { return } }; t.Fatal()`）は、抜ける条件が繰り返しにわたるため構文から確定せず、UNKNOWN にする。PR #278 に develop を取り込んだ後の PM の指示（Issue #304）による。PM の判断であり、Owner の裁定ではない。根拠は DS-615・DS-1680（違反なしと推測しない）だが、同じ層の参照は辺にしない規則のため `derives_from` には入れない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。 ループの条件式と繰り返す対象の式を加えたのは、PR #278 の独立レビューの指摘による。PM の判断であり、Owner の裁定ではない。`for range got { t.Error() }`、`for (const x of target()) { throw .. }`、`for x in target() { panic!() }` で、ループの中の失敗として発散する構文に決める位置が無くなり、定数アサーション（DA-001 の FAIL）と到達なし（DA-003 の FAIL）になる誤りを塞ぐ。`rust-cargo` にも同じ形があるため、言語共通の文とした。 言語ごとの記述をadapterごとの条項（DS-1998、DS-1999、DS-2000）へ移した（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "ROOT-054"
           ],
@@ -29809,6 +29868,162 @@
             "lines": [
               1050,
               1050
+            ]
+          }
+        },
+        {
+          "id": "DS-1991",
+          "statement": "`rust-cargo`で、DS-623の期待する失敗を宣言する構文は`#[should_panic]`である。",
+          "description": "DS-623 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧 / ルール表",
+            "lines": [
+              1035,
+              1039
+            ]
+          }
+        },
+        {
+          "id": "DS-1992",
+          "statement": "`rust-cargo`で2つの値を照合するassert相当（DA-004）は、`assert_eq!(a, b)`に限る。",
+          "description": "DS-624 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧 / ルール表",
+            "lines": [
+              1035,
+              1040
+            ]
+          }
+        },
+        {
+          "id": "DS-1993",
+          "statement": "`rust-cargo`で、DA-005が見るTest constructの本体は関数本体である。",
+          "description": "DS-625 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "SPEC-010"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧 / ルール表",
+            "lines": [
+              1035,
+              1041
+            ]
+          }
+        },
+        {
+          "id": "DS-1994",
+          "statement": "`go`で、DA-005が見るTest constructの本体は関数本体である。",
+          "description": "DS-625 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧 / ルール表",
+            "lines": [
+              1035,
+              1041
+            ]
+          }
+        },
+        {
+          "id": "DS-1995",
+          "statement": "`rust-cargo`で、DS-1948・DS-1949の演算の結果が真偽値になる演算子は`||`・`&&`・`|`・`&`である。",
+          "description": "DS-1948 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
+            ]
+          }
+        },
+        {
+          "id": "DS-1996",
+          "statement": "`go`で、DS-1948・DS-1949の演算の結果が真偽値になる演算子は`||`・`&&`である。",
+          "description": "DS-1948 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
+            ]
+          }
+        },
+        {
+          "id": "DS-1997",
+          "statement": "`javascript`の`||`・`&&`・`|`・`&`は、演算の結果が真偽値にならないため、DS-1948・DS-1949の対象としない。",
+          "description": "DS-1948 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
+            ]
+          }
+        },
+        {
+          "id": "DS-1998",
+          "statement": "`rust-cargo`で、DS-1983のループは`while`・`while let`・`for ... in`である。",
+          "description": "DS-1983 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
+            ]
+          }
+        },
+        {
+          "id": "DS-1999",
+          "statement": "`go`で、DS-1983のループは`for`文である。",
+          "description": "DS-1983 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
+            ]
+          }
+        },
+        {
+          "id": "DS-2000",
+          "statement": "`javascript`で、DS-1983のループは`while`・`do ... while`・`for`・`for ... of`・`for ... in`である。",
+          "description": "DS-1983 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "ROOT-054"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "7.2 `rust-cargo` ルール一覧",
+            "lines": [
+              1045,
+              1045
             ]
           }
         }
@@ -48635,7 +48850,8 @@
         },
         {
           "id": "BD-003",
-          "statement": "組込 production adapter は `rust-cargo`、`go`、`javascript` とする。",
+          "statement": "組込 production adapter は、要件定義 §21 が定める adapter とする。",
+          "description": "adapterの一覧を要件定義 §21 のadapterごとの条項（REQ-343、REQ-344、REQ-345）だけに置くため、列挙を参照に替えた（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "SPEC-011",
             "SPEC-218"
@@ -50558,7 +50774,8 @@
         },
         {
           "id": "BD-104",
-          "statement": "組込production adapterは `rust-cargo`、`go`、`javascript` とする。",
+          "statement": "組込production adapterは、要件定義 §21 が定める adapter とする。",
+          "description": "adapterの一覧を要件定義 §21 のadapterごとの条項（REQ-343、REQ-344、REQ-345）だけに置くため、列挙を参照に替えた（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "SPEC-218"
           ],
@@ -50779,7 +50996,8 @@
         },
         {
           "id": "BD-114",
-          "statement": "`vtest-scan`、`vtest-audit`、`vtest-exec` は、それぞれが `syn`、`quote`、`rustc-demangle`、Cargo command、`go` command、Node.js・vitestの起動を直接所有しない。",
+          "statement": "`vtest-scan`、`vtest-audit`、`vtest-exec` は、それぞれが言語固有の依存（adapterごとの条項が定める）を直接所有しない。",
+          "description": "言語ごとの記述をadapterごとの条項（BD-359、BD-360、BD-361）へ移した（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "SPEC-486",
             "SPEC-487"
@@ -50855,6 +51073,54 @@
             "lines": [
               60,
               60
+            ]
+          }
+        },
+        {
+          "id": "BD-359",
+          "statement": "`rust-cargo` の言語固有の依存は、`syn`、`quote`、`rustc-demangle`、Cargo command である。",
+          "description": "BD-114 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "SPEC-010"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "### 1.1 ワークスペース構成",
+            "lines": [
+              53,
+              54
+            ]
+          }
+        },
+        {
+          "id": "BD-360",
+          "statement": "`go` の言語固有の依存は、`go` command である。",
+          "description": "BD-114 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "### 1.1 ワークスペース構成",
+            "lines": [
+              53,
+              54
+            ]
+          }
+        },
+        {
+          "id": "BD-361",
+          "statement": "`javascript` の言語固有の依存は、Node.js・vitestの起動である。",
+          "description": "BD-114 の括弧書きから移した（Issue #335）。規範の内容は変えていない。本ノードは元mdからの転記ではないため、`source` は当該規範が属する節の位置を指すだけである（`DS-1664` と同じ開示）。",
+          "derives_from": [
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "docs/AI並列開発向けテスト検証システム 詳細設計 v0.1.md",
+            "heading": "### 1.1 ワークスペース構成",
+            "lines": [
+              53,
+              54
             ]
           }
         }
@@ -54253,7 +54519,8 @@
         },
         {
           "id": "BD-258",
-          "statement": "production adapter として提供するのは `rust-cargo`、`go`、`javascript` である。",
+          "statement": "production adapter として提供するのは、組込 production adapter（要件定義 §21）である。",
+          "description": "adapterの一覧を要件定義 §21 のadapterごとの条項（REQ-343、REQ-344、REQ-345）だけに置くため、列挙を参照に替えた（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "REQ-263",
             "REQ-264"
