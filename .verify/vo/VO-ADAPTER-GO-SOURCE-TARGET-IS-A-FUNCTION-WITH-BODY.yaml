@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-SOURCE-TARGET-IS-A-FUNCTION-WITH-BODY
+parent: null
+derives_from:
+- doc: DS-2007
+claim: '`go`のSource Targetは、本体を持つ最上位の関数宣言とメソッドの宣言である。関数リテラルと、本体を持たない関数宣言はSource Targetではない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T08:12:39Z
+updated: 2026-11-21T08:12:39Z

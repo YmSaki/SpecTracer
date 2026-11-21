@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-METHOD-IS-NEVER-A-TEST-CONSTRUCT
+parent: null
+derives_from:
+- doc: DS-2003
+claim: '`go`のdiscoveryは、レシーバを持つメソッドを、名前とファイルに関わらずTest constructとして発見しない。メソッドの宣言に付いた`@vtest.`の宣言は、Test constructではない関数宣言の宣言（DS-2004の表面2）として読み、その宣言からTestは生じない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T08:12:38Z
+updated: 2026-11-21T08:12:38Z

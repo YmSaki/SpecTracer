@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-DECLARATION-LINES-FOLLOW-RUST-CARGO-GRAMMAR
+parent: null
+derives_from:
+- doc: DS-2005
+claim: '`go`の表面1はtest-annotation-lineを、表面2はsource-target-annotation-lineを認識し、行の文法、キーの値域、valueの扱い、キーの反復、`SRC-`で始まる`target`の値の扱い、および表面ごとの診断（E-SCAN-005・E-SCAN-006・W-SCAN-105）はDS-487〜DS-493・DS-497〜DS-507・DS-511・DS-1618・DS-1619と同じとする。各行は、コメント記号（`//`・`/*`・`*/`）と、`/* */`の各行の先頭の空白に続く1個の`*`を除いて読む。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T08:12:39Z
+updated: 2026-11-21T08:12:39Z

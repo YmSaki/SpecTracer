@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-DISCOVERY-READS-GO-FILES-WITHOUT-BUILD-CONSTRAINTS
+parent: null
+derives_from:
+- doc: DS-2001
+claim: '`go`のdiscoveryは、adapter configのinclude配下にある、名前が`.go`で終わり`_`または`.`で始まらないファイルを、build constraint（`//go:build`の行・`// +build`の行と、`_<GOOS>`・`_<GOARCH>`のファイル名の接尾辞）を評価せずにすべて読む。名前が`testdata`・`vendor`であるdirectoryと、名前が`_`または`.`で始まるdirectoryの中は読まない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T08:12:38Z
+updated: 2026-11-21T08:12:38Z

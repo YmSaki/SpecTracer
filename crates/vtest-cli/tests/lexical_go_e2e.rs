@@ -48,7 +48,7 @@ fn go_adapter_scans_and_verifies_through_the_cli_registry() {
 }
 
 /// @vtest.id TEST-CLI-GO-BODY-TAIL-CHANGES-SUBJECT-HASH
-/// @vtest.covers VO-ADAPTER-GO-REGISTERS-WITHOUT-CORE-CHANGES
+/// @vtest.covers VO-ADAPTER-GO-TEST-CONSTRUCT-BYTES-EXCLUDE-DOC-COMMENT
 /// @vtest.target crates/vtest-ops/src/registry.rs::builtin_registry
 /// @vtest.intent verifies that for a Go Test whose result type is a struct, an edit to only the end of the function body changes the Test's content hash, so the whole body is hashed
 #[test]
@@ -73,7 +73,7 @@ fn go_body_tail_edit_changes_the_test_hash() {
 }
 
 /// @vtest.id TEST-CLI-GO-UNDECLARED-TEST-IS-UNMANAGED
-/// @vtest.covers VO-SCAN-UNREGISTERED-TEST-W-SCAN-101, VO-SCAN-DISCOVERED-SET-RETAINS-UNMANAGED-CONSTRUCTS
+/// @vtest.covers VO-ADAPTER-GO-UNDECLARED-TEST-CONSTRUCT-IS-DISCOVERED, VO-SCAN-UNREGISTERED-TEST-W-SCAN-101, VO-SCAN-DISCOVERED-SET-RETAINS-UNMANAGED-CONSTRUCTS
 /// @vtest.target crates/vtest-ops/src/registry.rs::builtin_registry
 /// @vtest.intent verifies that beside a declared Go Test whose chain passes, a Test function without any @vtest. line is reported as W-SCAN-101 without an error, is kept in the discovered set as a construct without a managed Test, and turns chain_integrity to MISMATCH with the MISSING label
 #[test]
@@ -120,7 +120,7 @@ fn go_undeclared_test_function_is_unmanaged_and_breaks_the_chain() {
 }
 
 /// @vtest.id TEST-CLI-GO-AMBIGUOUS-TARGET-IS-E-SCAN-004
-/// @vtest.covers VO-SCAN-TARGET-UNRESOLVABLE-E-SCAN-004
+/// @vtest.covers VO-ADAPTER-GO-AMBIGUOUS-LOCATOR-RETURNS-ALL-CANDIDATES, VO-SCAN-TARGET-UNRESOLVABLE-E-SCAN-004
 /// @vtest.target crates/vtest-ops/src/registry.rs::builtin_registry
 /// @vtest.intent verifies that a Go Test declaring a target that two functions in one file share (init) is reported by the core as the unresolved target E-SCAN-004 with the declared value in the message, while a target that matches one function resolves
 #[test]

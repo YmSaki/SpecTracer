@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-UNREADABLE-FILE-RETURNS-NOTHING
+parent: null
+derives_from:
+- doc: DS-2010
+claim: '`go`のdiscoveryが読めない、または構文を確定できないファイルはE-SCAN-001とし、そのファイルからTest construct・Source Target・管理宣言を返さない。表面1のdoc commentが付いたconstructの範囲を確定できない場合は、そのconstructをTestとして返さず、`ManagedTestLink::Missing`（E-SCAN-001）とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T08:12:39Z
+updated: 2026-11-21T08:12:39Z

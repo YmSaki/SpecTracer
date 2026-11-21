@@ -35,6 +35,15 @@
 //!
 //! Build constraints (`//go:build`, `// +build`, `_<GOOS>`, `_<GOARCH>`) are
 //! not evaluated (DS-2001).
+//!
+//! Boundary: this module only discovers. It declares the `source_discovery`
+//! capability alone, so there is no runner (`go test` is never started), no
+//! coverage, and no static analysis here; verification reports
+//! `target_binding` and `oracle_presence` as `NO_EVIDENCE` for a Go Test and
+//! `vtest run` rejects it with `E-ADAPTER-004`. It does not find the Go module
+//! of a Test either: `ExecutionDescriptor.project` is still the project's
+//! default package name, and the module root (DES-684) and the Test without a
+//! `go.mod` (DES-687) belong to the runner.
 
 use std::{
     collections::BTreeMap,
@@ -298,14 +307,59 @@ impl Func {
     fn is_test_construct(&self, in_test_file: bool) -> bool {
         in_test_file
             && self.receiver.is_none()
-            && self.name.strip_prefix("Test").is_some_and(|rest| {
-                rest.chars()
-                    .next()
-                    .is_none_or(|first| !first.is_lowercase())
-            })
+            && self
+                .name
+                .strip_prefix("Test")
+                .is_some_and(|rest| rest.chars().next().is_none_or(|first| !is_go_lower(first)))
             && (self.name != "TestMain" || self.takes_one_testing_t)
     }
 }
+
+/// Whether Go's `unicode.IsLower` is true for `c`: the general category Ll
+/// only. Rust's `char::is_lowercase` is the Unicode property Lowercase, which
+/// also holds for the Other_Lowercase code points below (`ª`, `ʰ`, `ⅰ`, ...);
+/// Go's `go test` still takes `Testªx` as a Test (DS-2002, DES-685 cite
+/// `cmd/go/internal/load/test.go`, `isTest`).
+fn is_go_lower(c: char) -> bool {
+    c.is_lowercase()
+        && !OTHER_LOWERCASE
+            .iter()
+            .any(|&(low, high)| (low..=high).contains(&c))
+}
+
+/// The code points of the Unicode property Other_Lowercase, which are
+/// lowercase but not in the category Ll: the table `unicode.Other_Lowercase`
+/// of Go 1.26.4 (Unicode 15.0.0), as inclusive ranges.
+const OTHER_LOWERCASE: &[(char, char)] = &[
+    ('\u{AA}', '\u{AA}'),
+    ('\u{BA}', '\u{BA}'),
+    ('\u{2B0}', '\u{2B8}'),
+    ('\u{2C0}', '\u{2C1}'),
+    ('\u{2E0}', '\u{2E4}'),
+    ('\u{345}', '\u{345}'),
+    ('\u{37A}', '\u{37A}'),
+    ('\u{10FC}', '\u{10FC}'),
+    ('\u{1D2C}', '\u{1D6A}'),
+    ('\u{1D78}', '\u{1D78}'),
+    ('\u{1D9B}', '\u{1DBF}'),
+    ('\u{2071}', '\u{2071}'),
+    ('\u{207F}', '\u{207F}'),
+    ('\u{2090}', '\u{209C}'),
+    ('\u{2170}', '\u{217F}'),
+    ('\u{24D0}', '\u{24E9}'),
+    ('\u{2C7C}', '\u{2C7D}'),
+    ('\u{A69C}', '\u{A69D}'),
+    ('\u{A770}', '\u{A770}'),
+    ('\u{A7F2}', '\u{A7F4}'),
+    ('\u{A7F8}', '\u{A7F9}'),
+    ('\u{AB5C}', '\u{AB5F}'),
+    ('\u{AB69}', '\u{AB69}'),
+    ('\u{10780}', '\u{10780}'),
+    ('\u{10783}', '\u{10785}'),
+    ('\u{10787}', '\u{107B0}'),
+    ('\u{107B2}', '\u{107BA}'),
+    ('\u{1E030}', '\u{1E06D}'),
+];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Kind {
@@ -574,15 +628,16 @@ impl Reader<'_> {
         })
     }
 
-    /// The type name in the receiver `(c *Calc)`, `(l List[T])`, or
-    /// `(Calc)`: its last word outside type arguments.
+    /// The type name in the receiver `(c *Calc)`, `(l List[T])`, `(Calc)`, or
+    /// `(c *(Calc))`: its last word outside type arguments. Parentheses around
+    /// the type are looked through; the brackets of type arguments are not.
     fn receiver_type(&self, open: usize, close: usize) -> Option<String> {
         let mut index = open + 1;
         let mut found = None;
         while index < close {
             match self.tokens[index].kind {
                 Kind::Word => found = Some(index),
-                Kind::Open(_) => index = self.partner(index),
+                Kind::Open('[') => index = self.partner(index),
                 _ => {}
             }
             index += 1;
@@ -807,7 +862,7 @@ func TestAdd(t *testing.T) {
 "#;
 
     /// @vtest.id TEST-ADAPTER-GO-DISCOVERS-FUNCS-AND-TESTS
-    /// @vtest.covers VO-ADAPTER-GO-REGISTERS-WITHOUT-CORE-CHANGES, VO-ADAPTER-LEXICAL-OPAQUE-LOCATOR-SYNTAX, VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
+    /// @vtest.covers VO-ADAPTER-GO-SOURCE-TARGET-IS-A-FUNCTION-WITH-BODY, VO-ADAPTER-GO-LOCATOR-GRAMMAR, VO-ADAPTER-GO-TEST-CONSTRUCT-BYTES-EXCLUDE-DOC-COMMENT, VO-ADAPTER-GO-SOURCE-TARGET-BYTES-INCLUDE-DOC-COMMENT, VO-ADAPTER-GO-TEST-LOCATOR-IS-FUNCTION-NAME, VO-ADAPTER-LEXICAL-RETURNS-SOURCE-RANGE-AND-BYTES
     /// @vtest.target crates/vtest-adapter-lexical/src/go.rs::discover_source
     /// @vtest.intent verifies Go functions with a body, generic functions, and methods qualified by their receiver type become Source Targets whose bytes start at their doc comment, while function literals, bodyless declarations, and types do not, and that a declared Test function is a Test construct located by its name whose bytes start at func and exclude its doc comment
     #[test]
@@ -854,7 +909,7 @@ func TestAdd(t *testing.T) {
     }
 
     /// @vtest.id TEST-ADAPTER-GO-TEST-CONSTRUCT-IS-A-SHAPE
-    /// @vtest.covers VO-SCAN-UNREGISTERED-TEST-W-SCAN-101
+    /// @vtest.covers VO-ADAPTER-GO-TEST-CONSTRUCT-IS-A-TEST-FUNCTION-BY-NAME, VO-ADAPTER-GO-UNDECLARED-TEST-CONSTRUCT-IS-DISCOVERED
     /// @vtest.target crates/vtest-adapter-lexical/src/go.rs::discover_source
     /// @vtest.intent verifies that in a _test.go file a top-level receiverless function named Test or Test followed by a character that is not a lowercase letter is a Test construct whatever its type arguments, parameters, and results, and that a method, a lowercase continuation, Benchmark, Fuzz, Example, and a *testing.M TestMain are not, and that the same names in a file not ending in _test.go are not
     #[test]
@@ -907,7 +962,7 @@ func TestAdd(t *testing.T) {
     }
 
     /// @vtest.id TEST-ADAPTER-GO-TESTMAIN-IS-A-TEST-ONLY-FOR-TESTING-T
-    /// @vtest.covers VO-SCAN-UNREGISTERED-TEST-W-SCAN-101
+    /// @vtest.covers VO-ADAPTER-GO-TEST-CONSTRUCT-IS-A-TEST-FUNCTION-BY-NAME, VO-ADAPTER-GO-TESTING-T-PARAMETER-CHECK
     /// @vtest.target crates/vtest-adapter-lexical/src/go.rs::Reader::takes_one_testing_t
     /// @vtest.intent verifies that TestMain is a Test construct exactly when its parameters are one *T or *identifier.T, named or not, with or without a trailing comma, and is not for *testing.M, no parameter, two parameters, a value or a deeper-qualified type
     #[test]
@@ -945,7 +1000,7 @@ func TestAdd(t *testing.T) {
     }
 
     /// @vtest.id TEST-ADAPTER-GO-UNDECLARED-TEST-IS-RETURNED-WITH-W-SCAN-101
-    /// @vtest.covers VO-SCAN-UNREGISTERED-TEST-W-SCAN-101, VO-SCAN-DISCOVERED-SET-RETAINS-UNMANAGED-CONSTRUCTS
+    /// @vtest.covers VO-ADAPTER-GO-UNDECLARED-TEST-CONSTRUCT-IS-DISCOVERED, VO-SCAN-UNREGISTERED-TEST-W-SCAN-101, VO-ADAPTER-GO-TEST-CONSTRUCT-BYTES-EXCLUDE-DOC-COMMENT, VO-ADAPTER-GO-SOURCE-TARGET-BYTES-INCLUDE-DOC-COMMENT
     /// @vtest.target crates/vtest-adapter-lexical/src/go.rs::push_test_construct
     /// @vtest.intent verifies that a Test construct with no @vtest. line, with no comment or with a comment without one or with a declaration separated by a blank line, is returned as a Missing construct that carries W-SCAN-101, located by its name over the function from func to the end of its body, and that no Test draft and no other diagnostic is produced
     #[test]
@@ -991,7 +1046,7 @@ func TestAdd(t *testing.T) {
     }
 
     /// @vtest.id TEST-ADAPTER-GO-METHOD-DECLARATION-IS-W-SCAN-105-AND-NO-TEST
-    /// @vtest.covers VO-SCAN-NON-TEST-UNKNOWN-KEY-W-SCAN-105
+    /// @vtest.covers VO-ADAPTER-GO-METHOD-IS-NEVER-A-TEST-CONSTRUCT, VO-SCAN-NON-TEST-UNKNOWN-KEY-W-SCAN-105
     /// @vtest.target crates/vtest-adapter-lexical/src/go.rs::discover_source
     /// @vtest.intent verifies that a method carrying a complete Test declaration, even in a _test.go file and named Test..., is not a Test construct: each of its test-key lines is W-SCAN-105, no Test draft and no Missing construct and no error is produced, and the method is still a Source Target qualified by its receiver
     #[test]
@@ -1016,7 +1071,7 @@ func TestAdd(t *testing.T) {
     }
 
     /// @vtest.id TEST-ADAPTER-GO-SOURCE-SURFACE-READS-SRC-ID
-    /// @vtest.covers VO-SCAN-SRC-ID-DECLARED-ON-IMPLEMENTATION, VO-SCAN-NON-TEST-UNKNOWN-KEY-W-SCAN-105
+    /// @vtest.covers VO-ADAPTER-GO-DECLARATION-SURFACES-ARE-DOC-COMMENTS, VO-ADAPTER-GO-DECLARATION-LINES-FOLLOW-RUST-CARGO-GRAMMAR, VO-ADAPTER-GO-TEST-CONSTRUCT-IS-A-TEST-FUNCTION-BY-NAME, VO-SCAN-SRC-ID-DECLARED-ON-IMPLEMENTATION, VO-SCAN-NON-TEST-UNKNOWN-KEY-W-SCAN-105
     /// @vtest.target crates/vtest-adapter-lexical/src/go.rs::discover_source
     /// @vtest.intent verifies that the doc comment of a function that is not a Test construct adopts a single src-id, adopts none and reports E-SCAN-005 for a repeated one, reports W-SCAN-105 for any other key, and that a Test-named function in a file not ending in _test.go is on this surface and no Test
     #[test]
@@ -1046,7 +1101,7 @@ func TestAdd(t *testing.T) {
     }
 
     /// @vtest.id TEST-ADAPTER-GO-TEST-SURFACE-GRAMMAR
-    /// @vtest.covers VO-SCAN-UNKNOWN-ANNOTATION-KEY-E-SCAN-006, VO-ADAPTER-LEXICAL-REPORTS-DECLARATION-VIOLATIONS
+    /// @vtest.covers VO-ADAPTER-GO-DECLARATION-LINES-FOLLOW-RUST-CARGO-GRAMMAR, VO-SCAN-UNKNOWN-ANNOTATION-KEY-E-SCAN-006, VO-ADAPTER-LEXICAL-REPORTS-DECLARATION-VIOLATIONS
     /// @vtest.target crates/vtest-adapter-lexical/src/go.rs::push_test_construct
     /// @vtest.intent verifies that on a Test construct a src-id line is E-SCAN-006, a repeated id is E-SCAN-005, a missing intent is E-SCAN-007, each making a Missing construct with its own code and no Test draft, and that a /* */ comment is read line by line without its leading stars, with repeated case and target lines and comma-separated covers
     #[test]
@@ -1101,7 +1156,7 @@ func TestAdd(t *testing.T) {
     }
 
     /// @vtest.id TEST-ADAPTER-GO-ONLY-FUNC-DECLARATIONS-ARE-SURFACES
-    /// @vtest.covers VO-ADAPTER-LEXICAL-NORMALIZES-DECLARATION
+    /// @vtest.covers VO-ADAPTER-GO-DECLARATION-SURFACES-ARE-DOC-COMMENTS
     /// @vtest.target crates/vtest-adapter-lexical/src/go.rs::Reader::functions
     /// @vtest.intent verifies that a @vtest. declaration on a statement inside a function body (a subtest call), on a type, var, or const declaration, or one that is not attached to a func declaration yields no Test, no Source Target declaration, and no diagnostic, and that a doc comment attaches only when it ends on the line above the declaration
     #[test]
@@ -1132,7 +1187,7 @@ func TestAdd(t *testing.T) {
     }
 
     /// @vtest.id TEST-ADAPTER-GO-STRUCT-RESULT-IS-NOT-THE-BODY
-    /// @vtest.covers VO-ADAPTER-GO-REGISTERS-WITHOUT-CORE-CHANGES
+    /// @vtest.covers VO-ADAPTER-GO-SOURCE-TARGET-IS-A-FUNCTION-WITH-BODY, VO-ADAPTER-GO-TEST-CONSTRUCT-BYTES-EXCLUDE-DOC-COMMENT
     /// @vtest.target crates/vtest-adapter-lexical/src/go.rs::Reader::statement_end
     /// @vtest.intent verifies that the braces of a struct or interface result type are not taken for the function body, so a Test construct runs to the end of the body and an edit to only the body's tail changes its text, and that a function whose last braces are a struct result type has no body
     #[test]
@@ -1159,7 +1214,7 @@ func TestAdd(t *testing.T) {
     }
 
     /// @vtest.id TEST-ADAPTER-GO-EXPLICIT-SEMICOLON
-    /// @vtest.covers VO-ADAPTER-LEXICAL-NORMALIZES-DECLARATION
+    /// @vtest.covers VO-ADAPTER-GO-SOURCE-TARGET-IS-A-FUNCTION-WITH-BODY, VO-ADAPTER-GO-LOCATOR-GRAMMAR, VO-SCAN-SRC-ID-DECLARED-ON-IMPLEMENTATION
     /// @vtest.target crates/vtest-adapter-lexical/src/go.rs::Reader::function
     /// @vtest.intent verifies a function followed by an explicit semicolon is found with the same name and SRC ID as one ended by a newline
     #[test]
@@ -1186,8 +1241,61 @@ func TestAdd(t *testing.T) {
         }
     }
 
+    /// @vtest.id TEST-ADAPTER-GO-LOWERCASE-IS-CATEGORY-LL
+    /// @vtest.covers VO-ADAPTER-GO-TEST-CONSTRUCT-IS-A-TEST-FUNCTION-BY-NAME
+    /// @vtest.target crates/vtest-adapter-lexical/src/go.rs::is_go_lower
+    /// @vtest.intent verifies that the character after Test is judged by Go's unicode.IsLower, which is the category Ll only: a function named Test followed by a code point that is lowercase by property but not by category (feminine ordinal indicator, modifier letter small h, small roman numeral one, circled small a) is a Test construct, and one followed by a letter of the category Ll (a, e with acute, sharp s) is not
+    #[test]
+    fn test_name_continuation_is_decided_by_category_ll() {
+        let source = "package calc\n\n\
+            func Test\u{aa}x(t *testing.T) {}\n\
+            func Test\u{2b0}x(t *testing.T) {}\n\
+            func Test\u{2170}x(t *testing.T) {}\n\
+            func Test\u{24d0}x(t *testing.T) {}\n\
+            func Testax(t *testing.T) {}\n\
+            func Test\u{e9}x(t *testing.T) {}\n\
+            func Test\u{df}x(t *testing.T) {}\n";
+        let outcome = discover_text("calc/calc_test.go", source);
+        assert_eq!(
+            construct_names(&outcome).0,
+            vec![
+                "Test\u{aa}x",
+                "Test\u{2b0}x",
+                "Test\u{2170}x",
+                "Test\u{24d0}x"
+            ]
+        );
+        assert!(is_go_lower('a') && is_go_lower('\u{e9}') && is_go_lower('\u{df}'));
+        assert!(!is_go_lower('\u{aa}') && !is_go_lower('\u{2b0}') && !is_go_lower('A'));
+    }
+
+    /// @vtest.id TEST-ADAPTER-GO-RECEIVER-TYPE-LOOKS-THROUGH-PARENTHESES
+    /// @vtest.covers VO-ADAPTER-GO-LOCATOR-GRAMMAR
+    /// @vtest.target crates/vtest-adapter-lexical/src/go.rs::Reader::receiver_type
+    /// @vtest.intent verifies that a method whose receiver type is parenthesized, with or without a pointer or type arguments, is qualified by the type name alone, as one whose receiver is not parenthesized is
+    #[test]
+    fn receiver_type_looks_through_parentheses() {
+        let source = "package calc\n\n\
+            func (c *(Calc)) M() {}\n\
+            func ((Calc)) N() {}\n\
+            func (c (*Calc[T])) O() {}\n\
+            func (c *Calc[T]) P() {}\n\
+            func (Calc) Q() {}\n";
+        let outcome = discover_text("calc/calc.go", source);
+        assert_eq!(
+            source_locators(&outcome),
+            vec![
+                "calc/calc.go::Calc::M",
+                "calc/calc.go::Calc::N",
+                "calc/calc.go::Calc::O",
+                "calc/calc.go::Calc::P",
+                "calc/calc.go::Calc::Q",
+            ]
+        );
+    }
+
     /// @vtest.id TEST-ADAPTER-GO-DUPLICATE-LOCATORS-ARE-ALL-RETURNED
-    /// @vtest.covers VO-SCAN-TARGET-UNRESOLVABLE-E-SCAN-004
+    /// @vtest.covers VO-ADAPTER-GO-AMBIGUOUS-LOCATOR-RETURNS-ALL-CANDIDATES
     /// @vtest.target crates/vtest-adapter-lexical/src/go.rs::discover_source
     /// @vtest.intent verifies that two init functions and two functions named _ in one file are all returned as Source Targets with the same locator, so that core resolves a Target Reference to either one as ambiguous instead of the adapter picking one
     #[test]
@@ -1210,7 +1318,7 @@ func TestAdd(t *testing.T) {
     }
 
     /// @vtest.id TEST-ADAPTER-GO-UNREADABLE-FILE-IS-E-SCAN-001
-    /// @vtest.covers VO-ADAPTER-LEXICAL-UNPARSEABLE-DECLARATION-MISSING
+    /// @vtest.covers VO-ADAPTER-GO-UNREADABLE-FILE-RETURNS-NOTHING, VO-SCAN-SOURCE-PARSE-FAILURE-E-SCAN-001
     /// @vtest.target crates/vtest-adapter-lexical/src/go.rs::discover_source
     /// @vtest.intent verifies that a file with an unterminated raw string, an unclosed bracket, or a func without a name is E-SCAN-001 and returns no Test, no Missing construct, and no Source Target even when valid declarations precede the fault, and that a declared Test function without a body is a Missing construct with E-SCAN-001 instead of a Test while an undeclared one is W-SCAN-101
     #[test]
@@ -1263,7 +1371,7 @@ func TestAdd(t *testing.T) {
     const GOOD: &[u8] = b"package x\n\nfunc TestGood(t *testing.T) {}\n";
 
     /// @vtest.id TEST-ADAPTER-GO-WALK-RULES
-    /// @vtest.covers VO-ADAPTER-GO-REGISTERS-WITHOUT-CORE-CHANGES
+    /// @vtest.covers VO-ADAPTER-GO-DISCOVERY-READS-GO-FILES-WITHOUT-BUILD-CONSTRAINTS
     /// @vtest.target crates/vtest-adapter-lexical/src/go.rs::GoAdapter::discover
     /// @vtest.intent verifies that files whose names start with _ or ., and every file inside a directory named testdata or vendor or starting with _ or ., are not read (an unreadable file there gives no E-SCAN-001), that files with build constraints in their text or GOOS and GOARCH suffixes in their name and files in a directory named target are read, and that a project root whose own name starts with . is still walked
     #[test]
@@ -1327,7 +1435,7 @@ func TestAdd(t *testing.T) {
     }
 
     /// @vtest.id TEST-ADAPTER-GO-UNREADABLE-FILE-ON-DISK-IS-E-SCAN-001
-    /// @vtest.covers VO-ADAPTER-LEXICAL-UNPARSEABLE-DECLARATION-MISSING
+    /// @vtest.covers VO-ADAPTER-GO-UNREADABLE-FILE-RETURNS-NOTHING, VO-SCAN-SOURCE-PARSE-FAILURE-E-SCAN-001
     /// @vtest.target crates/vtest-adapter-lexical/src/go.rs::GoAdapter::discover
     /// @vtest.intent verifies that through the adapter a file that is not UTF-8 text and a file with an unterminated raw string are each E-SCAN-001 without hiding the Tests of the readable files beside them
     #[test]

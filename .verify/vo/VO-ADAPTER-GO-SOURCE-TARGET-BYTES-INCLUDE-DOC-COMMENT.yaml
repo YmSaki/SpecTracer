@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-SOURCE-TARGET-BYTES-INCLUDE-DOC-COMMENT
+parent: null
+derives_from:
+- doc: DES-682
+claim: '`go` adapterはSource Targetとして、doc commentを含む関数宣言全体のbytesを返す。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T08:12:39Z
+updated: 2026-11-21T08:12:39Z

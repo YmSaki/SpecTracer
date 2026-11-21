@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-TESTING-T-PARAMETER-CHECK
+parent: null
+derives_from:
+- doc: DES-685
+claim: '`go` adapterは、関数の引数の型が`*testing.T`型であるか（DS-1904・DS-2002）を、その引数の型の式が`*T`または`*<識別子>.T`であるかで判定する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T08:12:40Z
+updated: 2026-11-21T08:12:40Z
