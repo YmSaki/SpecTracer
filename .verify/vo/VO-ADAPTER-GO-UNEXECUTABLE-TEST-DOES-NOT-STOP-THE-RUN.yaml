@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-UNEXECUTABLE-TEST-DOES-NOT-STOP-THE-RUN
+parent: null
+derives_from:
+- doc: DS-1903
+claim: runnerが実行できないTest constructのTestは、同じ`vtest run`で実行する他のTestの実行とEvidenceの生成を妨げない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:53Z
+updated: 2026-11-21T09:14:53Z

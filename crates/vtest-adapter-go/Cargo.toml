@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+serde_json.workspace = true
 vtest-adapter-api = { path = "../vtest-adapter-api" }
 vtest-adapter-lexical = { path = "../vtest-adapter-lexical" }
 vtest-model = { path = "../vtest-model" }

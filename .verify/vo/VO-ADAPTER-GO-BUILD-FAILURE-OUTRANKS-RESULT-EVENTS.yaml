@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-BUILD-FAILURE-OUTRANKS-RESULT-EVENTS
+parent: null
+derives_from:
+- doc: DES-677
+claim: '`Action`が`build-fail`のevent、または`Test`を持たず`FailedBuild`を持つ`fail`のeventは、パッケージのビルド失敗（DS-1910）を意味し、selectorと一致するeventの有無より優先する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:52Z
+updated: 2026-11-21T09:14:52Z

@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-BUILD-FAILURE-IS-E-EXEC-001
+parent: null
+derives_from:
+- doc: DS-1910
+claim: '`go test`がパッケージのビルド失敗を報告した場合は、そのTest関数の結果の有無に関わらずテストビルド失敗（E-EXEC-001）とし、そのパッケージのTestのEvidenceを記録しない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:53Z
+updated: 2026-11-21T09:14:53Z

@@ -1,117 +1,104 @@
 //! The `go` adapter (BD-350, BD-357).
 //!
-//! Responsibility: own everything Go-specific that is not the lexical reading of
-//! Go source. BD-357 gives the `go` adapter its discovery, static audit, runner
-//! and coverage; AGENTS.md 9.2 places the toolchain parts (`go test`, Execution
-//! State) in this crate, as `vtest-adapter-rust` does for `rust-cargo`.
+//! Responsibility: own everything Go-specific that is not the lexical reading
+//! of Go source. BD-357 gives the `go` adapter its discovery, static audit,
+//! runner and coverage; AGENTS.md 9.2 places the toolchain parts in this crate,
+//! as `vtest-adapter-rust` does for `rust-cargo`. This crate declares
+//! `source_discovery` and `test_runner`: `go test` as the runner (DES-621,
+//! DES-647 to DES-652, DES-677, DES-678) and its Execution State (DES-623 to
+//! DES-632, DES-680).
 //!
 //! Boundary: discovery is delegated to `vtest_adapter_lexical::go`, which keeps
-//! the `@vtest.` grammar and the Go syntax in one place (AGENTS.md 4.2, 11). This
-//! is the one adapter-to-adapter dependency, and it is for discovery only. At
-//! this stage the crate declares the `source_discovery` capability and nothing
-//! else, so it reports exactly what the lexical `go` adapter reported before the
-//! crate existed.
+//! the `@vtest.` grammar and the Go syntax in one place (AGENTS.md 4.2, 11); this
+//! is the one adapter-to-adapter dependency and it is for discovery only. What
+//! this crate adds to a discovered Test is its execution coordinates, which need
+//! the Go module the Test is in (DES-643 to DES-645, DES-684). Coverage
+//! (`go-cover`, DES-663 to DES-679) and the static audit (DES-619) are not
+//! provided, so verification reports `target_binding` and `oracle_presence` as
+//! `NO_EVIDENCE` (`NOT_CHECKED`) for a Go Test, whatever its Evidence says.
 
-use vtest_adapter_api::{Adapter, AdapterDescriptor, SourceDiscoveryAdapter};
+mod execution_state;
+mod module;
+mod runner;
 
+use std::path::Path;
+
+use vtest_adapter_api::{
+    Adapter, AdapterDescriptor, AdapterScanConfig, Capability, DiscoveryError, DiscoveryOutcome,
+    SourceDiscoveryAdapter, TestRunnerAdapter,
+};
+
+pub use runner::{GoTestRunner, RUNNER_KIND};
 pub use vtest_adapter_lexical::go::ADAPTER_ID;
 
-/// The `go` adapter. Discovery is the lexical `go` module's.
-#[derive(Clone, Copy, Debug, Default)]
+/// DES-644: the `suite.kind` of a Go Test, the package it is in.
+pub(crate) const PACKAGE_SUITE: &str = "package";
+
+/// The `go` adapter.
+#[derive(Clone, Debug, Default)]
 pub struct GoAdapter {
     discovery: vtest_adapter_lexical::go::GoAdapter,
+    runner: GoTestRunner,
 }
 
 /// The `go` adapter the composition root registers.
+#[must_use]
 pub fn adapter() -> GoAdapter {
     GoAdapter::default()
 }
 
+impl GoAdapter {
+    /// The adapter with the given runner, for tests that start `go` under an
+    /// environment of their own (see [`GoTestRunner::with_environment`]).
+    #[must_use]
+    pub fn with_runner(runner: GoTestRunner) -> Self {
+        Self {
+            discovery: vtest_adapter_lexical::go::GoAdapter,
+            runner,
+        }
+    }
+}
+
 impl Adapter for GoAdapter {
     fn descriptor(&self) -> AdapterDescriptor {
-        self.discovery.descriptor()
+        AdapterDescriptor {
+            id: ADAPTER_ID.to_owned(),
+            languages: vec!["go".to_owned()],
+            capabilities: vec![Capability::SourceDiscovery, Capability::TestRunner],
+            config_namespace: ADAPTER_ID.to_owned(),
+        }
     }
 
     fn as_source_discovery(&self) -> Option<&dyn SourceDiscoveryAdapter> {
-        Some(&self.discovery)
+        Some(self)
+    }
+
+    fn as_test_runner(&self) -> Option<&dyn TestRunnerAdapter> {
+        Some(&self.runner)
+    }
+}
+
+impl SourceDiscoveryAdapter for GoAdapter {
+    fn id(&self) -> &'static str {
+        ADAPTER_ID
+    }
+
+    /// The lexical `go` discovery, with each Test's execution coordinates set
+    /// from the Go module its file is in (DES-643 to DES-645, DES-684, DES-687).
+    fn discover(
+        &self,
+        root: &Path,
+        fallback_package: &str,
+        config: &AdapterScanConfig,
+    ) -> Result<DiscoveryOutcome, DiscoveryError> {
+        let mut outcome = self.discovery.discover(root, fallback_package, config)?;
+        for test in &mut outcome.tests {
+            test.execution =
+                module::execution_for(root, test.location.path.as_str(), &test.execution.selector);
+        }
+        Ok(outcome)
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use std::{
-        fs,
-        path::PathBuf,
-        sync::atomic::{AtomicU64, Ordering},
-    };
-
-    use vtest_adapter_api::{AdapterRegistry, AdapterScanConfig};
-
-    use super::*;
-
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-
-    const TEST_FILE: &str = "package calc\n\nimport \"testing\"\n\n// @vtest.id TEST-GO-CRATE-ADD\n// @vtest.covers VO-GO-CRATE\n// @vtest.target calc/calc.go::Add\n// @vtest.intent adding returns the sum\nfunc TestAdd(t *testing.T) {\n\tif Add(1, 2) != 3 {\n\t\tt.Fatal(\"sum\")\n\t}\n}\n\nfunc TestUndeclared(t *testing.T) {}\n";
-    const SOURCE_FILE: &str = "package calc\n\nfunc Add(a, b int) int { return a + b }\n";
-
-    fn fixture() -> PathBuf {
-        let root = std::env::temp_dir().join(format!(
-            "vtest-adapter-go-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        let _ = fs::remove_dir_all(&root);
-        fs::create_dir_all(root.join("calc")).expect("create fixture directory");
-        fs::write(root.join("calc/calc.go"), SOURCE_FILE).expect("write source");
-        fs::write(root.join("calc/calc_test.go"), TEST_FILE).expect("write test");
-        root
-    }
-
-    /// The crate registers under the `go` id with exactly the capability set the
-    /// lexical `go` adapter declared, so moving the registration changes nothing
-    /// a caller can observe.
-    /// @vtest.id TEST-ADAPTER-GO-DESCRIPTOR-IS-THE-LEXICAL-GO-DESCRIPTOR
-    /// @vtest.covers VO-ADAPTER-GO-REGISTERS-WITHOUT-CORE-CHANGES
-    /// @vtest.target crates/vtest-adapter-go/src/lib.rs::adapter
-    /// @vtest.intent the go adapter of its own crate registers under the id go, declares only source_discovery like the lexical go adapter, and resolves through the registry
-    #[test]
-    fn the_go_crate_registers_with_the_descriptor_the_lexical_go_adapter_had() {
-        let lexical = vtest_adapter_lexical::go::adapter().descriptor();
-        let own = adapter().descriptor();
-        assert_eq!(format!("{own:?}"), format!("{lexical:?}"));
-        assert_eq!(own.id, "go");
-
-        let mut registry = AdapterRegistry::new();
-        registry
-            .register(Box::new(adapter()))
-            .expect("the go adapter registers");
-        assert!(registry.source_discovery("go").is_some());
-        assert!(registry.test_runner("go").is_none());
-        assert!(registry.coverage("go").is_none());
-        assert!(registry.static_analysis("go").is_none());
-    }
-
-    /// @vtest.id TEST-ADAPTER-GO-DISCOVERY-IS-THE-LEXICAL-GO-DISCOVERY
-    /// @vtest.covers VO-ADAPTER-GO-REGISTERS-WITHOUT-CORE-CHANGES
-    /// @vtest.target crates/vtest-adapter-go/src/lib.rs::adapter
-    /// @vtest.intent discovery through the go adapter of its own crate returns the same Tests, Source Targets and diagnostics as the lexical go adapter on one project
-    #[test]
-    fn discovery_through_the_go_crate_equals_the_lexical_go_discovery() {
-        let root = fixture();
-        let config = AdapterScanConfig {
-            include_paths: vec![PathBuf::from(".")],
-        };
-        let own = adapter()
-            .as_source_discovery()
-            .expect("source discovery")
-            .discover(&root, "fallback", &config)
-            .expect("own discovery");
-        let lexical = vtest_adapter_lexical::go::adapter()
-            .discover(&root, "fallback", &config)
-            .expect("lexical discovery");
-        let _ = fs::remove_dir_all(&root);
-        assert_eq!(own.tests.len(), 1, "{own:?}");
-        assert_eq!(own.missing_tests.len(), 1, "{own:?}");
-        assert_eq!(format!("{own:?}"), format!("{lexical:?}"));
-    }
-}
+mod tests;

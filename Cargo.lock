@@ -540,6 +540,7 @@ dependencies = [
 name = "vtest-adapter-go"
 version = "0.1.0"
 dependencies = [
+ "serde_json",
  "vtest-adapter-api",
  "vtest-adapter-lexical",
  "vtest-model",

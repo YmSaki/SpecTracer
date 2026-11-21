@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-RUNNER-KIND-IS-GO-TEST
+parent: null
+derives_from:
+- doc: DES-647
+claim: '`go` adapterのrunner kindは`go-test`とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:51Z
+updated: 2026-11-21T09:14:51Z

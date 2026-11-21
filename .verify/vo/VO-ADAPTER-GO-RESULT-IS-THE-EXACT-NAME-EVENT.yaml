@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-RESULT-IS-THE-EXACT-NAME-EVENT
+parent: null
+derives_from:
+- doc: DES-649
+claim: '`go test -json`の出力のうち、`Test`がselectorと完全一致し`Action`が`pass` / `fail` / `skip`のいずれかであるeventが1件だけある場合、そのeventをそのTestの結果とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:52Z
+updated: 2026-11-21T09:14:52Z

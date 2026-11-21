@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-EXIT-CODE-CONTRADICTION-IS-E-EXEC-003
+parent: null
+derives_from:
+- doc: DS-1911
+claim: '`go test`の終了コードが、そのTest関数について報告された結果と矛盾する場合（結果が成功で終了コードが0以外の場合、または結果が失敗で終了コードが0の場合）は、E-EXEC-003とし、Evidenceを記録しない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:54Z
+updated: 2026-11-21T09:14:54Z

@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-RUNNABLE-TEST-CONSTRUCT-SHAPE
+parent: null
+derives_from:
+- doc: DS-1904
+claim: '`go`のrunnerが実行できるTest constructは、ファイル名が`_test.go`で終わるファイルの最上位に宣言され、名前が`Test`であるか`Test`に小文字以外の文字が続き、型引数を持たず、引数が`*testing.T`型の1つだけで、戻り値を持たない関数である。レシーバを持つメソッドは、名前がこの条件に合ってもTest constructではない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:53Z
+updated: 2026-11-21T09:14:53Z

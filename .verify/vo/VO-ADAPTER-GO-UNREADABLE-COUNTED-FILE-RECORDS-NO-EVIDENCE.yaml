@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-UNREADABLE-COUNTED-FILE-RECORDS-NO-EVIDENCE
+parent: null
+derives_from:
+- doc: DS-2012
+claim: DS-2011で数えるファイルのうち1件でも読めない、または構文を確定できない場合は、そのpackage directoryのどのTestについてもEvidenceを記録しない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:54Z
+updated: 2026-11-21T09:14:54Z

@@ -37,6 +37,14 @@ other failure, run the same test on the base branch: one that also fails
 there is an environment difference to report as such, and one that fails only
 on the PR branch is a regression.
 
+The tests of the `go` runner start the real `go` command and `git`:
+`vtest-adapter-go` (`execution_state::tests`) and `crates/vtest-cli/tests/go_runner_e2e.rs`.
+They fail with a message that names the missing tool when `go` or `git` is not
+on `PATH`, because a skipped run would say nothing about the runner. `.github/workflows/ci.yml`
+does not install Go itself, so those tests run in CI only if the `ubuntu-latest`
+image has `go` on `PATH`. The symbolic-link test (DES-632) is `#[cfg(unix)]`: on
+Windows creating a link needs a privilege, and the test does not exist there.
+
 The CI environment installs `llvm-tools-preview` and `cargo-llvm-cov` so that M7
 can distinguish measured target execution from the fail-closed unavailable
 coverage path. Local M7 acceptance requires the same tools:

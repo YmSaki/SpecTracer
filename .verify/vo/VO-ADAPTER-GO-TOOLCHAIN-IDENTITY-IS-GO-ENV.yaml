@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-TOOLCHAIN-IDENTITY-IS-GO-ENV
+parent: null
+derives_from:
+- doc: DES-624
+claim: '`go-execution-state-v1` のtoolchain identityは、`go env`が報告する実効値のうち、`GOVERSION`、`GOOS`、`GOARCH`、`GOARCH`に応じた命令セットの設定（amd64では`GOAMD64`）、`CGO_ENABLED`、`CC`、`CXX`、`AR`、`PKG_CONFIG`、`CGO_CFLAGS`、`CGO_CPPFLAGS`、`CGO_CXXFLAGS`、`CGO_FFLAGS`、`CGO_LDFLAGS`、`GOFLAGS`、`GOEXPERIMENT`、`GOFIPS140`、`GODEBUG`、`GOTOOLCHAIN`、`GO111MODULE`の値と、project rootの相対pathへ正規化した`GOWORK`の値を含む。`CGO_ENABLED`が`1`の場合は、`CC`に`--version`を与えて得た出力も含む。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:54Z
+updated: 2026-11-21T09:14:54Z

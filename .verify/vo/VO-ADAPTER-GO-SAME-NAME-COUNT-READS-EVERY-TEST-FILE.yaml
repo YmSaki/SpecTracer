@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-SAME-NAME-COUNT-READS-EVERY-TEST-FILE
+parent: null
+derives_from:
+- doc: DS-2011
+claim: DS-1930の件数は、同じGo moduleの同じpackage directoryにある、名前が`_test.go`で終わり`_`または`.`で始まらないすべてのファイルのTest construct（DS-2002）から数える。build constraint、adapter configのinclude、ignoreの設定でdiscoveryの対象から外れるファイルも数える。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:54Z
+updated: 2026-11-21T09:14:54Z

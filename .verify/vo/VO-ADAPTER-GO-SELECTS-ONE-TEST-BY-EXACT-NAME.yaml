@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-SELECTS-ONE-TEST-BY-EXACT-NAME
+parent: null
+derives_from:
+- doc: DS-1905
+claim: '`go`のrunnerは、Test 1件ごとに、Test関数が属するパッケージを対象とし、関数名の完全一致でそのTest関数だけを選んで`go test`を実行する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:53Z
+updated: 2026-11-21T09:14:53Z

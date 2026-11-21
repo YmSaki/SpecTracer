@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-STATE-INCOMPLETE-NON-STANDARD-CGO
+parent: null
+derives_from:
+- doc: DES-629
+claim: 選択Testのビルドに含まれるパッケージのうち、標準library（goが標準libraryと分類するパッケージ。`go list`の`Standard`がtrueのもので、GOROOT/srcのパッケージ。import pathの形では判定しない）でないもの（project内のパッケージと依存moduleのパッケージ）が1つでもcgoを使う場合、`go` adapterはsnapshotを完全と報告しない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:55Z
+updated: 2026-11-21T09:14:55Z

@@ -36,14 +36,15 @@
 //! Build constraints (`//go:build`, `// +build`, `_<GOOS>`, `_<GOARCH>`) are
 //! not evaluated (DS-2001).
 //!
-//! Boundary: this module only discovers. It declares the `source_discovery`
-//! capability alone, so there is no runner (`go test` is never started), no
-//! coverage, and no static analysis here; verification reports
-//! `target_binding` and `oracle_presence` as `NO_EVIDENCE` for a Go Test and
-//! `vtest run` rejects it with `E-ADAPTER-004`. It does not find the Go module
-//! of a Test either: `ExecutionDescriptor.project` is still the project's
-//! default package name, and the module root (DES-684) and the Test without a
-//! `go.mod` (DES-687) belong to the runner.
+//! Boundary: this module only reads Go source. The `go` adapter that is
+//! registered is `vtest-adapter-go`, which takes discovery from here and owns
+//! the toolchain: `go test`, the Execution State, and the Go module of a Test.
+//! So the `ExecutionDescriptor` this module puts on a Test (the project's
+//! default package name as `project`, no suite) is replaced there with the
+//! module and the package (DES-643 to DES-645, DES-684, DES-687). `adapter()`
+//! here declares `source_discovery` alone and is not registered. [`test_constructs`] is the one reader of the Test
+//! constructs of a `_test.go` file the runner uses, for the duplicate-name count
+//! (DS-1930, DS-2011) and the shape check (DS-1904).
 
 use std::{
     collections::BTreeMap,
@@ -287,7 +288,42 @@ struct Func {
     has_body: bool,
     /// Whether its parameters are one `*T` or `*<identifier>.T` (DES-685).
     takes_one_testing_t: bool,
+    /// Whether the name is followed by type parameters (`func F[T any]()`).
+    has_type_params: bool,
+    /// Whether anything stands between the parameter list and the body.
+    has_results: bool,
     doc: Option<Doc>,
+}
+
+/// A Test construct (DS-2002) of one `_test.go` file, as the runner's
+/// duplicate-name count (DS-1930, DS-2011) and its shape check (DS-1904) need
+/// it. Reading Go is this module's job, so the runner asks for it here instead
+/// of reading Go a second time.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TestConstruct {
+    /// The function's name, which is its locator (DES-683) and its selector
+    /// (DES-645).
+    pub name: String,
+    /// Whether `go test` can run it: no type parameters, exactly one `*T`
+    /// parameter and no result (DS-1904). A construct of another shape is one
+    /// the runner cannot execute (DS-1901).
+    pub runnable_shape: bool,
+}
+
+/// The Test constructs (DS-2002) in `source`, the text of a `_test.go` file, in
+/// source order, whether declared or not. A text that cannot be read with
+/// confidence is an error (DS-2010, DS-2012): nothing is returned from it.
+pub fn test_constructs(source: &str) -> Result<Vec<TestConstruct>, ExtractError> {
+    Ok(read_functions(source)?
+        .into_iter()
+        .filter(|function| function.is_test_construct(true))
+        .map(|function| TestConstruct {
+            runnable_shape: !function.has_type_params
+                && function.takes_one_testing_t
+                && !function.has_results,
+            name: function.name,
+        })
+        .collect())
 }
 
 /// The comment block that ends on the line above a declaration (DS-2004).
@@ -624,8 +660,30 @@ impl Reader<'_> {
             end: self.tokens[last].end,
             has_body,
             takes_one_testing_t: self.takes_one_testing_t(name),
+            has_type_params: self.kind(name + 1) == Some(Kind::Open('[')),
+            has_results: self.has_results(name, last),
             doc,
         })
+    }
+
+    /// Whether a result type stands between the parameter list of the function
+    /// named by `tokens[name]` and its body (or the end of a bodyless
+    /// declaration whose last token is `tokens[last]`).
+    fn has_results(&self, name: usize, last: usize) -> bool {
+        let mut open = name + 1;
+        if self.kind(open) == Some(Kind::Open('[')) {
+            open = self.partner(open) + 1;
+        }
+        if self.kind(open) != Some(Kind::Open('(')) {
+            return false;
+        }
+        let after_parameters = self.partner(open) + 1;
+        let end = if self.kind(last) == Some(Kind::Close('}')) {
+            self.partner(last)
+        } else {
+            last + 1
+        };
+        (after_parameters..end).any(|index| self.tokens[index].kind != Kind::Comment)
     }
 
     /// The type name in the receiver `(c *Calc)`, `(l List[T])`, `(Calc)`, or
@@ -1460,5 +1518,51 @@ func TestAdd(t *testing.T) {
             "calc/good_test.go"
         );
         assert_eq!(outcome.files_scanned, 3);
+    }
+
+    /// DS-1904, DS-2002, DES-685: the Test constructs the runner counts, and the
+    /// shape `go test` runs.
+    /// @vtest.id TEST-ADAPTER-GO-TEST-CONSTRUCTS-FOR-THE-RUNNER
+    /// @vtest.covers VO-ADAPTER-GO-RUNNABLE-TEST-CONSTRUCT-SHAPE, VO-ADAPTER-GO-TEST-CONSTRUCT-IS-A-TEST-FUNCTION-BY-NAME
+    /// @vtest.target crates/vtest-adapter-lexical/src/go.rs::test_constructs
+    /// @vtest.intent test_constructs returns the Test constructs of a _test.go text, declared or not, in source order, and marks as runnable only those with no type parameters, exactly one *T parameter and no result, while methods, benchmarks and a *testing.M TestMain are not returned
+    #[test]
+    fn test_constructs_are_returned_with_whether_go_test_can_run_them() {
+        let source = "package calc\n\nimport \"testing\"\n\n\
+            // @vtest.id TEST-X\n\
+            func TestPlain(t *testing.T) {}\n\
+            func TestAlias(tt *tt.T) {}\n\
+            func TestGeneric[T any](t *testing.T) {}\n\
+            func TestTwo(t *testing.T, n int) {}\n\
+            func TestNone() {}\n\
+            func TestResult(t *testing.T) error { return nil }\n\
+            func TestResults(t *testing.T) (a, b int) { return }\n\
+            func TestStructResult(t *testing.T) struct{ X int } { return struct{ X int }{} }\n\
+            func TestCommented(t *testing.T) /* done */ {}\n\
+            func (s *Suite) TestMethod(t *testing.T) {}\n\
+            func BenchmarkX(b *testing.B) {}\n\
+            func TestMain(m *testing.M) {}\n";
+        let found = test_constructs(source).expect("a readable file");
+        let summary = found
+            .iter()
+            .map(|construct| (construct.name.as_str(), construct.runnable_shape))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            summary,
+            vec![
+                ("TestPlain", true),
+                ("TestAlias", true),
+                ("TestGeneric", false),
+                ("TestTwo", false),
+                ("TestNone", false),
+                ("TestResult", false),
+                ("TestResults", false),
+                ("TestStructResult", false),
+                ("TestCommented", true),
+            ]
+        );
+        // A file that cannot be read gives nothing, not a part of its Tests.
+        assert!(test_constructs("package calc\n\nfunc TestA() {\n").is_err());
+        assert!(test_constructs("package calc\n\n/* never closed\nfunc TestA() {}\n").is_err());
     }
 }

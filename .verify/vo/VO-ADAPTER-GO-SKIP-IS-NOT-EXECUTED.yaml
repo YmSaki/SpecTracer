@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-SKIP-IS-NOT-EXECUTED
+parent: null
+derives_from:
+- doc: DS-1908
+claim: そのTest関数に対して`go test`がスキップを報告した場合は、runnerが要求したTestを実行しなかったと報告した場合（DS-747、DS-748）として扱う。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:53Z
+updated: 2026-11-21T09:14:53Z

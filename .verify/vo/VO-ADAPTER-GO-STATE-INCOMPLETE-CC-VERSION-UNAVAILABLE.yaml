@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-STATE-INCOMPLETE-CC-VERSION-UNAVAILABLE
+parent: null
+derives_from:
+- doc: DES-680
+claim: 標準library（goが標準libraryと分類するパッケージ。`go list`の`Standard`がtrueのもので、GOROOT/srcのパッケージ。import pathの形では判定しない）のパッケージが使うcgoはtoolchainの一部として扱い、DES-624のtoolchain identityで束縛する。`CGO_ENABLED`が`1`で、`CC`に`--version`を与えた出力を取得できない場合、`go` adapterはsnapshotを完全と報告しない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:55Z
+updated: 2026-11-21T09:14:55Z

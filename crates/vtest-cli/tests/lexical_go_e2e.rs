@@ -31,7 +31,7 @@ func TestAdd(t *testing.T) {
 /// @vtest.id TEST-CLI-GO-ADAPTER-SCAN-AND-VERIFY
 /// @vtest.covers VO-ADAPTER-GO-REGISTERS-WITHOUT-CORE-CHANGES
 /// @vtest.target crates/vtest-ops/src/registry.rs::builtin_registry
-/// @vtest.intent verifies the go adapter is in the built-in registry and a declared Go Test is scanned, linked to its VO and target, and verified with chain_integrity and orphan_detection PASS and the runner-dependent checks NO_EVIDENCE
+/// @vtest.intent verifies the go adapter is in the built-in registry and a declared Go Test is scanned, linked to its VO and target, and verified with chain_integrity and orphan_detection PASS, oracle_presence NO_EVIDENCE with NOT_CHECKED, and target_binding NO_EVIDENCE with NOT_CHECKED only (the adapter has a runner, so NOT_EXECUTED no longer applies, and no Coverage capability)
 #[test]
 fn go_adapter_scans_and_verifies_through_the_cli_registry() {
     let fixture = support::fixture(
@@ -44,7 +44,27 @@ fn go_adapter_scans_and_verifies_through_the_cli_registry() {
     assert_eq!(scan.tests.len(), 1);
     assert_eq!(scan.tests[0].id.as_str(), "TEST-FIXTURE-GO-ADD");
     assert_eq!(scan.tests[0].execution.adapter.as_str(), "go");
-    support::assert_discovery_only_verdict(&outcome, "TEST-FIXTURE-GO-ADD");
+    let id = "TEST-FIXTURE-GO-ADD";
+    let (chain, _) = support::state_of(&outcome, VerificationCheck::ChainIntegrity, id);
+    assert_eq!(chain, VerificationState::Pass, "chain_integrity");
+    let (orphan, _) = support::state_of(&outcome, VerificationCheck::OrphanDetection, id);
+    assert_eq!(orphan, VerificationState::Pass, "orphan_detection");
+    assert_eq!(
+        support::state_of(&outcome, VerificationCheck::OraclePresence, id),
+        (
+            VerificationState::NoEvidence,
+            vec![DiagnosticLabel::NotChecked]
+        )
+    );
+    // go declares a runner and no coverage: the Test has no Evidence yet, and
+    // even with Evidence its target_binding could not be read (DS-1581).
+    assert_eq!(
+        support::state_of(&outcome, VerificationCheck::TargetBinding, id),
+        (
+            VerificationState::NoEvidence,
+            vec![DiagnosticLabel::NotChecked]
+        )
+    );
 }
 
 /// @vtest.id TEST-CLI-GO-BODY-TAIL-CHANGES-SUBJECT-HASH

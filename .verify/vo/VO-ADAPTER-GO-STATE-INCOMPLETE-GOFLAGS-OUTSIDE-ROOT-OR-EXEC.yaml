@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-STATE-INCOMPLETE-GOFLAGS-OUTSIDE-ROOT-OR-EXEC
+parent: null
+derives_from:
+- doc: DES-630
+claim: '`GOFLAGS`が、fileまたはdirectoryを値に取るflag（`-modfile`、`-overlay`、`-pgo`を含む）でproject rootの外を指すものを含む場合、または`-exec`か`-toolexec`を含む場合、`go` adapterはsnapshotを完全と報告しない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:55Z
+updated: 2026-11-21T09:14:55Z

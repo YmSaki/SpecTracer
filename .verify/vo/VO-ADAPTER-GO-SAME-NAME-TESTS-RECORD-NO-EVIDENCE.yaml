@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-SAME-NAME-TESTS-RECORD-NO-EVIDENCE
+parent: null
+derives_from:
+- doc: DS-1930
+claim: 同じGo moduleの同じpackage directoryに、関数名が完全一致するTest constructが2件以上ある場合（build constraintで同時にはビルドされない場合と、`package x`と`package x_test`に分かれる場合を含む）、または関数名の完全一致で選んだ結果を`go test`が2件以上報告した場合は、それらのTestのどれについてもE-EXEC-005とし、Evidenceを記録しない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:54Z
+updated: 2026-11-21T09:14:54Z

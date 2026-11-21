@@ -246,22 +246,80 @@ pub struct RunnerOutput<'a> {
 /// A runner's per-Test observation.  `Unknown` is deliberately distinct from
 /// a successful or failed execution so that orchestration can reject a
 /// missing or unparseable result without creating Evidence.
+///
+/// `Unknown` says the runner could not classify the run: orchestration then
+/// reads the process status, `E-EXEC-001` when it failed and `E-EXEC-002` when
+/// it did not (DS-758, DS-749; `rust-cargo` reads its output no further). A
+/// runner that can tell the cases apart reports them itself with the three
+/// variants below, and orchestration reports the code each one names without
+/// consulting the status.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RunnerTestResult {
     Pass,
     Fail,
     Ignored,
     Unknown,
+    /// The Test's package did not build: `E-EXEC-001`, no Evidence (DS-1910).
+    BuildFailed,
+    /// The runner reported no result for the Test and no build failure:
+    /// `E-EXEC-002`, no Evidence (DS-1909).
+    NoResult,
+    /// The runner reported more than one result for the Test: `E-EXEC-005`, no
+    /// Evidence (DS-1930, DS-1931).
+    Ambiguous,
 }
 
 /// Deterministic failures while interpreting an opaque execution descriptor.
+///
+/// The first five say the descriptor is not one this adapter can read; they
+/// stop the whole run (`E-ADAPTER-003`). The last three refuse one Test and
+/// the run goes on with the others (DS-1903): see
+/// [`TestRunnerError::refuses_one_test`].
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TestRunnerError {
     MissingProject,
     MissingSuite,
-    MissingSuiteName { kind: String },
+    MissingSuiteName {
+        kind: String,
+    },
     MissingCoverageOutputPath,
-    UnsupportedSuiteKind { kind: String },
+    UnsupportedSuiteKind {
+        kind: String,
+    },
+    /// The runner cannot execute this Test construct: no Evidence and the
+    /// warning `W-EXEC-102` (DS-1901, DS-1932).
+    NotExecutable {
+        reason: String,
+    },
+    /// The Test cannot be selected uniquely: no Evidence and the error
+    /// `E-EXEC-005` (DS-1930, DS-1931).
+    NotUniquelySelectable {
+        reason: String,
+    },
+    /// Whether the Test is selected uniquely could not be established: no
+    /// Evidence, and no diagnostic, because the canon defines no code for it
+    /// (DS-2012).
+    SelectionUndetermined {
+        reason: String,
+    },
+}
+
+impl TestRunnerError {
+    /// Whether this refuses only the Test it was returned for, so that the run
+    /// goes on with the others (DS-1903), instead of stopping the run.
+    #[must_use]
+    pub fn refuses_one_test(&self) -> bool {
+        match self {
+            Self::NotExecutable { .. }
+            | Self::NotUniquelySelectable { .. }
+            | Self::SelectionUndetermined { .. } => true,
+            Self::MissingProject
+            | Self::MissingSuite
+            | Self::MissingSuiteName { .. }
+            | Self::MissingCoverageOutputPath
+            | Self::UnsupportedSuiteKind { .. } => false,
+        }
+    }
 }
 
 impl std::fmt::Display for TestRunnerError {
@@ -278,6 +336,9 @@ impl std::fmt::Display for TestRunnerError {
             Self::UnsupportedSuiteKind { kind } => {
                 write!(f, "unsupported execution suite kind {kind:?}")
             }
+            Self::NotExecutable { reason }
+            | Self::NotUniquelySelectable { reason }
+            | Self::SelectionUndetermined { reason } => f.write_str(reason),
         }
     }
 }

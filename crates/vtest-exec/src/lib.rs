@@ -260,12 +260,25 @@ pub fn run_tests_with_runner(
         let record_id = new_record_id();
         let coverage_path =
             coverage_is_available.then(|| cov_dir.join(format!("{record_id}.json")));
-        let command_spec = runner.command(
+        let command_spec = match runner.command(
             root,
             &test.entity.execution,
             coverage_path.is_some(),
             coverage_path.as_deref(),
-        )?;
+        ) {
+            Ok(command_spec) => command_spec,
+            // DS-1903: a Test the runner declines does not stop the others.
+            // No Evidence is recorded for it, and the diagnostic is the one the
+            // refusal names (DS-1901, DS-1930); a refusal that names none
+            // (DS-2012) records nothing.
+            Err(error) if error.refuses_one_test() => {
+                if let Some(diagnostic) = refusal_diagnostic(test, &error) {
+                    diagnostics.push(diagnostic);
+                }
+                continue;
+            }
+            Err(error) => return Err(error.into()),
+        };
         let before_draft = runner
             .execution_state(
                 root,
@@ -468,12 +481,72 @@ pub fn run_tests_with_runner(
                     .with_location(test.entity.location.clone()),
                 );
             }
+            // The runner classified the run itself, so the process status does
+            // not choose the code (DS-1909, DS-1910, DS-1931).
+            RunnerTestResult::BuildFailed => diagnostics.push(
+                Diagnostic::error(
+                    "E-EXEC-001",
+                    format!(
+                        "the package of requested Test {} did not build (DS-1910)",
+                        test.entity.id
+                    ),
+                )
+                .with_location(test.entity.location.clone()),
+            ),
+            RunnerTestResult::NoResult => diagnostics.push(
+                Diagnostic::error(
+                    "E-EXEC-002",
+                    format!(
+                        "the runner reported no result for requested Test {} (DS-1909)",
+                        test.entity.id
+                    ),
+                )
+                .with_location(test.entity.location.clone()),
+            ),
+            RunnerTestResult::Ambiguous => diagnostics.push(
+                Diagnostic::error(
+                    "E-EXEC-005",
+                    format!(
+                        "the runner reported more than one result for requested Test {} (DS-1930)",
+                        test.entity.id
+                    ),
+                )
+                .with_location(test.entity.location.clone()),
+            ),
         }
     }
     Ok(ExecutionResult {
         evidence,
         diagnostics,
     })
+}
+
+/// The diagnostic a runner's refusal of one Test is reported as: `W-EXEC-102`
+/// for a Test construct it cannot execute (DS-1901) and `E-EXEC-005` for a Test
+/// it cannot select uniquely (DS-1930). `None` for a refusal the canon names no
+/// code for (DS-2012).
+fn refusal_diagnostic(
+    test: &RunnableTest,
+    error: &vtest_adapter_api::TestRunnerError,
+) -> Option<Diagnostic> {
+    use vtest_adapter_api::TestRunnerError;
+    let diagnostic = match error {
+        TestRunnerError::NotExecutable { reason } => Diagnostic::warning(
+            "W-EXEC-102",
+            format!("Test {} is not executed: {reason}", test.entity.id),
+        ),
+        TestRunnerError::NotUniquelySelectable { reason } => Diagnostic::error(
+            "E-EXEC-005",
+            format!("Test {} is not run: {reason}", test.entity.id),
+        ),
+        TestRunnerError::SelectionUndetermined { .. }
+        | TestRunnerError::MissingProject
+        | TestRunnerError::MissingSuite
+        | TestRunnerError::MissingSuiteName { .. }
+        | TestRunnerError::MissingCoverageOutputPath
+        | TestRunnerError::UnsupportedSuiteKind { .. } => return None,
+    };
+    Some(diagnostic.with_location(test.entity.location.clone()))
 }
 
 pub fn git_revision(root: &Path) -> Revision {

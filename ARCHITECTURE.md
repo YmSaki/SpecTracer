@@ -19,7 +19,7 @@ only; dev-dependencies, which only tests use, are left out.
 | `vtest-adapter-api` | adapter contract | capability traits, hash-free DTOs, `AdapterRegistry`, the Test wire shape | `model` |
 | `vtest-adapter-rust` | adapter | the `rust-cargo` adapter: Rust discovery with `syn`, Cargo test execution, `cargo llvm-cov` coverage, static oracle analysis | `adapter-api`, `model` |
 | `vtest-adapter-lexical` | adapter | framework-neutral, discovery-only adapters for eleven other languages (experimental; see below), and the Go discovery that `vtest-adapter-go` reuses | `adapter-api`, `model` |
-| `vtest-adapter-go` | adapter | the `go` adapter (BD-350, BD-357): Go discovery, delegated to the `go` module of `vtest-adapter-lexical`, plus the Go toolchain parts as they land | `adapter-lexical` (discovery only), `adapter-api`, `model` |
+| `vtest-adapter-go` | adapter | the `go` adapter (BD-350, BD-357): Go discovery, delegated to the `go` module of `vtest-adapter-lexical`; the `go test` runner and its Execution State. No coverage or static analysis yet | `adapter-lexical` (discovery only), `adapter-api`, `model` |
 | `vtest-adapter-synthetic` | adapter | a test-only adapter proving the core assumes nothing about Rust; not registered in the product | `adapter-api`, `model` |
 | `vtest-scan` | orchestration | discovery delegation, output validation, deterministic merge by adapter id, record integrity, Structured Test Operations | `adapter-api`, `store`, `model` |
 | `vtest-exec` | orchestration | running tests through the adapter runner, target-coverage attribution, Evidence recording | `adapter-api`, `store`, `model` |

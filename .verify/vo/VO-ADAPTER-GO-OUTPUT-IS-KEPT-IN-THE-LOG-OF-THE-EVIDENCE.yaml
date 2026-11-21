@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-OUTPUT-IS-KEPT-IN-THE-LOG-OF-THE-EVIDENCE
+parent: null
+derives_from:
+- doc: DES-652
+claim: stdout / stderrの全文は`cache/logs/<ULID>.log`へ保存し、Evidenceの`log_ref`から参照する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:52Z
+updated: 2026-11-21T09:14:52Z

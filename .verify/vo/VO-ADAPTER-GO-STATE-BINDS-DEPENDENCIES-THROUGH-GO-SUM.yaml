@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-STATE-BINDS-DEPENDENCIES-THROUGH-GO-SUM
+parent: null
+derives_from:
+- doc: DES-625
+claim: '`go-execution-state-v1` では、project rootの外にあって実行結果を変えうるもののうち、`go.sum`で内容が束縛される依存moduleだけをmanifestの外に置いてよい。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:54Z
+updated: 2026-11-21T09:14:54Z
