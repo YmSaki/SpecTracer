@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-TARGET-WITH-NO-BLOCK-IS-UNKNOWN
+parent: null
+derives_from:
+- doc: DES-666
+claim: '開始位置が宣言targetのsource範囲に入るblockが1件もない場合、そのtargetは関数が見つからない場合（`UNKNOWN`）として扱う。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T10:20:00Z
+updated: 2026-11-21T10:20:00Z

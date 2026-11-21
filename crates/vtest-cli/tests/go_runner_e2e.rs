@@ -7,20 +7,22 @@
 //! instead of passing without having run anything.
 //!
 //! The Evidence of a Go Test is never turned into a `PASS` here, whatever the
-//! Test did: the adapter declares no Coverage capability, so `target_binding`
-//! is `NO_EVIDENCE` (`NOT_CHECKED`) for every Go Test (DS-1581), and no static
-//! analysis, so `oracle_presence` is too (DS-614). The wrong-outcome tests below
-//! check that the Evidence is the true one and that nothing is `PASS`.
+//! Test did: the Tests are run with `--fast` (DS-1923), so their `target_coverage`
+//! is not checked and `target_binding` is `NO_EVIDENCE` (`NOT_CHECKED`, DS-778),
+//! the adapter has no static analysis, so `oracle_presence` is too (DS-614), and
+//! a Test that did not produce Evidence is `NO_EVIDENCE` (`NOT_EXECUTED`,
+//! DS-825) or, when the runner reported a failure, `FAIL` (DS-830). The
+//! wrong-outcome tests below check that the Evidence is the true one and that
+//! each state is the one of its clause. `go_coverage_e2e.rs` has the runs that
+//! measure coverage.
 
 mod support;
 
-use std::{fs, path::Path, process::Command};
+use std::fs;
 
+use support::go_project::{codes, only_evidence, project, run_and_verify, state_of, state_of_test};
 use vtest_exec::ExecutionResult;
-use vtest_model::{
-    DiagnosticLabel, EvidenceRecord, TestResult, VerificationCheck, VerificationState,
-};
-use vtest_ops::run::RunTarget;
+use vtest_model::{DiagnosticLabel, TestResult, VerificationCheck, VerificationState};
 use vtest_scan::scan_project;
 use vtest_store::VerifyLayout;
 use vtest_verify::{verify_project, VerifyOutcome};
@@ -28,53 +30,6 @@ use vtest_verify::{verify_project, VerifyOutcome};
 const GO_MOD: &str = "module app\n\ngo 1.21\n";
 const CALC: &str = "package app\n\nfunc Add(a, b int) int { return a + b }\n";
 const TARGET: &str = "app/calc.go::Add";
-
-fn require_tool(tool: &str, args: &[&str]) {
-    let ran = Command::new(tool)
-        .args(args)
-        .output()
-        .ok()
-        .filter(|output| output.status.success());
-    assert!(
-        ran.is_some(),
-        "`{tool}` must be on PATH: the go runner tests run the real toolchain"
-    );
-}
-
-fn git(root: &Path, args: &[&str]) {
-    let output = Command::new("git")
-        .current_dir(root)
-        .args(["-c", "commit.gpgsign=false", "-c", "gpg.format=openpgp"])
-        .args(args)
-        .output()
-        .unwrap_or_else(|error| panic!("failed to run git {args:?}: {error}"));
-    assert!(
-        output.status.success(),
-        "git {args:?} failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-}
-
-/// A Go project whose only adapter is `go`, committed to a fresh git
-/// repository (Evidence binds the HEAD revision, DS-265).
-fn project(files: &[(&str, &str)]) -> support::Fixture {
-    require_tool("go", &["version"]);
-    require_tool("git", &["--version"]);
-    let fixture = support::fixture("go", files, &["VO-FIXTURE-ONE"]);
-    commit(&fixture);
-    fixture
-}
-
-fn commit(fixture: &support::Fixture) {
-    git(&fixture.root, &["init", "-q"]);
-    git(
-        &fixture.root,
-        &["config", "user.email", "vtest@example.com"],
-    );
-    git(&fixture.root, &["config", "user.name", "vtest fixture"]);
-    git(&fixture.root, &["add", "."]);
-    git(&fixture.root, &["commit", "-q", "-m", "fixture"]);
-}
 
 /// A declared Test function; `body` is Go.
 fn declared(id: &str, name: &str, body: &str) -> String {
@@ -100,67 +55,11 @@ fn calc_project(test_source: &str) -> support::Fixture {
     ])
 }
 
-/// `vtest run --all` (or `--fast`) and then `vtest verify`.
-fn run_and_verify(fixture: &support::Fixture, fast: bool) -> (ExecutionResult, VerifyOutcome) {
-    let registry = vtest_ops::registry::builtin_registry().expect("builtin registry");
-    let scan = scan_project(&fixture.root, &registry).expect("scan");
-    assert!(!scan.has_errors(), "{:?}", scan.diagnostics);
-    let layout = VerifyLayout::new(&fixture.root);
-    let result = vtest_ops::run::run(
-        &fixture.root,
-        &layout,
-        &scan,
-        &RunTarget::All,
-        fast,
-        &registry,
-    )
-    .expect("run");
-    let after = scan_project(&fixture.root, &registry).expect("rescan");
-    let outcome = verify_project(&fixture.root, &after, None, None, &registry);
-    (result, outcome)
-}
-
-fn codes(result: &ExecutionResult) -> Vec<&str> {
-    result
-        .diagnostics
-        .iter()
-        .map(|diagnostic| diagnostic.code.as_str())
-        .collect()
-}
-
-fn only_evidence(result: &ExecutionResult) -> &EvidenceRecord {
-    assert_eq!(result.evidence.len(), 1, "{:?}", result.diagnostics);
-    &result.evidence[0]
-}
-
-/// The state and labels of `check` for the Tests of the project: every
-/// outcome of that check must have the same state, which is returned.
-fn state_of(
-    outcome: &VerifyOutcome,
-    check: VerificationCheck,
-) -> (VerificationState, Vec<DiagnosticLabel>) {
-    let matching: Vec<_> = outcome
-        .all_outcomes()
-        .into_iter()
-        .filter(|candidate| candidate.check == check)
-        .collect();
-    assert!(!matching.is_empty(), "no {check:?} outcome");
-    assert!(
-        matching
-            .iter()
-            .all(|candidate| (candidate.state, &candidate.labels)
-                == (matching[0].state, &matching[0].labels)),
-        "{matching:?}"
-    );
-    (matching[0].state, matching[0].labels.clone())
-}
-
 /// Nothing a wrong outcome produced may stand as `PASS`: no `PASS` Evidence, and
-/// `NO_EVIDENCE` for the checks that read Evidence or the adapter's
-/// capabilities. The labels are not pinned: with a runner and no Coverage
-/// capability the gate of `evaluate_target_binding` gives `NOT_CHECKED` only,
-/// where DS-748, DS-825 and DS-1902 ask for `NOT_EXECUTED` for a Test that was
-/// not executed.
+/// `target_binding` is the state of its clause: `FAIL` for the Evidence of a
+/// failing Test (DS-830) and `NO_EVIDENCE` with `NOT_EXECUTED` for a Test that
+/// has no Evidence (DS-825); `oracle_presence` is `NO_EVIDENCE` with
+/// `NOT_CHECKED`, the adapter having no static analysis (DS-614).
 fn assert_nothing_passes(result: &ExecutionResult, outcome: &VerifyOutcome) {
     assert!(
         result
@@ -170,16 +69,25 @@ fn assert_nothing_passes(result: &ExecutionResult, outcome: &VerifyOutcome) {
         "{:?}",
         result.evidence
     );
-    for check in [
-        VerificationCheck::TargetBinding,
-        VerificationCheck::OraclePresence,
-    ] {
-        assert_eq!(
-            state_of(outcome, check).0,
+    let target_binding = if result.evidence.is_empty() {
+        (
             VerificationState::NoEvidence,
-            "{check:?}"
-        );
-    }
+            vec![DiagnosticLabel::NotExecuted],
+        )
+    } else {
+        (VerificationState::Fail, Vec::new())
+    };
+    assert_eq!(
+        state_of(outcome, VerificationCheck::TargetBinding),
+        target_binding
+    );
+    assert_eq!(
+        state_of(outcome, VerificationCheck::OraclePresence),
+        (
+            VerificationState::NoEvidence,
+            vec![DiagnosticLabel::NotChecked]
+        )
+    );
 }
 
 /// DES-647 to DES-652, DS-1905 to DS-1907: a passing Test is run by `go test`
@@ -266,34 +174,47 @@ fn a_passing_go_test_records_pass_evidence_and_target_binding_stays_not_checked(
     );
 }
 
-/// DS-1923, DS-1102, DS-760: with or without `--fast` no coverage is measured;
-/// without it the missing capability is reported as W-EXEC-101, with it not.
-/// @vtest.id TEST-CLI-GO-RUN-HAS-NO-COVERAGE-IN-EITHER-MODE
-/// @vtest.covers VO-ADAPTER-GO-FAST-MODE-HAS-NO-COVERAGE, VO-EXEC-COVERAGE-UNAVAILABLE-NOT-CHECKED
+/// DS-1923, DS-1926, DS-1102: with `--fast` no coverage is measured and the
+/// command specifies none; without it the default mode measures coverage.
+/// @vtest.id TEST-CLI-GO-FAST-RUNS-WITHOUT-COVERAGE-AND-THE-DEFAULT-MEASURES-IT
+/// @vtest.covers VO-ADAPTER-GO-FAST-MODE-HAS-NO-COVERAGE, VO-ADAPTER-GO-DEFAULT-MODE-MEASURES-COVERAGE
 /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
-/// @vtest.intent a Go Test run with and without fast records the same go test command and an unchecked target_coverage with no method, result, targets or count, and only the run without fast reports W-EXEC-101
+/// @vtest.intent a Go Test run with fast records the plain go test command of runner kind go-test and an unchecked target_coverage with no method, result, targets or count, and the run without fast records the go test command with the coverage options of runner kind go-test-cover and a target_coverage checked with the method go-cover, and neither reports a diagnostic
 #[test]
-fn a_go_test_is_run_without_coverage_with_or_without_fast() {
+fn a_go_test_is_run_without_coverage_with_fast_and_with_it_by_default() {
     let fixture = calc_project(&test_file(
         &["testing"],
         &declared("TEST-E2E-GO-FAST", "TestAdd", "\t_ = Add(1, 2)"),
     ));
     let fast = run_and_verify(&fixture, true).0;
-    let slow = run_and_verify(&fixture, false).0;
-    for result in [&fast, &slow] {
-        let record = only_evidence(result);
-        assert_eq!(record.result, TestResult::Pass);
-        assert_eq!(
-            record.runner.command,
-            "go test ./app -run ^TestAdd$ -count=1 -json"
-        );
-        let coverage = &record.target_coverage;
-        assert!(!coverage.checked);
-        assert!(coverage.method.is_none() && coverage.result.is_none());
-        assert!(coverage.targets.is_empty() && coverage.count.is_none());
-    }
+    let record = only_evidence(&fast);
+    assert_eq!(record.result, TestResult::Pass);
+    assert_eq!(record.runner.kind, "go-test");
+    assert_eq!(
+        record.runner.command,
+        "go test ./app -run ^TestAdd$ -count=1 -json"
+    );
+    let coverage = &record.target_coverage;
+    assert!(!coverage.checked);
+    assert!(coverage.method.is_none() && coverage.result.is_none());
+    assert!(coverage.targets.is_empty() && coverage.count.is_none());
     assert!(codes(&fast).is_empty());
-    assert_eq!(codes(&slow), ["W-EXEC-101"]);
+
+    let measured = run_and_verify(&fixture, false).0;
+    let record = only_evidence(&measured);
+    assert_eq!(record.result, TestResult::Pass);
+    assert_eq!(record.runner.kind, "go-test-cover");
+    assert!(
+        record.runner.command.starts_with(
+            "go test ./app -run ^TestAdd$ -count=1 -json -covermode=atomic -coverpkg=./... \
+             -coverprofile=.verify/cache/cov/"
+        ),
+        "{}",
+        record.runner.command
+    );
+    assert!(record.target_coverage.checked);
+    assert_eq!(record.target_coverage.method.as_deref(), Some("go-cover"));
+    assert!(codes(&measured).is_empty(), "{:?}", measured.diagnostics);
 }
 
 /// DS-1907, DS-830: a failing Test is `FAIL` Evidence and nothing is `PASS`.
@@ -582,9 +503,29 @@ fn a_test_in_no_go_module_is_w_exec_102_and_the_rest_of_the_run_goes_on() {
     );
     assert_eq!(codes(&result), ["W-EXEC-102"]);
     assert!(!result.has_errors());
-    assert_ne!(
-        state_of(&outcome, VerificationCheck::TargetBinding).0,
-        VerificationState::Pass
+    // The Test that was run has unchecked coverage; the one that was not has no
+    // Evidence at all.
+    assert_eq!(
+        state_of_test(
+            &outcome,
+            "TEST-E2E-GO-MODULE",
+            VerificationCheck::TargetBinding
+        ),
+        (
+            VerificationState::NoEvidence,
+            vec![DiagnosticLabel::NotChecked]
+        )
+    );
+    assert_eq!(
+        state_of_test(
+            &outcome,
+            "TEST-E2E-GO-NOMOD",
+            VerificationCheck::TargetBinding
+        ),
+        (
+            VerificationState::NoEvidence,
+            vec![DiagnosticLabel::NotExecuted]
+        )
     );
 }
 
@@ -710,16 +651,16 @@ fn a_test_that_writes_into_the_project_is_e_exec_004_and_records_no_evidence() {
     );
 }
 
-/// DS-1581, DS-822: Evidence of a Go Test is not read for `target_binding`
-/// because the adapter has no Coverage capability, so a change after the run
-/// shows as not checked, not as a stale Evidence; the binding itself is the
-/// snapshot's (see the adapter's Execution State tests).
-/// @vtest.id TEST-CLI-GO-CHANGE-AFTER-THE-RUN-STAYS-NOT-CHECKED
-/// @vtest.covers VO-VERIFY-TARGET-BINDING-NO-COVERAGE-CAPABILITY
+/// DS-821, DS-1394: Evidence of a Go Test is read for `target_binding`, so a
+/// change of a file of the project after the run makes it stale: `NO_EVIDENCE`
+/// with `STALE`, not the `NOT_CHECKED` of the Evidence as it was; the binding
+/// itself is the snapshot's (see the adapter's Execution State tests).
+/// @vtest.id TEST-CLI-GO-CHANGE-AFTER-THE-RUN-IS-STALE
+/// @vtest.covers VO-VERIFY-EXECUTION-STATE-HASH-MISMATCH-STALE
 /// @vtest.target crates/vtest-verify/src/lib.rs::evaluate_target_binding
-/// @vtest.intent after a Go Test was run and a file of the project then changed, verification still reports target_binding as NO_EVIDENCE with NOT_CHECKED only, not as PASS, and the Evidence recorded before the change is the one on disk
+/// @vtest.intent after a Go Test was run and a file of the project then changed, verification reports target_binding as NO_EVIDENCE with STALE only, not as PASS
 #[test]
-fn a_change_after_the_run_is_never_a_pass_and_stays_not_checked() {
+fn a_change_after_the_run_is_stale() {
     let fixture = calc_project(&test_file(
         &["testing"],
         &declared("TEST-E2E-GO-STALE", "TestAdd", "\t_ = Add(1, 2)"),
@@ -736,10 +677,7 @@ fn a_change_after_the_run_is_never_a_pass_and_stays_not_checked() {
     let outcome = verify_project(&fixture.root, &scan, None, None, &registry);
     assert_eq!(
         state_of(&outcome, VerificationCheck::TargetBinding),
-        (
-            VerificationState::NoEvidence,
-            vec![DiagnosticLabel::NotChecked]
-        )
+        (VerificationState::NoEvidence, vec![DiagnosticLabel::Stale])
     );
 }
 
@@ -783,8 +721,28 @@ fn a_directory_with_a_wildcard_in_its_name_takes_no_other_packages_result() {
         "go test ./axb -run ^TestAdd$ -count=1 -json"
     );
     assert_eq!(codes(&result), ["W-EXEC-102"]);
+    // The Test that has Evidence of its own is unchecked; the one that was not
+    // run has none, and takes nothing from the other.
     assert_eq!(
-        state_of(&outcome, VerificationCheck::TargetBinding).0,
-        VerificationState::NoEvidence
+        state_of_test(
+            &outcome,
+            "TEST-E2E-GO-WILD-B",
+            VerificationCheck::TargetBinding
+        ),
+        (
+            VerificationState::NoEvidence,
+            vec![DiagnosticLabel::NotChecked]
+        )
+    );
+    assert_eq!(
+        state_of_test(
+            &outcome,
+            "TEST-E2E-GO-WILD-A",
+            VerificationCheck::TargetBinding
+        ),
+        (
+            VerificationState::NoEvidence,
+            vec![DiagnosticLabel::NotExecuted]
+        )
     );
 }

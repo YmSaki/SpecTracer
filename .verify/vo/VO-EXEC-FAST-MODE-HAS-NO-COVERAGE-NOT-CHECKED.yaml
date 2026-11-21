@@ -1,0 +1,11 @@
+id: VO-EXEC-FAST-MODE-HAS-NO-COVERAGE-NOT-CHECKED
+parent: null
+derives_from:
+- doc: DS-778
+claim: '`--fast`モードはカバレッジ計測をせずにTestを実行し、`target_coverage.checked: false`で記録し、検証時は`NO_EVIDENCE`（診断`NOT_CHECKED`）とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T10:20:00Z
+updated: 2026-11-21T10:20:00Z

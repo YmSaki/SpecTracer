@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-UNUSABLE-NO-TEST-RUN-MAKES-TARGETS-UNKNOWN
+parent: null
+derives_from:
+- doc: DES-679
+claim: 'Testを選ばない実行がカバレッジプロファイルを残さなかった場合、またはその`go test`が0以外の終了コードで終わった場合は、その実行の実行回数を0と読まず、選択Testの宣言targetをすべて`UNKNOWN`とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T10:20:00Z
+updated: 2026-11-21T10:20:00Z

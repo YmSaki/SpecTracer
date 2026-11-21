@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-MEASURED-RUN-ADDS-COVER-OPTIONS
+parent: null
+derives_from:
+- doc: DES-663
+claim: '計測時は、`go test`の起動に`-covermode=atomic`、module内の全パッケージを計測対象にする`-coverpkg=./...`、および`-coverprofile`を加える。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T10:20:00Z
+updated: 2026-11-21T10:20:00Z

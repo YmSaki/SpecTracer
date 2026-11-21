@@ -8,6 +8,7 @@
     reason = "each test binary includes this module and uses a different part of it"
 )]
 
+pub mod go_project;
 pub mod spec_acceptance;
 
 use std::{

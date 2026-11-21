@@ -6,7 +6,7 @@
 
 use std::{
     fs,
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::atomic::{AtomicU64, Ordering},
 };
 
@@ -342,6 +342,79 @@ fn the_command_is_go_test_for_one_package_by_exact_name_without_the_cache() {
         .map(|c| invocation_args(&c))
         .expect("coordinates");
     assert_eq!(root_package[1], "./.");
+}
+
+/// DES-663, DES-675, DES-673, DS-1926: the measured command adds the cover
+/// options and the profile to the Test's command, the run that selects no Test
+/// is the same with `-run ^$` and a profile of its own, and both are of the
+/// runner kind of a measured run; a measured run has nowhere to write without a
+/// path.
+/// @vtest.id TEST-ADAPTER-GO-MEASURED-COMMANDS-ADD-THE-COVER-OPTIONS
+/// @vtest.covers VO-ADAPTER-GO-MEASURED-RUN-ADDS-COVER-OPTIONS, VO-ADAPTER-GO-DEFAULT-MODE-MEASURES-COVERAGE, VO-ADAPTER-GO-MEASURES-THE-RUN-THAT-SELECTS-NO-TEST, VO-ADAPTER-GO-PROFILES-ARE-SEPARATE-FILES-UNDER-CACHE-COV
+/// @vtest.target crates/vtest-adapter-go/src/runner.rs::measured_args
+/// @vtest.intent the command with coverage is the plain command with -covermode=atomic, -coverpkg=./... and -coverprofile to the given path, of kind go-test-cover with the path relative to the project root in its command line, the command of the run that selects no Test differs from it in -run ^$ and in the path of its own profile only, a measured command without a path is an error, and no baseline command is made for a descriptor that is not the adapter's
+#[test]
+fn the_measured_commands_add_the_cover_options_and_the_run_that_selects_no_test() {
+    let fixture = project(&[
+        ("services/api/go.mod", b"module api\n\ngo 1.21\n"),
+        (
+            "services/api/h/h_test.go",
+            &test_file(&declared("TEST-GO-COV", "TestCmd")),
+        ),
+    ]);
+    let execution = execution(Some("services/api"), Some("h"), "TestCmd");
+    let runner = GoTestRunner::new();
+    let selected = fixture.root.join(".verify/cache/cov/01SELECTED");
+    let baseline = fixture.root.join(".verify/cache/cov/01BASELINE");
+
+    let spec = runner
+        .command(&fixture.root, &execution, true, Some(&selected))
+        .expect("a measured command");
+    assert_eq!(
+        spec.args,
+        [
+            "test",
+            "./h",
+            "-run",
+            "^TestCmd$",
+            "-count=1",
+            "-json",
+            "-covermode=atomic",
+            "-coverpkg=./...",
+            &format!("-coverprofile={}", selected.to_string_lossy())
+        ]
+    );
+    assert_eq!(
+        spec.command_line,
+        "go test ./h -run ^TestCmd$ -count=1 -json -covermode=atomic -coverpkg=./... \
+         -coverprofile=.verify/cache/cov/01SELECTED"
+    );
+    assert_eq!(spec.runner_kind, "go-test-cover");
+    assert_eq!(spec.current_dir, fixture.root.join("services/api"));
+
+    let other = runner
+        .coverage_baseline_command(&fixture.root, &execution, &baseline)
+        .expect("a command for the run that selects no Test");
+    assert_eq!(other.runner_kind, "go-test-cover");
+    assert_eq!(other.current_dir, spec.current_dir);
+    let mut expected = spec.args.clone();
+    expected[3] = "^$".to_owned();
+    *expected.last_mut().expect("an argument") =
+        format!("-coverprofile={}", baseline.to_string_lossy());
+    assert_eq!(other.args, expected);
+    assert_ne!(other.args.last(), spec.args.last());
+
+    assert_eq!(
+        runner.command(&fixture.root, &execution, true, None),
+        Err(TestRunnerError::MissingCoverageOutputPath)
+    );
+    let foreign = ExecutionDescriptor {
+        project: None,
+        ..execution
+    };
+    assert!(runner
+        .coverage_baseline_command(&fixture.root, &foreign, &baseline)
+        .is_none());
 }
 
 /// An execution descriptor that is not the go adapter's stops the run

@@ -1188,6 +1188,236 @@ mod tests {
         assert_eq!(reached.count, Some(2));
     }
 
+    /// A runner that hands out a run that selects no Test (DES-675), and counts
+    /// the times it was asked for it. By the selector of the Test, that run exits
+    /// 0 (`ok`), exits with a failure status (`fails`) or is a program that cannot
+    /// be started (`unstartable`); `no-result` is a Test whose own run has no
+    /// result.
+    #[derive(Default)]
+    struct BaselineRunner {
+        asked: std::sync::atomic::AtomicUsize,
+    }
+
+    impl TestRunnerAdapter for BaselineRunner {
+        fn id(&self) -> &'static str {
+            "fake-runner"
+        }
+
+        fn command(
+            &self,
+            root: &Path,
+            execution: &ExecutionDescriptor,
+            coverage: bool,
+            coverage_output_path: Option<&Path>,
+        ) -> Result<RunnerCommand, TestRunnerError> {
+            FixedResultRunner.command(root, execution, coverage, coverage_output_path)
+        }
+
+        fn coverage_baseline_command(
+            &self,
+            root: &Path,
+            execution: &ExecutionDescriptor,
+            _coverage_output_path: &Path,
+        ) -> Option<RunnerCommand> {
+            self.asked.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let mut command = FixedResultRunner
+                .command(root, execution, true, None)
+                .ok()?;
+            match execution.selector.as_str() {
+                "fails" => command.args = vec!["--no-such-option-for-vtest".to_owned()],
+                "unstartable" => command.program = "vtest-no-such-program-for-testing".to_owned(),
+                _ => {}
+            }
+            Some(command)
+        }
+
+        fn parse(
+            &self,
+            execution: &ExecutionDescriptor,
+            _output: RunnerOutput<'_>,
+        ) -> RunnerTestResult {
+            match execution.selector.as_str() {
+                "no-result" => RunnerTestResult::NoResult,
+                _ => RunnerTestResult::Pass,
+            }
+        }
+    }
+
+    /// What a coverage adapter that reads the run that selects no Test was given:
+    /// the Test's profile, and the other run's profile and exit code.
+    type SeenRun = (PathBuf, Option<(PathBuf, Option<i32>)>);
+
+    /// A coverage adapter that reads the run that selects no Test, writes no
+    /// extension after the record id, and measures every target as reached.
+    #[derive(Default)]
+    struct BaselineAwareCoverage {
+        seen: std::sync::Mutex<Vec<SeenRun>>,
+    }
+
+    impl CoverageAdapter for BaselineAwareCoverage {
+        fn id(&self) -> &'static str {
+            "baseline-aware"
+        }
+
+        fn method(&self) -> &'static str {
+            "baseline-aware"
+        }
+
+        fn availability(&self, _root: &Path) -> Result<(), CoverageUnavailable> {
+            Ok(())
+        }
+
+        fn measure(
+            &self,
+            _root: &Path,
+            _coverage_output_path: &Path,
+            _targets: &[Locator],
+        ) -> Vec<CoverageTargetMeasurement> {
+            Vec::new()
+        }
+
+        fn output_extension(&self) -> Option<&'static str> {
+            None
+        }
+
+        fn measure_run(
+            &self,
+            run: &vtest_adapter_api::CoverageRun<'_>,
+            targets: &[Locator],
+        ) -> Vec<CoverageTargetMeasurement> {
+            self.seen.lock().expect("the lock").push((
+                run.output_path.to_owned(),
+                run.baseline
+                    .map(|baseline| (baseline.output_path.to_owned(), baseline.exit_code)),
+            ));
+            targets
+                .iter()
+                .map(|target| CoverageTargetMeasurement {
+                    target: target.clone(),
+                    result: TargetCoverageResult::Pass,
+                    count: Some(1),
+                })
+                .collect()
+        }
+    }
+
+    /// DES-675, DES-673, DES-679: the run that selects no Test is run after the
+    /// Test's own run, once for a Test with a result and a target to measure and
+    /// not otherwise (`--fast`, no target, no result); its profile is a file of
+    /// its own under `cache/cov`, named by a record id of its own with the
+    /// extension the adapter names; and what it did, its exit code or that it
+    /// could not be started, is what the coverage adapter reads.
+    /// @vtest.id TEST-EXEC-THE-RUN-THAT-SELECTS-NO-TEST-IS-RUN-AND-READ-WHEN-ITS-PROFILE-IS-NEEDED
+    /// @vtest.covers VO-ADAPTER-GO-MEASURES-THE-RUN-THAT-SELECTS-NO-TEST, VO-ADAPTER-GO-PROFILES-ARE-SEPARATE-FILES-UNDER-CACHE-COV, VO-ADAPTER-GO-UNUSABLE-NO-TEST-RUN-MAKES-TARGETS-UNKNOWN
+    /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
+    /// @vtest.intent for a Test with a result and one target the coverage adapter is given the Test's profile path and the other run's profile path, two different files under cache/cov named by a record id with no extension, and the exit code 0, a failure status, or none for a program that cannot be started, and the run is not made with fast, with no target, or for a Test whose own run has no result
+    #[test]
+    fn the_run_that_selects_no_test_is_run_and_read_when_its_profile_is_needed() {
+        let root = std::env::temp_dir().join(format!("vtest-exec-baseline-{}", new_record_id()));
+        fs::create_dir_all(&root).expect("create fixture root");
+        let layout = vtest_store::VerifyLayout::new(&root);
+        let runner = BaselineRunner::default();
+        let coverage = BaselineAwareCoverage::default();
+        let asked = || runner.asked.load(std::sync::atomic::Ordering::SeqCst);
+        let run = |selector: &str, fast: bool, with_target: bool| {
+            let target = with_target.then(|| rust_locator("src/lib.rs", "double"));
+            let mut test = runnable_test_with_target("TEST-EXEC-BASELINE", target);
+            test.entity.execution.selector = selector.to_owned();
+            run_tests_with_runner(&root, &layout, &[test], fast, &runner, &coverage)
+                .expect("the run goes on")
+        };
+        let cov = layout.cache_dir().join("cov");
+
+        for (selector, exit_code) in [("ok", Some(0)), ("fails", Some(101)), ("unstartable", None)]
+        {
+            let result = run(selector, false, true);
+            assert_eq!(result.evidence.len(), 1, "{selector}");
+            let seen = coverage
+                .seen
+                .lock()
+                .expect("the lock")
+                .pop()
+                .expect("a run");
+            let (selected, other) = (seen.0, seen.1.expect("the other run"));
+            assert_ne!(selected, other.0, "{selector}");
+            for path in [&selected, &other.0] {
+                assert_eq!(path.parent(), Some(cov.as_path()), "{selector}");
+                let name = path.file_name().expect("a name").to_string_lossy();
+                assert!(name.len() == 26 && !name.contains('.'), "{name}");
+            }
+            assert_eq!(other.1, exit_code, "{selector}");
+        }
+        assert_eq!(asked(), 3);
+
+        // Not asked for when its profile would not be read.
+        let seen_before = coverage.seen.lock().expect("the lock").len();
+        let fast = run("ok", true, true);
+        assert!(!fast.evidence[0].target_coverage.checked);
+        assert_eq!(run("ok", false, false).evidence.len(), 1);
+        assert!(run("no-result", false, true).evidence.is_empty());
+        assert_eq!(asked(), 3);
+        // A Test with no target has nothing to measure, so none was read either.
+        assert_eq!(coverage.seen.lock().expect("the lock").len(), seen_before);
+        fs::remove_dir_all(root).expect("remove fixture root");
+    }
+
+    /// DS-1406, DES-675: a coverage adapter whose runner hands out the run that
+    /// selects no Test and that does not read it measures nothing: every target
+    /// is `UNKNOWN`, whatever `measure` says.
+    /// @vtest.id TEST-EXEC-A-COVERAGE-THAT-DOES-NOT-READ-THE-OTHER-RUN-MEASURES-NOTHING
+    /// @vtest.covers VO-ADAPTER-GO-UNCERTAIN-COUNT-IS-UNKNOWN
+    /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
+    /// @vtest.intent with a runner that hands out the run that selects no Test and a coverage adapter that implements only measure, which would give PASS, the target_coverage is checked with the target UNKNOWN and no count, and the same adapter with a runner that hands out no such run is PASS
+    #[test]
+    fn a_coverage_that_does_not_read_the_other_run_measures_nothing() {
+        let root = std::env::temp_dir().join(format!("vtest-exec-baseline-{}", new_record_id()));
+        fs::create_dir_all(&root).expect("create fixture root");
+        let layout = vtest_store::VerifyLayout::new(&root);
+        let coverage = FakeCoverageAdapter {
+            method: "fake-cov",
+            availability: Ok(()),
+            result: TargetCoverageResult::Pass,
+            count: Some(5),
+        };
+        let test = || {
+            let mut test = runnable_test_with_target(
+                "TEST-EXEC-BASELINE-UNREAD",
+                Some(rust_locator("src/lib.rs", "double")),
+            );
+            test.entity.execution.selector = "ok".to_owned();
+            test
+        };
+        let with = run_tests_with_runner(
+            &root,
+            &layout,
+            &[test()],
+            false,
+            &BaselineRunner::default(),
+            &coverage,
+        )
+        .expect("a run");
+        let entry = &with.evidence[0].target_coverage.targets[0];
+        assert_eq!(
+            (entry.result, entry.count),
+            (TargetCoverageResult::Unknown, None)
+        );
+        let without = run_tests_with_runner(
+            &root,
+            &layout,
+            &[test()],
+            false,
+            &FixedResultRunner,
+            &coverage,
+        )
+        .expect("a run");
+        let entry = &without.evidence[0].target_coverage.targets[0];
+        assert_eq!(
+            (entry.result, entry.count),
+            (TargetCoverageResult::Pass, Some(5))
+        );
+        fs::remove_dir_all(root).expect("remove fixture root");
+    }
+
     /// @vtest.id TEST-EXEC-COVERAGE-UNAVAILABLE-NOT-CHECKED
     /// @vtest.covers VO-EXEC-COVERAGE-UNAVAILABLE-NOT-CHECKED
     /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
