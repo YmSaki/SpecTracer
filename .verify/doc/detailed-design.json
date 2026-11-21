@@ -6367,6 +6367,342 @@
       ]
     },
     {
+      "id": "DS-S169",
+      "title": "5.9 `go` SourceDiscoveryAdapter",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+        "heading": "Not in this PR",
+        "lines": [
+          34,
+          37
+        ]
+      },
+      "derives_from": [
+        "SPEC-484",
+        "SPEC-486",
+        "SPEC-235",
+        "SPEC-238"
+      ],
+      "items": [
+        {
+          "id": "DS-2001",
+          "statement": "`go`のdiscoveryは、adapter configのinclude配下にある、名前が`.go`で終わり`_`または`.`で始まらないファイルを、build constraint（`//go:build`の行・`// +build`の行と、`_<GOOS>`・`_<GOARCH>`のファイル名の接尾辞）を評価せずにすべて読む。名前が`testdata`・`vendor`であるdirectoryと、名前が`_`または`.`で始まるdirectoryの中は読まない。",
+          "description": "導出。build constraint は GOOS・GOARCH・build tag に依存するため、評価すると同じ repository 内容から発見結果が一意に決まらない（REQ-153 の決定論性）。また DS-1930 が discovery へ引き渡した義務 (1)（build constraint に関わらず package directory のすべての `_test.go` を列挙する）による。名前が `_` / `.` で始まるファイルと、名前が `testdata` であるか `_` / `.` で始まる directory は、go command がどの build constraint のもとでもパッケージに含めない。`vendor` の中は main module の外のパッケージである。どちらも `go test` が実行する Test（SPEC-484）を含みえない。本条は発見の対象を定める。DS-1930 の件数に使うファイルは DS-2011 が別に定める（include と ignore の設定に関わらない）。同じ層の DS-1930 は辺にしない。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "SPEC-484",
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        },
+        {
+          "id": "DS-2002",
+          "statement": "`go`のdiscoveryは、名前が`_test.go`で終わるファイルの最上位に宣言された、レシーバを持たない関数のうち、名前が`Test`であるか`Test`に小文字以外の文字が続くものを、管理宣言の有無と、型引数・引数・戻り値の形に関わらず、Test constructとして発見する。ただし、名前が`TestMain`である関数は、引数が`*testing.T`型の1つだけである場合に限りTest constructとする。",
+          "description": "導出。SPEC-484 は `_test.go` にあり `go test` が実行する関数を対象とし、go command は名前がこの条件に合う最上位の関数を Test 関数として扱う（形が合わない関数はテストのビルドの失敗にする）。発見の条件を名前だけにし、DS-1904 の形の条件を含めないのは、形の合わない関数を発見から落とすと、REQ-195 の管理対象と DS-1930 の同名の件数の両方から漏れるためである（fail-closed）。形の合わない Test construct は DS-1901 の「runner が実行できない Test construct」であり、Evidence は生成されない（W-EXEC-102）。`TestMain` は、go command が `*testing.M` を受ける場合に Test ではなくテストの main として扱い、引数が `*testing.T` 型の1つだけの場合に限り Test 関数として扱う名前である。名前が `Benchmark`・`Fuzz`・`Example` で始まる関数を Test construct とするかは本条では定めない（未決）。lexical adapter の「`@vtest.` のコメントの直後の construct を Test construct とする」読み方は `go` には使わない。その読み方では管理宣言を持たない Test construct が存在しえず、REQ-195・DS-548・DS-1930 の義務 (2) を満たせない。同じ層の DS-1901・DS-1904・DS-1930 は辺にしない。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "SPEC-484",
+            "SPEC-486",
+            "REQ-195"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        },
+        {
+          "id": "DS-2003",
+          "statement": "`go`のdiscoveryは、レシーバを持つメソッドを、名前とファイルに関わらずTest constructとして発見しない。メソッドの宣言に付いた`@vtest.`の宣言は、Test constructではない関数宣言の宣言（DS-2004の表面2）として読み、その宣言からTestは生じない。",
+          "description": "DS-1930 が discovery へ引き渡した義務 (3)（メソッドに `@vtest.` の宣言が付いていた場合の扱い）を閉じる。導出: DS-1904 はレシーバを持つメソッドを Test construct ではないと定め、`go test` が直接実行するのは最上位の関数だけである（SPEC-484）。testify の suite のメソッドのように Test 関数の中から呼ばれるメソッドも同じである。表面2では test-key は認識されないキーであり、W-SCAN-105（DS-501・DS-551）になる。宣言された Test ID は発見されないため、そのメソッドだけが `covers` で覆う VO は被覆する Test を持たないまま非 PASS に残り、そのメソッドの実行結果が Evidence になることもない。W-SCAN-105 は warning だが、宣言された Test を PASS にする経路は生じない。同じ層の DS-501・DS-551・DS-1904 は辺にしない。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "SPEC-484",
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        },
+        {
+          "id": "DS-2004",
+          "statement": "`go`の`@vtest.`宣言表面は2種である。表面1はTest constructのdoc comment、表面2はTest constructではない最上位の関数宣言（メソッドの宣言を含む）のdoc commentである。doc commentは、最上位の宣言の直前に空行を挟まずに連続して置かれたコメント（`//`の行と`/* */`）とする。",
+          "description": "SPEC-235 が詳細設計へ委ねた annotation syntax のうち、宣言を書く場所を定める。doc comment の範囲は Go の doc comment の規則に従う。`rust-cargo` の DS-484〜DS-486 と同型である。それ以外のコメント（関数本体の中のコメント、`t.Run` の呼出しや、型・変数・定数の宣言に付いたコメント）は表面ではない。表面ではないコメントにある `@vtest.` の行をどう報告するかは本条では定めない（未決）。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "SPEC-235",
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        },
+        {
+          "id": "DS-2005",
+          "statement": "`go`の表面1はtest-annotation-lineを、表面2はsource-target-annotation-lineを認識し、行の文法、キーの値域、valueの扱い、キーの反復、`SRC-`で始まる`target`の値の扱い、および表面ごとの診断（E-SCAN-005・E-SCAN-006・W-SCAN-105）はDS-487〜DS-507・DS-511と同じとする。各行は、コメント記号（`//`・`/*`・`*/`）と、`/* */`の各行の先頭の空白に続く1個の`*`を除いて読む。",
+          "description": "SPEC-235 が詳細設計へ委ねた annotation syntax のうち、行の文法を定める。R-6 の「同様に」により、`rust-cargo` と同じ文法・キー・診断を使い、`go` に固有のキーは足さない。DS-487〜DS-507・DS-511 は `rust-cargo` の節にあるが、文法・キー・診断の規定は言語の構文に依存しない。同じ層の条項は辺にしない。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "SPEC-235",
+            "SPEC-486",
+            "R-6"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        },
+        {
+          "id": "DS-2006",
+          "statement": "`go`のdiscoveryは、表面1に`@vtest.`の行を1行も持たないTest constructも、Discovered Testとして返し、管理宣言に対応しないTest construct（W-SCAN-101）とする。",
+          "description": "導出: REQ-195（登録 adapter が Test として発見した実行可能な test construct はすべて管理対象）と SPEC-162（発見した未登録 Test を未登録として報告する）。DS-1930 が discovery へ引き渡した義務 (2)（管理宣言のない construct も同名の件数に数える）の前提になる。管理宣言を持たない Test construct は、DS-1125・DS-1510 により `chain_integrity` を `MISMATCH` にする。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "REQ-195",
+            "SPEC-162",
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        },
+        {
+          "id": "DS-2007",
+          "statement": "`go`のSource Targetは、本体を持つ最上位の関数宣言とメソッドの宣言である。関数リテラルと、本体を持たない関数宣言はSource Targetではない。",
+          "description": "REQ-149 の implementation construct を `go` で具体化する。Test construct である関数も Source Target として索引化する（`rust-cargo` の DES-395 と同じ）。本体を持たない関数宣言（アセンブリで実装する関数など）と関数リテラルを指す target は解決できず、E-SCAN-004 になる。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "REQ-149",
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        },
+        {
+          "id": "DS-2008",
+          "statement": "`go`のlocatorの文法は、関数では`path \"::\" name`、メソッドでは`path \"::\" receiver-type \"::\" name`である。pathはプロジェクトルートからの相対パス（`/`区切り、`.go`で終わる）であり、receiver-typeはレシーバの型名からポインタの`*`と型引数を除いたものである。locatorは行番号・byte位置・走査順に依存させない。",
+          "description": "SPEC-086・SPEC-238 が詳細設計へ委ねた Target Reference の構文を `go` で定める。REQ-153（同じ source state から決定論的に正規化できる）により、位置と走査順に依存させない。例: `func Add(...)` は `calc/calc.go::Add`、`func (c *Calc[T]) Add(...)` は `calc/calc.go::Calc::Add`。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "SPEC-086",
+            "SPEC-238",
+            "REQ-153",
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        },
+        {
+          "id": "DS-2009",
+          "statement": "`go`のlocatorに一致するSource Targetが2件以上ある場合（同じファイルにある複数の`init`関数、`_`という名前の複数の関数など）は、すべてを候補として返し、解決失敗（E-SCAN-004）とする。",
+          "description": "導出: REQ-153（Target Reference は Source Target を一意に解決できる）。どれかを推測で選ばない。`rust-cargo` の DS-596 と同型である。複数候補の場合のコードの割当（E-SCAN-004 と E-SCAN-011）が正典内で一致していないこと（DS-1678 の description）は本条では解かない。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "REQ-153",
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        },
+        {
+          "id": "DS-2010",
+          "statement": "`go`のdiscoveryが読めない、または構文を確定できないファイルはE-SCAN-001とし、そのファイルからTest construct・Source Target・管理宣言を返さない。表面1のdoc commentが付いたconstructの範囲を確定できない場合は、そのconstructをTestとして返さず、`ManagedTestLink::Missing`（E-SCAN-001）とする。",
+          "description": "導出: REQ-265（解析不能のとき推測で PASS へ昇格しない）。範囲を確定できない construct の断片を Test として返すと、本体を欠いた Test が PASS しうる。DS-535 と同旨であり、DiscoveryBatch は `Incomplete` になる。同じ層の DS-535 は辺にしない。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "REQ-265",
+            "SPEC-486"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "DS-S170",
+      "title": "5.10 `javascript` SourceDiscoveryAdapter",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+        "heading": "Not in this PR",
+        "lines": [
+          34,
+          37
+        ]
+      },
+      "derives_from": [
+        "SPEC-485",
+        "SPEC-487",
+        "SPEC-235",
+        "SPEC-238"
+      ],
+      "items": [
+        {
+          "id": "DS-2013",
+          "statement": "`javascript`のdiscoveryが読むファイルは、adapter configのinclude配下にある、名前が`.js`・`.jsx`・`.mjs`・`.cjs`・`.ts`・`.tsx`・`.mts`・`.cts`で終わるファイルである。名前が`node_modules`であるdirectoryの中は読まない。",
+          "description": "SPEC-487 の JavaScript・TypeScript の source を定める。`node_modules` の中は依存する package であり、利用者の Test と implementation construct を含まない（vitest も既定で集めない）。生成物の directory（`dist`・`build`・`coverage` など）を読まないかは本条では定めない（未決）。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        },
+        {
+          "id": "DS-2014",
+          "statement": "`javascript`の`@vtest.`宣言表面は2種である。表面1はTest constructの直前のコメント、表面2はTest constructではないSource Target（DS-2016）の直前のコメントである。直前のコメントは、自分の行から始まり、constructの最初の行の直前に空行を挟まずに連続して置かれたコメント（`//`の行、`/* */`、`/** */`）とする。コメントとconstructの間にあるデコレータは、constructの一部とする。",
+          "description": "SPEC-235 が詳細設計へ委ねた annotation syntax のうち、宣言を書く場所を定める。何を Test construct とするかは本条では定めない（未決）。それ以外のコメント（関数本体の中のコメント、object literal のメソッドや入れ子の関数に付いたコメントなど）は表面ではなく、その `@vtest.` の行をどう報告するかも本条では定めない（未決）。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "SPEC-235",
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        },
+        {
+          "id": "DS-2015",
+          "statement": "`javascript`の表面1はtest-annotation-lineを、表面2はsource-target-annotation-lineを認識し、行の文法、キーの値域、valueの扱い、キーの反復、`SRC-`で始まる`target`の値の扱い、および表面ごとの診断（E-SCAN-005・E-SCAN-006・W-SCAN-105）はDS-487〜DS-507・DS-511と同じとする。各行は、コメント記号（`//`・`/*`・`/**`・`*/`）と、`/* */`・`/** */`の各行の先頭の空白に続く1個の`*`を除いて読む。",
+          "description": "SPEC-235 が詳細設計へ委ねた annotation syntax のうち、行の文法を定める。R-6 の「同様に」により、`rust-cargo` と同じ文法・キー・診断を使い、`javascript` に固有のキーは足さない。DS-487〜DS-507・DS-511 は `rust-cargo` の節にあるが、文法・キー・診断の規定は言語の構文に依存しない。同じ層の条項は辺にしない。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "SPEC-235",
+            "SPEC-487",
+            "R-6"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        },
+        {
+          "id": "DS-2016",
+          "statement": "`javascript`のSource Targetは、最上位、classの本体の直下、またはTypeScriptの`namespace` / `module`の本体の直下にある、次の宣言である: 名前と本体を持つ関数宣言（generatorと、`export`・`export default`を付けたものを含む）、本体を持つclassのメソッド（`get` / `set`と`static`を含む）、初期化子がアロー関数または関数式である変数宣言とclassのフィールド。関数の本体や呼出しの引数の中で宣言した関数と、object literalのメソッドはSource Targetではない。",
+          "description": "REQ-149 の implementation construct を `javascript` で具体化する。関数の本体や呼出しの引数の中で宣言した関数（`describe` の callback の中の helper など）と object literal のメソッドは、囲む scope の名前から locator を決められないため Source Target にしない。それらを指す target は解決できず、E-SCAN-004 になる（PASS にはならない）。TypeScript の overload の宣言のように本体を持たない宣言は Source Target ではなく、本体を持つ実装だけが Source Target になる。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "REQ-149",
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        },
+        {
+          "id": "DS-2017",
+          "statement": "`javascript`のlocatorの文法は`path \"::\" scope-path`である。scope-pathは、Source Targetを囲むclass・`namespace`・`module`の名前と、Source Target自身の名前を、外側から順に`::`で結んだものであり、`namespace A.B`は`A::B`とする。pathはプロジェクトルートからの相対パス（`/`区切り、DS-2013の拡張子で終わる）である。locatorは行番号・byte位置・走査順に依存させない。",
+          "description": "SPEC-086・SPEC-238 が詳細設計へ委ねた Target Reference の構文を `javascript` で定める。REQ-153（同じ source state から決定論的に正規化できる）により、位置と走査順に依存させない。例: `export const add = (a, b) => a + b` は `src/calc.ts::add`、`class Calc { sum() {} }` の `sum` は `src/calc.ts::Calc::sum`。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "SPEC-086",
+            "SPEC-238",
+            "REQ-153",
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        },
+        {
+          "id": "DS-2018",
+          "statement": "`javascript`のlocatorに一致するSource Targetが2件以上ある場合（同じclassの`get`と`set`、同じ名前の`static`のメソッドとインスタンスのメソッド、同じscopeで同じ名前を2回宣言した関数など）は、すべてを候補として返し、解決失敗（E-SCAN-004）とする。",
+          "description": "導出: REQ-153（Target Reference は Source Target を一意に解決できる）。どれかを推測で選ばない。`rust-cargo` の DS-596 と同型である。複数候補の場合のコードの割当（E-SCAN-004 と E-SCAN-011）が正典内で一致していないこと（DS-1678 の description）は本条では解かない。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "REQ-153",
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        },
+        {
+          "id": "DS-2019",
+          "statement": "`javascript`のdiscoveryが読めない、または構文を確定できないファイルはE-SCAN-001とし、そのファイルからTest construct・Source Target・管理宣言を返さない。表面1のコメントが付いたconstructの範囲を確定できない場合は、そのconstructをTestとして返さず、`ManagedTestLink::Missing`（E-SCAN-001）とする。",
+          "description": "導出: REQ-265（解析不能のとき推測で PASS へ昇格しない）。範囲を確定できない construct の断片を Test として返すと、本体を欠いた Test が PASS しうる。DS-535 と同旨であり、DiscoveryBatch は `Incomplete` になる。同じ層の DS-535 は辺にしない。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "REQ-265",
+            "SPEC-487"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        }
+      ]
+    },
+    {
       "id": "DS-S090",
       "title": "6.1 adapter-neutral解決contract",
       "source": {
@@ -11043,6 +11379,40 @@
                 "lines": [
                   27,
                   27
+                ]
+              }
+            },
+            {
+              "id": "DS-2011",
+              "statement": "DS-1930の件数は、同じGo moduleの同じpackage directoryにある、名前が`_test.go`で終わり`_`または`.`で始まらないすべてのファイルのTest construct（DS-2002）から数える。build constraint、adapter configのinclude、ignoreの設定でdiscoveryの対象から外れるファイルも数える。",
+              "description": "DS-1930 が discovery へ引き渡した義務 (1)・(2) を閉じる。`go test` はパッケージをビルドするとき、include や `.gitignore` に関係なく directory の `_test.go` をすべて候補にし、build constraint で選ぶ。発見の対象から外れたファイルにある同名の Test 関数を数えないと、その関数の結果が宣言された Test の Evidence になりうる（DS-1930 が防ぐ偽 PASS）。名前が `_` / `.` で始まるファイルは、go command がパッケージに含めないため数えない。同じ層の DS-1930・DS-2002 は辺にしない。起草時の判断であり、Owner の裁定ではない。",
+              "derives_from": [
+                "SPEC-486",
+                "REQ-265"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+                "heading": "Not in this PR",
+                "lines": [
+                  34,
+                  37
+                ]
+              }
+            },
+            {
+              "id": "DS-2012",
+              "statement": "DS-2011で数えるファイルのうち1件でも読めない、または構文を確定できない場合は、そのファイルをE-SCAN-001とし、そのpackage directoryのどのTestについてもEvidenceを記録しない。",
+              "description": "導出: REQ-265。同名の件数が確定しないため、DS-1930 の条件に当たらないことを確かめられない。新しい診断コードは足さない。`target_binding` は Evidence の不在として `NO_EVIDENCE`（診断 `NOT_EXECUTED`）になる。起草時の判断であり、Owner の裁定ではない。",
+              "derives_from": [
+                "SPEC-486",
+                "REQ-265"
+              ],
+              "source": {
+                "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+                "heading": "Not in this PR",
+                "lines": [
+                  34,
+                  37
                 ]
               }
             },
@@ -22518,6 +22888,146 @@
             "lines": [
               11,
               11
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "DES-S113",
+      "title": "5.9 `go` SourceDiscoveryAdapter",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+        "heading": "Not in this PR",
+        "lines": [
+          34,
+          37
+        ]
+      },
+      "derives_from": [
+        "BD-357",
+        "DS-S169"
+      ],
+      "items": [
+        {
+          "id": "DES-681",
+          "statement": "`go` adapterはTest constructとして、doc commentを除き、`func`から本体の閉じ括弧までの関数宣言のbytesを返し、doc comment由来のmetadataはlogical metadataと`metadata_sources`として別に返す。",
+          "description": "`rust-cargo` の DES-106・DES-107 と同型である。Test subject hash（DES-077）は、この bytes と logical metadata を束縛する。doc comment のうち `@vtest.` を含まない行（DS-504）と、ファイルの build constraint の行・package 節・import 宣言は Test construct の bytes に入らず、それらの変更は HEAD revision と Execution State の manifest でだけ束縛される。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "BD-357",
+            "DS-2002",
+            "DS-2004"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        },
+        {
+          "id": "DES-682",
+          "statement": "`go` adapterはSource Targetとして、doc commentを含む関数宣言全体のbytesを返す。",
+          "description": "`rust-cargo` の DES-108 と同型である。`@vtest.src-id` の宣言行は construct bytes の内側にあり、その付与・変更・削除は Source Target hash を変える（DS-523）。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "BD-357",
+            "DS-2007"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        },
+        {
+          "id": "DES-683",
+          "statement": "`go` adapterはTest constructの`SourceLocation`の`locator`を、そのTest関数の名前とする。",
+          "description": "同じファイルに同じ名前の最上位の関数を置くことは Go の文法で許されず、例外の `init` と `_` は DS-2002 の名前の条件に合わない。`ExecutionDescriptor.selector` も Test 関数の名前である（DES-645）。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "BD-357",
+            "DS-2002"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        },
+        {
+          "id": "DES-684",
+          "statement": "`go` adapterは、Test関数のファイルがあるdirectoryから親のdirectoryへ順にproject rootまで辿り、最初に`go.mod`があるdirectoryを、そのTest関数を含むGo module（DES-643）とする。",
+          "description": "Go の module の規則（directory を含む module は、そこから上へ辿って最初に見つかる `go.mod` の module）による。DES-643 は module を project root からの相対 path で表すため、project root の外は辿らない。`go.mod` が見つからない場合の扱いは本条では定めない（未決）。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "BD-357",
+            "DS-S168"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        },
+        {
+          "id": "DES-685",
+          "statement": "`go` adapterは、関数の引数の型が`*testing.T`型であるか（DS-1904・DS-2002）を、その引数の型の式が`*T`または`*<識別子>.T`であるかで判定する。",
+          "description": "go command がテストの main を生成するときの判定と同じであり、import の別名（`import tt \"testing\"`）とドット import を含む。`<識別子>` が `testing` を指さない場合はテストのビルドが失敗し（DS-1910 の E-EXEC-001）、Evidence は記録されない。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "BD-357",
+            "DS-1904",
+            "DS-2002"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "DES-S114",
+      "title": "5.10 `javascript` SourceDiscoveryAdapter",
+      "source": {
+        "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+        "heading": "Not in this PR",
+        "lines": [
+          34,
+          37
+        ]
+      },
+      "derives_from": [
+        "BD-358",
+        "DS-S170"
+      ],
+      "items": [
+        {
+          "id": "DES-686",
+          "statement": "`javascript` adapterはSource Targetとして、直前のコメントとデコレータを含み、関数宣言とメソッドではその本体の閉じ括弧まで、変数宣言ではその変数を宣言する文の全体、classのフィールドではそのフィールドの定義の全体のbytesを返す。",
+          "description": "`rust-cargo` の DES-108 と同型である。1つの文で複数の変数を宣言する場合、どの変数の Source Target もその文の全体を束縛するため、別の変数の初期化子を変えても hash が変わる（安全側に古くなる）。起草時の判断であり、Owner の裁定ではない。",
+          "derives_from": [
+            "BD-358",
+            "DS-2016"
+          ],
+          "source": {
+            "doc": "https://github.com/YmSaki/SpecTracer/pull/278",
+            "heading": "Not in this PR",
+            "lines": [
+              34,
+              37
             ]
           }
         }
