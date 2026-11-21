@@ -63831,7 +63831,7 @@
             },
             {
               "id": "DES-647",
-              "statement": "`go` adapterのrunner kindは`go-test`とする。",
+              "statement": "`go` adapterのrunner kindは、カバレッジを計測しない実行（`--fast`、`run.coverage: off`）では`go-test`、`go-cover`で計測する実行では`go-test-cover`とする。",
               "derives_from": [],
               "source": {
                 "doc": "https://github.com/YmSaki/SpecTracer/issues/270",
