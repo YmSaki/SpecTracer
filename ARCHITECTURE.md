@@ -6,9 +6,9 @@ the verification contract is intentionally language-independent.
 
 ## Crates and dependency direction
 
-The workspace has twelve crates. Lower crates own canonical data and
+The workspace has thirteen crates. Lower crates own canonical data and
 verification rules; upper crates delegate to them. The table is the current
-state at `develop` `19b3b97` (2026-11-12); the rules behind the table are
+state at `develop` `dd781e4` (2026-11-21); the rules behind the table are
 [`AGENTS.md`](AGENTS.md) §3–§4. The last column lists normal dependencies
 only; dev-dependencies, which only tests use, are left out.
 
@@ -18,12 +18,13 @@ only; dev-dependencies, which only tests use, are left out.
 | `vtest-store` | persistence | the `.verify/` layout, config (v1 / v2), reading and writing the canonical records | `model` |
 | `vtest-adapter-api` | adapter contract | capability traits, hash-free DTOs, `AdapterRegistry`, the Test wire shape | `model` |
 | `vtest-adapter-rust` | adapter | the `rust-cargo` adapter: Rust discovery with `syn`, Cargo test execution, `cargo llvm-cov` coverage, static oracle analysis | `adapter-api`, `model` |
-| `vtest-adapter-lexical` | adapter | framework-neutral, discovery-only adapters for eleven other languages (experimental; see below) | `adapter-api`, `model` |
+| `vtest-adapter-lexical` | adapter | framework-neutral, discovery-only adapters for eleven other languages (experimental; see below), and the Go discovery that `vtest-adapter-go` reuses | `adapter-api`, `model` |
+| `vtest-adapter-go` | adapter | the `go` adapter (BD-350, BD-357): Go discovery, delegated to the `go` module of `vtest-adapter-lexical`, plus the Go toolchain parts as they land | `adapter-lexical` (discovery only), `adapter-api`, `model` |
 | `vtest-adapter-synthetic` | adapter | a test-only adapter proving the core assumes nothing about Rust; not registered in the product | `adapter-api`, `model` |
 | `vtest-scan` | orchestration | discovery delegation, output validation, deterministic merge by adapter id, record integrity, Structured Test Operations | `adapter-api`, `store`, `model` |
 | `vtest-exec` | orchestration | running tests through the adapter runner, target-coverage attribution, Evidence recording | `adapter-api`, `store`, `model` |
 | `vtest-verify` | orchestration | rebuilding the declaration chain, the four checks, Evidence freshness, scope, fail-closed aggregation | `scan`, `adapter-api`, `store`, `model` |
-| `vtest-ops` | operations | one function per operation, the adapter registry (`registry::builtin_registry`), the shared envelope and diagnostic-code mapping | orchestration, `adapter-api`, `adapter-rust`, `adapter-lexical`, `store`, `model` |
+| `vtest-ops` | operations | one function per operation, the adapter registry (`registry::builtin_registry`), the shared envelope and diagnostic-code mapping | orchestration, `adapter-api`, `adapter-rust`, `adapter-go`, `adapter-lexical`, `store`, `model` |
 | `vtest-cli` | entrypoint | the `vtest` binary, clap definitions, text rendering, exit codes | `ops`, `mcp` (the binary only, for `vtest mcp`), `scan`, `verify`, `adapter-api`, `store`, `model` |
 | `vtest-mcp` | entrypoint | MCP stdio transport, tool schemas, argument validation, calling the same `ops` functions and returning the same envelope | `ops`, `model` |
 
@@ -39,14 +40,18 @@ vtest-ops                     one operation = one function; registry composition
 vtest-scan / vtest-exec / vtest-verify     orchestration: delegate to adapters, validate,
         │                                  merge deterministically, judge, aggregate
         │                                  │
-vtest-store ── vtest-model                 vtest-adapter-rust / -lexical / -synthetic ── vtest-adapter-api ── vtest-model
+vtest-store ── vtest-model                 vtest-adapter-rust / -go / -lexical / -synthetic ── vtest-adapter-api ── vtest-model
+                                                          └─ -go ── -lexical (discovery only)
 ```
 
 `crates/vtest-cli/tests/architecture.rs` checks the edges that must not
-exist: a core crate on a language adapter or a Rust syntax crate,
-`vtest-adapter-api` on anything but `vtest-model`, `vtest-mcp` on `vtest-cli`,
-`vtest-ops` on either entrypoint, and `vtest-mcp` on any workspace crate other
-than `vtest-ops` and `vtest-model` outside its tests.
+exist: a core crate on a language adapter or a Rust syntax crate, any crate
+other than `vtest-ops` on a language adapter (except `vtest-adapter-go` on
+`vtest-adapter-lexical`), a language adapter on a workspace crate other than
+`vtest-adapter-api`, `vtest-model` and that one edge, `vtest-adapter-api` on
+anything but `vtest-model`, `vtest-mcp` on `vtest-cli`, `vtest-ops` on either
+entrypoint, and `vtest-mcp` on any workspace crate other than `vtest-ops` and
+`vtest-model` outside its tests.
 
 Each operation's error type maps itself to a diagnostic code and an exit code
 (`failure()`, returning `vtest_ops::envelope::Failure`), and the JSON both
@@ -56,9 +61,9 @@ text rendering and for reading answer files; it runs every operation through
 `ops`.
 
 The composition root (`vtest_ops::registry::builtin_registry`) is the only
-place adapters are instantiated: `rust-cargo` and the eleven lexical adapters
-(`c`, `cpp`, `csharp`, `go`, `java`, `javascript`, `kotlin`, `php`, `python`,
-`ruby`, `swift`). The repository's own `.verify/config.yaml` enables only
+place adapters are instantiated: `rust-cargo`, `go` (from `vtest-adapter-go`)
+and ten lexical adapters (`c`, `cpp`, `csharp`, `java`, `javascript`, `kotlin`,
+`php`, `python`, `ruby`, `swift`). The repository's own `.verify/config.yaml` enables only
 `rust-cargo`.
 
 ## Canonical data and freshness
@@ -96,7 +101,10 @@ depend on the project's test framework. Each language is a `LanguageProfile`
 (lexical syntax, file extensions, function and scope recognition) registered as
 an adapter that declares only `source_discovery`; runner, coverage, and static
 analysis stay undeclared, so verification reports their checks as
-`NO_EVIDENCE` rather than inventing a framework-specific default.
+`NO_EVIDENCE` rather than inventing a framework-specific default. `go` is the
+exception: its Test constructs are a shape (a top-level `Test...` function of a
+`_test.go` file, DS-2002), and its adapter lives in `vtest-adapter-go`, which
+takes discovery from the lexical `go` module and owns the Go toolchain.
 
 ## Interface parity
 

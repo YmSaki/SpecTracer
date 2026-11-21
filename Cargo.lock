@@ -537,6 +537,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vtest-adapter-go"
+version = "0.1.0"
+dependencies = [
+ "vtest-adapter-api",
+ "vtest-adapter-lexical",
+ "vtest-model",
+]
+
+[[package]]
 name = "vtest-adapter-lexical"
 version = "0.1.0"
 dependencies = [
@@ -629,6 +638,7 @@ dependencies = [
  "serde_json",
  "thiserror",
  "vtest-adapter-api",
+ "vtest-adapter-go",
  "vtest-adapter-lexical",
  "vtest-adapter-rust",
  "vtest-exec",
