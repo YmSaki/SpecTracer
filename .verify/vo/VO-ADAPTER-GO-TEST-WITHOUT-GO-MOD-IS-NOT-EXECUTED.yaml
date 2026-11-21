@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-TEST-WITHOUT-GO-MOD-IS-NOT-EXECUTED
+parent: null
+derives_from:
+- doc: DES-687
+claim: DES-684で`go.mod`のあるdirectoryが見つからない`go`のTest constructは、runnerが実行できないTest construct（DS-1901）とし、runnerはそのTestのEvidenceを生成せず、W-EXEC-102を出す。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:52Z
+updated: 2026-11-21T09:14:52Z

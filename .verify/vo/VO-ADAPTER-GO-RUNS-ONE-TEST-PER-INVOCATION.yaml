@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-RUNS-ONE-TEST-PER-INVOCATION
+parent: null
+derives_from:
+- doc: DES-648
+claim: 実行はTest 1件ごととし、module rootをworking directoryとして、`suite.name`のパッケージに対して`-run`に`^<selector>$`、`-count=1`、`-json`を指定して`go test`を起動する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:52Z
+updated: 2026-11-21T09:14:52Z

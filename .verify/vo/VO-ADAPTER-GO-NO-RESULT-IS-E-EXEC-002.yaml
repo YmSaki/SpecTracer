@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-NO-RESULT-IS-E-EXEC-002
+parent: null
+derives_from:
+- doc: DS-1909
+claim: ビルド失敗（DS-1910）の場合を除き、そのTest関数の結果を`go test`が報告しなかった場合（関数名が0件に一致し`go test`が成功で終了した場合を含む）、そのTestの実行は失敗（E-EXEC-002）とし、Evidenceを記録しない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:53Z
+updated: 2026-11-21T09:14:53Z

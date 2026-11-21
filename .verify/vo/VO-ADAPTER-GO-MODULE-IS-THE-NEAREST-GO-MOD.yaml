@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-MODULE-IS-THE-NEAREST-GO-MOD
+parent: null
+derives_from:
+- doc: DES-684
+claim: '`go` adapterは、Test関数のファイルがあるdirectoryから親のdirectoryへ順にproject rootまで辿り、最初に`go.mod`があるdirectoryを、そのTest関数を含むGo module（DES-643）とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:52Z
+updated: 2026-11-21T09:14:52Z

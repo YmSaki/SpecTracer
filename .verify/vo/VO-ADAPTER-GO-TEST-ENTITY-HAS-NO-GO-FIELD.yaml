@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-TEST-ENTITY-HAS-NO-GO-FIELD
+parent: null
+derives_from:
+- doc: DES-646
+claim: '`TestEntity`へGo固有fieldを戻してはならない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:29:52Z
+updated: 2026-11-21T09:29:52Z

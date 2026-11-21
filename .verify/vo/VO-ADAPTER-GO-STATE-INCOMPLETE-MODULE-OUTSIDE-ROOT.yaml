@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-STATE-INCOMPLETE-MODULE-OUTSIDE-ROOT
+parent: null
+derives_from:
+- doc: DES-626
+claim: 選択Testを含むGo module（`go.mod`のあるdirectory）がproject rootの外にある場合、`go` adapterはsnapshotを完全と報告しない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:54Z
+updated: 2026-11-21T09:14:54Z

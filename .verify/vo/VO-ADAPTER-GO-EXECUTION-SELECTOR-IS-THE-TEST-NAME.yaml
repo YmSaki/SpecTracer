@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-EXECUTION-SELECTOR-IS-THE-TEST-NAME
+parent: null
+derives_from:
+- doc: DES-645
+claim: '`go` adapterは`TestEntity.execution`の`selector`をTest関数の名前として解釈する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:51Z
+updated: 2026-11-21T09:14:51Z

@@ -1,6 +1,7 @@
 # Go adapter (`go`)
 
-Discovers Tests and Source Targets in `.go` files. See [lexical.md](lexical.md)
+Discovers Tests and Source Targets in `.go` files and runs the Tests with `go
+test`. See [lexical.md](lexical.md)
 for the `@vtest.` line grammar it shares with the other framework-neutral
 adapters. Unlike them, `go` finds a Test by its shape, not by the comment above
 it, so a Test function that has no `@vtest.` declaration is still observed.
@@ -59,10 +60,47 @@ it, so a Test function that has no `@vtest.` declaration is still observed.
 - **Comments that are not read**: a `@vtest.` line in a comment inside a
   function body, or on a `type`, `var`, `const`, or `import` declaration, is
   not on a declaration surface and is ignored.
-- **Limits**: the adapter declares only `source_discovery`: there is no
-  runner, no coverage, and no oracle check, so `target_binding` and
-  `oracle_presence` stay `NO_EVIDENCE`, and `vtest run` rejects Go Tests with
-  `E-ADAPTER-004`.
+- **Running a Test**: `vtest run` starts `go test ./<package> -run ^<Name>$
+  -count=1 -json` for each Test, in the directory of the Go module the Test is
+  in, which is the nearest directory with a `go.mod` from the Test's file up to
+  the project root. The runner kind is `go-test`. The Test's result is the one
+  `pass`, `fail` or `skip` event whose `Test` is exactly the function's name
+  (events of subtests and of the package do not count): `pass` is `PASS`,
+  `fail` is `FAIL`, and `skip` means the Test was not executed (no Evidence).
+  The whole output is kept in the Evidence's log.
+- **When no Evidence is recorded**: a package that does not build is
+  `E-EXEC-001` (this outranks any other event). No result event for the Test is
+  `E-EXEC-002`, and more than one is `E-EXEC-005`. A result that contradicts the
+  exit status of `go test` (a Test that passes while `TestMain` exits 1 after
+  `m.Run()`, or one that fails while it exits 0) is `E-EXEC-003`. A change to a
+  file of the project while the Test runs is `E-EXEC-004`.
+- **Tests that are not run**: a Test in no Go module (no `go.mod` between its
+  file and the project root), and a Test construct `go test` does not run (type
+  parameters, not exactly one `*testing.T` parameter, or a result), get the
+  warning `W-EXEC-102` and no Evidence; the other Tests of the run are still run.
+  If two Test constructs share a name in one package directory, including one in
+  `package x_test` or in a file a build constraint leaves out, none of them is run
+  (`E-EXEC-005`). Every `_test.go` file of the directory is counted, whatever the
+  adapter's `include` and `.gitignore` say, except names that start with `_` or
+  `.`. If one of them cannot be read, no Test of that directory is run, and no
+  diagnostic is given (the canon defines no code for it, DS-2012).
+- **Execution State** (`go-execution-state-v1`): every regular file under the
+  project root except what is under `.git/` and `.verify/` there, byte for byte;
+  the toolchain (`GOVERSION`, `GOOS`, `GOARCH` and its instruction-set setting,
+  the cgo and compiler variables, `GOFLAGS`, `GOEXPERIMENT`, `GOFIPS140`,
+  `GODEBUG`, `GOTOOLCHAIN`, `GO111MODULE`, `GOWORK`, and the version output of
+  `CC` when cgo is on) as `go env` reports it; and the invocation. It is not
+  reported complete when the module, a `go.work`, or a `replace` is outside the
+  project root, when `GOFLAGS` names a file outside it or uses `-exec` or
+  `-toolexec`, when the build is not a module build, when a symbolic link leaves
+  the project root, when a package of the build outside the standard library
+  uses cgo, or when the C compiler of a cgo build cannot report its version.
+  Dependencies are bound only through `go.sum`; the module cache is not checked.
+- **Limits**: the adapter declares `source_discovery` and `test_runner`. There
+  is no coverage and no oracle check, so `target_binding` and `oracle_presence`
+  stay `NO_EVIDENCE` (`NOT_CHECKED`) for a Go Test, whatever its Evidence says.
+  `vtest run` records the Evidence, and a run without `--fast` reports
+  `W-EXEC-101` because no coverage is measured.
 
 ```go
 // @vtest.id TEST-CALC-ADD

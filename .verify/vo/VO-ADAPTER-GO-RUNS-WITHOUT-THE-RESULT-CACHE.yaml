@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-RUNS-WITHOUT-THE-RESULT-CACHE
+parent: null
+derives_from:
+- doc: DS-1906
+claim: '`go`のrunnerは`go test`の結果のキャッシュを使わずに実行する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:53Z
+updated: 2026-11-21T09:14:53Z

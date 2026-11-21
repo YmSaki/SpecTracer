@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-STATE-INCOMPLETE-REPLACE-OUTSIDE-ROOT
+parent: null
+derives_from:
+- doc: DES-627
+claim: 有効な`go.mod`または`go.work`の`replace`がproject rootの外のlocal pathを指す場合、`go` adapterはsnapshotを完全と報告しない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:55Z
+updated: 2026-11-21T09:14:55Z

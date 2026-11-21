@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-MANIFEST-IS-EVERY-FILE-OF-THE-PROJECT
+parent: null
+derives_from:
+- doc: DES-623
+claim: '`go-execution-state-v1` のmanifestは、project root配下の通常fileのうち`.git/`・`.verify/`の配下にないものすべてを含む。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:54Z
+updated: 2026-11-21T09:14:54Z

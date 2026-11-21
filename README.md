@@ -15,11 +15,16 @@
 `SpecTracer` connects specifications, verification obligations, tests, source code, audits, and execution evidence into one traceable verification graph.
 
 SpecTracer's verification model is language- and test-runner-agnostic by design.
-The current implementation ships one production adapter, Rust/Cargo
-(`rust-cargo` in `vtest-adapter-rust`), behind a language-neutral adapter API.
-Only `rust-cargo` supports the full `scan` → `run` → `verify` path to `PASS`.
-Eleven experimental discovery-only adapters (`vtest-adapter-lexical`: C, C++, C#,
-Go, Java, JavaScript/TypeScript, Kotlin, PHP, Python, Ruby, and Swift) trace
+The current implementation ships Rust/Cargo (`rust-cargo` in
+`vtest-adapter-rust`) as its officially supported adapter, behind a
+language-neutral adapter API. Only `rust-cargo` supports the full
+`scan` → `run` → `verify` path to `PASS`.
+The Go adapter (`go` in `vtest-adapter-go`) is in the canonical v0.1 production
+scope but still a preview: it discovers Tests by shape and runs them with
+`go test`, while Go coverage and static analysis are not implemented yet, so
+`vtest verify` on Go ends with `Result: NG`.
+Ten experimental discovery-only adapters (`vtest-adapter-lexical`: C, C++, C#,
+Java, JavaScript/TypeScript, Kotlin, PHP, Python, Ruby, and Swift) trace
 `@vtest.` declarations without running tests; test runners and coverage for
 those languages are not implemented yet.
 
@@ -107,9 +112,21 @@ ecosystem-specific machinery used to discover and execute tests.
   `target_binding` stays `NO_EVIDENCE`.
   `vtest-adapter-synthetic` is a test-only adapter that proves the core does not
   depend on Rust.
-- **Experimental discovery adapters (`vtest-adapter-lexical`):** Eleven
+- **Go adapter (`go`, preview):** `vtest-adapter-go` is in the canonical v0.1
+  production scope. Its discovery is delegated to the lexical `go` module.
+  `vtest scan` finds a Test by shape: a top-level, receiverless `Test*` function
+  in a `_test.go` file. A Test function without a `@vtest.` declaration gives
+  `W-SCAN-101` and `chain_integrity` is `MISMATCH`; a `@vtest.` declaration on a
+  method gives `W-SCAN-105`. `vtest run` runs `go test -count=1 -json` and
+  records `PASS` / `FAIL` Evidence bound to the Execution State. It needs the
+  `go` toolchain and a `go.mod`; a Test in no Go module gets `W-EXEC-102` and no
+  Evidence. Coverage and static analysis are not implemented yet, so
+  `target_binding` and `oracle_presence` stay `NO_EVIDENCE` (`NOT_CHECKED`) and
+  `vtest verify` ends with `Result: NG`. See
+  [`docs/adapters/go.md`](docs/adapters/go.md).
+- **Experimental discovery adapters (`vtest-adapter-lexical`):** Ten
   discovery-only adapters are registered in `crates/vtest-ops/src/registry.rs`:
-  `c` (C), `cpp` (C++), `csharp` (C#), `go` (Go), `java` (Java), `javascript`
+  `c` (C), `cpp` (C++), `csharp` (C#), `java` (Java), `javascript`
   (JavaScript and TypeScript), `kotlin` (Kotlin), `php` (PHP), `python`
   (Python), `ruby` (Ruby), and `swift` (Swift). Each declares only
   `source_discovery`. `vtest scan` reads their `@vtest.` declarations, and
@@ -119,7 +136,7 @@ ecosystem-specific machinery used to discover and execute tests.
   run to `chain_integrity,orphan_detection`, because `target_binding` and
   `oracle_presence` remain `NO_EVIDENCE`. Its exit code is `1`, unless `--gate`
   names a gate that the result satisfies; the reported result is still `NG`. `vtest init` writes a configuration
-  for `rust-cargo` only, so projects in these eleven languages are not scanned
+  for `rust-cargo` only, so projects in Go or these ten languages are not scanned
   until `.verify/config.yaml` is edited (set `adapters[].id`, list paths in
   `adapters[].scan.include`, and set `adapters[].run.coverage` to `off`).
 - **Intended expansion:** Adding test runners, coverage measurement, and static
@@ -134,10 +151,11 @@ emitting `W-ADAPTER-101` on missing capabilities, per-adapter Form conflict
 detection, and validating `adapters[].scan.assertion_macros`) are tracked as
 open issues.
 
-The eleven framework-neutral discovery adapters are documented in
+The ten framework-neutral discovery adapters are documented in
 [`docs/adapters/`](docs/adapters/lexical.md). They trace `@vtest.` declarations
 written in ordinary comments and leave execution, coverage, and static oracle
-checks `NO_EVIDENCE`.
+checks `NO_EVIDENCE`. The Go adapter is documented in
+[`docs/adapters/go.md`](docs/adapters/go.md).
 
 Support is evidence-based: an ecosystem is supported only after its discovery,
 execution, freshness, and target-measurement behavior has reproducible acceptance
@@ -185,7 +203,9 @@ vtest init --name my-project
 ```
 
 This creates the canonical `.verify/` layout with `.verify/config.yaml`
-configured for `rust-cargo` only.
+configured for `rust-cargo` only (for other languages, edit the adapter entry;
+see the configuration example in
+[`docs/adapters/lexical.md`](docs/adapters/lexical.md)).
 
 ### 3. Register a specification document
 
@@ -439,8 +459,9 @@ Current state:
 | `init`, `scan`, `doctor`, `export`, `mcp`, `run`, `verify`, `report`, `approval`, `doc`, `test`, `audit`, `vo` CLI | Implemented; acceptance and integration tests under `crates/vtest-cli/tests/` |
 | Four checks / five states / fail-closed aggregation | Implemented (`vtest-verify`) |
 | Phase gates (`verify --gate`) | Implemented, including approval-role evaluation of the scoped subjects |
-| Adapter API, registry, Rust (`rust-cargo`), and synthetic adapters | Implemented; `rust-cargo` is the only production adapter (`vtest run` needs `cargo-llvm-cov` and `llvm-tools-preview` unless `--fast` is given). Remaining adapter-boundary items (`W-ADAPTER-101`, per-adapter Form conflicts, `assertion_macros` validation) are open issues |
-| Eleven experimental discovery adapters (`vtest-adapter-lexical`: `c`, `cpp`, `csharp`, `go`, `java`, `javascript`, `kotlin`, `php`, `python`, `ruby`, `swift`) | Experimental; `source_discovery` only (`vtest run` rejects with `E-ADAPTER-004`; a completed `vtest verify` ends with `Result: NG`) |
+| Adapter API, registry, Rust (`rust-cargo`), and synthetic adapters | Implemented; `rust-cargo` is the officially supported adapter with the full path to `PASS` (`vtest run` needs `cargo-llvm-cov` and `llvm-tools-preview` unless `--fast` is given). Remaining adapter-boundary items (`W-ADAPTER-101`, per-adapter Form conflicts, `assertion_macros` validation) are open issues |
+| Go adapter (`vtest-adapter-go`: `go`) | Preview; in the v0.1 production scope. `source_discovery` and `test_runner` (`go test`); no coverage or static analysis yet, so `target_binding` and `oracle_presence` stay `NO_EVIDENCE` and a completed `vtest verify` ends with `Result: NG` |
+| Ten experimental discovery adapters (`vtest-adapter-lexical`: `c`, `cpp`, `csharp`, `java`, `javascript`, `kotlin`, `php`, `python`, `ruby`, `swift`) | Experimental; `source_discovery` only (`vtest run` rejects with `E-ADAPTER-004`; a completed `vtest verify` ends with `Result: NG`) |
 | MCP stdio server (`vtest mcp`) | Implemented; 24 tools sharing `vtest-ops` with the CLI |
 | Judgment records (`.verify/decisions/`) | `vtest audit bundle` / `audit submit` and reads in `test show` / `report` are implemented; `vtest approval --subject-type judgment` (`E-APPROVAL-001`) and `vtest audit bundle --include-failed` are not implemented yet |
 | Self-verify CI (`vtest run --all` + `verify` on this repository) | Nightly and on demand; informational, not a required check. This repository does not yet pass its own `vtest verify` |
@@ -514,7 +535,7 @@ MCP tool results use the same envelope as the CLI JSON output; a tool error sets
 
 SpecTracer works with the tools you already use:
 
-- your language's test runner keeps deciding pass and fail, and SpecTracer consumes its result as evidence (today for `cargo test` only; runners for other languages are not connected yet),
+- your language's test runner keeps deciding pass and fail, and SpecTracer consumes its result as evidence (today for `cargo test` and `go test`; runners for other languages are not connected yet),
 - your code coverage tooling keeps measuring, and SpecTracer uses the measurement as target-execution evidence,
 - semantic judgment comes from an external discoverer (an agent or a person), and SpecTracer records it bound to the current subject,
 - a mismatch between layers is reported as `MISMATCH` pointing upstream, and a person or agent fixes the declaration,
@@ -532,7 +553,8 @@ crates/
 ├── vtest-store              # canonical record persistence
 ├── vtest-adapter-api        # adapter traits, capabilities, registry
 ├── vtest-adapter-rust       # Rust/Cargo adapter (production)
-├── vtest-adapter-lexical    # framework-neutral discovery for 11 languages (experimental)
+├── vtest-adapter-go         # Go adapter: discovery via the lexical go module, go test runner (preview)
+├── vtest-adapter-lexical    # framework-neutral discovery for 10 languages, plus Go discovery (experimental)
 ├── vtest-adapter-synthetic  # test-only adapter proving language neutrality
 ├── vtest-scan               # scan orchestration and structured test operations
 ├── vtest-exec               # test execution and Evidence
