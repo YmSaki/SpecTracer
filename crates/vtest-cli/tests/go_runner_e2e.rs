@@ -177,7 +177,7 @@ fn a_passing_go_test_records_pass_evidence_and_target_binding_stays_not_checked(
 /// DS-1923, DS-1926, DS-1102: with `--fast` no coverage is measured and the
 /// command specifies none; without it the default mode measures coverage.
 /// @vtest.id TEST-CLI-GO-FAST-RUNS-WITHOUT-COVERAGE-AND-THE-DEFAULT-MEASURES-IT
-/// @vtest.covers VO-ADAPTER-GO-FAST-MODE-HAS-NO-COVERAGE, VO-ADAPTER-GO-DEFAULT-MODE-MEASURES-COVERAGE
+/// @vtest.covers VO-ADAPTER-GO-FAST-MODE-HAS-NO-COVERAGE, VO-ADAPTER-GO-DEFAULT-MODE-MEASURES-COVERAGE, VO-ADAPTER-GO-RUNNER-KIND-IS-GO-TEST
 /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
 /// @vtest.intent a Go Test run with fast records the plain go test command of runner kind go-test and an unchecked target_coverage with no method, result, targets or count, and the run without fast records the go test command with the coverage options of runner kind go-test-cover and a target_coverage checked with the method go-cover, and neither reports a diagnostic
 #[test]

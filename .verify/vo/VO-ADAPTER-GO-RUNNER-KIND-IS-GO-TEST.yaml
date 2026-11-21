@@ -2,10 +2,10 @@ id: VO-ADAPTER-GO-RUNNER-KIND-IS-GO-TEST
 parent: null
 derives_from:
 - doc: DES-647
-claim: '`go` adapterのrunner kindは`go-test`とする。'
+claim: '`go` adapterのrunner kindは、カバレッジを計測しない実行（`--fast`、`run.coverage: off`）では`go-test`、`go-cover`で計測する実行では`go-test-cover`とする。'
 dimensions: []
 coverage_policy: null
 combinations: []
 representative_cases: []
 created: 2026-11-21T09:14:51Z
-updated: 2026-11-21T09:14:51Z
+updated: 2026-11-22T00:00:00Z
