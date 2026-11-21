@@ -156,7 +156,11 @@ fn state_of(
 }
 
 /// Nothing a wrong outcome produced may stand as `PASS`: no `PASS` Evidence, and
-/// no `PASS` for the checks that read Evidence or the runner's capabilities.
+/// `NO_EVIDENCE` for the checks that read Evidence or the adapter's
+/// capabilities. The labels are not pinned: with a runner and no Coverage
+/// capability the gate of `evaluate_target_binding` gives `NOT_CHECKED` only,
+/// where DS-748, DS-825 and DS-1902 ask for `NOT_EXECUTED` for a Test that was
+/// not executed.
 fn assert_nothing_passes(result: &ExecutionResult, outcome: &VerifyOutcome) {
     assert!(
         result
@@ -170,9 +174,9 @@ fn assert_nothing_passes(result: &ExecutionResult, outcome: &VerifyOutcome) {
         VerificationCheck::TargetBinding,
         VerificationCheck::OraclePresence,
     ] {
-        assert_ne!(
+        assert_eq!(
             state_of(outcome, check).0,
-            VerificationState::Pass,
+            VerificationState::NoEvidence,
             "{check:?}"
         );
     }
@@ -182,7 +186,7 @@ fn assert_nothing_passes(result: &ExecutionResult, outcome: &VerifyOutcome) {
 /// and recorded as `PASS` Evidence bound to a complete Execution State, with the
 /// whole output kept in the log; target binding stays not checked.
 /// @vtest.id TEST-CLI-GO-RUN-PASS-RECORDS-EVIDENCE-AND-TARGET-BINDING-STAYS-NOT-CHECKED
-/// @vtest.covers VO-ADAPTER-GO-RESULT-IS-READ-FROM-GO-TEST, VO-ADAPTER-GO-RUNNER-KIND-IS-GO-TEST, VO-ADAPTER-GO-RUNS-ONE-TEST-PER-INVOCATION, VO-ADAPTER-GO-OUTPUT-IS-KEPT-IN-THE-LOG-OF-THE-EVIDENCE,VO-VERIFY-TARGET-BINDING-NO-COVERAGE-CAPABILITY, VO-VERIFY-ORACLE-PRESENCE-NO-DA-NOT-PASS-NOT-UNKNOWN
+/// @vtest.covers VO-ADAPTER-GO-RESULT-IS-READ-FROM-GO-TEST, VO-ADAPTER-GO-RUNNER-KIND-IS-GO-TEST, VO-ADAPTER-GO-RUNS-ONE-TEST-PER-INVOCATION, VO-ADAPTER-GO-OUTPUT-IS-KEPT-IN-THE-LOG-OF-THE-EVIDENCE, VO-ADAPTER-GO-JUDGEMENT-AUTHORITY-IS-GO-TEST, VO-VERIFY-TARGET-BINDING-NO-COVERAGE-CAPABILITY, VO-VERIFY-ORACLE-PRESENCE-NO-DA-NOT-PASS-NOT-UNKNOWN
 /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
 /// @vtest.intent a passing Go Test run through vtest run records PASS Evidence of runner kind go-test with the go test command line and exit code 0, an unchecked target coverage and a complete go-execution-state, keeps the json output in its log, and verification reports target_binding and oracle_presence as NO_EVIDENCE with NOT_CHECKED while chain_integrity and orphan_detection pass
 #[test]
@@ -248,6 +252,18 @@ fn a_passing_go_test_records_pass_evidence_and_target_binding_stays_not_checked(
             vec![DiagnosticLabel::NotChecked]
         )
     );
+
+    // `vtest test show` reads the Evidence on its own: it shows the runner's
+    // result as recorded, and the target coverage as not checked, never as PASS.
+    let registry = vtest_ops::registry::builtin_registry().expect("builtin registry");
+    let scan = scan_project(&fixture.root, &registry).expect("scan");
+    let shown = vtest_scan::show_test(&fixture.root, &scan, "TEST-E2E-GO-PASS").expect("show");
+    assert_eq!(shown.evidence.len(), 1);
+    assert_eq!(shown.evidence[0].result, TestResult::Pass);
+    assert_eq!(
+        shown.evidence[0].target_coverage,
+        VerificationState::NoEvidence
+    );
 }
 
 /// DS-1923, DS-1102, DS-760: with or without `--fast` no coverage is measured;
@@ -282,7 +298,7 @@ fn a_go_test_is_run_without_coverage_with_or_without_fast() {
 
 /// DS-1907, DS-830: a failing Test is `FAIL` Evidence and nothing is `PASS`.
 /// @vtest.id TEST-CLI-GO-FAILING-TEST-IS-FAIL-EVIDENCE
-/// @vtest.covers VO-ADAPTER-GO-RESULT-IS-READ-FROM-GO-TEST, VO-ADAPTER-GO-RESULT-IS-THE-EXACT-NAME-EVENT
+/// @vtest.covers VO-ADAPTER-GO-RESULT-IS-READ-FROM-GO-TEST, VO-ADAPTER-GO-RESULT-IS-THE-EXACT-NAME-EVENT, VO-ADAPTER-GO-JUDGEMENT-AUTHORITY-IS-GO-TEST
 /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
 /// @vtest.intent a Go Test that fails is recorded as FAIL Evidence with exit code 1 and no diagnostic, and verification reports no PASS for target_binding or oracle_presence
 #[test]
@@ -592,7 +608,7 @@ fn a_test_construct_of_a_shape_go_test_does_not_run_is_w_exec_102() {
 /// DES-643, DES-644, DES-684: a Test below a nested go.mod runs in that module,
 /// from its root, against the package it is in.
 /// @vtest.id TEST-CLI-GO-NESTED-MODULE-IS-THE-WORKING-DIRECTORY
-/// @vtest.covers VO-ADAPTER-GO-MODULE-IS-THE-NEAREST-GO-MOD, VO-ADAPTER-GO-EXECUTION-PROJECT-IS-THE-MODULE, VO-ADAPTER-GO-EXECUTION-SUITE-IS-THE-PACKAGE
+/// @vtest.covers VO-ADAPTER-GO-MODULE-IS-THE-NEAREST-GO-MOD, VO-ADAPTER-GO-EXECUTION-PROJECT-IS-THE-MODULE, VO-ADAPTER-GO-EXECUTION-SUITE-IS-THE-PACKAGE, VO-ADAPTER-GO-TEST-ENTITY-HAS-NO-GO-FIELD
 /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
 /// @vtest.intent a Go Test in a package of a module nested in the project is scanned with that module as project and that package as suite, and is run by go test for that package in the nested module and recorded PASS
 #[test]
@@ -615,6 +631,41 @@ fn a_test_in_a_nested_module_runs_in_that_module() {
     ]);
     let registry = vtest_ops::registry::builtin_registry().expect("builtin registry");
     let scan = scan_project(&fixture.root, &registry).expect("scan");
+    // DES-646: the Go coordinates are in the neutral descriptor; the Test entity
+    // has no Go field of its own.
+    let entity = serde_json::to_value(&scan.tests[0]).expect("serialize the Test");
+    let mut fields: Vec<&str> = entity
+        .as_object()
+        .expect("an object")
+        .keys()
+        .map(String::as_str)
+        .collect();
+    fields.sort_unstable();
+    assert_eq!(
+        fields,
+        [
+            "cases",
+            "content_hash",
+            "covers",
+            "execution",
+            "expect",
+            "id",
+            "input",
+            "intent",
+            "kind",
+            "location",
+            "related",
+            "targets"
+        ]
+    );
+    let mut descriptor: Vec<&str> = entity["execution"]
+        .as_object()
+        .expect("an object")
+        .keys()
+        .map(String::as_str)
+        .collect();
+    descriptor.sort_unstable();
+    assert_eq!(descriptor, ["adapter", "project", "selector", "suite"]);
     let execution = &scan.tests[0].execution;
     assert_eq!(execution.project.as_deref(), Some("tools"));
     let suite = execution.suite.as_ref().expect("a suite");

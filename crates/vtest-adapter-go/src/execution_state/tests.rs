@@ -103,7 +103,7 @@ fn assert_incomplete(
 /// has a complete snapshot of the go schema, whose toolchain identity binds
 /// what `go env` reports and whose invocation names no machine path.
 /// @vtest.id TEST-ADAPTER-GO-STATE-OF-A-CLEAN-PROJECT-IS-COMPLETE
-/// @vtest.covers VO-ADAPTER-GO-TOOLCHAIN-IDENTITY-IS-GO-ENV, VO-ADAPTER-GO-MANIFEST-IS-EVERY-FILE-OF-THE-PROJECT
+/// @vtest.covers VO-ADAPTER-GO-TOOLCHAIN-IDENTITY-IS-GO-ENV, VO-ADAPTER-GO-MANIFEST-IS-EVERY-FILE-OF-THE-PROJECT, VO-EXEC-STATE-CANONICAL-INVOCATION
 /// @vtest.target crates/vtest-adapter-go/src/execution_state.rs::snapshot_with_reasons
 /// @vtest.intent a project that reaches nothing outside its root has a complete go-execution-state snapshot whose toolchain identity lists GOVERSION, GOOS, GOARCH, the instruction-set setting, the cgo and compiler variables, GOFLAGS, GOEXPERIMENT, GOFIPS140, GODEBUG, GOTOOLCHAIN, GO111MODULE and GOWORK, and whose invocation holds no absolute path
 #[test]
@@ -560,7 +560,7 @@ fn a_symbolic_link_out_of_the_root_makes_the_snapshot_incomplete() {
 /// DES-209, DES-097: without the HEAD revision, and when `go` cannot report
 /// its environment, the snapshot is not complete.
 /// @vtest.id TEST-ADAPTER-GO-STATE-INCOMPLETE-WITHOUT-REVISION-OR-TOOLCHAIN
-/// @vtest.covers VO-ADAPTER-GO-TOOLCHAIN-IDENTITY-IS-GO-ENV
+/// @vtest.covers VO-EXEC-STATE-ABSENT-HEAD-COMMIT-INCOMPLETE, VO-ADAPTER-GO-TOOLCHAIN-IDENTITY-IS-GO-ENV
 /// @vtest.target crates/vtest-adapter-go/src/execution_state.rs::GoTestRunner::draft
 /// @vtest.intent a snapshot with no HEAD revision, or of a module directory that does not exist, is incomplete
 #[test]
@@ -583,7 +583,7 @@ fn a_snapshot_without_a_revision_or_a_toolchain_is_incomplete() {
 /// DES-372, DES-369: a verification reads the same snapshot a run recorded, for
 /// every Test of a module, and only for the go runner kind.
 /// @vtest.id TEST-ADAPTER-GO-READER-GIVES-THE-SNAPSHOT-OF-EACH-CALL
-/// @vtest.covers VO-ADAPTER-GO-TOOLCHAIN-IDENTITY-IS-GO-ENV
+/// @vtest.covers VO-EXEC-STATE-REEVALUATION-REBUILDS-CURRENT-DTO
 /// @vtest.target crates/vtest-adapter-go/src/execution_state.rs::GoExecutionStateReader::new
 /// @vtest.intent the reader of one operation returns for each Test the draft a direct call returns, one per package for the cgo check, and nothing for another runner kind or a Test with no module
 #[test]
@@ -638,4 +638,27 @@ fn a_file_written_between_two_snapshots_makes_them_differ() {
     assert_ne!(before, after);
     fs::write(fixture.root.join("app/calc.go"), b"package app\n").expect("change a file");
     assert_ne!(after, state(&fixture.root, env(&[]), &here()).0);
+}
+
+/// DES-369: the environment the command is started with is the environment the
+/// snapshot binds.
+/// @vtest.id TEST-ADAPTER-GO-COMMAND-ENV-AND-SNAPSHOT-AGREE
+/// @vtest.covers VO-EXEC-STATE-RUNNER-ENVIRONMENT-MATCHES
+/// @vtest.target crates/vtest-adapter-go/src/runner.rs::GoTestRunner::with_environment
+/// @vtest.intent a runner built with an environment overlay returns a command whose env is that overlay, and the snapshot of the same Test records that overlay in its invocation and the overlaid GOFLAGS in its toolchain identity
+#[test]
+fn the_environment_of_the_command_is_the_environment_of_the_snapshot() {
+    require_go();
+    let fixture = clean();
+    let overlay = env(&[("GOFLAGS", "-tags=bound")]);
+    let runner = GoTestRunner::with_environment(overlay.clone());
+    let command = runner
+        .command(&fixture.root, &here(), false, None)
+        .expect("a command");
+    assert_eq!(command.env, overlay);
+    let draft = runner
+        .execution_state(&fixture.root, &here(), Some(HEAD), RUNNER_KIND)
+        .expect("a snapshot");
+    assert_eq!(draft.invocation["env"], json!(overlay));
+    assert!(draft.toolchain_identity.contains("GOFLAGS=-tags=bound"));
 }

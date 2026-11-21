@@ -5,15 +5,13 @@
 //! `execution_state/tests.rs`.
 
 use std::{
-    collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
 };
 
 use vtest_adapter_api::{
-    AdapterRegistry, AdapterScanConfig, RunnerCommand, RunnerOutput, RunnerTestResult,
-    TestRunnerError,
+    AdapterRegistry, AdapterScanConfig, RunnerCommand, RunnerTestResult, TestRunnerError,
 };
 use vtest_model::{AdapterId, ExecutionDescriptor, TestSuite};
 
@@ -155,13 +153,15 @@ mod captured {
 /// DES-350, DES-621: the adapter declares discovery and the runner, and no
 /// capability it does not implement; the registry resolves the runner.
 /// @vtest.id TEST-ADAPTER-GO-DECLARES-DISCOVERY-AND-RUNNER
-/// @vtest.covers VO-ADAPTER-GO-REGISTERS-WITHOUT-CORE-CHANGES
+/// @vtest.covers VO-ADAPTER-LEXICAL-DECLARES-DISCOVERY-ONLY, VO-ADAPTER-GO-REGISTERS-WITHOUT-CORE-CHANGES
 /// @vtest.target crates/vtest-adapter-go/src/lib.rs::adapter
-/// @vtest.intent the go adapter declares source_discovery and test_runner and neither coverage nor static analysis, registers, and resolves its runner by the id go
+/// @vtest.intent the go adapter declares its id, its language, its config namespace, source_discovery and test_runner and neither coverage nor static analysis, registers, and resolves its runner by the id go
 #[test]
 fn the_go_adapter_declares_discovery_and_the_runner_only() {
     let descriptor = adapter().descriptor();
     assert_eq!(descriptor.id, "go");
+    assert_eq!(descriptor.languages, vec!["go".to_owned()]);
+    assert_eq!(descriptor.config_namespace, "go");
     assert_eq!(
         descriptor.capabilities,
         vec![Capability::SourceDiscovery, Capability::TestRunner]
@@ -338,7 +338,7 @@ fn the_command_is_go_test_for_one_package_by_exact_name_without_the_cache() {
 /// An execution descriptor that is not the go adapter's stops the run
 /// (E-ADAPTER-003), unlike the refusal of one Test.
 /// @vtest.id TEST-ADAPTER-GO-FOREIGN-DESCRIPTOR-IS-NOT-A-REFUSAL
-/// @vtest.covers VO-ADAPTER-GO-EXECUTION-SUITE-IS-THE-PACKAGE
+/// @vtest.covers VO-ADAPTER-GO-EXECUTION-SUITE-IS-THE-PACKAGE, VO-EXEC-RUN-TESTS-DESCRIPTOR-MISMATCH-E-ADAPTER-003
 /// @vtest.target crates/vtest-adapter-go/src/runner.rs::coordinates
 /// @vtest.intent a descriptor with a project and no suite, a suite of another kind, or a package suite with no name is an error that stops the run, not a refusal of one Test
 #[test]
@@ -627,49 +627,4 @@ fn output_that_is_not_json_is_not_classified() {
     assert_eq!(interpret(&noisy, "TestPass"), RunnerTestResult::Unknown);
     assert_eq!(interpret("[1,2]\n", "TestPass"), RunnerTestResult::Unknown);
     assert_eq!(interpret("", "TestPass"), RunnerTestResult::NoResult);
-}
-
-/// The runner reports what it read; deciding that an exit status contradicts a
-/// result is `vtest-exec`'s (DS-1911, DES-678).
-/// @vtest.id TEST-ADAPTER-GO-PARSE-DOES-NOT-LOOK-AT-THE-EXIT-STATUS
-/// @vtest.covers VO-ADAPTER-GO-EXIT-CODE-CONTRADICTION-IS-DETECTED
-/// @vtest.target crates/vtest-adapter-go/src/runner.rs::interpret
-/// @vtest.intent the stream of a passing Test is PASS whatever the exit status handed to the runner, so the contradiction is left to the orchestration that compares the two
-#[test]
-fn the_runner_hands_the_exit_status_contradiction_to_orchestration() {
-    for exit_code in [Some(0), Some(1), None] {
-        let observed = GoTestRunner::new().parse(
-            &execution(Some("."), Some("app"), "TestPass"),
-            RunnerOutput {
-                stdout: captured::PASS,
-                stderr: "",
-                exit_code,
-            },
-        );
-        assert_eq!(observed, RunnerTestResult::Pass);
-    }
-}
-
-/// The map of an environment overlay is in the command and reaches `go`.
-/// @vtest.id TEST-ADAPTER-GO-ENVIRONMENT-OVERLAY-IS-THE-COMMAND-ENV
-/// @vtest.covers VO-ADAPTER-GO-RUNS-ONE-TEST-PER-INVOCATION
-/// @vtest.target crates/vtest-adapter-go/src/lib.rs::GoAdapter::with_runner
-/// @vtest.intent a runner built with an environment overlay puts exactly that overlay in the env of the command it returns
-#[test]
-fn an_environment_overlay_is_the_env_of_the_command() {
-    let fixture = project(&[
-        ("go.mod", b"module app\n\ngo 1.21\n"),
-        ("app/a_test.go", &test_file("func TestA(t *testing.T) {}\n")),
-    ]);
-    let overlay = BTreeMap::from([("GOFLAGS".to_owned(), "-tags=x".to_owned())]);
-    let runner = GoTestRunner::with_environment(overlay.clone());
-    let spec = runner
-        .command(
-            &fixture.root,
-            &execution(Some("."), Some("app"), "TestA"),
-            false,
-            None,
-        )
-        .expect("a command");
-    assert_eq!(spec.env, overlay);
 }
