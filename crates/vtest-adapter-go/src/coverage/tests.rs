@@ -807,7 +807,7 @@ fn the_module_is_read_from_go_list() {
 /// @vtest.id TEST-ADAPTER-GO-COVERAGE-AVAILABILITY-IS-WHETHER-GO-RUNS
 /// @vtest.covers VO-EXEC-COVERAGE-UNAVAILABLE-NOT-CHECKED
 /// @vtest.target crates/vtest-adapter-go/src/coverage.rs::probe_availability
-/// @vtest.intent a go command that cannot be started is unavailable coverage with the reason that target_coverage is NOT_CHECKED, a go command whose version fails is too, and the real go command is available
+/// @vtest.intent a go command that cannot be started is unavailable coverage with the reason that target_coverage is NOT_CHECKED, a go command that cannot be started in a directory that is not there is too, and the real go command is available
 #[test]
 fn availability_is_whether_the_go_command_runs() {
     require_go();
@@ -824,7 +824,7 @@ fn availability_is_whether_the_go_command_runs() {
         reason.to_string(),
         "`go version` cannot be run; target_coverage is NOT_CHECKED"
     );
-    // A program that starts and fails: `go` run in a directory that is not there.
+    // The program is there but cannot be started in a directory that is not.
     assert!(
         probe_availability(PROGRAM, &root.join("vtest-no-such-directory"), &environment).is_err()
     );

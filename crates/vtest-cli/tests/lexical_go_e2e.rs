@@ -1,6 +1,6 @@
 //! End-to-end check that the `go` adapter (Go) is registered in the
 //! CLI composition root and that its Tests scan and verify through the
-//! unmodified core with the discovery-only verdict.
+//! unmodified core, with no Evidence recorded yet.
 
 mod support;
 
@@ -31,7 +31,7 @@ func TestAdd(t *testing.T) {
 /// @vtest.id TEST-CLI-GO-ADAPTER-SCAN-AND-VERIFY
 /// @vtest.covers VO-ADAPTER-GO-REGISTERS-WITHOUT-CORE-CHANGES
 /// @vtest.target crates/vtest-ops/src/registry.rs::builtin_registry
-/// @vtest.intent verifies the go adapter is in the built-in registry and a declared Go Test is scanned, linked to its VO and target, and verified with chain_integrity and orphan_detection PASS, oracle_presence NO_EVIDENCE with NOT_CHECKED, and target_binding NO_EVIDENCE with NOT_CHECKED only (the adapter has a runner, so NOT_EXECUTED no longer applies, and no Coverage capability)
+/// @vtest.intent verifies the go adapter is in the built-in registry and a declared Go Test is scanned, linked to its VO and target, and verified with chain_integrity and orphan_detection PASS, oracle_presence NO_EVIDENCE with NOT_CHECKED, and target_binding NO_EVIDENCE with NOT_EXECUTED because the Test has no Evidence yet
 #[test]
 fn go_adapter_scans_and_verifies_through_the_cli_registry() {
     let fixture = support::fixture(
@@ -56,13 +56,13 @@ fn go_adapter_scans_and_verifies_through_the_cli_registry() {
             vec![DiagnosticLabel::NotChecked]
         )
     );
-    // go declares a runner and no coverage: the Test has no Evidence yet, and
-    // even with Evidence its target_binding could not be read (DS-1581).
+    // go declares a runner and coverage: the Test has no Evidence yet, which is
+    // NO_EVIDENCE with NOT_EXECUTED (DS-825).
     assert_eq!(
         support::state_of(&outcome, VerificationCheck::TargetBinding, id),
         (
             VerificationState::NoEvidence,
-            vec![DiagnosticLabel::NotChecked]
+            vec![DiagnosticLabel::NotExecuted]
         )
     );
 }
