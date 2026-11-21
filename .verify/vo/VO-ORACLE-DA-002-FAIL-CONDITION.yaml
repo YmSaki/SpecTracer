@@ -1,0 +1,11 @@
+id: VO-ORACLE-DA-002-FAIL-CONDITION
+parent: null
+derives_from:
+  - doc: DS-622
+claim: 'DA-002（対象未呼出）はtarget_bindingへ供給する検査であり、宣言されたtargetシンボルを呼んでいないことを内容とし、少なくとも関数本体および同一ファイル内の呼出先helper（1段）を探索し、探索した範囲に呼出が存在せず、かつ探索しなかった、または探索できなかった関数呼出（他ファイル・他クレートの関数呼出を含む）も存在しないことをFAIL条件とし、探索しなかった、または探索できなかった関数呼出があり間接呼出の可能性を排除できない場合をUNKNOWNへ退避する例とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-20T12:00:00+09:00
+updated: 2026-11-20T12:00:00+09:00

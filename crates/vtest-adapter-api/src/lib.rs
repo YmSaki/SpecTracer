@@ -302,6 +302,18 @@ pub trait TestRunnerAdapter {
         None
     }
 
+    /// A reader of Execution States for one operation that checks many Tests
+    /// against a workspace it does not change (`vtest verify`). Each call
+    /// returns what [`TestRunnerAdapter::execution_state`] returns for the
+    /// same arguments; an adapter may collect the inputs every Test shares
+    /// once per reader. A caller that must observe a change between two
+    /// readings (the before/after snapshots around a Test run, DS-532) calls
+    /// `execution_state` instead, and a reader is dropped when its operation
+    /// ends so a later operation never sees an earlier tree.
+    fn execution_state_reader(&self) -> Box<dyn ExecutionStateReader + '_> {
+        Box::new(PerCallExecutionStateReader { runner: self })
+    }
+
     fn id(&self) -> &'static str;
 
     fn command(
@@ -313,6 +325,37 @@ pub trait TestRunnerAdapter {
     ) -> Result<RunnerCommand, TestRunnerError>;
 
     fn parse(&self, execution: &ExecutionDescriptor, output: RunnerOutput<'_>) -> RunnerTestResult;
+}
+
+/// See [`TestRunnerAdapter::execution_state_reader`].
+pub trait ExecutionStateReader {
+    /// The same result as [`TestRunnerAdapter::execution_state`] for the same
+    /// arguments.
+    fn execution_state(
+        &self,
+        root: &Path,
+        execution: &ExecutionDescriptor,
+        head_revision: Option<&str>,
+        runner_kind: &str,
+    ) -> Option<vtest_model::ExecutionStateDraft>;
+}
+
+/// The default reader: every call is a fresh `execution_state` call.
+struct PerCallExecutionStateReader<'a, R: ?Sized> {
+    runner: &'a R,
+}
+
+impl<R: TestRunnerAdapter + ?Sized> ExecutionStateReader for PerCallExecutionStateReader<'_, R> {
+    fn execution_state(
+        &self,
+        root: &Path,
+        execution: &ExecutionDescriptor,
+        head_revision: Option<&str>,
+        runner_kind: &str,
+    ) -> Option<vtest_model::ExecutionStateDraft> {
+        self.runner
+            .execution_state(root, execution, head_revision, runner_kind)
+    }
 }
 
 /// Per-target reachability measurement returned by [`CoverageAdapter::

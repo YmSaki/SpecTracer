@@ -189,16 +189,46 @@
 //!   DS-1965 fixes: `true` for a pattern that is irrefutable (DS-1952) with no guard
 //!   or a guard fixed to `true`, `false` for a guard fixed to `false`, with their
 //!   negations (`assert!(matches!(double(2), _))` is constant, as is
-//!   `X || matches!(x, _)`, which absorbs like `X || true`). A pattern DS-1952 reads
-//!   as irrefutable that its type may refute (`Shape::Circle(..)`, `S { .. }`, a
-//!   fixed-length slice) is not fixed, so DA-001 does not report a real check of a
-//!   variant as `Fail` (derivation from DS-1680 toward `NoViolation`: DS-1965's text
-//!   names every DS-1952 irrefutable pattern, so one that no type refutes stays a
-//!   false PASS). A lone identifier (`x`, `ref x`, `mut x`) is not fixed either: it
-//!   may name a lowercase constant, which syntax does not tell from a binding, so
-//!   `matches!(x, y)` stays `NoViolation` as before, a remaining false PASS
-//!   (`x @ _` and `_` are fixed). `matches!(x, Some(4))` and a guard that is not
-//!   fixed stay non-constant. An operand made only of literals
+//!   `X || matches!(x, _)`, which absorbs like `X || true`). Syntax does not tell a
+//!   struct from an enum variant, nor a binding from a constant or a unit struct or
+//!   variant: `S { .. }` and `DaVerdict::Fail(_)` have one form, as do `x` and a
+//!   lowercase `const`, and `U` and `E::A`. DS-1952 reads a tuple-struct or struct
+//!   pattern of irrefutable parts and a single binding as irrefutable, and a path
+//!   pattern or a macro as refutable, but for each of them only the type shows
+//!   whether it is (a unit struct `U` is irrefutable for its type). Such a
+//!   `matches!` is DS-621's "定数性を確定できない式", so DA-001 escapes to
+//!   `Unknown` (DS-621) rather than `Fail` (a real check of a variant) or
+//!   `NoViolation` (a pattern no type refutes, which checks nothing). This covers a
+//!   tuple-struct, struct or path pattern, a lone identifier as the whole pattern
+//!   (`x`, `ref x`, `mut x`, `Kind`), an identifier written like a variant below it
+//!   (`(Kind, _)`), a slice of fixed length, a macro, and a tuple, reference or
+//!   `or` pattern holding one with no part refutable whatever the type
+//!   (`PatternClass::Undecidable`); DA-001 reads such a `matches!` both as `true`
+//!   and as its scrutinee's value, and the constancy is undecided where the two
+//!   differ (`da_001_argument_constancy`), so `matches!(f(), S { .. }) && g()` stays
+//!   non-constant. A non-constant assert-equivalent beside it still makes DA-001
+//!   `NoViolation`. `x @ _`, `_` and the like are fixed. A pattern refutable whatever
+//!   the type (a literal, a range, `Some` / `None` / `Ok` / `Err` read as the
+//!   prelude's variants, or a pattern holding one) and a guard that is not fixed stay
+//!   non-constant. Reading an undecidable pattern as `true` is DA-001's only; the
+//!   value `fixed_value` gives the other analyses reads it as its scrutinee's value,
+//!   as before. One change reaches them through `fixed_value`: an `or` pattern below
+//!   the top with an irrefutable alternative (`(S { .. } | _, _)`,
+//!   `x @ (E::B(_) | _)`, `&(S { .. } | _)`, `(Some(_) | _, _)`) is irrefutable, as
+//!   DS-1952 names it, where `may_be_refuted_by_type` had left it unfixed for the
+//!   struct or variant in the other alternative. Its `matches!` is now `true`, so
+//!   DA-001 is `Fail` for an assert of it alone, and DA-003 reads
+//!   `X || matches!(v, (S { .. } | _, _))` as absorbing (`Unknown`) as for
+//!   `X || true`. Whether a divergence is reached after a pattern
+//!   (`may_be_refuted_by_type` in DA-003 / DA-006) is read as before. Remaining
+//!   limits: a user type named `Some` / `None` / `Ok` / `Err` that shadows the
+//!   prelude's is read as the prelude's variant, so a `matches!` over it stays
+//!   non-constant; a lowercase identifier below the top of the pattern
+//!   (`(four, _)`, `&four`, `x @ four`) is read as a binding, as DS-1952 reads it
+//!   for DA-003 and DA-006 too, so a lowercase `const` there makes DA-001 `Fail` on
+//!   a real check; and DA-001 is `Unknown`, not `Fail`, for an undecidable pattern
+//!   that its type does make irrefutable (a struct, a single-variant enum, a unit
+//!   struct, a binding). An operand made only of literals
 //!   counts as the value it has: `!`, `^`, `==` / `!=` of `bool` literals and the
 //!   comparisons of two literals of one kind (integer, string, char) are
 //!   evaluated (`X || 1 == 1` is constant). Float literals are not compared, since
@@ -381,8 +411,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use quote::ToTokens;
 use syn::{spanned::Spanned, visit::Visit};
 use vtest_adapter_api::{
-    ReachOutcome, RuleOutcome, RuleVerdict, StaticAnalysisAdapter, StaticAnalysisInput,
-    StaticAnalysisVerdict, TargetReach,
+    RuleOutcome, RuleVerdict, StaticAnalysisAdapter, StaticAnalysisInput, StaticAnalysisVerdict,
+    TargetReach,
 };
 use vtest_model::{Diagnostic, Locator, TargetRef};
 
@@ -617,22 +647,10 @@ impl StaticAnalysisAdapter for RustCargoStaticAnalysisAdapter {
         }
     }
 
-    /// DA-002 (static reachability, DS-622) is not implemented by this
-    /// adapter, so every target reports `UNKNOWN` for it — the analysis
-    /// boundary, never "not called" (DS-612).
+    /// DA-002 (DS-622) per declared target, from the Test body and the functions
+    /// of its own file that it calls (`crate::target_reach`).
     fn target_reach(&self, input: StaticAnalysisInput<'_>) -> Vec<TargetReach> {
-        input
-            .test
-            .targets
-            .iter()
-            .map(|target| TargetReach {
-                target: target.clone(),
-                outcome: ReachOutcome::Unknown,
-                reason: "static target reachability (DA-002) is not implemented by rust-cargo; \
-                         only runtime measurement can establish it (DS-612/DS-613)"
-                    .to_owned(),
-            })
-            .collect()
+        crate::target_reach::target_reach(input)
     }
 
     /// SPEC-387/DS-1208: DA-001/004/005/006 are Test-scoped; DA-002 and
@@ -850,9 +868,11 @@ fn da_001_constant_assertion(
     if undetermined_argument {
         return DaVerdict::Unknown(
             "every other assert-equivalent call is constant, and an argument holds a macro \
-             whose expansion is not read, or an operand of `||` / `|` / `&&` / `&` made only \
-             of literals whose value this analysis does not evaluate, so whether it is \
-             constant is not decided (DS-621, DS-629, DS-1949)"
+             whose expansion is not read, an operand of `||` / `|` / `&&` / `&` made only \
+             of literals whose value this analysis does not evaluate, or a `matches!` whose \
+             pattern (a struct, tuple-struct or path pattern, a lone identifier, a slice of \
+             fixed length) only its type shows to be irrefutable or not, so whether it is \
+             constant is not decided (DS-621, DS-629, DS-1949, DS-1952, DS-1965)"
                 .to_owned(),
         );
     }
@@ -985,7 +1005,7 @@ fn collect_divergences<'a>(text: &'a str, function: &'a syn::ItemFn) -> Vec<Dive
 
 /// The byte spans of the statements and expressions of the Test body that syntax
 /// fixes never to run (`DivergenceContext::dead`), outermost only.
-fn never_run_regions(text: &str) -> Vec<(usize, usize)> {
+pub(crate) fn never_run_regions(text: &str) -> Vec<(usize, usize)> {
     syn::parse_str::<syn::ItemFn>(text)
         .ok()
         .map(|function| run_divergence_collector(text, &function).1)
@@ -2175,7 +2195,9 @@ fn contains_let(expression: &syn::Expr) -> bool {
 }
 
 /// DS-1951's failure divergence among macros: `panic!` / `unreachable!` / `todo!` /
-/// `unimplemented!`, and an `assert!` whose condition literals fix to `false`.
+/// `unimplemented!`, an `assert!` whose condition literals fix to `false`, and an
+/// `assert_eq!` / `assert_ne!` whose comparison of its two values they fix to
+/// `false` (DS-1951 counts every assert-equivalent the DA-001 classifier fixes).
 fn is_failure_divergence_macro(node: &syn::Macro) -> bool {
     let Some(name) = node
         .path
@@ -2185,6 +2207,24 @@ fn is_failure_divergence_macro(node: &syn::Macro) -> bool {
     else {
         return false;
     };
+    let comparison = match name.as_str() {
+        "assert_eq" => Some(syn::BinOp::Eq(Default::default())),
+        "assert_ne" => Some(syn::BinOp::Ne(Default::default())),
+        _ => None,
+    };
+    if let Some(op) = comparison {
+        return macro_arguments(node).is_some_and(|arguments| match &arguments.checked[..] {
+            [left, right] => {
+                fixed_value(&syn::Expr::Binary(syn::ExprBinary {
+                    attrs: Vec::new(),
+                    left: Box::new(left.clone()),
+                    op,
+                    right: Box::new(right.clone()),
+                })) == Fixed::Value(false)
+            }
+            _ => false,
+        });
+    }
     name == "panic"
         || is_diverging_macro(&name)
         || (name == "assert"
@@ -2615,7 +2655,7 @@ fn divergence_constancy(divergence: &Divergence<'_>) -> Constancy {
     }
     let mut constancy = Constancy::AllLiteral;
     for decider in &divergence.deciders {
-        match argument_constancy(decider.base) {
+        match da_001_argument_constancy(decider.base) {
             Constancy::AllLiteral => {}
             Constancy::Undetermined => {
                 if matches!(constancy, Constancy::AllLiteral) {
@@ -2780,7 +2820,7 @@ fn classify_constancy(arguments: &str) -> Constancy {
         {
             continue;
         }
-        match argument_constancy(argument) {
+        match da_001_argument_constancy(argument) {
             Constancy::AllLiteral => {}
             Constancy::Undetermined => undetermined = true,
             Constancy::NotAllLiteral => return Constancy::NotAllLiteral,
@@ -5014,7 +5054,7 @@ fn absorbing_literal(op: syn::BinOp) -> Option<bool> {
 
 /// Whether literals fix the value of an expression whatever its other operands are.
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Fixed {
+pub(crate) enum Fixed {
     /// Fixed to this `bool`.
     Value(bool),
     /// A `bool` made only of literals, whose value is not evaluated here.
@@ -5042,12 +5082,28 @@ enum Fixed {
 /// `1 == 1`, `(true || ok)`) absorbs as the literal it equals, so `X || 1 == 1` is
 /// not read as `X` flowing. An operand made only of literals whose value is not
 /// evaluated here (`1 + 1 == 2`) may absorb (`Fixed::Literal`).
-fn fixed_value(expression: &syn::Expr) -> Fixed {
+pub(crate) fn fixed_value(expression: &syn::Expr) -> Fixed {
+    fixed_value_read(expression, UndecidedMatches::Open)
+}
+
+/// How `fixed_value_read` reads a `matches!` whose pattern syntax shows neither
+/// irrefutable nor refutable (`PatternClass::Undecidable`).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum UndecidedMatches {
+    /// As a value that depends on its scrutinee, as `fixed_value` reads it.
+    Open,
+    /// As the value `true` its pattern has when its type makes it irrefutable.
+    True,
+}
+
+/// `fixed_value` with a reading of an undecidable `matches!` (DA-001 only).
+fn fixed_value_read(expression: &syn::Expr, reading: UndecidedMatches) -> Fixed {
     if let syn::Expr::Macro(node) = unwrap_parens(expression) {
-        if let Some(fixed) = matches_value(&node.mac) {
+        if let Some(fixed) = matches_value(&node.mac, reading) {
             return fixed;
         }
     }
+    let fixed_value = |inner: &syn::Expr| fixed_value_read(inner, reading);
     match unwrap_parens(expression) {
         syn::Expr::Lit(syn::ExprLit {
             lit: syn::Lit::Bool(literal),
@@ -5158,34 +5214,148 @@ fn parse_matches(node: &syn::Macro) -> Option<syn::Result<(syn::Pat, Option<syn:
 /// irrefutable (DS-1952) with no guard or a guard fixed to `true`, `false` for a
 /// guard fixed to `false` (DA-001's `fixed_value`), each as `Fixed::Value`.
 ///
-/// Derivation from DS-1680 toward `NoViolation`: a pattern DS-1952 reads as
-/// irrefutable that its type may refute (`may_be_refuted_by_type`:
-/// `DaVerdict::Fail(_)`, `S { .. }`, a fixed-length slice) is not fixed, since its
-/// value is `false` for a variant it does not name and `Fail` would reject a real
-/// check. DS-1965's text does not exclude it, which leaves a false PASS for such a
-/// pattern that no type refutes. Any pattern not fixed is `None`, which leaves the
-/// form as `fixed_value` reads any other macro.
-fn matches_value(node: &syn::Macro) -> Option<Fixed> {
+/// A pattern whose irrefutability its type decides (`PatternClass::Undecidable`:
+/// `S { .. }`, `E::V(_)`, `E::A`, `x`) is read as `reading` says: `None` (as any
+/// other macro, which its identifiers make `Fixed::Open`) under
+/// `UndecidedMatches::Open`, `true` under `UndecidedMatches::True`. DA-001 reads
+/// both and leaves the constancy undecided where they differ (DS-621's escape).
+/// Any other pattern not fixed is `None`.
+fn matches_value(node: &syn::Macro, reading: UndecidedMatches) -> Option<Fixed> {
     let (pattern, guard) = parse_matches(node)?.ok()?;
-    match guard.as_ref().map(fixed_value) {
+    let class = pattern_class(&pattern);
+    match guard.as_ref().map(|guard| fixed_value_read(guard, reading)) {
         Some(Fixed::Value(false)) => Some(Fixed::Value(false)),
-        Some(Fixed::Value(true)) | None if irrefutable_whatever_the_type(&pattern) => {
+        Some(Fixed::Value(true)) | None if class == PatternClass::Irrefutable => {
+            Some(Fixed::Value(true))
+        }
+        Some(Fixed::Value(true)) | None
+            if class == PatternClass::Undecidable && reading == UndecidedMatches::True =>
+        {
             Some(Fixed::Value(true))
         }
         _ => None,
     }
 }
 
-/// Whether a pattern is irrefutable (DS-1952) and no type can refute it: an `or`
-/// pattern is, when one of its alternatives is (`Some(_) | _`).
-fn irrefutable_whatever_the_type(pattern: &syn::Pat) -> bool {
+/// What syntax shows of a `matches!` pattern for DA-001 (DS-1952, DS-1965).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum PatternClass {
+    /// Irrefutable whatever the type: `_`, `..`, `x @ _`, a slice of a rest only,
+    /// and tuples, references and parentheses of these.
+    Irrefutable,
+    /// Irrefutable for some type and refutable for another, which syntax does not
+    /// tell: a lone identifier as the whole pattern (a binding, a constant, a unit
+    /// struct or a unit variant) or one written like a variant below it, a path, a tuple-struct or struct pattern (a struct or an enum
+    /// variant), a slice that fixes a length, or a macro.
+    Undecidable,
+    /// Refutable whatever the type: a literal, a range, `Some` / `None` / `Ok` /
+    /// `Err` (the prelude's variants, as `option_or_result_variant` reads them),
+    /// or a pattern holding one in a position every value reaches.
+    Refutable,
+}
+
+impl PatternClass {
+    /// The class of patterns that must all match (tuple elements, fields).
+    fn all(classes: impl IntoIterator<Item = Self>) -> Self {
+        classes
+            .into_iter()
+            .fold(Self::Irrefutable, |all, class| match (all, class) {
+                (Self::Refutable, _) | (_, Self::Refutable) => Self::Refutable,
+                (Self::Undecidable, _) | (_, Self::Undecidable) => Self::Undecidable,
+                (Self::Irrefutable, Self::Irrefutable) => Self::Irrefutable,
+            })
+    }
+
+    /// The class of alternatives one of which must match (an `or` pattern).
+    fn any(classes: impl IntoIterator<Item = Self>) -> Self {
+        classes
+            .into_iter()
+            .fold(Self::Refutable, |any, class| match (any, class) {
+                (Self::Irrefutable, _) | (_, Self::Irrefutable) => Self::Irrefutable,
+                (Self::Undecidable, _) | (_, Self::Undecidable) => Self::Undecidable,
+                (Self::Refutable, Self::Refutable) => Self::Refutable,
+            })
+    }
+
+    /// A pattern with these elements whose path or length a type may refute.
+    fn refutable_by_type(self) -> Self {
+        match self {
+            Self::Irrefutable | Self::Undecidable => Self::Undecidable,
+            Self::Refutable => Self::Refutable,
+        }
+    }
+}
+
+/// The class of a `matches!` pattern (DS-1952 read for DA-001, DS-621's escape).
+/// `Irrefutable` is exactly what DS-1965 fixes to `true` whatever the type.
+///
+/// A lone identifier as the whole pattern (`x`, `ref x`, `mut x`, `Kind`, through
+/// parentheses and `or` alternatives) is `Undecidable`: it may name a constant or a
+/// unit struct or variant. Below a tuple, a reference, a struct or an `@`, a
+/// lowercase one is read as a binding (`nested_pattern_class`), as DS-1952 and
+/// `is_irrefutable` read it.
+fn pattern_class(pattern: &syn::Pat) -> PatternClass {
     match pattern {
-        syn::Pat::Or(or) => or.cases.iter().any(irrefutable_whatever_the_type),
-        syn::Pat::Paren(inner) => irrefutable_whatever_the_type(&inner.pat),
-        // A lone identifier (`x`, `ref x`, `mut x`) may name a lowercase constant, which
-        // syntax does not tell from a binding: not fixed, as with `may_be_refuted_by_type`.
-        syn::Pat::Ident(ident) if ident.subpat.is_none() => false,
-        other => is_irrefutable(other) && !may_be_refuted_by_type(other),
+        syn::Pat::Ident(ident) if ident.subpat.is_none() && ident.ident == "None" => {
+            PatternClass::Refutable
+        }
+        syn::Pat::Ident(ident) if ident.subpat.is_none() => PatternClass::Undecidable,
+        syn::Pat::Or(or) => PatternClass::any(or.cases.iter().map(pattern_class)),
+        syn::Pat::Paren(inner) => pattern_class(&inner.pat),
+        other => nested_pattern_class(other),
+    }
+}
+
+/// `pattern_class` of a pattern below the top: a lone lowercase identifier is a
+/// binding (`Irrefutable`), one written like a variant or a constant (`Kind`) is
+/// `Undecidable`, and `None` is `Refutable`.
+fn nested_pattern_class(pattern: &syn::Pat) -> PatternClass {
+    match pattern {
+        syn::Pat::Wild(_) | syn::Pat::Rest(_) => PatternClass::Irrefutable,
+        syn::Pat::Ident(ident) => match &ident.subpat {
+            Some((_, sub)) => nested_pattern_class(sub),
+            None if ident.ident == "None" => PatternClass::Refutable,
+            None if is_variant_like(&ident.ident) => PatternClass::Undecidable,
+            None => PatternClass::Irrefutable,
+        },
+        syn::Pat::Or(or) => PatternClass::any(or.cases.iter().map(nested_pattern_class)),
+        syn::Pat::Paren(inner) => nested_pattern_class(&inner.pat),
+        syn::Pat::Reference(inner) => nested_pattern_class(&inner.pat),
+        syn::Pat::Type(inner) => nested_pattern_class(&inner.pat),
+        syn::Pat::Tuple(tuple) => PatternClass::all(tuple.elems.iter().map(nested_pattern_class)),
+        syn::Pat::Slice(slice) if may_be_refuted_by_type(pattern) => {
+            PatternClass::all(slice.elems.iter().map(nested_pattern_class)).refutable_by_type()
+        }
+        syn::Pat::Slice(slice) => PatternClass::all(slice.elems.iter().map(nested_pattern_class)),
+        syn::Pat::TupleStruct(node) if option_or_result_variant(&node.path).is_some() => {
+            PatternClass::Refutable
+        }
+        syn::Pat::TupleStruct(node) => {
+            PatternClass::all(node.elems.iter().map(nested_pattern_class)).refutable_by_type()
+        }
+        syn::Pat::Struct(node) if option_or_result_variant(&node.path).is_some() => {
+            PatternClass::Refutable
+        }
+        syn::Pat::Struct(node) => PatternClass::all(
+            node.fields
+                .iter()
+                .map(|field| nested_pattern_class(&field.pat)),
+        )
+        .refutable_by_type(),
+        syn::Pat::Path(path)
+            if path.qself.is_none()
+                && path
+                    .path
+                    .segments
+                    .last()
+                    .is_some_and(|segment| segment.ident == "None") =>
+        {
+            PatternClass::Refutable
+        }
+        syn::Pat::Lit(_) | syn::Pat::Range(_) => PatternClass::Refutable,
+        // A path (`E::A`, a unit struct or a constant), a macro, a `const` block or a
+        // form syn does not name may be irrefutable for some type.
+        _ => PatternClass::Undecidable,
     }
 }
 
@@ -5279,12 +5449,36 @@ fn operand_flows(sibling: &syn::Expr, absorbing: bool) -> bool {
 /// literals whose value is not evaluated or holds such a macro, so it may absorb
 /// the rest.
 fn argument_constancy(argument: &syn::Expr) -> Constancy {
-    match fixed_value(argument) {
+    argument_constancy_read(argument, UndecidedMatches::Open)
+}
+
+/// DA-001's constancy of one argument, with a `matches!` whose pattern syntax shows
+/// neither irrefutable nor refutable (`PatternClass::Undecidable`) read both ways:
+/// as `true`, the value its type makes it when the pattern is irrefutable, and as
+/// a value its scrutinee decides. Where the two readings differ, the constancy is
+/// not decided (DS-621's "定数性を確定できない式", DS-1952, DS-1965): `S { .. }` and
+/// `E::V(_)` look the same, and only the type tells whether one is constant.
+fn da_001_argument_constancy(argument: &syn::Expr) -> Constancy {
+    match (
+        argument_constancy_read(argument, UndecidedMatches::Open),
+        argument_constancy_read(argument, UndecidedMatches::True),
+    ) {
+        (Constancy::AllLiteral, Constancy::AllLiteral) => Constancy::AllLiteral,
+        (Constancy::NotAllLiteral, Constancy::NotAllLiteral) => Constancy::NotAllLiteral,
+        _ => Constancy::Undetermined,
+    }
+}
+
+fn argument_constancy_read(argument: &syn::Expr, reading: UndecidedMatches) -> Constancy {
+    match fixed_value_read(argument, reading) {
         Fixed::Open => {}
         Fixed::Opaque => return Constancy::Undetermined,
         Fixed::Value(_) | Fixed::Literal | Fixed::Constant => return Constancy::AllLiteral,
     }
-    let mut finder = UnevaluatedAbsorberFinder { found: false };
+    let mut finder = UnevaluatedAbsorberFinder {
+        found: false,
+        reading,
+    };
     finder.visit_expr(argument);
     if finder.found {
         Constancy::Undetermined
@@ -5295,13 +5489,18 @@ fn argument_constancy(argument: &syn::Expr) -> Constancy {
 
 struct UnevaluatedAbsorberFinder {
     found: bool,
+    reading: UndecidedMatches,
 }
 
 impl<'ast> Visit<'ast> for UnevaluatedAbsorberFinder {
     fn visit_expr_binary(&mut self, node: &'ast syn::ExprBinary) {
         if absorbing_literal(node.op).is_some() {
-            let may_absorb =
-                |side: &syn::Expr| matches!(fixed_value(side), Fixed::Literal | Fixed::Opaque);
+            let may_absorb = |side: &syn::Expr| {
+                matches!(
+                    fixed_value_read(side, self.reading),
+                    Fixed::Literal | Fixed::Opaque
+                )
+            };
             self.found |= may_absorb(&node.left) || may_absorb(&node.right);
         }
         syn::visit::visit_expr_binary(self, node);
@@ -6121,7 +6320,7 @@ fn non_counted_regions(text: &str) -> Vec<(usize, usize)> {
     regions.spans
 }
 
-fn in_regions(offset: usize, regions: &[(usize, usize)]) -> bool {
+pub(crate) fn in_regions(offset: usize, regions: &[(usize, usize)]) -> bool {
     regions
         .iter()
         .any(|&(start, end)| offset >= start && offset < end)
@@ -6413,7 +6612,7 @@ impl Shape {
 /// Whether an identifier pattern may be a constant or a unit variant rather than a
 /// binding: Rust reads a name in scope as an item, and `None`, constants and unit
 /// variants are written like a variant (`is_variant_like`).
-fn pattern_ident_may_be_path(ident: &syn::PatIdent) -> bool {
+pub(crate) fn pattern_ident_may_be_path(ident: &syn::PatIdent) -> bool {
     ident.subpat.is_none()
         && ident.by_ref.is_none()
         && ident.mutability.is_none()
@@ -7368,7 +7567,7 @@ const INLINE_ROUNDS: usize = 16;
 /// discarded becomes a `break` of the inlined block).
 ///
 /// `None` when no call is inlined, and when the rounds do not settle.
-fn inline_tracked_closures(text: &str) -> Option<String> {
+pub(crate) fn inline_tracked_closures(text: &str) -> Option<String> {
     let mut current = text.to_owned();
     let mut fresh = 0;
     let mut inlined = false;
@@ -8175,7 +8374,7 @@ fn inlined_call(text: &str, info: &ClosureInfo, call: &NameCall, fresh: &mut usi
 /// characters, so it goes through the crate's character-aware conversion:
 /// adding it to the line start as bytes lands inside a multi-byte character
 /// and the slice panics (#264). A position outside `text` clamps to its end.
-fn span_offset(location: proc_macro2::LineColumn, text: &str) -> usize {
+pub(crate) fn span_offset(location: proc_macro2::LineColumn, text: &str) -> usize {
     crate::line_column_byte_offset(
         text,
         &crate::line_offsets(text),
@@ -8226,6 +8425,37 @@ mod tests {
         }
     }
 
+    // A test compares a verdict's variant with `assert_eq!` instead of
+    // `assert!(matches!(verdict, DaVerdict::Fail(_)))`: whether a path pattern
+    // is irrefutable is shown only by its type, so DA-001 reads that `matches!`
+    // as not decided constant (DS-621, DS-1965) and the test's own
+    // oracle_presence would be UNKNOWN (#339). The variant leaves the reason
+    // out, so the test checks what the `matches!` checked.
+    impl DaVerdict {
+        fn outcome(&self) -> RuleOutcome {
+            match self {
+                Self::NoViolation => RuleOutcome::NoViolation,
+                Self::Fail(_) => RuleOutcome::Fail,
+                Self::Unknown(_) => RuleOutcome::Unknown,
+            }
+        }
+    }
+
+    /// The variant of another crate's verdict type, read the same way.
+    trait Variant {
+        fn variant(&self) -> &'static str;
+    }
+
+    impl Variant for StaticAnalysisVerdict {
+        fn variant(&self) -> &'static str {
+            match self {
+                Self::Pass(_) => "PASS",
+                Self::Fail(_) => "FAIL",
+                Self::Unknown(_) => "UNKNOWN",
+            }
+        }
+    }
+
     /// @vtest.id TEST-ORACLE-TARGET-SYMBOL-FINAL-SEGMENT
     /// @vtest.covers VO-ORACLE-TARGET-SYMBOL-FINAL-SEGMENT
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::target_symbol
@@ -8272,7 +8502,7 @@ mod tests {
     fn no_verification_syntax_fails_da_006() {
         let text = "#[test]\nfn calls_but_checks_nothing() {\n    let _ = 1 + 1;\n}\n";
         let analysis = analyze(text, &[], &[]);
-        assert!(matches!(analysis.da_006, DaVerdict::Fail(_)));
+        assert_eq!(analysis.da_006.outcome(), RuleOutcome::Fail);
     }
 
     /// @vtest.id TEST-ORACLE-DA-006-DELEGATING-BODY-IS-UNKNOWN
@@ -8306,8 +8536,8 @@ mod tests {
     fn text_literal_target_and_unwrap_are_not_verification_syntax() {
         let text = "#[test]\nfn mentions_only() {\n    let _ = \"parse(input).unwrap()\";\n}\n";
         let analysis = analyze(text, &["parse".to_owned()], &[]);
-        assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
-        assert!(matches!(analysis.da_006, DaVerdict::Fail(_)));
+        assert_eq!(analysis.da_003, DaVerdict::NoViolation);
+        assert_eq!(analysis.da_006.outcome(), RuleOutcome::Fail);
     }
 
     /// @vtest.id TEST-ORACLE-DA-006-SHOULD-PANIC-PASSES
@@ -8318,7 +8548,7 @@ mod tests {
     fn a_should_panic_test_with_no_target_call_passes_da_006_via_the_attribute() {
         let text = "#[should_panic]\n#[test]\nfn panics() {\n    panic!(\"boom\");\n}\n";
         let analysis = analyze(text, &[], &[]);
-        assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
+        assert_eq!(analysis.da_006, DaVerdict::NoViolation);
     }
 
     /// REQ-074「不成立が構造から証明できる場合のみFAIL」: no
@@ -8369,7 +8599,7 @@ mod tests {
     fn a_should_panic_target_call_passes_da_003_without_an_assert() {
         let text = "#[should_panic]\n#[test]\nfn panics_on_call() {\n    divide(1, 0);\n}\n";
         let analysis = analyze(text, &["divide".to_owned()], &[]);
-        assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
+        assert_eq!(analysis.da_003, DaVerdict::NoViolation);
     }
 
     /// @vtest.id TEST-ORACLE-DA-003-LET-BOUND-CALL-PASSES
@@ -8395,8 +8625,8 @@ mod tests {
     fn a_direct_expect_err_call_passes_da_003_and_da_006() {
         let text = "#[test]\nfn rejects() {\n    parse(input).expect_err(\"invalid\");\n}\n";
         let analysis = analyze(text, &["parse".to_owned()], &[]);
-        assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
-        assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
+        assert_eq!(analysis.da_003, DaVerdict::NoViolation);
+        assert_eq!(analysis.da_006, DaVerdict::NoViolation);
     }
 
     /// @vtest.id TEST-ORACLE-DA-003-PATH-QUALIFIED-EXPECT-ERR-PASSES
@@ -8408,8 +8638,8 @@ mod tests {
         let text =
             "#[test]\nfn rejects() {\n    Type::from_yaml(input).expect_err(\"invalid\");\n}\n";
         let analysis = analyze(text, &["from_yaml".to_owned()], &[]);
-        assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
-        assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
+        assert_eq!(analysis.da_003, DaVerdict::NoViolation);
+        assert_eq!(analysis.da_006, DaVerdict::NoViolation);
     }
 
     /// @vtest.id TEST-ORACLE-DA-003-DIRECT-EXPECT-PASSES
@@ -8420,8 +8650,8 @@ mod tests {
     fn a_direct_expect_call_passes_da_003_and_da_006() {
         let text = "#[test]\nfn accepts() {\n    parse(input).expect(\"valid\");\n}\n";
         let analysis = analyze(text, &["parse".to_owned()], &[]);
-        assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
-        assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
+        assert_eq!(analysis.da_003, DaVerdict::NoViolation);
+        assert_eq!(analysis.da_006, DaVerdict::NoViolation);
     }
 
     /// @vtest.id TEST-ORACLE-DA-003-LOOP-CALL-UNKNOWN
@@ -8432,7 +8662,7 @@ mod tests {
     fn a_target_call_inside_a_loop_is_unknown() {
         let text = "#[test]\nfn repeated() {\n    for item in inputs {\n        parse(item);\n    }\n    assert!(true);\n}\n";
         let analysis = analyze(text, &["parse".to_owned()], &[]);
-        assert!(matches!(analysis.da_003, DaVerdict::Unknown(_)));
+        assert_eq!(analysis.da_003.outcome(), RuleOutcome::Unknown);
     }
 
     /// @vtest.id TEST-ORACLE-DA-003-LOOP-CALL-WITH-ASSERT-CHAIN
@@ -8447,7 +8677,7 @@ mod tests {
             "#[test]\nfn later() {\n    for item in inputs {\n        let _ = parse(item);\n    }\n    parse(\"x\").unwrap();\n}\n",
         ] {
             let analysis = analyze(text, &["parse".to_owned()], &[]);
-            assert!(matches!(analysis.da_003, DaVerdict::NoViolation), "{text}");
+            assert_eq!(analysis.da_003, DaVerdict::NoViolation, "{text}");
         }
     }
 
@@ -8472,7 +8702,7 @@ mod tests {
     fn a_target_call_passed_to_another_function_is_unknown() {
         let text = "#[test]\nfn delegated() {\n    check(parse(input));\n}\n";
         let analysis = analyze(text, &["parse".to_owned()], &[]);
-        assert!(matches!(analysis.da_003, DaVerdict::Unknown(_)));
+        assert_eq!(analysis.da_003.outcome(), RuleOutcome::Unknown);
     }
 
     /// DS-642: a body with no assert-equivalent construct delegates to every
@@ -9204,7 +9434,7 @@ mod tests {
     /// derivation at the position read is not shown derived, wherever it is.
     /// @vtest.id TEST-ORACLE-DA-003-BRANCH-WITH-DIFFERING-ARMS-IS-UNKNOWN
     /// @vtest.covers VO-ORACLE-DA-003-BRANCH-ARM-DERIVATION
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent `if`・`if let`・`match` とラベル付きブロックの値が、失敗として発散する腕を除いて、読む位置で target の結果から派生する腕と派生しない腕を持つとき(入れ子の分岐、let で束縛した分岐、`return` で抜ける腕、射影した位置、発散を決める位置を含む)、DA-003 が違反なしにならないことを確認する
     #[test]
     fn a_branch_whose_arms_differ_in_derivation_is_unknown() {
@@ -9239,7 +9469,7 @@ mod tests {
     /// through any call of a declared target or any binding of one, stays derived.
     /// @vtest.id TEST-ORACLE-DA-003-BRANCH-WITH-DERIVED-ARMS-STAYS-NO-VIOLATION
     /// @vtest.covers VO-ORACLE-DA-003-BRANCH-ARM-DERIVATION
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent 失敗として発散する腕を除くすべての腕が、読む位置で target の結果(別の呼出や別の束縛を含む)から派生する分岐とラベル付きブロックは、assert に届けば DA-003 が違反なしのままであることを確認する
     #[test]
     fn a_branch_whose_arms_are_all_derived_stays_no_violation() {
@@ -9658,7 +9888,7 @@ mod tests {
     /// condition) does not verify the target.
     /// @vtest.id TEST-ORACLE-DA-003-DISCARDED-CALL-IN-ASSERT-IS-UNKNOWN
     /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN, VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent assert の検査される引数の中で、ブロックの文、let _、使われない let の束縛、クロージャの本体、ループ、if と match の条件と被検査式、代入の右辺にある target の呼出は、結果が比較される値へ流れないので検証済みと数えず、DA-003 が UNKNOWN で合成結果が PASS にならないことを確認する
     #[test]
     fn a_call_whose_value_is_dropped_inside_an_assert_argument_is_unknown() {
@@ -9713,7 +9943,7 @@ mod tests {
     /// A call whose value can reach the compared value still verifies the target.
     /// @vtest.id TEST-ORACLE-DA-003-CALL-REACHING-THE-ASSERT-STAYS-NO-VIOLATION
     /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent assert の検査される引数の式そのもの、二項演算、メソッドチェーン、フィールド、参照、キャスト、? の被演算子、ブロックの末尾の式、末尾で使われる let の束縛、失敗として発散する腕を除くすべての腕が派生である if と match の各分岐の末尾の式にある target の呼出は、検証済みと数えられ、DA-003 が違反なしのままであることを確認する
     #[test]
     fn a_call_whose_value_reaches_the_compared_value_inside_an_assert_stays_no_violation() {
@@ -9765,7 +9995,7 @@ mod tests {
     /// used by the tail) does not.
     /// @vtest.id TEST-ORACLE-DA-003-UNLISTED-POSITION-IN-ASSERT-IS-UNKNOWN
     /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN, VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent assert の検査される引数の中で、流れる位置として列挙されていない位置(射影で残らない集約リテラルの要素、match の被検査式、ガード、if let、let-else、範囲、ラベル付きブロックの break、可変の束縛、末尾で使われない束縛、matches! のパターン側)にある target の呼出は検証済みと数えず、DA-003 が UNKNOWN になることを確認する
     #[test]
     fn a_call_in_a_position_that_is_not_listed_as_flowing_is_unknown() {
@@ -9806,7 +10036,7 @@ mod tests {
     /// still verify the target.
     /// @vtest.id TEST-ORACLE-DA-003-LISTED-POSITION-IN-ASSERT-STAYS-NO-VIOLATION
     /// @vtest.covers VO-ORACLE-DA-003-RESULT-UNVERIFIED
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent assert の検査される引数の中で、射影された集約リテラルの要素、射影されない集約リテラル、末尾の式で format! の引数や参照として使われる束縛、定数ブロックの演算子の被演算子にある target の呼出は検証済みと数えられ、DA-003 が違反なしのままであることを確認する
     #[test]
     fn a_call_in_a_listed_position_in_an_assert_stays_no_violation() {
@@ -9838,7 +10068,7 @@ mod tests {
     /// position the value flows from; beside any other operand it flows.
     /// @vtest.id TEST-ORACLE-DA-003-LITERAL-ABSORBED-OPERAND-DOES-NOT-FLOW
     /// @vtest.covers VO-ORACLE-DA-003-LITERAL-ABSORBED-OPERAND-NOT-FLOWING
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent X || true、true || X、X && false、false && X と | / & の同じ形、その否定、括弧や入れ子でリテラルに値が確定する兄弟の横にある target の呼出と束縛は DA-003 で検証済みと数えず UNKNOWN になり、X || false、X || ok、ok && X、(X || true) && Y の Y、整数の X | 0 のように吸収されない位置では違反なしのままであることを確認する
     #[test]
     fn an_operand_that_a_literal_absorbs_does_not_flow_and_any_other_operand_does() {
@@ -10034,7 +10264,7 @@ mod tests {
     /// @vtest.id TEST-ORACLE-DA-001-IRREFUTABLE-MATCHES-IS-CONSTANT
     /// @vtest.covers VO-ORACLE-DA-001-IRREFUTABLE-MATCHES-IS-CONSTANT
     /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::matches_value
-    /// @vtest.intent 反駁不能なパターンでガードが無いか定数で真の matches!、ガードが定数で偽の matches!、それらの否定と、それを X || や && false の吸収の形で含む引数だけを持つ assert 相当は DA-001 の定数アサーションになって合成結果が FAIL になり、Some(4) や 4 などの反駁可能なパターン、Some(_)、単独の識別子（定数かもしれない four、ref four、mut four）、定数でないガード、反駁可能なパターンと定数で真のガードの組は定数アサーションにならず違反なしのままで、列挙子や構造体やスライスの型で反駁されうるパターンも FAIL にならず違反なしのままで、X || matches!(x, _) は X || true と同じく DA-003 で UNKNOWN になることを確認する
+    /// @vtest.intent 反駁不能なパターンでガードが無いか定数で真の matches!、ガードが定数で偽の matches!、それらの否定と、それを X || や && false の吸収の形で含む引数だけを持つ assert 相当は DA-001 の定数アサーションになって合成結果が FAIL になり、Some(4) や 4 などの反駁可能なパターン、Some(_)、None、反駁可能な部分を持つ構造体やタプルのパターン、定数でないガード、反駁可能なパターンと定数で真のガードの組は定数アサーションにならず違反なしのままで、X || matches!(x, _) は X || true と同じく DA-003 で UNKNOWN になることを確認する
     #[test]
     fn a_matches_that_its_pattern_and_guard_fix_is_a_constant_assertion() {
         for body in [
@@ -10076,26 +10306,15 @@ mod tests {
         }
         for body in [
             "assert!(matches!(double(2), Some(4)));",
-            "assert!(matches!(double(2), four));",
-            "assert!(!matches!(double(2), four));",
-            "assert!(matches!(double(2), ref four));",
-            "assert!(matches!(double(2), mut four));",
-            "assert!(matches!(double(2), four if true));",
             "assert!(matches!(double(2), Some(_)));",
             "assert!(matches!(double(2), Ok(_)));",
             "assert!(matches!(double(2), 4));",
             "assert!(matches!(double(2), 4 | 5));",
             "assert!(matches!(double(2), 0..=9));",
             "assert!(matches!(double(2), None));",
-            "assert!(matches!(double(2), Kind));",
-            "assert!(matches!(double(2), Some(_) | Kind));",
-            "assert!(matches!(double(2), Shape::Circle(..)));",
-            "assert!(matches!(double(2), Shape::Circle { .. }));",
-            "assert!(matches!(double(2), S { .. }));",
-            "assert!(matches!(double(2), [_, _]));",
-            "assert!(matches!(double(2), Some(_) | S { .. }));",
-            "assert!(matches!(double(2), Shape::Circle(..) if true));",
-            "assert!(matches!(double(2), DaVerdict::Fail(_)));",
+            "assert!(matches!(double(2), Option::None));",
+            "assert!(matches!(double(2), S { x: 4, .. }));",
+            "assert!(matches!(double(2), (S { .. }, 4)));",
             "assert!(matches!(double(2), _ if ok));",
             "assert!(matches!(double(2), x if x == 4));",
             "assert!(matches!(double(2), Some(4) if true));",
@@ -10104,6 +10323,7 @@ mod tests {
             "assert!(double(2) == 4 || matches!(double(2), Some(_)));",
             "assert!(double(2) == 4 && matches!(double(2), _ if ok));",
             "assert!(matches!(double(2), _) && ok);",
+            "assert!(matches!(double(2), S { .. }) && ok);",
             "assert_eq!(matches!(double(2), Some(4)), true);",
             "assert!(matches!(double(2), _));\n    assert!(matches!(double(2), Some(4)));",
         ] {
@@ -10168,6 +10388,9 @@ mod tests {
         // The same absorption as `X || true` (DS-1948): the value does not flow.
         for body in [
             "assert!(double(2) == 4 || matches!(ok, _));",
+            "assert!(double(2) == 4 || matches!(ok, (a, b)));",
+            "assert!(double(2) == 4 || matches!(ok, &x));",
+            "assert!(double(2) == 4 || matches!(ok, x @ y));",
             "assert!(double(2) == 4 || true);",
         ] {
             let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
@@ -10175,6 +10398,93 @@ mod tests {
             assert!(
                 matches!(analysis.da_003, DaVerdict::Unknown(_)),
                 "{body}: {:?}",
+                analysis.da_003
+            );
+        }
+    }
+
+    /// DS-621, DS-1952, DS-1965: a `matches!` whose pattern only its type shows to be
+    /// irrefutable is an expression whose constancy is not decided, so DA-001 escapes
+    /// to `Unknown`; a non-constant assert-equivalent beside it keeps `NoViolation`.
+    /// @vtest.id TEST-ORACLE-DA-001-TYPE-DECIDED-MATCHES-IS-UNKNOWN
+    /// @vtest.covers VO-ORACLE-DA-001-UNDETERMINED-CONSTANCY-UNKNOWN, VO-ORACLE-DA-001-IRREFUTABLE-MATCHES-IS-CONSTANT
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_001_argument_constancy
+    /// @vtest.intent 構文からは反駁不能とも反駁可能とも決まらないパターン（構造体 S { .. }、列挙子 Enum::V(_)、パス、単独の識別子、長さを決めるスライス）の matches! だけを assert 相当に持つ Test は、DA-001 が FAIL にも違反なしにもならず UNKNOWN になり、その Test に非定数の assert_eq!(double(2), 4) を足すと違反なしになることを確認する
+    #[test]
+    fn a_matches_whose_pattern_only_its_type_decides_is_unknown_for_da_001() {
+        let undecided = [
+            "assert!(matches!(double(2), S { .. }));",
+            "assert!(matches!(double(2), Enum::V(_)));",
+            "assert!(matches!(double(2), DaVerdict::Fail(_)));",
+            "assert!(matches!(double(2), Shape::Circle(..)));",
+            "assert!(matches!(double(2), Shape::Circle { .. }));",
+            "assert!(matches!(double(2), Shape::Circle(..) if true));",
+            "assert!(matches!(double(2), E::A));",
+            "assert!(matches!(double(2), Kind));",
+            "assert!(matches!(double(2), four));",
+            "assert!(matches!(double(2), ref four));",
+            "assert!(matches!(double(2), mut four));",
+            "assert!(matches!(double(2), four if true));",
+            "assert!(matches!(double(2), (Kind, _)));",
+            "assert!(matches!(double(2), [_, _]));",
+            "assert!(matches!(double(2), Some(_) | S { .. }));",
+            "assert!(matches!(double(2), Some(_) | Kind));",
+            "assert!(!matches!(double(2), four));",
+            "assert!(!matches!(double(2), S { .. }));",
+            "assert!(double(2) == 4 || matches!(double(2), S { .. }));",
+            "assert_eq!(matches!(double(2), S { .. }), true);",
+            "if !matches!(double(2), S { .. }) { panic!(); }",
+            "assert!(matches!(double(2), _));\n    assert!(matches!(double(2), S { .. }));",
+        ];
+        for body in undecided {
+            let text = format!("#[test]\nfn t() {{\n    {body}\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_001, DaVerdict::Unknown(_)),
+                "{body}: {:?}",
+                analysis.da_001
+            );
+        }
+        for body in undecided {
+            let text =
+                format!("#[test]\nfn t() {{\n    {body}\n    assert_eq!(double(2), 4);\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_001, DaVerdict::NoViolation),
+                "{body}: {:?}",
+                analysis.da_001
+            );
+        }
+    }
+
+    /// DS-1952, DS-1965: an `or` pattern below the top with an irrefutable
+    /// alternative is irrefutable whatever the other alternative is, so its
+    /// `matches!` is `true`.
+    /// @vtest.id TEST-ORACLE-DA-001-NESTED-IRREFUTABLE-OR-IS-CONSTANT
+    /// @vtest.covers VO-ORACLE-DA-001-IRREFUTABLE-MATCHES-IS-CONSTANT
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::nested_pattern_class
+    /// @vtest.intent パターンの内側にあり、反駁不能な選択肢を含む or（(S { .. } | _, _)、x @ (E::B(_) | _)、&(S { .. } | _)）の matches! だけを持つ assert は DA-001 が FAIL になり、X || の形で含む assert は X || true と同じく DA-003 が UNKNOWN になることを確認する
+    #[test]
+    fn a_nested_or_pattern_with_an_irrefutable_alternative_is_constant() {
+        for pattern in [
+            "(mk_s(double(2)), 0), (S { .. } | _, _)",
+            "mk_e(double(2)), x @ (E::B(_) | _)",
+            "&mk_s(double(2)), &(S { .. } | _)",
+        ] {
+            let text = format!("#[test]\nfn t() {{\n    assert!(matches!({pattern}));\n}}\n");
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_001, DaVerdict::Fail(_)),
+                "{text}: {:?}",
+                analysis.da_001
+            );
+            let text = format!(
+                "#[test]\nfn t() {{\n    assert!(double(2) == 4 || matches!({pattern}));\n}}\n"
+            );
+            let analysis = analyze(&text, &["double".to_owned()], &[]);
+            assert!(
+                matches!(analysis.da_003, DaVerdict::Unknown(_)),
+                "{text}: {:?}",
                 analysis.da_003
             );
         }
@@ -10269,7 +10579,7 @@ mod tests {
     /// do not carry the call's value (DS-629; a projection selects one element).
     /// @vtest.id TEST-ORACLE-DA-003-CLOSURE-AND-NESTED-PROJECTION-IN-ASSERT-IS-UNKNOWN
     /// @vtest.covers VO-ORACLE-ANALYSIS-LIMIT-UNKNOWN, VO-ORACLE-DA-003-UNKNOWN-BOUNDED-DATAFLOW
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent assert の検査される引数の中で、インラインのクロージャの本体、入れ子の射影で残らない要素、vec! の添字で残らない要素にある target の呼出は検証済みと数えず、DA-003 が UNKNOWN になり合成結果が PASS にならないことを確認する
     #[test]
     fn a_closure_or_nested_projection_inside_an_assert_argument_is_unknown() {
@@ -10332,7 +10642,7 @@ mod tests {
     /// reaches an assert-equivalent directly.
     /// @vtest.id TEST-ORACLE-DA-003-RESULT-INTO-DELEGATION-TARGET-IS-UNKNOWN
     /// @vtest.covers VO-ORACLE-DA-003-DELEGATE-FUNCTION-ARGS, VO-ORACLE-DA-003-DELEGATION-NOT-FAIL
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent target の結果が、assert の検査される引数またはそこへ届く let 束縛の中で、値の変換でない関数呼出(利用者の関数、クロージャ、タプル構造体、T::new、PathBuf::from)の引数かメソッド呼出の引数へ流れ、assert へ直接届く結果が 1 つもない Test は、DA-003 が委譲(DS-1960)を理由に UNKNOWN になり、合成結果が PASS にならないことを確認する
     #[test]
     fn a_result_flowing_into_a_delegation_target_is_unknown() {
@@ -10481,7 +10791,7 @@ mod tests {
     /// target (DS-641 names only calls outside the assert-equivalents).
     /// @vtest.id TEST-ORACLE-DA-003-MESSAGE-ARGUMENT-IS-NOT-A-FLOWING-POSITION
     /// @vtest.covers VO-ORACLE-DA-003-MESSAGE-ARGUMENT-NOT-FLOWING
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::CheckedCallVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_003_result_unverified
     /// @vtest.intent target の結果が assert のメッセージ引数、または expect / expect_err の引数にだけ現れる Test は DA-003 が違反なしにならず、検査される引数で結果が届く Test はメッセージ引数の関数呼出があっても違反なしのままであることを確認する
     #[test]
     fn a_message_argument_is_not_a_flowing_position() {
@@ -10543,7 +10853,7 @@ mod tests {
     /// verification is one of them does not get DA-006's no violation.
     /// @vtest.id TEST-ORACLE-DA-006-INFALLIBLE-UNWRAP-IS-NOT-VERIFICATION
     /// @vtest.covers VO-ORACLE-INFALLIBLE-UNWRAP-NOT-ASSERT-EQUIVALENT, VO-ORACLE-DA-006-NO-VERIFICATION-SYNTAX
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::VerificationSyntaxVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_006_no_verification_syntax
     /// @vtest.intent 受け手の列挙子が構文から Some / Ok と決まる値(構築式と、それを一度だけ束縛した変数)への unwrap / expect / ?、Err と決まる値への unwrap_err / expect_err だけを検証構文に持つ Test は、DA-006 が違反なしにならず合成結果が PASS にならないことを確認する
     #[test]
     fn an_unwrap_that_cannot_fail_is_not_verification_syntax() {
@@ -10575,7 +10885,7 @@ mod tests {
     /// assert-equivalent (DS-619).
     /// @vtest.id TEST-ORACLE-DA-006-FALLIBLE-UNWRAP-STAYS-VERIFICATION
     /// @vtest.covers VO-ORACLE-INFALLIBLE-UNWRAP-NOT-ASSERT-EQUIVALENT, VO-ORACLE-DA-003-DIRECT-ASSERT-METHOD
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::VerificationSyntaxVisitor
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::da_006_no_verification_syntax
     /// @vtest.intent 受け手の列挙子が構文から決まらない値(呼出の結果、分岐、let mut、同じ名前の再束縛)、または失敗しうる組(Ok への unwrap_err、Err への unwrap)への unwrap / expect / ? は assert 相当のままで、DA-006 が違反なしのままであることを確認する
     #[test]
     fn an_unwrap_that_can_fail_stays_verification_syntax() {
@@ -10606,7 +10916,7 @@ mod tests {
     /// static-analysis verdict is UNKNOWN, not the PASS the other rules compose to.
     /// @vtest.id TEST-ORACLE-DA-003-SRC-ID-TARGET-IS-UNKNOWN
     /// @vtest.covers VO-ORACLE-DA-003-UNIDENTIFIED-CALL-UNKNOWN
-    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::RustCargoStaticAnalysisAdapter
+    /// @vtest.target crates/vtest-adapter-rust/src/oracle_presence.rs::RustCargoStaticAnalysisAdapter::analyze
     /// @vtest.intent SrcId で宣言された target は呼出箇所を同定できないため、他の規則が違反なしでも静的解析の判定が PASS ではなく UNKNOWN になり、Locator の target だけの同じ本体は PASS のままであることを確認する
     #[test]
     fn a_src_id_target_makes_the_static_analysis_verdict_unknown_not_pass() {
@@ -10652,19 +10962,13 @@ mod tests {
             })
         };
         let locator_target = TargetRef::Locator(locator("src/lib.rs::double"));
-        assert!(matches!(
-            verdict(vec![locator_target.clone()]),
-            StaticAnalysisVerdict::Pass(_)
-        ));
+        assert_eq!(verdict(vec![locator_target.clone()]).variant(), "PASS");
         let src_id_target = TargetRef::SrcId(SrcId::new("SRC-DOUBLE"));
-        assert!(matches!(
-            verdict(vec![src_id_target.clone()]),
-            StaticAnalysisVerdict::Unknown(_)
-        ));
-        assert!(matches!(
-            verdict(vec![locator_target, src_id_target]),
-            StaticAnalysisVerdict::Unknown(_)
-        ));
+        assert_eq!(verdict(vec![src_id_target.clone()]).variant(), "UNKNOWN");
+        assert_eq!(
+            verdict(vec![locator_target, src_id_target]).variant(),
+            "UNKNOWN"
+        );
     }
 
     /// @vtest.id TEST-ORACLE-DA-004-IDENTICAL-ARGUMENTS-FAILS
@@ -10675,7 +10979,7 @@ mod tests {
     fn identical_assert_eq_arguments_fail_da_004() {
         let text = "#[test]\nfn tautology() {\n    assert_eq!(compute(), compute());\n}\n";
         let analysis = analyze(text, &[], &[]);
-        assert!(matches!(analysis.da_004, DaVerdict::Fail(_)));
+        assert_eq!(analysis.da_004.outcome(), RuleOutcome::Fail);
     }
 
     /// @vtest.id TEST-ORACLE-DA-001-ALL-LITERAL-FAILS
@@ -10686,7 +10990,7 @@ mod tests {
     fn an_all_literal_assert_fails_da_001() {
         let text = "#[test]\nfn tautology() {\n    assert_eq!(1, 1);\n}\n";
         let analysis = analyze(text, &[], &[]);
-        assert!(matches!(analysis.da_001, DaVerdict::Fail(_)));
+        assert_eq!(analysis.da_001.outcome(), RuleOutcome::Fail);
     }
 
     /// @vtest.id TEST-ORACLE-LITERAL-FIXTURE-IS-NOT-CODE
@@ -10702,8 +11006,8 @@ fn real_check() {
 }
 "##;
         let analysis = analyze(text, &[], &[]);
-        assert!(matches!(analysis.da_001, DaVerdict::NoViolation));
-        assert!(matches!(analysis.da_004, DaVerdict::NoViolation));
+        assert_eq!(analysis.da_001, DaVerdict::NoViolation);
+        assert_eq!(analysis.da_004, DaVerdict::NoViolation);
     }
 
     /// @vtest.id TEST-ORACLE-DA-001-CALL-RESULT-PASSES
@@ -10714,7 +11018,7 @@ fn real_check() {
     fn an_assert_referencing_a_call_result_does_not_fail_da_001() {
         let text = "#[test]\nfn real_check() {\n    assert_eq!(double(2), 4);\n}\n";
         let analysis = analyze(text, &[], &[]);
-        assert!(matches!(analysis.da_001, DaVerdict::NoViolation));
+        assert_eq!(analysis.da_001, DaVerdict::NoViolation);
     }
 
     /// @vtest.id TEST-ORACLE-DA-001-NON-ASCII-LINE
@@ -10728,14 +11032,14 @@ fn real_check() {
                 "#[test]{newline}fn real_check() {{{newline}    let label = \"日本語é\"; assert_eq!(double(2), 4, \"é\");{newline}}}{newline}"
             );
             let analysis = analyze(&real, &["double".to_owned()], &[]);
-            assert!(matches!(analysis.da_001, DaVerdict::NoViolation), "{real}");
-            assert!(matches!(analysis.da_003, DaVerdict::NoViolation), "{real}");
+            assert_eq!(analysis.da_001, DaVerdict::NoViolation, "{real}");
+            assert_eq!(analysis.da_003, DaVerdict::NoViolation, "{real}");
 
             let constant = format!(
                 "#[test]{newline}fn constant() {{{newline}    let label = \"日本語é\"; assert_eq!(1, 1);{newline}}}{newline}"
             );
             let analysis = analyze(&constant, &[], &[]);
-            assert!(matches!(analysis.da_001, DaVerdict::Fail(_)), "{constant}");
+            assert_eq!(analysis.da_001.outcome(), RuleOutcome::Fail, "{constant}");
         }
     }
 
@@ -10748,7 +11052,7 @@ fn real_check() {
         let text =
             "#[test]\nfn it_parses() -> Result<(), String> {\n    let _ = parse(\"x\")?;\n    Ok(())\n}\n";
         let analysis = analyze(text, &[], &[]);
-        assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
+        assert_eq!(analysis.da_006, DaVerdict::NoViolation);
     }
 
     /// @vtest.id TEST-ORACLE-ASSERT-MACRO-CLOSED-LIST
@@ -10762,22 +11066,19 @@ fn real_check() {
                 "#[test]\nfn t() {{\n    let x = compute();\n    if x != 4 {{\n        {name}!();\n    }}\n}}\n"
             );
             let analysis = analyze(&text, &[], &[]);
-            assert!(matches!(analysis.da_006, DaVerdict::NoViolation), "{text}");
+            assert_eq!(analysis.da_006, DaVerdict::NoViolation, "{text}");
         }
         let custom = "#[test]\nfn t() {\n    let x = 4;\n    assert_matches!(x, 4);\n}\n";
-        assert!(matches!(
-            analyze(custom, &[], &[]).da_006,
-            DaVerdict::Fail(_)
-        ));
-        assert!(matches!(
+        assert_eq!(
+            analyze(custom, &[], &[]).da_006.outcome(),
+            RuleOutcome::Fail
+        );
+        assert_eq!(
             analyze(custom, &[], &["assert_matches!".to_owned()]).da_006,
             DaVerdict::NoViolation
-        ));
+        );
         let debug = "#[test]\nfn t() {\n    let x = 4;\n    debug_assert!(x == 4);\n}\n";
-        assert!(!matches!(
-            analyze(debug, &[], &[]).da_006,
-            DaVerdict::NoViolation
-        ));
+        assert_ne!(analyze(debug, &[], &[]).da_006, DaVerdict::NoViolation);
     }
 
     /// @vtest.id TEST-ORACLE-DIVERGENCE-ARGUMENT-METHOD-CALL-IS-A-CHANGE
@@ -10793,19 +11094,17 @@ fn real_check() {
                 )
             };
             let read = body("r");
-            assert!(
-                matches!(
-                    analyze(&read, &["double".to_owned()], &[]).da_003,
-                    DaVerdict::NoViolation
-                ),
+            assert_eq!(
+                analyze(&read, &["double".to_owned()], &[]).da_003,
+                DaVerdict::NoViolation,
                 "{read}"
             );
             let changed = body("r.pow(2)");
-            assert!(
-                matches!(
-                    analyze(&changed, &["double".to_owned()], &[]).da_003,
-                    DaVerdict::Unknown(_)
-                ),
+            assert_eq!(
+                analyze(&changed, &["double".to_owned()], &[])
+                    .da_003
+                    .outcome(),
+                RuleOutcome::Unknown,
                 "{changed}"
             );
         }
@@ -10837,31 +11136,31 @@ fn real_check() {
                 format!("    if c() {{\n        {name}!(\"{{:?}}\", format!(\"{{}}\", {{ r = 4; r }}));\n    }}\n"),
             ] {
                 let text = wrap(&inner);
-                assert!(
-                    matches!(
-                        analyze(&text, &["double".to_owned()], &[]).da_003,
-                        DaVerdict::Unknown(_)
-                    ),
+                assert_eq!(
+                    analyze(&text, &["double".to_owned()], &[])
+                        .da_003
+                        .outcome(),
+                    RuleOutcome::Unknown,
                     "{text}"
                 );
             }
             let read = wrap(&format!(
                 "    if c() {{\n        {name}!(\"{{}}\", r);\n    }}\n"
             ));
-            assert!(
-                matches!(
-                    analyze(&read, &["double".to_owned()], &[]).da_003,
-                    DaVerdict::NoViolation
-                ),
+            assert_eq!(
+                analyze(&read, &["double".to_owned()], &[]).da_003,
+                DaVerdict::NoViolation,
                 "{read}"
             );
         }
         // The plain name assigned inside an assert's argument is a change too.
         let in_assert = wrap("    assert!({ r = 4; true });\n");
-        assert!(matches!(
-            analyze(&in_assert, &["double".to_owned()], &[]).da_003,
-            DaVerdict::Unknown(_)
-        ));
+        assert_eq!(
+            analyze(&in_assert, &["double".to_owned()], &[])
+                .da_003
+                .outcome(),
+            RuleOutcome::Unknown
+        );
     }
 
     /// @vtest.id TEST-ORACLE-DA-003-FAIL-OF-ONE-TARGET-DECIDES
@@ -10872,10 +11171,10 @@ fn real_check() {
     fn a_fail_of_one_target_decides_over_another_targets_unknown() {
         let targets = ["double".to_owned(), "triple".to_owned()];
         let text = "#[test]\nfn t() {\n    let a = double(2);\n    let b = triple(2);\n    debug_assert_eq!(a, 4);\n}\n";
-        assert!(matches!(
-            analyze(text, &targets, &[]).da_003,
-            DaVerdict::Fail(_)
-        ));
+        assert_eq!(
+            analyze(text, &targets, &[]).da_003.outcome(),
+            RuleOutcome::Fail
+        );
         let targets_with_check = ["double".to_owned(), "check".to_owned()];
         for (targets, body) in [
             (
@@ -10896,16 +11195,17 @@ fn real_check() {
             ),
         ] {
             let text = format!("#[test]\nfn t() {{\n{body}}}\n");
-            assert!(
-                matches!(analyze(&text, targets, &[]).da_003, DaVerdict::Unknown(_)),
+            assert_eq!(
+                analyze(&text, targets, &[]).da_003.outcome(),
+                RuleOutcome::Unknown,
                 "{text}"
             );
         }
         let one = "#[test]\nfn t() {\n    let a = double(2);\n    debug_assert_eq!(a, 4);\n}\n";
-        assert!(matches!(
-            analyze(one, &targets, &[]).da_003,
-            DaVerdict::Unknown(_)
-        ));
+        assert_eq!(
+            analyze(one, &targets, &[]).da_003.outcome(),
+            RuleOutcome::Unknown
+        );
     }
 
     /// @vtest.id TEST-ORACLE-DA-001-UNCONDITIONAL-DIVERGENCE-IS-CONSTANT
@@ -11354,23 +11654,25 @@ fn real_check() {
     fn a_debug_assert_never_counts_as_an_assert_equivalent() {
         let nested =
             "#[test]\nfn t() {\n    assert_eq!({ debug_assert_eq!(double(2), 4) }, ());\n}\n";
-        assert!(matches!(
-            analyze(nested, &["double".to_owned()], &[]).da_003,
-            DaVerdict::Unknown(_)
-        ));
+        assert_eq!(
+            analyze(nested, &["double".to_owned()], &[])
+                .da_003
+                .outcome(),
+            RuleOutcome::Unknown
+        );
         for body in [
             "    let r = double(2);\n    debug_assert!(true);\n",
             "    let r = double(2);\n    debug_assert!(true, \"{}\", r);\n",
         ] {
             let text = format!("#[test]\nfn t() {{\n{body}}}\n");
             let analysis = analyze(&text, &["double".to_owned()], &[]);
-            assert!(matches!(analysis.da_003, DaVerdict::Fail(_)), "{text}");
+            assert_eq!(analysis.da_003.outcome(), RuleOutcome::Fail, "{text}");
         }
         let checked =
             "#[test]\nfn t() {\n    let mut r = double(2);\n    debug_assert!(r > 0);\n    assert_eq!(r, 4);\n}\n";
         let analysis = analyze(checked, &["double".to_owned()], &[]);
-        assert!(matches!(analysis.da_003, DaVerdict::NoViolation));
-        assert!(matches!(analysis.da_006, DaVerdict::NoViolation));
+        assert_eq!(analysis.da_003, DaVerdict::NoViolation);
+        assert_eq!(analysis.da_006, DaVerdict::NoViolation);
     }
 
     /// DA-003 of a Test whose declared targets are `double` and `maybe`.

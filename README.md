@@ -234,6 +234,10 @@ vtest doc add --id calculator --path docs/calculator.json
 vtest doc list --tree
 ```
 
+`--tree` shows the chain of registered documents, not the nodes inside them:
+each document ID is indented under the documents its nodes derive from. With
+only `calculator` registered, the tree is the single entry `calculator`.
+
 ### 4. Declare a Verification Obligation (VO)
 
 VOs are YAML records under `.verify/vo/`, one file per VO, deriving from one or
@@ -268,8 +272,10 @@ The annotation is not just documentation. It gives the test an identity, states 
 ### 6. Scan, run, and verify
 
 In a new Cargo project without `Cargo.lock`, the first `vtest run` reports
-`E-EXEC-004` without writing Evidence because Cargo creates `Cargo.lock` during
-the run. Create `Cargo.lock` first with `cargo generate-lockfile`. Also ensure
+`E-EXEC-004` and exits `1`, because Cargo creates `Cargo.lock` while the first
+Test runs. That Test gets no Evidence and stays `NO_EVIDENCE (NOT_EXECUTED)`.
+Tests that run after it still get Evidence, bound to the state with the new
+`Cargo.lock`. Create `Cargo.lock` first with `cargo generate-lockfile`. Also ensure
 the project has a git commit, because Evidence binds to git `HEAD` (without a
 commit, `target_binding` stays `NO_EVIDENCE (STALE)`):
 
@@ -285,6 +291,14 @@ vtest verify          # aggregate the four checks: OK / NG
 
 For automation, these commands accept `--format json` and return the same
 `{ok, data, diagnostics}` envelope.
+
+Evidence is also bound to the Execution State at run time: the toolchain, the
+adapter configuration that affects execution, and the input manifest. The
+`rust-cargo` adapter records the `CARGO*` / `RUST*` environment variables that
+affect the build (for example `CARGO_TARGET_DIR`) as part of that state, so if
+`vtest run` and `vtest verify` see different values, `target_binding` becomes
+`NO_EVIDENCE (STALE)`. This is the intended fail-closed behavior; run both
+commands in the same environment.
 
 ### 7. Approve
 

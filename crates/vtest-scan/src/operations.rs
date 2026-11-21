@@ -2575,11 +2575,17 @@ fn adds() { assert_eq!(2, 1 + 1); }
         assert!(validate_value_shape(&field, &value, &RustStructuredTest).is_ok());
     }
 
+    /// @vtest.id TEST-SCAN-VO-REF-FIELD-REJECTS-EMPTY-SCALAR
+    /// @vtest.covers VO-TEST-OP-ANSWER-ERROR-E-OP-001
+    /// @vtest.target crates/vtest-scan/src/operations.rs::validate_value_shape
+    /// @vtest.intent an empty scalar answer for a vo-ref field is still a validation error reported as E-OP-001 after the prefix check was removed
     #[test]
     fn vo_ref_field_still_rejects_an_empty_scalar() {
         let field = field("covers", "vo-ref");
         let value = FormValue::Scalar(String::new());
-        assert!(validate_value_shape(&field, &value, &RustStructuredTest).is_err());
+        let error = validate_value_shape(&field, &value, &RustStructuredTest)
+            .expect_err("an empty vo-ref answer must be rejected");
+        assert_eq!(error.code, "E-OP-001");
     }
 
     // レビュー round 2 項目【J】は "vo-ref-list" のアーム削除
@@ -2655,7 +2661,7 @@ fn adds() { assert_eq!(2, 1 + 1); }
     /// `targets`（`required: true`）まで弱めていないことを固定する。
     /// @vtest.id TEST-SCAN-RUST-INTEGRATION-FORM-REJECTS-EMPTY-TARGETS
     /// @vtest.covers VO-SCAN-RUST-INTEGRATION-TARGETS-REQUIRED
-    /// @vtest.target crates/vtest-adapter-rust/src/structured_test.rs::RUST_INTEGRATION_FORM
+    /// @vtest.target crates/vtest-scan/src/operations.rs::validate_form_answers
     /// @vtest.intent verifies the rust-integration Form rejects an empty targets list with E-OP-001 (DS-1247)
     #[test]
     fn rust_integration_form_rejects_an_empty_targets_list() {

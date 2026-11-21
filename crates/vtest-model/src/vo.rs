@@ -408,7 +408,7 @@ mod tests {
     ///
     /// @vtest.id TEST-MODEL-VO-COMBINATIONS-ARE-DIMENSION-KEYED-MAPS
     /// @vtest.covers VO-MODEL-VO-COMBINATIONS-COMPLETE-DIMENSION-MAP, VO-MODEL-VO-COMBINATIONS-ORDER-INDEPENDENT-ID
-    /// @vtest.target crates/vtest-model/src/vo.rs::CombinationEntry
+    /// @vtest.target crates/vtest-model/src/vo.rs::CombinationEntry::serialize
     /// @vtest.intent verifies a combinations entry serializes as a dimension-name-keyed map (DS-414)
     #[test]
     fn vo_record_combinations_are_dimension_keyed_maps() {
@@ -458,7 +458,7 @@ mod tests {
     /// collapsing or rejecting it (see the type's own doc comment).
     /// @vtest.id TEST-MODEL-VO-COMBINATION-ENTRY-PRESERVES-DUPLICATE-DIMENSION-NAME
     /// @vtest.covers VO-MODEL-VO-COMBINATIONS-COMPLETE-DIMENSION-MAP, VO-MODEL-VO-COMBINATIONS-ORDER-INDEPENDENT-ID
-    /// @vtest.target crates/vtest-model/src/vo.rs::CombinationEntry
+    /// @vtest.target crates/vtest-model/src/vo.rs::CombinationEntry::deserialize
     /// @vtest.intent verifies deserialize keeps a repeated dimension name losslessly, in declaration order, for the scan-layer E-SCAN-017 judgment
     #[test]
     fn combination_entry_deserialize_preserves_a_duplicate_dimension_name() {
@@ -477,7 +477,7 @@ mod tests {
     /// to report and round-trips normally.
     /// @vtest.id TEST-MODEL-VO-COMBINATION-ENTRY-WITHOUT-DUPLICATE-REPORTS-NONE
     /// @vtest.covers VO-MODEL-VO-COMBINATIONS-COMPLETE-DIMENSION-MAP, VO-MODEL-VO-COMBINATIONS-ORDER-INDEPENDENT-ID
-    /// @vtest.target crates/vtest-model/src/vo.rs::CombinationEntry
+    /// @vtest.target crates/vtest-model/src/vo.rs::CombinationEntry::duplicate_dimension_names
     /// @vtest.intent verifies a well-formed entry (each dimension declared exactly once) reports no duplicates and resolves values by name (DS-414)
     #[test]
     fn combination_entry_without_a_duplicate_reports_none() {
@@ -497,7 +497,7 @@ mod tests {
     /// entry got for free from the map's own `Eq`/`Ord`.
     /// @vtest.id TEST-MODEL-VO-COMBINATION-ENTRY-EQUALITY-ORDER-INDEPENDENT
     /// @vtest.covers VO-MODEL-VO-COMBINATIONS-COMPLETE-DIMENSION-MAP, VO-MODEL-VO-COMBINATIONS-ORDER-INDEPENDENT-ID
-    /// @vtest.target crates/vtest-model/src/vo.rs::CombinationEntry
+    /// @vtest.target crates/vtest-model/src/vo.rs::CombinationEntry::eq
     /// @vtest.intent verifies two entries with the same pairs in different declaration order compare equal (DS-412)
     #[test]
     fn combination_entry_equality_is_order_independent() {
@@ -520,7 +520,7 @@ mod tests {
     /// repeated mapping key.
     /// @vtest.id TEST-MODEL-VO-COMBINATION-ENTRY-DUPLICATE-REFUSES-TO-SERIALIZE
     /// @vtest.covers VO-MODEL-VO-COMBINATIONS-COMPLETE-DIMENSION-MAP, VO-MODEL-VO-COMBINATIONS-ORDER-INDEPENDENT-ID
-    /// @vtest.target crates/vtest-model/src/vo.rs::CombinationEntry
+    /// @vtest.target crates/vtest-model/src/vo.rs::CombinationEntry::serialize
     /// @vtest.intent verifies an entry still holding a duplicate dimension name refuses to serialize, failing closed rather than emitting a repeated mapping key (DS-414)
     #[test]
     fn combination_entry_with_a_duplicate_dimension_name_refuses_to_serialize() {
