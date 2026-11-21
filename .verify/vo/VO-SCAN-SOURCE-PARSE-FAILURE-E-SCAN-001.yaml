@@ -1,0 +1,11 @@
+id: VO-SCAN-SOURCE-PARSE-FAILURE-E-SCAN-001
+parent: null
+derives_from:
+- doc: DS-535
+claim: E-SCAN-001はerrorであり、adapterのsource構文解析失敗（DiscoveryBatchは `Incomplete`）を意味する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T08:12:40Z
+updated: 2026-11-21T08:12:40Z

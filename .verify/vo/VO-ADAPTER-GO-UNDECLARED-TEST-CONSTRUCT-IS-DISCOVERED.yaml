@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-UNDECLARED-TEST-CONSTRUCT-IS-DISCOVERED
+parent: null
+derives_from:
+- doc: DS-2006
+claim: '`go`のdiscoveryは、表面1に`@vtest.`の行を1行も持たないTest constructも、Discovered Testとして返し、管理宣言に対応しないTest construct（W-SCAN-101）とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T08:12:39Z
+updated: 2026-11-21T08:12:39Z

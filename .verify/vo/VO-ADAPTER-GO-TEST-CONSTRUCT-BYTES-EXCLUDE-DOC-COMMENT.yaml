@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-TEST-CONSTRUCT-BYTES-EXCLUDE-DOC-COMMENT
+parent: null
+derives_from:
+- doc: DES-681
+claim: '`go` adapterはTest constructとして、doc commentを除き、`func`から本体の閉じ括弧までの関数宣言のbytesを返し、doc comment由来のmetadataはlogical metadataと`metadata_sources`として別に返す。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T08:12:39Z
+updated: 2026-11-21T08:12:39Z

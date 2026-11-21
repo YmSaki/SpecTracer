@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AMBIGUOUS-LOCATOR-RETURNS-ALL-CANDIDATES
+parent: null
+derives_from:
+- doc: DS-2009
+claim: '`go`のlocatorに一致するSource Targetが2件以上ある場合（同じファイルにある複数の`init`関数、`_`という名前の複数の関数など）は、すべてを候補として返し、解決失敗（E-SCAN-004）とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T08:12:39Z
+updated: 2026-11-21T08:12:39Z
