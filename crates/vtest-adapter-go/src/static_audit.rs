@@ -265,7 +265,27 @@ impl<'a> Subject<'a> {
     }
 }
 
+/// The stack of the thread the audit runs on: the reader and the walk recurse
+/// with the nesting of the Test, and the thread a verification runs on may have
+/// a stack of a megabyte or less.
+const AUDIT_STACK_BYTES: usize = 64 * 1024 * 1024;
+
 fn evaluate(subject: &Subject<'_>) -> Evaluation {
+    std::thread::scope(|scope| {
+        match std::thread::Builder::new()
+            .name("go-static-audit".to_owned())
+            .stack_size(AUDIT_STACK_BYTES)
+            .spawn_scoped(scope, || evaluate_text(subject))
+        {
+            Ok(handle) => handle
+                .join()
+                .unwrap_or_else(|panic| std::panic::resume_unwind(panic)),
+            Err(_) => evaluate_text(subject),
+        }
+    })
+}
+
+fn evaluate_text(subject: &Subject<'_>) -> Evaluation {
     let unreadable_all = |reason: &str| Evaluation {
         da_001: unreadable(reason),
         da_003: subject.specs.iter().map(|_| unreadable(reason)).collect(),
@@ -286,6 +306,9 @@ fn evaluate(subject: &Subject<'_>) -> Evaluation {
         all_targets: &all,
     };
     let (structure, _) = run(&cfg, &decl, None);
+    if structure.exhausted {
+        return unreadable_all("the walk of its statements reached its budget");
+    }
     if structure.unrecognized_t {
         return unreadable_all(
             "its testing.T is taken through a package name other than `testing`",

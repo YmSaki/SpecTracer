@@ -52,7 +52,13 @@ struct Parser<'a> {
     expr_lev: i32,
     /// The end of the last token read that is not a semicolon.
     last_end: usize,
+    /// How deep the text nests expressions, types and statements.
+    depth: usize,
 }
+
+/// The deepest nesting of expressions, types and statements that is read; a
+/// text that nests deeper is refused, so no recursion is unbounded.
+const MAX_NESTING: usize = 1000;
 
 fn binary_prec(op: &str) -> i32 {
     match op {
@@ -82,7 +88,20 @@ impl<'a> Parser<'a> {
             p: 0,
             expr_lev: 0,
             last_end: 0,
+            depth: 0,
         })
+    }
+
+    /// Runs `f` one level deeper, or refuses a text that nests too deep.
+    fn nest<T>(&mut self, f: impl FnOnce(&mut Self) -> PResult<T>) -> PResult<T> {
+        self.depth += 1;
+        let result = if self.depth > MAX_NESTING {
+            self.fail("nesting too deep")
+        } else {
+            f(self)
+        };
+        self.depth -= 1;
+        result
     }
 
     fn token(&self) -> Token {
@@ -209,6 +228,10 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_type(&mut self) -> PResult<Expr> {
+        self.nest(Self::parse_type_inner)
+    }
+
+    fn parse_type_inner(&mut self) -> PResult<Expr> {
         let start = self.token().start;
         match self.kind() {
             Tok::Ident => {
@@ -619,6 +642,10 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_unary(&mut self) -> PResult<Expr> {
+        self.nest(Self::parse_unary_inner)
+    }
+
+    fn parse_unary_inner(&mut self) -> PResult<Expr> {
         let start = self.token().start;
         if self.kind() == Tok::Op {
             match self.text() {
@@ -906,6 +933,10 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_stmt(&mut self) -> PResult<Stmt> {
+        self.nest(Self::parse_stmt_inner)
+    }
+
+    fn parse_stmt_inner(&mut self) -> PResult<Stmt> {
         let start = self.token().start;
         match self.kind() {
             Tok::Semi => {
@@ -1086,6 +1117,10 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_if(&mut self) -> PResult<Stmt> {
+        self.nest(Self::parse_if_inner)
+    }
+
+    fn parse_if_inner(&mut self) -> PResult<Stmt> {
         let start = self.token().start;
         self.expect_kw("if")?;
         let saved = self.expr_lev;

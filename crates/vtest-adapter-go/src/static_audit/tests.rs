@@ -549,6 +549,8 @@ fn names_are_read_only_where_a_clause_names_them() {
     let rows = [
         row!("a local named like the target", "Add := func(a, b int) int {\n\treturn 0\n}\nif Add(1, 2) != 3 {\n\tt.Fatal(\"x\")\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("a parameter named like the target", "run := func(Add func(int, int) int) {\n\tif Add(1, 2) != 3 {\n\t\tt.Fatal(\"x\")\n\t}\n}\n_ = run", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a named result named like the target", "run := func() (Add func(int, int) int) {\n\tif Add(1, 2) != 3 {\n\t\tt.Fatal(\"x\")\n\t}\n\treturn nil\n}\n_ = run", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a local type named like the target", "type Add int\nx := Add(3)\nif x != 3 {\n\tt.Fatal(\"x\")\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("a function of another package", "if mathx.Add(1, 2) != 3 {\n\tt.Fatal(\"x\")\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("a package that is not imported", "if other.Add(1, 2) != 3 {\n\tt.Fatal(\"x\")\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("a method of another type for a function target", "c := New()\nif c.Add(1, 2) != 3 {\n\tt.Fatal(\"x\")\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
@@ -805,6 +807,53 @@ fn unreadable_text_and_several_targets_compose_as_the_clauses_say() {
         .evaluation
     );
     assert_eq!(first, second);
+}
+
+/// DS-615, DS-1680: a Test nested deeper than the reader follows, and one whose
+/// nested loops make the walk exceed its budget, are UNKNOWN for every rule and
+/// never PASS, and neither overflows the stack or runs without end.
+/// @vtest.id TEST-ADAPTER-GO-AUDIT-A-TEST-BEYOND-THE-READER-OR-THE-WALK-IS-UNKNOWN
+/// @vtest.covers VO-ADAPTER-GO-AUDIT-INCOMPLETE-ANALYSIS-IS-UNKNOWN, VO-ADAPTER-GO-AUDIT-UNKNOWN-ONLY-WHEN-NEITHER-IS-SHOWN
+/// @vtest.target crates/vtest-adapter-go/src/static_audit.rs::evaluate
+/// @vtest.intent a Go Test with thousands of nested parentheses, or with nested loops that need more statements than the walk reads, or a condition that is a function literal nested as deep as the reader goes is UNKNOWN for every rule, where the same check with a shallow nesting is PASS
+#[test]
+fn a_test_beyond_the_reader_or_the_walk_is_unknown() {
+    let shallow = audit(
+        "if Add(1, 2) != (((3))) {\n\tt.Fatal(\"x\")\n}",
+        ADD,
+        NO_MACROS,
+    );
+    assert_eq!(shallow.state(), "PASS");
+    let deep = format!("{}3{}", "(".repeat(5000), ")".repeat(5000));
+    let a = audit(
+        &format!("if Add(1, 2) != {deep} {{\n\tt.Fatal(\"x\")\n}}"),
+        ADD,
+        NO_MACROS,
+    );
+    assert_eq!(a.state(), "UNKNOWN", "{:#?}", a.evaluation);
+    for rule in ["DA-001", "DA-003", "DA-006"] {
+        assert_eq!(a.rule(rule), "UNKNOWN", "{rule}");
+    }
+    let mut body = String::from("got := Add(1, 2)\n");
+    for i in 0..24 {
+        body.push_str(&format!("for i{i} := 0; i{i} < 2; i{i}++ {{\n"));
+    }
+    body.push_str("if got != 3 {\n\tt.Fatal(\"x\")\n}\n");
+    for _ in 0..24 {
+        body.push_str("}\n");
+    }
+    let a = audit(&body, ADD, NO_MACROS);
+    assert_eq!(a.state(), "UNKNOWN", "{:#?}", a.evaluation);
+    for rule in ["DA-001", "DA-003", "DA-006"] {
+        assert_eq!(a.rule(rule), "UNKNOWN", "{rule}");
+    }
+    // A few loops are walked to the end.
+    let a = audit(
+        "got := Add(1, 2)\nfor i := 0; i < 2; i++ {\n\tfor j := 0; j < 2; j++ {\n\t\tif got != 3 {\n\t\t\tt.Fatal(\"x\")\n\t\t}\n\t}\n}",
+        ADD,
+        NO_MACROS,
+    );
+    assert_eq!(a.state(), "PASS", "{:#?}", a.evaluation);
 }
 
 /// DS-1887, DS-1928: a failure report in a clause is decided by the case

@@ -65,6 +65,10 @@ const OTHER_BUILTINS: &[&str] = &[
 ];
 /// DS-1986: the comparison functions, by their spelling.
 const COMPARISONS: &[&str] = &["reflect.DeepEqual", "errors.Is", "bytes.Equal"];
+/// The statements a walk reads before it gives up: nested loops are iterated to
+/// a fixed point, so the work can grow with their depth, and a walk that does
+/// not finish is `UNKNOWN`, never a verdict from what it had read.
+const WALK_BUDGET: usize = 2_000_000;
 /// The passes a loop is iterated for; the state lattice is finite, so this is
 /// a bound that is never reached by a function that was read correctly.
 const MAX_PASSES: usize = 16;
@@ -264,6 +268,8 @@ pub(crate) struct Structure {
     pub(crate) empty_body: bool,
     /// The Test takes a `T` through a package name other than `testing`.
     pub(crate) unrecognized_t: bool,
+    /// The walk stopped at its budget, so nothing it found is complete.
+    pub(crate) exhausted: bool,
 }
 
 /// What the walk found about one declared target.
@@ -368,6 +374,8 @@ struct Interp<'a> {
     last_stmt_failure: bool,
     facts: Facts,
     structure: Structure,
+    /// The statements the walk may still read.
+    fuel: usize,
 }
 
 impl Names for Interp<'_> {
@@ -496,6 +504,7 @@ impl<'a> Interp<'a> {
             last_stmt_failure: false,
             facts: Facts::default(),
             structure: Structure::default(),
+            fuel: WALK_BUDGET,
         }
     }
 
@@ -613,6 +622,11 @@ impl<'a> Interp<'a> {
             }
             for name in &field.names {
                 self.declare(name, t_typed, Val::NO);
+            }
+        }
+        for field in &sig.results {
+            for name in &field.names {
+                self.declare(name, false, Val::NO);
             }
         }
     }
@@ -754,6 +768,12 @@ impl<'a> Interp<'a> {
     }
 
     fn exec_stmt(&mut self, s: &Stmt) {
+        if self.fuel == 0 {
+            self.structure.exhausted = true;
+            self.facts.taint = true;
+            return;
+        }
+        self.fuel -= 1;
         self.last_stmt_failure = false;
         match &s.kind {
             StmtKind::Empty => {}
@@ -908,7 +928,10 @@ impl<'a> Interp<'a> {
                         self.declare(name, false, Val::NO);
                     }
                 }
-                DeclSpec::Type { .. } => {}
+                DeclSpec::Type { name } => {
+                    // A local type hides what it is named like.
+                    self.declare(name, false, Val::NO);
+                }
             }
         }
     }
