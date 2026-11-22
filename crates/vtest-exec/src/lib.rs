@@ -11,8 +11,8 @@ use std::{
 use serde::Serialize;
 use thiserror::Error;
 use vtest_adapter_api::{
-    AdapterRegistry, CoverageAdapter, CoverageTargetMeasurement, CoverageUnavailable, RunnerOutput,
-    RunnerTestResult, TestRunnerAdapter,
+    AdapterRegistry, BaselineRun, CoverageAdapter, CoverageRun, CoverageTargetMeasurement,
+    CoverageUnavailable, RunnerOutput, RunnerTestResult, TestRunnerAdapter,
 };
 use vtest_model::{
     ContentHash, Diagnostic, EvidenceHashes, EvidenceRecord, Locator, Revision, RunnerInfo,
@@ -258,14 +258,32 @@ pub fn run_tests_with_runner(
     let mut diagnostics = Vec::new();
     for test in tests {
         let record_id = new_record_id();
-        let coverage_path =
-            coverage_is_available.then(|| cov_dir.join(format!("{record_id}.json")));
-        let command_spec = runner.command(
+        let coverage_path = coverage_is_available
+            .then(|| cov_dir.join(coverage_file_name(&record_id, coverage.output_extension())));
+        let command_spec = match runner.command(
             root,
             &test.entity.execution,
             coverage_path.is_some(),
             coverage_path.as_deref(),
-        )?;
+        ) {
+            Ok(command_spec) => command_spec,
+            // A Test the runner declines does not stop the others. For a Test
+            // construct the runner cannot execute that is DS-1903. For a Test
+            // that cannot be selected uniquely (DS-1930) or whose selection is
+            // undetermined (DS-2012) the canon states no such rule: continuing
+            // is derived from the other E-EXEC errors, after which the run goes
+            // on with the next Test. It is a derivation, not a clause. No
+            // Evidence is recorded for the Test, and the diagnostic is the one
+            // the refusal names (DS-1901, DS-1930); a refusal that names none
+            // (DS-2012) records nothing.
+            Err(error) if error.refuses_one_test() => {
+                if let Some(diagnostic) = refusal_diagnostic(test, &error) {
+                    diagnostics.push(diagnostic);
+                }
+                continue;
+            }
+            Err(error) => return Err(error.into()),
+        };
         let before_draft = runner
             .execution_state(
                 root,
@@ -291,6 +309,34 @@ pub fn run_tests_with_runner(
             path: root.to_owned(),
             source,
         })?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let observation = runner.parse(
+            &test.entity.execution,
+            RunnerOutput {
+                stdout: &stdout,
+                stderr: &stderr,
+                exit_code: output.status.code(),
+            },
+        );
+        // DES-675: the run that selects no Test is made while the Execution
+        // State is still watched, as the Test's own run is, and only when its
+        // profile will be read: a Test with a result and a target to measure.
+        let baseline = coverage_path
+            .as_deref()
+            .filter(|_| {
+                matches!(observation, RunnerTestResult::Pass | RunnerTestResult::Fail)
+                    && !test.target_locators.is_empty()
+            })
+            .and_then(|_| {
+                let path = cov_dir.join(coverage_file_name(
+                    &new_record_id(),
+                    coverage.output_extension(),
+                ));
+                runner
+                    .coverage_baseline_command(root, &test.entity.execution, &path)
+                    .map(|spec| run_baseline(&spec, path))
+            });
         let after_revision = git_revision(root);
         let after_draft = runner
             .execution_state(
@@ -332,22 +378,15 @@ pub fn run_tests_with_runner(
             complete: false,
             hash: None,
         });
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let raw_log = format!("$ {}\n{}{}", command_spec.command_line, stdout, stderr);
+        let mut raw_log = format!("$ {}\n{}{}", command_spec.command_line, stdout, stderr);
+        if let Some(baseline) = &baseline {
+            raw_log.push_str(&baseline.log);
+        }
         let log_path = log_dir.join(format!("{record_id}.log"));
         fs::write(&log_path, raw_log).map_err(|source| ExecutionError::Io {
             path: log_path.clone(),
             source,
         })?;
-        let observation = runner.parse(
-            &test.entity.execution,
-            RunnerOutput {
-                stdout: &stdout,
-                stderr: &stderr,
-                exit_code: output.status.code(),
-            },
-        );
         match observation {
             RunnerTestResult::Ignored => {}
             RunnerTestResult::Pass | RunnerTestResult::Fail => {
@@ -372,7 +411,18 @@ pub fn run_tests_with_runner(
                     let measurements = if test.target_locators.is_empty() {
                         Vec::new()
                     } else {
-                        coverage.measure(root, coverage_path, &test.target_locators)
+                        coverage.measure_run(
+                            &CoverageRun {
+                                root,
+                                execution: &test.entity.execution,
+                                output_path: coverage_path,
+                                baseline: baseline.as_ref().map(|baseline| BaselineRun {
+                                    output_path: &baseline.output_path,
+                                    exit_code: baseline.exit_code,
+                                }),
+                            },
+                            &test.target_locators,
+                        )
                     };
                     target_coverage_from_measurements(
                         coverage.method(),
@@ -468,12 +518,116 @@ pub fn run_tests_with_runner(
                     .with_location(test.entity.location.clone()),
                 );
             }
+            // The runner classified the run itself, so the process status does
+            // not choose the code (DS-1909, DS-1910, DS-1931).
+            RunnerTestResult::BuildFailed => diagnostics.push(
+                Diagnostic::error(
+                    "E-EXEC-001",
+                    format!(
+                        "the package of requested Test {} did not build (DS-1910)",
+                        test.entity.id
+                    ),
+                )
+                .with_location(test.entity.location.clone()),
+            ),
+            RunnerTestResult::NoResult => diagnostics.push(
+                Diagnostic::error(
+                    "E-EXEC-002",
+                    format!(
+                        "the runner reported no result for requested Test {} (DS-1909)",
+                        test.entity.id
+                    ),
+                )
+                .with_location(test.entity.location.clone()),
+            ),
+            RunnerTestResult::Ambiguous => diagnostics.push(
+                Diagnostic::error(
+                    "E-EXEC-005",
+                    format!(
+                        "the runner reported more than one result for requested Test {} (DS-1930)",
+                        test.entity.id
+                    ),
+                )
+                .with_location(test.entity.location.clone()),
+            ),
         }
     }
     Ok(ExecutionResult {
         evidence,
         diagnostics,
     })
+}
+
+/// The name of a coverage output file for the record `id`: the id, and the
+/// adapter's extension when its output has one (DES-455, DES-673).
+fn coverage_file_name(id: &str, extension: Option<&str>) -> String {
+    match extension {
+        Some(extension) => format!("{id}.{extension}"),
+        None => id.to_owned(),
+    }
+}
+
+/// How the run that selects no Test ended (DES-675), and what it printed.
+struct BaselineOutcome {
+    output_path: PathBuf,
+    /// `None` when the process did not start or ended without an exit code.
+    exit_code: Option<i32>,
+    log: String,
+}
+
+/// Runs `spec`. A process that cannot be started is a run with no exit code,
+/// which reads as no usable profile (DES-679), not as an error that stops the
+/// batch: the Test's own run has already happened.
+fn run_baseline(spec: &vtest_adapter_api::RunnerCommand, output_path: PathBuf) -> BaselineOutcome {
+    let mut command = Command::new(&spec.program);
+    command.current_dir(&spec.current_dir).args(&spec.args);
+    for (key, value) in &spec.env {
+        command.env(key, value);
+    }
+    let (exit_code, printed) = match command.output() {
+        Ok(output) => (
+            output.status.code(),
+            format!(
+                "{}{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            ),
+        ),
+        Err(error) => (None, format!("could not be started: {error}\n")),
+    };
+    BaselineOutcome {
+        output_path,
+        exit_code,
+        log: format!("\n$ {}\n{printed}", spec.command_line),
+    }
+}
+
+/// The diagnostic a runner's refusal of one Test is reported as: `W-EXEC-102`
+/// for a Test construct it cannot execute (DS-1901) and `E-EXEC-005` for a Test
+/// it cannot select uniquely (DS-1930). `None` for a refusal the canon names no
+/// code for (DS-2012).
+fn refusal_diagnostic(
+    test: &RunnableTest,
+    error: &vtest_adapter_api::TestRunnerError,
+) -> Option<Diagnostic> {
+    use vtest_adapter_api::TestRunnerError;
+    let diagnostic = match error {
+        TestRunnerError::NotExecutable { reason } => Diagnostic::warning(
+            "W-EXEC-102",
+            format!("Test {} is not executed: {reason}", test.entity.id),
+        ),
+        TestRunnerError::NotUniquelySelectable { reason } => Diagnostic::error(
+            "E-EXEC-005",
+            format!("Test {} is not run: {reason}", test.entity.id),
+        ),
+        TestRunnerError::SelectionUndetermined { .. }
+        | TestRunnerError::MissingProject
+        | TestRunnerError::MissingSuite
+        | TestRunnerError::MissingSuiteName { .. }
+        | TestRunnerError::MissingCoverageOutputPath
+        | TestRunnerError::UnsupportedSuiteKind { .. } => return None,
+    };
+    Some(diagnostic.with_location(test.entity.location.clone()))
 }
 
 pub fn git_revision(root: &Path) -> Revision {
@@ -724,6 +878,155 @@ mod tests {
         fs::remove_dir_all(root).expect("remove runner fixture root");
     }
 
+    /// A fake runner that answers by the selector of the Test, so one run can
+    /// hold a Test that triggers the arm under test and one that must still
+    /// run after it. The selector `next` passes. A selector that ends in
+    /// `-failing` is started as a process that exits with a failure status, any
+    /// other as one that exits 0, so no result below can be told from the
+    /// process status.
+    #[derive(Clone, Copy, Debug)]
+    struct SelectorRunner;
+
+    impl TestRunnerAdapter for SelectorRunner {
+        fn id(&self) -> &'static str {
+            "fake-runner"
+        }
+
+        fn command(
+            &self,
+            root: &Path,
+            execution: &ExecutionDescriptor,
+            coverage: bool,
+            coverage_output_path: Option<&Path>,
+        ) -> Result<RunnerCommand, TestRunnerError> {
+            let reason = || format!("refused {}", execution.selector);
+            match execution.selector.as_str() {
+                "refuse-not-executable" => Err(TestRunnerError::NotExecutable { reason: reason() }),
+                "refuse-not-unique" => {
+                    Err(TestRunnerError::NotUniquelySelectable { reason: reason() })
+                }
+                "refuse-undetermined" => {
+                    Err(TestRunnerError::SelectionUndetermined { reason: reason() })
+                }
+                selector => {
+                    let mut command = FixedResultRunner.command(
+                        root,
+                        execution,
+                        coverage,
+                        coverage_output_path,
+                    )?;
+                    if selector.ends_with("-failing") {
+                        command.args = vec!["--no-such-option-for-vtest".to_owned()];
+                    }
+                    Ok(command)
+                }
+            }
+        }
+
+        fn parse(
+            &self,
+            execution: &ExecutionDescriptor,
+            _output: RunnerOutput<'_>,
+        ) -> RunnerTestResult {
+            match execution.selector.trim_end_matches("-failing") {
+                "build-failed" => RunnerTestResult::BuildFailed,
+                "no-result" => RunnerTestResult::NoResult,
+                "ambiguous" => RunnerTestResult::Ambiguous,
+                _ => RunnerTestResult::Pass,
+            }
+        }
+    }
+
+    /// Runs a Test with `selector` and then the Test `next`, and returns the
+    /// result of the run.
+    fn run_selector_then_next(selector: &str) -> ExecutionResult {
+        let root = std::env::temp_dir().join(format!("vtest-exec-selector-{}", new_record_id()));
+        fs::create_dir_all(&root).expect("create runner fixture root");
+        let test = |id: &str, selector: &str| {
+            let mut runnable = runnable_test_with_adapter(id, "fake-runner");
+            runnable.entity.execution.selector = selector.to_owned();
+            runnable
+        };
+        let result = run_tests_with_runner(
+            &root,
+            &vtest_store::VerifyLayout::new(&root),
+            &[
+                test("TEST-EXEC-SUBJECT", selector),
+                test("TEST-EXEC-NEXT", "next"),
+            ],
+            true,
+            &SelectorRunner,
+            &never_available_coverage("unused in fast mode"),
+        )
+        .expect("the run goes on to the end");
+        fs::remove_dir_all(root).expect("remove runner fixture root");
+        result
+    }
+
+    fn evidence_ids(result: &ExecutionResult) -> Vec<&str> {
+        result
+            .evidence
+            .iter()
+            .map(|record| record.test_id.as_str())
+            .collect()
+    }
+
+    fn diagnostic_codes(result: &ExecutionResult) -> Vec<&str> {
+        result
+            .diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.code.as_str())
+            .collect()
+    }
+
+    /// DS-1909, DS-1910, DS-1930, DS-1931: a runner that classifies the run
+    /// itself gets the code it names, whatever the process status was, and no
+    /// Evidence; the next Test is still run and recorded.
+    /// @vtest.id TEST-EXEC-CLASSIFIED-RESULTS-HAVE-THEIR-CODE-AND-NO-EVIDENCE
+    /// @vtest.covers VO-ADAPTER-GO-BUILD-FAILURE-IS-E-EXEC-001, VO-ADAPTER-GO-NO-RESULT-IS-E-EXEC-002, VO-ADAPTER-GO-SAME-NAME-TESTS-RECORD-NO-EVIDENCE
+    /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
+    /// @vtest.intent a runner observation of BuildFailed, NoResult or Ambiguous is reported as E-EXEC-001, E-EXEC-002 or E-EXEC-005 whether the process exited 0 or failed, records no Evidence for that Test, and the next Test of the run is recorded
+    #[test]
+    fn a_classified_result_has_its_code_whatever_the_status_and_the_next_test_runs() {
+        for (selector, code) in [
+            ("build-failed", "E-EXEC-001"),
+            ("build-failed-failing", "E-EXEC-001"),
+            ("no-result", "E-EXEC-002"),
+            ("no-result-failing", "E-EXEC-002"),
+            ("ambiguous", "E-EXEC-005"),
+            ("ambiguous-failing", "E-EXEC-005"),
+        ] {
+            let result = run_selector_then_next(selector);
+            assert_eq!(diagnostic_codes(&result), [code], "{selector}");
+            assert_eq!(evidence_ids(&result), ["TEST-EXEC-NEXT"], "{selector}");
+            assert!(result.has_errors(), "{selector}");
+        }
+    }
+
+    /// DS-1901, DS-1903, DS-1930, DS-2012: a runner that refuses one Test gets
+    /// the diagnostic the refusal names, or none for DS-2012, no Evidence, and
+    /// the next Test is still run and recorded.
+    /// @vtest.id TEST-EXEC-REFUSED-TEST-RECORDS-NO-EVIDENCE-AND-THE-RUN-GOES-ON
+    /// @vtest.covers VO-ADAPTER-GO-UNEXECUTABLE-TEST-DOES-NOT-STOP-THE-RUN, VO-ADAPTER-GO-UNEXECUTABLE-TEST-RECORDS-NO-EVIDENCE, VO-ADAPTER-GO-SAME-NAME-TESTS-RECORD-NO-EVIDENCE, VO-ADAPTER-GO-UNREADABLE-COUNTED-FILE-RECORDS-NO-EVIDENCE
+    /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
+    /// @vtest.intent a command refused as not executable gives the warning W-EXEC-102, as not uniquely selectable the error E-EXEC-005, and as undetermined no diagnostic, each without Evidence for that Test, and the next Test of the run is recorded
+    #[test]
+    fn a_refused_test_has_no_evidence_and_the_run_goes_on_with_the_next_test() {
+        for (selector, code, is_error) in [
+            ("refuse-not-executable", Some("W-EXEC-102"), false),
+            ("refuse-not-unique", Some("E-EXEC-005"), true),
+            ("refuse-undetermined", None, false),
+        ] {
+            let result = run_selector_then_next(selector);
+            assert_eq!(
+                diagnostic_codes(&result),
+                code.into_iter().collect::<Vec<_>>()
+            );
+            assert_eq!(result.has_errors(), is_error, "{selector}");
+            assert_eq!(evidence_ids(&result), ["TEST-EXEC-NEXT"], "{selector}");
+        }
+    }
+
     fn runnable_test_with_target(id: &str, target_locator: Option<Locator>) -> RunnableTest {
         // round 2 レビュー指摘（開示要7、後半）: この fixture の
         // execution.adapter / location.adapter は、`rust_locator` が組む
@@ -883,6 +1186,236 @@ mod tests {
         );
         assert_eq!(reached.result, Some(TargetCoverageResult::Pass));
         assert_eq!(reached.count, Some(2));
+    }
+
+    /// A runner that hands out a run that selects no Test (DES-675), and counts
+    /// the times it was asked for it. By the selector of the Test, that run exits
+    /// 0 (`ok`), exits with a failure status (`fails`) or is a program that cannot
+    /// be started (`unstartable`); `no-result` is a Test whose own run has no
+    /// result.
+    #[derive(Default)]
+    struct BaselineRunner {
+        asked: std::sync::atomic::AtomicUsize,
+    }
+
+    impl TestRunnerAdapter for BaselineRunner {
+        fn id(&self) -> &'static str {
+            "fake-runner"
+        }
+
+        fn command(
+            &self,
+            root: &Path,
+            execution: &ExecutionDescriptor,
+            coverage: bool,
+            coverage_output_path: Option<&Path>,
+        ) -> Result<RunnerCommand, TestRunnerError> {
+            FixedResultRunner.command(root, execution, coverage, coverage_output_path)
+        }
+
+        fn coverage_baseline_command(
+            &self,
+            root: &Path,
+            execution: &ExecutionDescriptor,
+            _coverage_output_path: &Path,
+        ) -> Option<RunnerCommand> {
+            self.asked.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let mut command = FixedResultRunner
+                .command(root, execution, true, None)
+                .ok()?;
+            match execution.selector.as_str() {
+                "fails" => command.args = vec!["--no-such-option-for-vtest".to_owned()],
+                "unstartable" => command.program = "vtest-no-such-program-for-testing".to_owned(),
+                _ => {}
+            }
+            Some(command)
+        }
+
+        fn parse(
+            &self,
+            execution: &ExecutionDescriptor,
+            _output: RunnerOutput<'_>,
+        ) -> RunnerTestResult {
+            match execution.selector.as_str() {
+                "no-result" => RunnerTestResult::NoResult,
+                _ => RunnerTestResult::Pass,
+            }
+        }
+    }
+
+    /// What a coverage adapter that reads the run that selects no Test was given:
+    /// the Test's profile, and the other run's profile and exit code.
+    type SeenRun = (PathBuf, Option<(PathBuf, Option<i32>)>);
+
+    /// A coverage adapter that reads the run that selects no Test, writes no
+    /// extension after the record id, and measures every target as reached.
+    #[derive(Default)]
+    struct BaselineAwareCoverage {
+        seen: std::sync::Mutex<Vec<SeenRun>>,
+    }
+
+    impl CoverageAdapter for BaselineAwareCoverage {
+        fn id(&self) -> &'static str {
+            "baseline-aware"
+        }
+
+        fn method(&self) -> &'static str {
+            "baseline-aware"
+        }
+
+        fn availability(&self, _root: &Path) -> Result<(), CoverageUnavailable> {
+            Ok(())
+        }
+
+        fn measure(
+            &self,
+            _root: &Path,
+            _coverage_output_path: &Path,
+            _targets: &[Locator],
+        ) -> Vec<CoverageTargetMeasurement> {
+            Vec::new()
+        }
+
+        fn output_extension(&self) -> Option<&'static str> {
+            None
+        }
+
+        fn measure_run(
+            &self,
+            run: &vtest_adapter_api::CoverageRun<'_>,
+            targets: &[Locator],
+        ) -> Vec<CoverageTargetMeasurement> {
+            self.seen.lock().expect("the lock").push((
+                run.output_path.to_owned(),
+                run.baseline
+                    .map(|baseline| (baseline.output_path.to_owned(), baseline.exit_code)),
+            ));
+            targets
+                .iter()
+                .map(|target| CoverageTargetMeasurement {
+                    target: target.clone(),
+                    result: TargetCoverageResult::Pass,
+                    count: Some(1),
+                })
+                .collect()
+        }
+    }
+
+    /// DES-675, DES-673, DES-679: the run that selects no Test is run after the
+    /// Test's own run, once for a Test with a result and a target to measure and
+    /// not otherwise (`--fast`, no target, no result); its profile is a file of
+    /// its own under `cache/cov`, named by a record id of its own with the
+    /// extension the adapter names; and what it did, its exit code or that it
+    /// could not be started, is what the coverage adapter reads.
+    /// @vtest.id TEST-EXEC-THE-RUN-THAT-SELECTS-NO-TEST-IS-RUN-AND-READ-WHEN-ITS-PROFILE-IS-NEEDED
+    /// @vtest.covers VO-ADAPTER-GO-MEASURES-THE-RUN-THAT-SELECTS-NO-TEST, VO-ADAPTER-GO-PROFILES-ARE-SEPARATE-FILES-UNDER-CACHE-COV, VO-ADAPTER-GO-UNUSABLE-NO-TEST-RUN-MAKES-TARGETS-UNKNOWN
+    /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
+    /// @vtest.intent for a Test with a result and one target the coverage adapter is given the Test's profile path and the other run's profile path, two different files under cache/cov named by a record id with no extension, and the exit code 0, a failure status, or none for a program that cannot be started, and the run is not made with fast, with no target, or for a Test whose own run has no result
+    #[test]
+    fn the_run_that_selects_no_test_is_run_and_read_when_its_profile_is_needed() {
+        let root = std::env::temp_dir().join(format!("vtest-exec-baseline-{}", new_record_id()));
+        fs::create_dir_all(&root).expect("create fixture root");
+        let layout = vtest_store::VerifyLayout::new(&root);
+        let runner = BaselineRunner::default();
+        let coverage = BaselineAwareCoverage::default();
+        let asked = || runner.asked.load(std::sync::atomic::Ordering::SeqCst);
+        let run = |selector: &str, fast: bool, with_target: bool| {
+            let target = with_target.then(|| rust_locator("src/lib.rs", "double"));
+            let mut test = runnable_test_with_target("TEST-EXEC-BASELINE", target);
+            test.entity.execution.selector = selector.to_owned();
+            run_tests_with_runner(&root, &layout, &[test], fast, &runner, &coverage)
+                .expect("the run goes on")
+        };
+        let cov = layout.cache_dir().join("cov");
+
+        for (selector, exit_code) in [("ok", Some(0)), ("fails", Some(101)), ("unstartable", None)]
+        {
+            let result = run(selector, false, true);
+            assert_eq!(result.evidence.len(), 1, "{selector}");
+            let seen = coverage
+                .seen
+                .lock()
+                .expect("the lock")
+                .pop()
+                .expect("a run");
+            let (selected, other) = (seen.0, seen.1.expect("the other run"));
+            assert_ne!(selected, other.0, "{selector}");
+            for path in [&selected, &other.0] {
+                assert_eq!(path.parent(), Some(cov.as_path()), "{selector}");
+                let name = path.file_name().expect("a name").to_string_lossy();
+                assert!(name.len() == 26 && !name.contains('.'), "{name}");
+            }
+            assert_eq!(other.1, exit_code, "{selector}");
+        }
+        assert_eq!(asked(), 3);
+
+        // Not asked for when its profile would not be read.
+        let seen_before = coverage.seen.lock().expect("the lock").len();
+        let fast = run("ok", true, true);
+        assert!(!fast.evidence[0].target_coverage.checked);
+        assert_eq!(run("ok", false, false).evidence.len(), 1);
+        assert!(run("no-result", false, true).evidence.is_empty());
+        assert_eq!(asked(), 3);
+        // A Test with no target has nothing to measure, so none was read either.
+        assert_eq!(coverage.seen.lock().expect("the lock").len(), seen_before);
+        fs::remove_dir_all(root).expect("remove fixture root");
+    }
+
+    /// DS-1406, DES-675: a coverage adapter whose runner hands out the run that
+    /// selects no Test and that does not read it measures nothing: every target
+    /// is `UNKNOWN`, whatever `measure` says.
+    /// @vtest.id TEST-EXEC-A-COVERAGE-THAT-DOES-NOT-READ-THE-OTHER-RUN-MEASURES-NOTHING
+    /// @vtest.covers VO-ADAPTER-GO-UNCERTAIN-COUNT-IS-UNKNOWN
+    /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
+    /// @vtest.intent with a runner that hands out the run that selects no Test and a coverage adapter that implements only measure, which would give PASS, the target_coverage is checked with the target UNKNOWN and no count, and the same adapter with a runner that hands out no such run is PASS
+    #[test]
+    fn a_coverage_that_does_not_read_the_other_run_measures_nothing() {
+        let root = std::env::temp_dir().join(format!("vtest-exec-baseline-{}", new_record_id()));
+        fs::create_dir_all(&root).expect("create fixture root");
+        let layout = vtest_store::VerifyLayout::new(&root);
+        let coverage = FakeCoverageAdapter {
+            method: "fake-cov",
+            availability: Ok(()),
+            result: TargetCoverageResult::Pass,
+            count: Some(5),
+        };
+        let test = || {
+            let mut test = runnable_test_with_target(
+                "TEST-EXEC-BASELINE-UNREAD",
+                Some(rust_locator("src/lib.rs", "double")),
+            );
+            test.entity.execution.selector = "ok".to_owned();
+            test
+        };
+        let with = run_tests_with_runner(
+            &root,
+            &layout,
+            &[test()],
+            false,
+            &BaselineRunner::default(),
+            &coverage,
+        )
+        .expect("a run");
+        let entry = &with.evidence[0].target_coverage.targets[0];
+        assert_eq!(
+            (entry.result, entry.count),
+            (TargetCoverageResult::Unknown, None)
+        );
+        let without = run_tests_with_runner(
+            &root,
+            &layout,
+            &[test()],
+            false,
+            &FixedResultRunner,
+            &coverage,
+        )
+        .expect("a run");
+        let entry = &without.evidence[0].target_coverage.targets[0];
+        assert_eq!(
+            (entry.result, entry.count),
+            (TargetCoverageResult::Pass, Some(5))
+        );
+        fs::remove_dir_all(root).expect("remove fixture root");
     }
 
     /// @vtest.id TEST-EXEC-COVERAGE-UNAVAILABLE-NOT-CHECKED

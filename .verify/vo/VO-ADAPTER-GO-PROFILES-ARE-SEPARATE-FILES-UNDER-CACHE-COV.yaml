@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-PROFILES-ARE-SEPARATE-FILES-UNDER-CACHE-COV
+parent: null
+derives_from:
+- doc: DES-673
+claim: '選択Testの実行とTestを選ばない実行のカバレッジプロファイルは、それぞれ別の`.verify/cache/cov/<ULID>`へ出力する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T10:20:00Z
+updated: 2026-11-21T10:20:00Z

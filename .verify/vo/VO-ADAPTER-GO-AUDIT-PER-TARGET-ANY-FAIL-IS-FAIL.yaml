@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-PER-TARGET-ANY-FAIL-IS-FAIL
+parent: null
+derives_from:
+- doc: DS-631
+claim: 'target別結果に1件でもFAILがあればrule結果をFAILとする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

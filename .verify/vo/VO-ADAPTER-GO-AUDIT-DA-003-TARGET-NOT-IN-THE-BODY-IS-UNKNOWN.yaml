@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-DA-003-TARGET-NOT-IN-THE-BODY-IS-UNKNOWN
+parent: null
+derives_from:
+- doc: DS-634
+claim: '宣言targetへの呼出がTest本体に静的に現れない場合（subprocessを起動して別プロセスでtargetを実行する等、target呼出がsource内に存在しない）、DA-003の当該target別verdictをUNKNOWNとする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-DECLARATION-SURFACES-ARE-DOC-COMMENTS
+parent: null
+derives_from:
+- doc: DS-2004
+claim: '`go`の`@vtest.`宣言表面は2種である。表面1はTest constructのdoc comment、表面2はTest constructではない最上位の関数宣言（メソッドの宣言を含む）のdoc commentである。doc commentは、最上位の宣言の直前に空行を挟まずに連続して置かれたコメント（`//`の行と`/* */`）とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T08:12:38Z
+updated: 2026-11-21T08:12:38Z

@@ -164,6 +164,65 @@ fn core_crates_have_no_normal_dependency_on_a_language_adapter() {
     assert!(ops.iter().any(|dependency| is_language_adapter(dependency)));
 }
 
+/// The one adapter-to-adapter dependency AGENTS.md 4.1/4.2 allows: `go` takes
+/// its discovery from the lexical `go` module, so the `@vtest.` grammar is not
+/// written twice (AGENTS.md 11).
+const ALLOWED_ADAPTER_EDGES: &[(&str, &str)] = &[("vtest-adapter-go", "vtest-adapter-lexical")];
+
+/// @vtest.id TEST-ARCH-ADAPTER-CRATES-LINK-ONLY-THE-CONTRACT
+/// @vtest.covers VO-ADAPTER-GO-REGISTERS-WITHOUT-CORE-CHANGES
+/// @vtest.intent cargo metadata shows that no workspace crate other than vtest-ops has a normal dependency on a language adapter crate except the edge from vtest-adapter-go to vtest-adapter-lexical, and that a language adapter crate depends on no workspace crate other than vtest-adapter-api, vtest-model and that edge
+// No `@vtest.target`, for the same reason as the tests above.
+#[test]
+fn language_adapter_crates_link_only_the_contract_and_only_the_operation_layer_links_them() {
+    let is_language_adapter =
+        |name: &str| name.starts_with("vtest-adapter-") && name != "vtest-adapter-api";
+    let packages = workspace_dependencies(false);
+    let members: Vec<&str> = packages.iter().map(|(name, _)| name.as_str()).collect();
+    let allowed_edge = |from: &str, to: &str| ALLOWED_ADAPTER_EDGES.contains(&(from, to));
+
+    for (name, dependencies) in &packages {
+        for dependency in dependencies
+            .iter()
+            .filter(|dependency| is_language_adapter(dependency))
+        {
+            assert!(
+                name == "vtest-ops" || allowed_edge(name, dependency),
+                "{name} depends on the language adapter {dependency}"
+            );
+        }
+        if is_language_adapter(name) {
+            for dependency in dependencies
+                .iter()
+                .filter(|dependency| members.contains(&dependency.as_str()))
+            {
+                assert!(
+                    matches!(dependency.as_str(), "vtest-adapter-api" | "vtest-model")
+                        || allowed_edge(name, dependency),
+                    "the language adapter {name} depends on the workspace crate {dependency}"
+                );
+            }
+        }
+    }
+
+    // The check must be able to see both edges it allows: the operation layer
+    // links the go crate (it is the composition root), and the go crate links
+    // the lexical one for discovery.
+    let dependencies_of = |package: &str| -> &Vec<String> {
+        &packages
+            .iter()
+            .find(|(name, _)| name == package)
+            .unwrap_or_else(|| panic!("workspace must contain {package}"))
+            .1
+    };
+    assert!(dependencies_of("vtest-ops")
+        .iter()
+        .any(|dependency| dependency == "vtest-adapter-go"));
+    assert!(dependencies_of("vtest-adapter-go")
+        .iter()
+        .any(|dependency| dependency == "vtest-adapter-lexical"));
+}
+
 /// @vtest.id TEST-ARCH-ADAPTER-API-DEPENDS-ONLY-ON-MODEL
 /// @vtest.covers VO-ARCH-ADAPTER-API-LANGUAGE-INDEPENDENT
 /// @vtest.intent cargo metadata shows vtest-adapter-api depends on no workspace crate other than vtest-model and on no Rust syntax crate

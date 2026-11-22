@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-JUDGEMENT-AUTHORITY-IS-GO-TEST
+parent: null
+derives_from:
+- doc: DES-621
+claim: '`go` adapterにおける判定権威は `go test` である。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:29:51Z
+updated: 2026-11-21T09:29:51Z

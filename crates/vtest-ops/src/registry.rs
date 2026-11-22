@@ -17,17 +17,17 @@ use vtest_adapter_rust::RustCargoAdapter;
 
 use crate::envelope::Failure;
 
-/// v0.1 の組込 production adapter一覧を登録した registry を返す
-/// （基本仕様 §27「組込 production adapter は `rust-cargo` とし
-/// ...`rust-cargo` 以外の production language adapter は v0.1 の
-/// 提供範囲に含めない」）。
+/// 組込 adapter 一覧を登録した registry を返す。v0.1 の組込 production
+/// adapter は `rust-cargo`、`go`、`javascript` の 3 つで（#278。REQ-264、
+/// SPEC-218、SPEC-361、SPEC-458）、ほかの言語の adapter は
+/// production の範囲外の実験的な discovery adapter である。
 pub fn builtin_registry() -> Result<AdapterRegistry, AdapterRegistrationError> {
     let mut registry = AdapterRegistry::new();
     registry.register(Box::new(RustCargoAdapter::new()))?;
     registry.register(Box::new(vtest_adapter_lexical::c::adapter()))?;
     registry.register(Box::new(vtest_adapter_lexical::cpp::adapter()))?;
     registry.register(Box::new(vtest_adapter_lexical::csharp::adapter()))?;
-    registry.register(Box::new(vtest_adapter_lexical::go::adapter()))?;
+    registry.register(Box::new(vtest_adapter_go::adapter()))?;
     registry.register(Box::new(vtest_adapter_lexical::java::adapter()))?;
     registry.register(Box::new(vtest_adapter_lexical::javascript::adapter()))?;
     registry.register(Box::new(vtest_adapter_lexical::kotlin::adapter()))?;

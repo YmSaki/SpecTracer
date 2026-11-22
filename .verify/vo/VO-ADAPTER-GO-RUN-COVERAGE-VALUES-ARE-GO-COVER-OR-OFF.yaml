@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-RUN-COVERAGE-VALUES-ARE-GO-COVER-OR-OFF
+parent: null
+derives_from:
+- doc: DS-1879
+claim: '`go` の `run.coverage` の値は `go-cover` または `off` である。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T10:20:00Z
+updated: 2026-11-21T10:20:00Z

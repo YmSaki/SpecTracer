@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-STATE-INCOMPLETE-SYMLINK-OUTSIDE-ROOT
+parent: null
+derives_from:
+- doc: DES-632
+claim: project root配下にproject rootの外を指すsymbolic linkがある場合、`go` adapterはsnapshotを完全と報告しない。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:55Z
+updated: 2026-11-21T09:14:55Z

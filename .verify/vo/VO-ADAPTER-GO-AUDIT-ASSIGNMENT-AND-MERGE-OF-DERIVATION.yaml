@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-ASSIGNMENT-AND-MERGE-OF-DERIVATION
+parent: null
+derives_from:
+- doc: DS-1975
+claim: '`go`のDA-003で、`x = e`の代入（多値代入と、`:=`のうち既に宣言された変数への代入を含む）の後は、`x`の派生を`e`の派生に置き換え、複合代入`x op= e`と`x++` / `x--`の後は、元の値と`e`のどちらかが派生であれば派生とする。射影への代入（`x.f = e`、`x[i] = e`と、それらの複合代入）の後の`x`の派生はUNKNOWNとする。条件付きで実行される代入（`if`文・`switch`文の一部の枝や節、`for`文の本体の中の代入）の後の合流点では、代入先を、合流するすべての経路（`for`文の本体が一度も実行されない経路を含み、失敗として発散する経路（DS-1973）を除く）で派生であれば派生、どの経路でも派生でなければ派生でないものとし、それ以外はUNKNOWNとする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

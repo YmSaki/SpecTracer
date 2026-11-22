@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-NO-OR-SEVERAL-RESULT-EVENTS
+parent: null
+derives_from:
+- doc: DES-651
+claim: '`Test`がselectorと完全一致し`Action`が`pass` / `fail` / `skip`のいずれかであるeventが1件もない場合は結果が得られなかったことを、2件以上ある場合は一致する結果が2件以上報告されたことを意味する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:52Z
+updated: 2026-11-21T09:14:52Z

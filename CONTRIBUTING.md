@@ -49,8 +49,9 @@ confirmed, using the operation that owns that record. For specification records,
 follow the specification-change procedure in [DEVELOPMENT.md](DEVELOPMENT.md). Keep CLI
 and MCP on the same core implementation and JSON result shape.
 
-The current v0.1 implementation is Rust/Cargo-specific at its adapter boundary,
-but the verification model is language-independent. New language support should
+The officially supported adapter in the current v0.1 implementation is
+Rust/Cargo (the `go` adapter is a preview with a `go test` runner), but the
+verification model is language-independent. New language support should
 follow the adapter separation plan in
 [`docs/SpecTracer 言語アダプタ分離リファクタリング計画 v0.2.md`](docs/SpecTracer%20言語アダプタ分離リファクタリング計画%20v0.2.md).
 

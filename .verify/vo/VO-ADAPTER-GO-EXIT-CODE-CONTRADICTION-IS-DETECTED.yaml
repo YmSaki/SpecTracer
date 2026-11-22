@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-EXIT-CODE-CONTRADICTION-IS-DETECTED
+parent: null
+derives_from:
+- doc: DES-678
+claim: selectorと一致するeventの`Action`が`pass`で`go test`の終了コードが0以外の場合、または`fail`で終了コードが0の場合は、終了コードと結果の矛盾（DS-1911）を意味する。
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:52Z
+updated: 2026-11-21T09:14:52Z

@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-EXECUTION-SUITE-IS-THE-PACKAGE
+parent: null
+derives_from:
+- doc: DES-644
+claim: '`go` adapterは`TestEntity.execution`の`suite.kind`を`package`とし、`suite.name`をTest関数のfileがあるdirectoryのmodule rootからの相対pathとして解釈する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:51Z
+updated: 2026-11-21T09:14:51Z

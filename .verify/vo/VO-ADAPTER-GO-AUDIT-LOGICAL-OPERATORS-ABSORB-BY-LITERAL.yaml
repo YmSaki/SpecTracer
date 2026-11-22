@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-LOGICAL-OPERATORS-ABSORB-BY-LITERAL
+parent: null
+derives_from:
+- doc: DS-1996
+claim: '`go`で、DS-1948・DS-1949の演算の結果が真偽値になる演算子は`||`・`&&`である。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

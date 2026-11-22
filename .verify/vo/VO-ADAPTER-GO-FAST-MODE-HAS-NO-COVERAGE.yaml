@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-FAST-MODE-HAS-NO-COVERAGE
+parent: null
+derives_from:
+- doc: DS-1923
+claim: '`go`の`--fast`モードは、カバレッジ計測を指定しない`go test`で実行する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T09:14:54Z
+updated: 2026-11-21T09:14:54Z

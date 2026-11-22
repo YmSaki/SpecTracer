@@ -6,6 +6,70 @@ and uses semantic version tags for releases.
 
 ## [Unreleased]
 
+## [0.1.0-rc.2] - 2026-11-22
+
+A release candidate that adds the Go path. The command set, the four checks,
+and the five states are unchanged from `0.1.0-rc.1`.
+
+What each language gets in this release:
+
+- **Rust (`rust-cargo`)**: officially supported, unchanged.
+- **Go (`go`)**: preview, now with the full `vtest scan` → `vtest run` →
+  `vtest verify` path. A Go Test can reach `PASS` when its run, its target
+  coverage, and its oracle are all proven. See `docs/adapters/go.md`.
+- **JavaScript/TypeScript and the other nine adapters**: early-access
+  preview, unchanged. They support discovery only: `vtest run` is rejected
+  with `E-ADAPTER-004`, and `vtest verify` ends with `Result: NG`.
+
+### Added
+
+- **Go discovery** (#356, #357, #359). A Go Test is found by its shape: a
+  top-level `Test*` function in a `_test.go` file. An undeclared Test function
+  gives `W-SCAN-101`, and a `@vtest.` declaration on a method gives `W-SCAN-105`.
+- **Go runner** (#360, #362).
+  - **Running and recording:** `vtest run` runs `go test -count=1 -json` for
+    the Test's own package, and records PASS/FAIL Evidence bound to an
+    Execution State. That state covers the toolchain identity, `go.mod`,
+    `go.sum`, and the sources.
+  - **Failure handling:** a build failure takes priority over every other
+    result. A result that contradicts the exit code records no Evidence. A
+    Test with a duplicate name gets `E-EXEC-005`, and a Test outside any Go
+    module gets `W-EXEC-102`.
+- **Go coverage** (`run.coverage: go-cover`; #365, #366).
+  - **Measured runs:** a measured run adds `-covermode=atomic -coverpkg=./...
+    -coverprofile`. It is compared with a run that selects no Test
+    (`-run ^$`), so code reached only by `init`, by package variables, or by
+    `TestMain` is `UNKNOWN`. Measured runs use the runner kind
+    `go-test-cover`.
+  - **Unmeasured runs:** `--fast` and `run.coverage: off` run plain
+    `go test`.
+- **Go static audit** (#368). An oracle check (DA-001..DA-006) uses an
+  in-process Go parser, so `oracle_presence` can be `PASS` for Go. Only the
+  shapes listed under "What can give PASS" in `docs/adapters/go.md` can give
+  `PASS`. Anything else is `UNKNOWN`.
+- **CI** installs Go 1.26.
+
+### Known limitations
+
+- **Unchanged:** every Known limitation of `0.1.0-rc.1` still applies.
+- **Go coverage (#364):** in some shapes, code that starts before a Test and
+  reaches the target only while that Test runs makes `target_binding` `PASS`,
+  even though the Test never called the target. Two examples are a goroutine
+  started by `init` and a `TestMain` that branches on `-test.run`. This is
+  accepted and disclosed.
+- **Go static audit:** a few narrow shapes are false `PASS` under the current
+  clauses. They are listed under Limits in `docs/adapters/go.md`. Examples:
+  - a fake `testing.T`;
+  - a package constant or variable in a condition;
+  - an alias of a derived value that is written before the check.
+- **Spec discrepancies awaiting a decision:**
+  - #367: six discrepancies, all implemented toward `UNKNOWN`.
+  - #361: three discrepancies, all failing toward non-`PASS`.
+- **Go `vendor/` directories (#363):** a Go Test under `vendor/` always gets
+  `E-EXEC-002`.
+- **Not yet tried on a large codebase:** the Go path has been run only on
+  test fixtures and small projects.
+
 ## [0.1.0-rc.1] - 2026-11-21
 
 A release candidate. The command set, the four checks, and the five states are

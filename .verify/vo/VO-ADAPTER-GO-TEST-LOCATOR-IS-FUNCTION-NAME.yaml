@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-TEST-LOCATOR-IS-FUNCTION-NAME
+parent: null
+derives_from:
+- doc: DES-683
+claim: '`go` adapterはTest constructの`SourceLocation`の`locator`を、そのTest関数の名前とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T08:12:39Z
+updated: 2026-11-21T08:12:39Z

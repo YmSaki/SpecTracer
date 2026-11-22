@@ -9858,7 +9858,8 @@
         },
         {
           "id": "BD-258",
-          "statement": "production adapter として提供するのは `rust-cargo`、`go`、`javascript` である。",
+          "statement": "production adapter として提供するのは、組込 production adapter（要件定義 §21）である。",
+          "description": "adapterの一覧を要件定義 §21 のadapterごとの条項（REQ-343、REQ-344、REQ-345）だけに置くため、列挙を参照に替えた（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "REQ-263",
             "REQ-264"

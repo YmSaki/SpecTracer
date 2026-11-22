@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-COMPOSITE-LITERAL-WITH-DERIVED-ELEMENT
+parent: null
+derives_from:
+- doc: DS-1984
+claim: '`go`と`javascript`で、派生した値を要素として1つでも含む複合リテラル（`go`の配列・スライス・マップ・構造体のリテラル、`javascript`の配列・オブジェクトのリテラル。入れ子の複合リテラルの要素として含む場合を含む）を、本条では派生を含む複合リテラルという。派生を含む複合リテラルの値から、またはその値を束縛した変数（別の変数へ束縛し直したものを含む）から、添字・フィールド・プロパティで読み出した値と、分割代入・分割束縛で取り出した値の派生はUNKNOWNとする。派生を含む複合リテラルの値、それを束縛した変数の値、およびそれらから読み出した値を引数・受け手とする`len` / `cap` / `.length`、メソッドチェーン（DS-1968・DS-1969）、値の変換（DS-1986・DS-1987）の値の派生もUNKNOWNとする。派生を含む複合リテラルの値、またはそれを束縛した変数の値の全体は、値全体を比べる照合（`javascript`では`toEqual` / `toStrictEqual` / `toBe`のmatcher（`.not`を経るものを含む）と組になる`expect(...)`の引数（`expect([target(), 1]).toEqual([4, 1])`）、`go`では失敗の報告・`panic(...)`を囲む条件式の`==` / `!=`のオペランド、DS-1986の比較の関数の引数（`if !reflect.DeepEqual(s, want)`））へそのまま流れる場合に限り派生として数え、それ以外のassert相当（他のmatcher、`assert(...)`・`assert.<name>(...)`、`assertion_macros`に列挙された呼出し）へ流れる場合の派生はUNKNOWNとする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

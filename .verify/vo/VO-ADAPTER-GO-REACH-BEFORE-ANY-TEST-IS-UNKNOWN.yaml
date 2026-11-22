@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-REACH-BEFORE-ANY-TEST-IS-UNKNOWN
+parent: null
+derives_from:
+- doc: DES-676
+claim: 'Testを選ばない実行で、宣言targetのsource範囲に開始位置が入るblockの実行回数が1以上の場合、そのtargetは`UNKNOWN`とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T10:20:00Z
+updated: 2026-11-21T10:20:00Z

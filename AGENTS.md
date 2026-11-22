@@ -85,7 +85,7 @@ Rust の workspace を、**依存が一方向のレイヤー構成**と、**言�
 | オーケストレーション | adapter への委譲、adapter 出力の検証、決定論的な統合、実行、4 検査の判定と fail-closed の集約 | `crates/vtest-scan`、`crates/vtest-exec`、`crates/vtest-verify` |
 | 永続化 | 正典 record（`.verify/`）の append-only な読み書き、レイアウト、設定の読み込み | `crates/vtest-store` |
 | adapter 契約 | 言語・runner に依存しない capability の trait、DTO、`AdapterRegistry`、ワイヤー形式 | `crates/vtest-adapter-api` |
-| adapter | 言語とツールチェインに固有の発見、解析、実行、カバレッジを capability として実装する | `crates/vtest-adapter-rust`、`crates/vtest-adapter-lexical`、`crates/vtest-adapter-synthetic`（受入テスト専用） |
+| adapter | 言語とツールチェインに固有の発見、解析、実行、カバレッジを capability として実装する | `crates/vtest-adapter-rust`、`crates/vtest-adapter-go`、`crates/vtest-adapter-lexical`、`crates/vtest-adapter-synthetic`（受入テスト専用） |
 | モデル | 共有のエンティティ、ID、ハッシュ、診断、検証状態、プロトコルの型 | `crates/vtest-model` |
 
 ### 2.2 入口と実行形態
@@ -168,7 +168,8 @@ crate の追加や責務の変更は、先にこの表を更新する PR で行�
 | `vtest-store` | 永続化 | `.verify/` のレイアウト、設定（v1 / v2）の読み込み、正典 record（document、VO、Test、Approval、Evidence、Execution State、Form）の読み書きと検証 | 派生の索引（呼び出し側が毎回再構築）、言語固有の設定値の意味づけ（adapter） |
 | `vtest-adapter-api` | adapter 契約 | capability の trait（source discovery、runner、coverage、static analysis など）、hash 未計算の DTO、`AdapterRegistry`、Test のワイヤー形式。`vtest-model` 以外に依存しない | 言語の実装（各 adapter）、materialization（`vtest-scan`） |
 | `vtest-adapter-rust` | adapter | `rust-cargo` adapter。`syn` による Rust の解析、`Cargo.toml` と module path の解決、doc comment の `@vtest.` 宣言、`cargo test` の実行、`cargo llvm-cov` のカバレッジ、oracle の静的判定 | 検証の判定（`vtest-verify`） |
-| `vtest-adapter-lexical` | adapter | Rust 以外の言語のフレームワーク非依存な Test 発見。言語ごとの module（`c`、`cpp`、`csharp`、`go`、`java`、`javascript`、`kotlin`、`php`、`python`、`ruby`、`swift`）と、意味が同じと確認できた部分（`annotation`、`shared`）。`source_discovery` だけを宣言する（実験的、`docs/adapters/lexical.md`） | runner、coverage、static analysis（未宣言のまま `NO_EVIDENCE` にする） |
+| `vtest-adapter-go` | adapter | `go` adapter（BD-350、BD-357）。Test の発見は `vtest-adapter-lexical` の `go` module に委ね、`go test` の実行、`-coverprofile` のカバレッジ、Execution State、oracle の静的判定と、その判定が読む Go の式と文の木のための構文の読み取り（`src/syntax/`）を持つ | Go の字句的な発見（`vtest-adapter-lexical/src/go.rs`）、検証の判定（`vtest-verify`） |
+| `vtest-adapter-lexical` | adapter | Rust 以外の言語のフレームワーク非依存な Test 発見。言語ごとの module（`c`、`cpp`、`csharp`、`go`、`java`、`javascript`、`kotlin`、`php`、`python`、`ruby`、`swift`）と、意味が同じと確認できた部分（`annotation`、`shared`）。`source_discovery` だけを宣言する（実験的、`docs/adapters/lexical.md`）。`go` module の発見は `vtest-adapter-go` から使われる | runner、coverage、static analysis（未宣言のまま `NO_EVIDENCE` にする） |
 | `vtest-adapter-synthetic` | adapter | `.rs` 以外の source、関数ではない Test construct などを core の変更なしで扱えることを示す受入テスト専用の adapter（DS-1584） | 本番の言語対応。本番の registry に登録しない |
 | `vtest-scan` | オーケストレーション | adapter への委譲、Test ID の大域的一意性（E-SCAN-002）、VO 参照の解決（E-SCAN-003）、Target Reference の解決、adapter ID 順の決定論的統合、record の参照整合性、Structured Test Operation の orchestration、テスト仕様書のデータの生成（`test_spec`。BD-334） | 言語構文の解釈（adapter）、opaque locator の分解 |
 | `vtest-exec` | オーケストレーション | runner の起動、target coverage の帰属、Evidence の構築と追記 | 正典 record の形式（`vtest-store`。Evidence は `write_evidence` で書く） |
@@ -188,9 +189,9 @@ crate の追加や責務の変更は、先にこの表を更新する PR で行�
 
 ### 4.1 依存の向きの決め方
 
-- **依存は上のレイヤーから下のレイヤーへ向ける。** モデルは何にも依存せず、adapter は `vtest-adapter-api` と `vtest-model` にだけ依存する。
+- **依存は上のレイヤーから下のレイヤーへ向ける。** モデルは何にも依存せず、adapter は `vtest-adapter-api` と `vtest-model` にだけ依存する。例外は `vtest-adapter-go` から `vtest-adapter-lexical` への依存だけで、Go の発見と、カバレッジで target の範囲を求めるための Go 構文の読み取り（`source_constructs`）に使う（第 9.2 節）。静的判定が読む Go の式と文の木は、字句的な発見が返さないので `vtest-adapter-go` の `src/syntax/` が持つ（BD-357、DES-619）。
 - **言語固有の処理が core で必要になったら、`vtest-adapter-api` に capability を定義し、adapter が実装する。** 例: Structured Test Operation の構文の問いは `StructuredTestAdapter` として adapter へ移す（#73、PR #155）。core が `syn` や特定の adapter crate を直接使うことはない。
-- **adapter crate に依存してよいのは操作層（コンポジションルート）だけ。** オーケストレーション、永続化、モデルから adapter crate への通常依存は作らない。テストで adapter を使うときは dev-dependency にする。
+- **adapter crate に依存してよいのは操作層（コンポジションルート）だけ。** 上の `vtest-adapter-go` の例外を除く。オーケストレーション、永続化、モデルから adapter crate への通常依存は作らない。テストで adapter を使うときは dev-dependency にする。
 - **入口どうしは依存しない。** `vtest-cli` と `vtest-mcp` は操作層に依存し、互いには依存しない（#175 D2 の切り出し後。バイナリだけは両方に依存する）。
 - **汎用の trait、factory、plugin 機構を、将来の拡張のためだけに作らない。** 必要になった時点で、必要な形だけを作る。
 
@@ -204,6 +205,7 @@ crate の追加や責務の変更は、先にこの表を更新する PR で行�
 | `vtest-store` | `vtest-model` | |
 | `vtest-adapter-api` | `vtest-model` | |
 | `vtest-adapter-rust`、`vtest-adapter-lexical`、`vtest-adapter-synthetic` | `vtest-adapter-api`、`vtest-model` | |
+| `vtest-adapter-go` | `vtest-adapter-lexical`、`vtest-adapter-api`、`vtest-model` | `vtest-adapter-lexical` へは Go の発見と、カバレッジで target の範囲を求めるための Go 構文の読み取り（`source_constructs`）のためだけに依存する。`@vtest.` の文法と、Test と target の範囲を求める Go の字句的な読み手を 2 か所に書かないため（第 11 節）。静的判定のための Go の式と文の木の読み手（`src/syntax/`）は `vtest-adapter-go` が持つ。lexical の発見は範囲だけを返し、木を持たないので、変更理由が違い、同じ知識の重複ではないため |
 | `vtest-scan` | `vtest-adapter-api`、`vtest-store`、`vtest-model` | |
 | `vtest-exec` | `vtest-adapter-api`、`vtest-store`、`vtest-model` | |
 | `vtest-verify` | `vtest-scan`、`vtest-adapter-api`、`vtest-store`、`vtest-model` | `vtest-exec` へは依存しない（git HEAD は `vtest-store` の `git_head_commit` で読む） |
@@ -280,7 +282,7 @@ module 間の依存も、判定の module からファイル I/O の module へ�
 | エラーから（診断コード、終了コード）への写像 | そのエラー型を定義する操作層の module に 1 つ | 第 6.2 節。CLI と MCP は同じ関数を使う |
 | MCP の transport、スキーマ、tool handler | `vtest-mcp`（`src/lib.rs`） | handler は引数の抽出、操作層の呼び出し、envelope だけ |
 | capability の trait と DTO | `vtest-adapter-api` | 言語の型を含めない。シグネチャは `vtest-model` の型だけ |
-| 言語固有の処理 | その言語の adapter（Rust は `vtest-adapter-rust`、他の言語は `vtest-adapter-lexical/src/<言語>.rs`） | 第 9 節 |
+| 言語固有の処理 | その言語の adapter（Rust は `vtest-adapter-rust`。Go の実行、カバレッジ、静的判定は `vtest-adapter-go`。発見は `vtest-adapter-lexical/src/<言語>.rs`） | 第 9 節 |
 | 複数の言語で意味が同じと確認できた処理 | 言語族の共通 module（`vtest-adapter-lexical/src/shared.rs`、`annotation.rs`） | 第 9.3 節の手順で比較してから置く |
 | 正典 record の読み書きと形式 | `vtest-store` の record 種別ごとの module | 読み手と書き手を同じ module に置く |
 | 判定（4 検査、鮮度、スコープ、集約）。スコープの 2 軸の扱いは第 1.1 節 | `vtest-verify`（`src/lib.rs`） | 入力を受け取って結果を返す、副作用のない関数 |
@@ -420,6 +422,7 @@ crates/<crate>/
 | 意味が同じ処理 | `@vtest.` の文法、括弧の対応付け、コメントと次の construct の結び付け | 既存の `annotation.rs`、`shared.rs` を呼ぶ。足りなければ第 9.3 節の手順で比較してから足す |
 | adapter の登録 | `vtest_adapter_lexical::go::adapter()` を登録する | コンポジションルート（`vtest-ops/src/registry.rs`）の 1 行 |
 | 判定 | `source_discovery` だけを宣言するので、`target_binding` と `oracle_presence` は `NO_EVIDENCE` になる | 既存の `vtest-verify`（変更なし） |
+| 実行とカバレッジ（後の段階） | `go test` の実行、カバレッジ、Execution State を足し、発見は lexical の `go` module に委ねる。登録は `go` adapter の 1 行をこの crate のものに置き換える | `crates/vtest-adapter-go`（第 9.2 節） |
 | テスト | 言語のファイルの単体テストと、scan → verify の e2e | `src/go.rs` の `mod tests`、`crates/vtest-cli/tests/lexical_go_e2e.rs` |
 | 利用者向け説明 | 宣言の書き方、対応する構文、制限、実験的であること | `docs/adapters/go.md` |
 
@@ -483,10 +486,12 @@ crates/<crate>/
 | core | adapter への委譲、出力の検証（Test ID の一意性、VO 参照、locator の衝突）、adapter ID 順の決定論的統合、record の整合性。言語の構文を持たない | `vtest-scan` |
 | 言語族の共通部分 | ファイルの走査（include / ignore）、各言語が返した `FileItems` の後段処理（`@vtest.` 宣言の文法と診断、ID と Locator の正規化、Draft への変換）。意味が同じものだけを置く | `vtest-adapter-lexical/src/lib.rs`、`annotation.rs`、`shared.rs` |
 | 言語ごと | コメントと文字列の構文、construct の範囲（本文、宣言、式）、名前と scope | `vtest-adapter-lexical/src/<言語>.rs`（1 言語 1 ファイル、互いに独立）。Rust は `vtest-adapter-rust` |
+| 言語のツールチェイン | 実行、カバレッジ、Execution State、oracle の静的判定 | その言語の crate（`vtest-adapter-rust`、`vtest-adapter-go`）。下の箇条書きを参照 |
 
 - 各言語の module は他の言語の module を呼ばない。共通にしたいものは、9.3 の手順で共通部分に移してから呼ぶ。
 - 各言語が `SourceDiscoveryAdapter` を直接実装してもよい。共通部分を使うことは義務ではない。
-- 条件フラグで複数の言語の文法を 1 つの共有関数に実装しない。言語ごとに crate を分割すること、自動登録の仕組みを作ることもしない（4.3）。
+- 条件フラグで複数の言語の文法を 1 つの共有関数に実装しない。発見の処理を言語ごとの crate に分割すること、自動登録の仕組みを作ることもしない（4.3）。
+- ツールチェインの実行、カバレッジ、静的判定を持つ adapter は、その言語の crate に置く（`vtest-adapter-rust`、`vtest-adapter-go`）。外部プロセスとツールチェインの知識は、字句的な発見と変更理由が違うためです。発見は `vtest-adapter-lexical` の言語 module に委ねてよい。この規則は #175 D3 の範囲外です。D3 は発見の責務だけを定めており、この規則は BD-350 と BD-357（go adapter が discovery、static audit、runner、coverage を所有する）から導いたものです。
 - 解釈できない入力は正常な断片として返さない（6.3）。本文の末尾だけを変えても construct と subject の hash が変わることをテストで確認する。
 
 ### 9.3 言語間の共通化の手順

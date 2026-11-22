@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-RECORDS-TARGET-COVERAGE-AS-GO-COVER
+parent: null
+derives_from:
+- doc: DES-667
+claim: '各targetのcanonical Locator（§6.1.1）・result・countとTest単位集約結果を、`method`を`go-cover`としてEvidenceの`target_coverage`へ記録する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T10:20:00Z
+updated: 2026-11-21T10:20:00Z

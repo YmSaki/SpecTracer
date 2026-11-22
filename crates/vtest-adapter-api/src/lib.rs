@@ -246,22 +246,83 @@ pub struct RunnerOutput<'a> {
 /// A runner's per-Test observation.  `Unknown` is deliberately distinct from
 /// a successful or failed execution so that orchestration can reject a
 /// missing or unparseable result without creating Evidence.
+///
+/// `Unknown` says the runner could not classify the run: orchestration then
+/// reads the process status, `E-EXEC-001` when it failed and `E-EXEC-002` when
+/// it did not (DS-758, DS-749; `rust-cargo` reads its output no further). A
+/// runner that can tell the cases apart reports them itself with the three
+/// variants below, and orchestration reports the code each one names without
+/// consulting the status.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RunnerTestResult {
     Pass,
     Fail,
     Ignored,
     Unknown,
+    /// The Test's package did not build: `E-EXEC-001`, no Evidence (DS-1910).
+    BuildFailed,
+    /// The runner reported no result for the Test and no build failure:
+    /// `E-EXEC-002`, no Evidence (DS-1909).
+    NoResult,
+    /// The runner reported more than one result for the Test: `E-EXEC-005`, no
+    /// Evidence (DS-1930, DS-1931).
+    Ambiguous,
 }
 
 /// Deterministic failures while interpreting an opaque execution descriptor.
+///
+/// The first five say the descriptor is not one this adapter can read; they
+/// stop the whole run (`E-ADAPTER-003`). The last three refuse one Test and
+/// the run goes on with the others: see [`TestRunnerError::refuses_one_test`].
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TestRunnerError {
     MissingProject,
     MissingSuite,
-    MissingSuiteName { kind: String },
+    MissingSuiteName {
+        kind: String,
+    },
     MissingCoverageOutputPath,
-    UnsupportedSuiteKind { kind: String },
+    UnsupportedSuiteKind {
+        kind: String,
+    },
+    /// The runner cannot execute this Test construct: no Evidence and the
+    /// warning `W-EXEC-102` (DS-1901, DS-1932).
+    NotExecutable {
+        reason: String,
+    },
+    /// The Test cannot be selected uniquely: no Evidence and the error
+    /// `E-EXEC-005` (DS-1930, DS-1931).
+    NotUniquelySelectable {
+        reason: String,
+    },
+    /// Whether the Test is selected uniquely could not be established: no
+    /// Evidence, and no diagnostic, because the canon defines no code for it
+    /// (DS-2012).
+    SelectionUndetermined {
+        reason: String,
+    },
+}
+
+impl TestRunnerError {
+    /// Whether this refuses only the Test it was returned for, so that the run
+    /// goes on with the others, instead of stopping the run. DS-1903 says so for
+    /// a Test construct the runner cannot execute (`NotExecutable`). For
+    /// `NotUniquelySelectable` (DS-1930) and `SelectionUndetermined` (DS-2012)
+    /// the canon states no such rule: continuing is derived from the other
+    /// E-EXEC errors, which do not stop the run either. It is a derivation.
+    #[must_use]
+    pub fn refuses_one_test(&self) -> bool {
+        match self {
+            Self::NotExecutable { .. }
+            | Self::NotUniquelySelectable { .. }
+            | Self::SelectionUndetermined { .. } => true,
+            Self::MissingProject
+            | Self::MissingSuite
+            | Self::MissingSuiteName { .. }
+            | Self::MissingCoverageOutputPath
+            | Self::UnsupportedSuiteKind { .. } => false,
+        }
+    }
 }
 
 impl std::fmt::Display for TestRunnerError {
@@ -278,6 +339,9 @@ impl std::fmt::Display for TestRunnerError {
             Self::UnsupportedSuiteKind { kind } => {
                 write!(f, "unsupported execution suite kind {kind:?}")
             }
+            Self::NotExecutable { reason }
+            | Self::NotUniquelySelectable { reason }
+            | Self::SelectionUndetermined { reason } => f.write_str(reason),
         }
     }
 }
@@ -323,6 +387,26 @@ pub trait TestRunnerAdapter {
         coverage: bool,
         coverage_output_path: Option<&Path>,
     ) -> Result<RunnerCommand, TestRunnerError>;
+
+    /// The run that selects no Test and measures coverage the same way as
+    /// [`TestRunnerAdapter::command`] does with `coverage` (DES-675), writing its
+    /// profile to `coverage_output_path`. `None` for a runner whose coverage
+    /// measurement has no such run (`rust-cargo`).
+    ///
+    /// Core runs it inside the window of the Execution State snapshots, as it
+    /// runs the Test's own command, so what it writes into the project is
+    /// E-EXEC-004 as well (DES-371); it is run only for a Test whose run
+    /// produced a result, and only when coverage is measured. What it saw is
+    /// handed to [`CoverageAdapter::measure_run`] as a [`BaselineRun`].
+    fn coverage_baseline_command(
+        &self,
+        root: &Path,
+        execution: &ExecutionDescriptor,
+        coverage_output_path: &Path,
+    ) -> Option<RunnerCommand> {
+        let _ = (root, execution, coverage_output_path);
+        None
+    }
 
     fn parse(&self, execution: &ExecutionDescriptor, output: RunnerOutput<'_>) -> RunnerTestResult;
 }
@@ -402,8 +486,8 @@ pub trait CoverageAdapter {
     fn id(&self) -> &'static str;
 
     /// The coverage method name this adapter's Evidence records in
-    /// `target_coverage.method` (currently always `"llvm-cov"` for
-    /// `rust-cargo`, BD-220).
+    /// `target_coverage.method` (`"llvm-cov"` for `rust-cargo`, BD-220;
+    /// `"go-cover"` for `go`, DES-667).
     fn method(&self) -> &'static str;
 
     /// Whether this environment can measure coverage right now (e.g.
@@ -431,6 +515,65 @@ pub trait CoverageAdapter {
         coverage_output_path: &Path,
         targets: &[Locator],
     ) -> Vec<CoverageTargetMeasurement>;
+
+    /// The extension of the files coverage output is written to, after the
+    /// record id: `json` for the llvm-cov export of `rust-cargo` (DES-455),
+    /// none for a profile that is not JSON (DES-673).
+    fn output_extension(&self) -> Option<&'static str> {
+        Some("json")
+    }
+
+    /// [`CoverageAdapter::measure`] for a run that has more than the Test's own
+    /// output to read: the Test's execution descriptor, and the run that
+    /// selected no Test when the runner has one (DES-675). Core calls this one.
+    ///
+    /// The default reads no baseline: without one it is `measure`, and with one
+    /// every target is `Unknown`, because an adapter whose runner hands out a
+    /// baseline run and does not read it must not have its targets measured as
+    /// if there were none (DS-1406). Returns one measurement per target, in the
+    /// order of `targets`.
+    fn measure_run(
+        &self,
+        run: &CoverageRun<'_>,
+        targets: &[Locator],
+    ) -> Vec<CoverageTargetMeasurement> {
+        match run.baseline {
+            None => self.measure(run.root, run.output_path, targets),
+            Some(_) => targets
+                .iter()
+                .map(|target| CoverageTargetMeasurement {
+                    target: target.clone(),
+                    result: TargetCoverageResult::Unknown,
+                    count: None,
+                })
+                .collect(),
+        }
+    }
+}
+
+/// What [`CoverageAdapter::measure_run`] reads: the Test's own coverage output
+/// and the run that selected no Test.
+#[derive(Clone, Copy, Debug)]
+pub struct CoverageRun<'a> {
+    /// The project root the Locators of the targets were resolved against.
+    pub root: &'a Path,
+    /// The execution descriptor of the Test that was run.
+    pub execution: &'a ExecutionDescriptor,
+    /// The file the Test's own run was told to write its coverage output to.
+    pub output_path: &'a Path,
+    /// The run that selected no Test, when the runner has one.
+    pub baseline: Option<BaselineRun<'a>>,
+}
+
+/// The run that selects no Test (DES-675), as it ended.
+#[derive(Clone, Copy, Debug)]
+pub struct BaselineRun<'a> {
+    /// The file the run was told to write its coverage output to. It is a file
+    /// of its own, never the Test's (DES-673).
+    pub output_path: &'a Path,
+    /// The exit code of the run. `None` when the process did not start or ended
+    /// without one, which is not `0` either (DES-679).
+    pub exit_code: Option<i32>,
 }
 
 /// Why a [`CoverageAdapter`] cannot measure coverage in this environment.
@@ -780,7 +923,22 @@ pub trait Adapter {
     fn as_coverage(&self) -> Option<&dyn CoverageAdapter> {
         None
     }
+
+    /// DS-1881: the values the adapter defines for `run.coverage` in its
+    /// `config.yaml` entry, [`COVERAGE_OFF`] among them. A value outside them is
+    /// an invalid adapter setting (`E-CONFIG-001`), which core reports where the
+    /// config meets the registry (DS-352, BD-155). `None` when the adapter
+    /// defines no range: its `run.coverage` is then read as it was before ranges
+    /// were defined, which is not read at all when a Test is run.
+    fn run_coverage_values(&self) -> Option<&'static [&'static str]> {
+        None
+    }
 }
+
+/// The `run.coverage` value that turns the dynamic measurement of
+/// `target_binding` off (DS-1878, DS-1879, DS-1934): Tests are run as `--fast`
+/// runs them, and their `target_coverage` is not checked (DS-778).
+pub const COVERAGE_OFF: &str = "off";
 
 /// DS-1569/DES-351「registryはadapter IDの重複、宣言capabilityと実装の
 /// 不一致、未登録adapterを拒否する」のうち、登録時に判明する2条件

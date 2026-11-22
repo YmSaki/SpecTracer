@@ -4371,7 +4371,8 @@
         },
         {
           "id": "REQ-263",
-          "statement": "組込 production adapter は `rust-cargo`、`go`、`javascript` とする。",
+          "statement": "組込 production adapter は、本節の「`<adapter ID>` は…を対象とする」の形の条項が対象を定める adapter とする。",
+          "description": "adapterの一覧を要件定義 §21 のadapterごとの条項（REQ-343、REQ-344、REQ-345）だけに置くため、列挙を参照に替えた（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "R-6"
           ],
@@ -4431,7 +4432,8 @@
         },
         {
           "id": "REQ-264",
-          "statement": "`rust-cargo`、`go`、`javascript` 以外の production language adapter は v0.1 の提供範囲に含めない。",
+          "statement": "組込 production adapter 以外の production language adapter は v0.1 の提供範囲に含めない。",
+          "description": "adapterの一覧を要件定義 §21 のadapterごとの条項（REQ-343、REQ-344、REQ-345）だけに置くため、列挙を参照に替えた（Issue #335）。規範の内容は変えていない。",
           "derives_from": [
             "R-2",
             "R-6"

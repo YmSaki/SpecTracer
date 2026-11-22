@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-PER-TARGET-INDIVIDUAL-APPLICATION
+parent: null
+derives_from:
+- doc: DS-630
+claim: '複数target TestではDA-002 / DA-003を各targetへ個別適用する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

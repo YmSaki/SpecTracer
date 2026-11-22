@@ -9,6 +9,7 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 vtest-adapter-api = { path = "../vtest-adapter-api" }
+vtest-adapter-go = { path = "../vtest-adapter-go" }
 vtest-adapter-lexical = { path = "../vtest-adapter-lexical" }
 vtest-adapter-rust = { path = "../vtest-adapter-rust" }
 vtest-exec = { path = "../vtest-exec" }

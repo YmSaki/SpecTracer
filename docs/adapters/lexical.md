@@ -8,8 +8,10 @@ same rules work with pytest, JUnit, Jest, GoogleTest, or a hand-written runner.
 > only officially supported language in this release. These adapters may change.
 >
 > REQ-264, SPEC-218, SPEC-361, and SPEC-458 include `go` and `javascript`,
-> alongside `rust-cargo`, as v0.1 production language adapters. The `go` and
-> `javascript` adapters here do not meet that contract yet. They implement only
+> alongside `rust-cargo`, as v0.1 production language adapters. The `go` adapter
+> now lives in `vtest-adapter-go` and has a `go test` runner, coverage and a
+> static audit for the oracle check (see [go.md](go.md)). The
+> `javascript` adapter does not meet that contract yet. It implements only
 > `source_discovery`: there is no runner, no coverage, and no oracle check.
 > Every other language is outside the v0.1 production scope.
 
@@ -17,7 +19,9 @@ same rules work with pytest, JUnit, Jest, GoogleTest, or a hand-written runner.
 
 Write the `@vtest.` declaration in an ordinary comment directly above the
 construct that is the Test. The construct can be a function, a method, or a
-framework call with a body:
+framework call with a body. (`go` is the exception: it finds a Test by its
+shape and reads the declaration only from the doc comment of a Test function.
+See [go.md](go.md).)
 
 ```js
 // @vtest.id TEST-CALC-ADD
@@ -62,10 +66,15 @@ These adapters declare only the `source_discovery` capability. Tests from them
 are traced by `chain_integrity` and `orphan_detection`. `target_binding` stays
 `NO_EVIDENCE` (`NOT_EXECUTED`, `NOT_CHECKED`), `oracle_presence` stays
 `NO_EVIDENCE` (`NOT_CHECKED`), and `vtest run` rejects them with
-`E-ADAPTER-004`. No test runner or coverage tool is assumed.
+`E-ADAPTER-004`. No test runner or coverage tool is assumed. (`go` is not one
+of them in this respect: it also declares `test_runner`, so `vtest run` runs its
+Tests with `go test` and measures their coverage; the oracle check is still missing. See
+[go.md](go.md).)
 
 A test without a `@vtest.` declaration is not observed, because recognizing it
-would require knowing the framework. A file the adapter cannot read with
+would require knowing the framework. (`go` recognizes a Test function by its
+name and file, so it reports an undeclared one as `W-SCAN-101`; see
+[go.md](go.md).) A file the adapter cannot read with
 confidence (an unterminated string, unbalanced brackets, a missing `end`) is
 reported as `E-SCAN-001` and contributes nothing. A declared Test whose extent
 cannot be determined is reported as Missing with `E-SCAN-001`; it is never
@@ -90,7 +99,11 @@ Each language adapter has its own page in this directory.
 
 A language is a `LanguageProfile` in `crates/vtest-adapter-lexical/src/<lang>.rs`.
 Its `extract` function reads one file by that language's own rules and returns
-`FileItems`:
+`FileItems`. A language whose Tests are not "the construct after a `@vtest.`
+comment" implements `SourceDiscoveryAdapter` itself instead, as `go` does, and
+calls the crate root's file walk (`discover_files`), Test draft builder
+(`push_test`), and the `annotation` parsers for the parts that mean the same
+thing for every language.
 
 - every function definition (a Source Target): its qualified name and byte
   range;

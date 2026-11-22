@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-ASSERTION-MACROS-BY-CALLEE-SPELLING
+parent: null
+derives_from:
+- doc: DS-1886
+claim: '`go`のassert相当の構文は、`go` configの`assertion_macros`に列挙された名前とソース上の呼出し先の綴り（`assert.Equal`のように`.`で区切った識別子の列）が完全一致する呼出しを含む。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

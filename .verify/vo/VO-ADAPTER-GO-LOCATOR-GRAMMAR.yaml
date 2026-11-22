@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-LOCATOR-GRAMMAR
+parent: null
+derives_from:
+- doc: DS-2008
+claim: '`go`のlocatorの文法は、関数では`path "::" name`、メソッドでは`path "::" receiver-type "::" name`である。pathはプロジェクトルートからの相対パス（`/`区切り、`.go`で終わる）であり、receiver-typeはレシーバの型名からポインタの`*`と型引数を除いたものである。locatorは行番号・byte位置・走査順に依存させない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T08:12:39Z
+updated: 2026-11-21T08:12:39Z

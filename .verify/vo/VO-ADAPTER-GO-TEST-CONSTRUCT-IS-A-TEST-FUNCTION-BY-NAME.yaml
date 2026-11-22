@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-TEST-CONSTRUCT-IS-A-TEST-FUNCTION-BY-NAME
+parent: null
+derives_from:
+- doc: DS-2002
+claim: '`go`のdiscoveryは、名前が`_test.go`で終わるファイルの最上位に宣言された、レシーバを持たない関数のうち、名前が`Test`であるか`Test`に小文字以外の文字が続くものを、管理宣言の有無と、型引数・引数・戻り値の形に関わらず、Test constructとして発見する。ただし、名前が`TestMain`である関数は、引数が`*testing.T`型の1つだけである場合に限りTest constructとする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T08:12:38Z
+updated: 2026-11-21T08:12:38Z

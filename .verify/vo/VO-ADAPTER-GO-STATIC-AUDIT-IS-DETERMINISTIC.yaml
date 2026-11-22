@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-STATIC-AUDIT-IS-DETERMINISTIC
+parent: null
+derives_from:
+- doc: DES-619
+claim: '`go` adapterのStatic Audit capabilityは、§8.3の不成立構造を決定論的に検出する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:20:00Z
+updated: 2026-11-22T00:20:00Z

@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-ASSERTION-MACROS-NAME-IS-CALLEE-NAME
+parent: null
+derives_from:
+- doc: DS-1989
+claim: '`go` の `scan.assertion_macros` に指定する名前は、呼出し先の名前である。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-DECIDING-LOOP-IS-THE-FOR-STATEMENT
+parent: null
+derives_from:
+- doc: DS-1999
+claim: '`go`で、DS-1983のループは`for`文である。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

@@ -1,0 +1,11 @@
+id: VO-STORE-RUN-COVERAGE-OUTSIDE-THE-ADAPTERS-VALUES-IS-E-CONFIG-001
+parent: null
+derives_from:
+- doc: DS-1881
+claim: '値域を定めたadapterの `run.coverage` の値がそのadapterの値域にない場合は、無効なadapter設定（E-CONFIG-001）とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T10:20:00Z
+updated: 2026-11-21T10:20:00Z

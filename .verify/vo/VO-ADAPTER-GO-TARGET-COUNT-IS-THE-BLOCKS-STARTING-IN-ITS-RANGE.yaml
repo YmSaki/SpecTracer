@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-TARGET-COUNT-IS-THE-BLOCKS-STARTING-IN-ITS-RANGE
+parent: null
+derives_from:
+- doc: DES-665
+claim: '宣言targetの実行回数は、そのtargetのSource Target constructのsource範囲に開始位置が入るblockの実行回数の合計とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-21T10:20:00Z
+updated: 2026-11-21T10:20:00Z
