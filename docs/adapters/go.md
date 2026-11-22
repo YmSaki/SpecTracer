@@ -1,8 +1,9 @@
 # Go adapter (`go`)
 
 Discovers Tests and Source Targets in `.go` files, runs the Tests with `go
-test`, and measures with `go test`'s own coverage whether a Test ran the
-targets it declares. See [lexical.md](lexical.md)
+test`, measures with `go test`'s own coverage whether a Test ran the
+targets it declares, and reads the text of a Test to find whether it checks
+the result of those targets (the static audit). See [lexical.md](lexical.md)
 for the `@vtest.` line grammar it shares with the other framework-neutral
 adapters. Unlike them, `go` finds a Test by its shape, not by the comment above
 it, so a Test function that has no `@vtest.` declaration is still observed.
@@ -141,21 +142,92 @@ it, so a Test function that has no `@vtest.` declaration is still observed.
   other value is `E-CONFIG-001` when the project is scanned. If `go version`
   cannot be run, coverage is unavailable: `W-EXEC-101` and a `target_coverage`
   that is not checked.
-- **Limits**: the adapter declares `source_discovery`, `test_runner` and
-  `coverage`. There is no oracle check, so `oracle_presence` stays
-  `NO_EVIDENCE` (`NOT_CHECKED`) for a Go Test and a Go Test as a whole is never
-  better than `NO_EVIDENCE`, whatever its `target_binding` is. A Test that is
-  `PASS` for `target_binding` has run its target under `go test`'s coverage,
-  which says the code ran, not that its result was checked.
+- **Static audit** (`oracle_presence`): the adapter reads the text of the Test
+  function, and the package clause and imports of its file, with a Go reader of
+  its own that runs in process, so `vtest verify` starts no process and does not
+  need the Go toolchain. It provides DA-001 (constant assertion), DA-003 (the
+  target's result is not checked), DA-004 (a value compared with itself), DA-005
+  (empty Test) and DA-006 (no assertion), which `oracle_presence` composes: any
+  `FAIL` is `FAIL`, else any `UNKNOWN` is `UNKNOWN`, else `PASS`.
+  - **What counts as an assertion**: a call of `Error`, `Errorf`, `Fatal`,
+    `Fatalf`, `Fail` or `FailNow` on a variable declared `*testing.T` or
+    `testing.TB` (a parameter of the Test or of a function literal, or `var t
+    *testing.T`; a copy `u := t` is one too), a call of `panic`, and a call spelled
+    as an entry of `scan.assertion_macros` (`assert.Equal`, the callee name with
+    dots; the argument of type `testing.T` is left out). `t.Skip`, `return`,
+    `os.Exit` and `runtime.Goexit` are not failures.
+  - **What decides an assertion**: for a failure report or `panic`, the
+    conditions of the `if` and `else if` branches that enclose it and the earlier
+    ones of the same chain, the tag and the `case` expressions of the `switch`
+    clauses up to its own (all of them when a `default` is among them), the
+    condition or range expression of an enclosing `for`, and the conditions of an
+    earlier `return`, `break`, `continue`, `t.Skip` or `os.Exit` that may leave
+    before it. For an `assertion_macros` call, its arguments.
+  - **`PASS` needs a derived value shown to decide an assertion**: a value from
+    the call of a declared target (a function, or a method matched by its name),
+    followed through `:=` and `var` bindings, assignments, method chains, fields,
+    branches and loops (a value that differs between paths is unknown), and
+    through the body of a `t.Run` call's function literal as the rest of the Test.
+    A conversion to a built-in type, `len`, `cap`, `reflect.DeepEqual`,
+    `errors.Is` and `bytes.Equal` pass a value on; a composite literal holding the
+    result is read only as a whole (`reflect.DeepEqual(s, want)`, `p == want`).
+  - **`FAIL`** when the Test has no assertion and calls nothing that could
+    check, when every assertion has no deciding position or only literal ones
+    (`if false { t.Fatal() }`, `if x != 1 || true`), when no value derived from
+    the result decides any assertion (`_ = Add(1, 2)`, a reassigned result, a
+    `t.Skip` or `return` as the only way out), when a condition compares a value
+    with itself with `==` or `!=` (`got != got`), and for an empty body.
+  - **`UNKNOWN`** wherever the audit cannot tell, never `PASS`: a text that does
+    not parse (or nests deeper than 1000 levels, or needs more than 2 000 000
+    statements to be walked); a call of the target, or an assertion, only in a
+    `go` or `defer` statement, a function literal that is not a `t.Run` subtest,
+    or a function the Test calls (`helper(t)`, a function value passed to `t.Run`);
+    a derived value that is passed to a function or method (a log call included),
+    is the receiver of a method, has its address taken, is assigned to another
+    variable, a field, an element or a package variable, is sent on a channel, or is
+    referred to by a function literal; a branch that assigns it on one path only; a
+    function other than a conversion or comparison function among what decides an
+    assertion or in a binding it reads (a delegation target, DS-641): the audit
+    never confirms that one terminates, so a check in a helper is `UNKNOWN` even
+    when the helper checks; a `panic` in a body that has a `defer` that may recover;
+    an exit before an assertion from inside a loop, by a label or `goto`, a `select`;
+    code that never runs (`if false`, after a `return`); a call that cannot be tied
+    to the target (a local function named like it, a function of another package, a
+    method of another type for a function target, a package that is not imported, a
+    bare call in an `x_test` package); a target declared by a permanent SRC ID; a
+    Test that takes its `T` through another name for `testing`.
+  - **Not provided**: DA-002 (the static reach of a target). `target_reach` keeps the
+    default of the adapter contract, which proves no reach, so `target_binding`
+    rests on `go-cover` alone.
+- **Limits**: the adapter declares `source_discovery`, `static_analysis`,
+  `test_runner` and `coverage`. A Go Test is `PASS` as a whole when its
+  `target_binding` (the target ran under the Test, measured by `go-cover`) and
+  its `oracle_presence` (the audit finds a check that the target's result
+  decides) are both `PASS`, with `chain_integrity` and `orphan_detection`. A Test
+  that is `PASS` for `target_binding` has run its target under `go test`'s
+  coverage, which says the code ran, not that its result was checked; the audit
+  says there is a check, not that the check is right. The audit reads names where
+  a clause names them (`testing.T`, `panic`, `true`, `false`, `len`, a
+  conversion's type, `reflect.DeepEqual`, an `assertion_macros` spelling), so
+  these remain false `PASS` shapes: a type of the project that has the name `T`
+  and `Fatal` but records no failure, a package-level `panic`, `true` or `len`
+  that replaces the built-in, a method of another type with the name of a method
+  target, a derived value in a message argument of an `assertion_macros` call,
+  a value compared with a copy of itself (`b := a; a != b`) or by
+  `reflect.DeepEqual(a, a)`, a condition that is constant through a named constant
+  or an operation other than `||` / `&&` with a literal, and a loop over a table
+  that is empty at run time. A Test that logs the derived value before checking
+  it (`t.Logf("%d", got)`) is `UNKNOWN`: passing it to a method makes it unknown.
 - **Known false `PASS` of `target_binding`**: a target is told apart from code
   outside the Test only by comparing the Test's run with the run that selects no
   Test. Code that starts before any Test and reaches the target only while a
   Test runs is counted as the Test's, so the target is `PASS` though the Test
   never called it. Two examples: a goroutine started by an `init` function
   that calls the target later, and a `TestMain` that calls it only when
-  `-test.run` is not `^$`. The aggregate of a Go Test cannot be `PASS` while
-  `oracle_presence` is not checked, but `target_binding` alone can be wrong in
-  this way.
+  `-test.run` is not `^$`. The aggregate of a Go Test can be `PASS`, so this false
+  `PASS` of `target_binding` is no longer held back by `oracle_presence` for a
+  Test whose check is found in the text but whose call of the target does not
+  run (a call under a condition that is false at run time).
 
 ```go
 // @vtest.id TEST-CALC-ADD
