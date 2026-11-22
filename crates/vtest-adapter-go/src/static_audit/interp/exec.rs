@@ -429,15 +429,14 @@ impl<'a> Interp<'a> {
                     found = true;
                 }
             }
-            ExprKind::Ident(name) => {
+            ExprKind::Ident(name)
                 if !skipped.contains(&e.span.start)
                     && (self.ext_names.contains(name)
                         || (self.lookup(name).is_none()
                             && !matches!(name.as_str(), "true" | "false" | "nil" | "iota")
-                            && !BUILTIN_TYPES.contains(&name.as_str())))
-                {
-                    found = true;
-                }
+                            && !BUILTIN_TYPES.contains(&name.as_str()))) =>
+            {
+                found = true;
             }
             _ => {}
         });
