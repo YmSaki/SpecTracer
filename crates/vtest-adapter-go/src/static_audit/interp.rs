@@ -402,6 +402,10 @@ struct Interp<'a> {
     /// slice was made from: what is assigned to them may be changed through
     /// another name (DS-1976).
     addr_taken: BTreeSet<usize>,
+    /// The names that were bound or assigned from an expression that reads a call
+    /// or a name that is not a local one: what such a name holds may be an effect
+    /// of the target (DS-623).
+    ext_names: BTreeSet<String>,
     /// Whether a condition holds a `==` / `!=` of one value with itself, by the
     /// start of the condition.
     self_cmp_cache: RefCell<HashMap<usize, bool>>,
@@ -503,19 +507,26 @@ fn has_recover_defer(stmts: &[Stmt]) -> bool {
     found
 }
 
-/// DS-1933 does not say when a subtest that calls `Parallel` runs its body: it
+/// DS-1933 does not say when a subtest that may call `Parallel` runs its body: it
 /// is paused until the parent returns, so the body is not read as the rest of
 /// the Test.
-fn body_calls_parallel(stmts: &[Stmt]) -> bool {
+fn body_may_pause(stmts: &[Stmt], t_names: &BTreeSet<&str>) -> bool {
     let mut found = false;
-    for_each_expr_in_stmts(stmts, false, &mut |e| {
-        if let ExprKind::Call { fun, .. } = &e.kind {
-            if matches!(&strip(fun).kind, ExprKind::Selector(_, sel) if sel.name == "Parallel") {
-                found = true;
+    let (mut uses, mut as_receiver) = (0_usize, 0_usize);
+    for_each_expr_in_stmts(stmts, true, &mut |e| match &e.kind {
+        ExprKind::Selector(base, sel) => {
+            // `t.Parallel`, called or kept as a method value.
+            found |= sel.name == "Parallel";
+            if matches!(&strip(base).kind, ExprKind::Ident(n) if t_names.contains(n.as_str())) {
+                as_receiver += 1;
             }
         }
+        ExprKind::Ident(n) if t_names.contains(n.as_str()) => uses += 1,
+        _ => {}
     });
-    found
+    // A `T` that is handed on (to a helper, kept in a variable) may reach
+    // `Parallel` where this analysis does not read.
+    found || uses > as_receiver
 }
 
 /// DS-1983: whether the body assigns a name that the loop's condition or range
@@ -551,6 +562,7 @@ impl<'a> Interp<'a> {
             decl_ids: HashMap::new(),
             captured: BTreeSet::new(),
             addr_taken: BTreeSet::new(),
+            ext_names: BTreeSet::new(),
             self_cmp_cache: RefCell::new(HashMap::new()),
             env: Some(Vec::new()),
             counted: true,

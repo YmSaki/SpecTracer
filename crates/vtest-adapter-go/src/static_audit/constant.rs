@@ -123,7 +123,10 @@ fn parse_int(text: &str) -> Option<i128> {
 /// An interpreted string literal without an escape, or a raw string.
 fn plain_string(text: &str) -> Option<&str> {
     let inner = text.get(1..text.len().checked_sub(1)?)?;
-    if text.starts_with('`') || !inner.contains('\\') {
+    if text.starts_with('`') {
+        // Go drops the carriage returns of a raw string from its value.
+        (!inner.contains('\r')).then_some(inner)
+    } else if !inner.contains('\\') {
         Some(inner)
     } else {
         None

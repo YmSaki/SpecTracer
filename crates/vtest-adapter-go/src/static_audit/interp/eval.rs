@@ -184,7 +184,10 @@ impl Interp<'_> {
             "&" => {
                 let target = strip(inner);
                 if matches!(target.kind, ExprKind::CompositeLit { .. }) {
-                    return self.eval(target, PLAIN);
+                    let v = self.eval(target, PLAIN);
+                    // A pointer to a composite value is a new pointer: comparing
+                    // it checks none of its elements.
+                    return self.uncomp(v);
                 }
                 let v = self.eval(target, PLAIN);
                 if let Some(id) = root_ident(target).and_then(|name| self.lookup(name)) {
@@ -258,11 +261,14 @@ impl Interp<'_> {
         if va.comp || vb.comp {
             // A composite literal is never `nil`: a comparison with it checks
             // nothing of its elements.
-            let against_nil = |x: &Expr| {
-                matches!(&strip(x).kind, ExprKind::Ident(name) if name == "nil")
-                    && !self.is_local("nil")
+            let mentions_nil = |x: &Expr| {
+                let mut found = false;
+                for_each_expr(x, true, &mut |e| {
+                    found |= matches!(&e.kind, ExprKind::Ident(name) if name == "nil");
+                });
+                found && !self.is_local("nil")
             };
-            if matches!(op, "==" | "!=") && c.decider && !against_nil(a) && !against_nil(b) {
+            if matches!(op, "==" | "!=") && c.decider && !mentions_nil(a) && !mentions_nil(b) {
                 // DS-1984: a composite value compared whole.
                 return Val {
                     comp: false,
@@ -512,8 +518,15 @@ impl Interp<'_> {
                 }
                 match args.get(1).map(|a| &a.kind) {
                     Some(ExprKind::FuncLit(lit)) if args.len() == 2 => {
-                        if body_calls_parallel(&lit.body.stmts) {
-                            // Its body runs after the parent returns.
+                        let t_names: BTreeSet<&str> = lit
+                            .sig
+                            .params
+                            .iter()
+                            .filter(|field| self.type_is_t(&field.ty))
+                            .flat_map(|field| field.names.iter().map(|n| n.name.as_str()))
+                            .collect();
+                        if body_may_pause(&lit.body.stmts, &t_names) {
+                            // Its body may run after the parent returns.
                             self.eval_func_lit(&lit.sig, &lit.body);
                         } else {
                             self.run_continuation(&lit.sig, &lit.body);

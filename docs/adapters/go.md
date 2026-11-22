@@ -190,7 +190,8 @@ it, so a Test function that has no `@vtest.` declaration is still observed.
     assertion or in a binding it reads (a delegation target, DS-641): the audit
     never confirms that one terminates, so a check in a helper is `UNKNOWN` even
     when the helper checks; a `panic` in a body that has a `defer` that may recover;
-    an exit before an assertion from inside a loop, by a label or `goto`, a `select`;
+    an exit before an assertion from inside a loop, by a label or `goto`, a `select`, a
+    `fallthrough` (the next clause is entered by its own case or by the clause before);
     code that never runs (`if false`, after a `return`); a call that cannot be tied
     to the target (a local function named like it, a function of another package, a
     method of another type for a function target, a package that is not imported, a
@@ -199,10 +200,13 @@ it, so a Test function that has no `@vtest.` declaration is still observed.
     read a call or a package-level name, when no value derived from the result
     decides an assertion (the effect of the target may be checked through the
     argument, the receiver or the state it changes, so the result not reaching an
-    assertion is no proof); a subtest that calls `Parallel` (its body runs after the
-    parent returns, so it is not read as the rest of the Test); a `switch` on the
-    type of a derived value; a target declared by a permanent SRC ID; a Test that
-    takes its `T` through another name for `testing`.
+    assertion is no proof; a local bound or assigned from a call or from a name that
+    is not a local one counts as such a name); a subtest that may call `Parallel`
+    (its body runs after the parent returns, so it is not read as the rest of the
+    Test: one that calls or keeps `t.Parallel`, or hands its `T` to a function); a
+    `switch` on the type of a derived value; a pointer to a composite literal that
+    holds the result; a target declared by a permanent SRC ID; a Test that takes its
+    `T` through another name for `testing`.
   - **Not provided**: DA-002 (the static reach of a target). `target_reach` keeps the
     default of the adapter contract, which proves no reach, so `target_binding`
     rests on `go-cover` alone.
@@ -223,7 +227,11 @@ it, so a Test function that has no `@vtest.` declaration is still observed.
   a value compared with a copy of itself (`b := a; a != b`) or by
   `reflect.DeepEqual(a, a)`, a condition that is constant through a named constant
   or an operation other than `||` / `&&` with a literal, a loop over a table
-  that is empty at run time, and a qualified call `pkg.Name` whose import path ends
+  that is empty at run time, a slice, a method value or a pointer receiver that
+  keeps the address of a variable before the result is assigned to it and a call
+  that then writes through it (`keep(buf[:]); buf = Fill(); overwrite()`; only the
+  forms `&x`, a bound field, element, slice or method value, and a range over the
+  variable are followed), and a qualified call `pkg.Name` whose import path ends
   with the target's directory, which is taken for the target's package (the audit
   has no module path to compare). A Test that logs the derived value before checking
   it (`t.Logf("%d", got)`) is `UNKNOWN`: passing it to a method makes it unknown.

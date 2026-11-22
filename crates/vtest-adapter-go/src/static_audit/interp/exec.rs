@@ -149,6 +149,10 @@ impl<'a> Interp<'a> {
                 x,
                 body,
             } => {
+                if self.reads_external(x) {
+                    let places: Vec<&Expr> = key.iter().chain(value.iter()).collect();
+                    self.note_external_binding(&places, std::slice::from_ref(x));
+                }
                 let xval = self.eval(x, PLAIN);
                 if xval.derived() {
                     // The variables of the loop hold its elements, which they
@@ -178,6 +182,10 @@ impl<'a> Interp<'a> {
         for spec in specs {
             match spec {
                 DeclSpec::Var { names, ty, values } => {
+                    if values.iter().any(|v| self.reads_external(v)) {
+                        self.ext_names
+                            .extend(names.iter().map(|name| name.name.clone()));
+                    }
                     let vals: Vec<Val> = values.iter().map(|v| self.eval(v, PLAIN)).collect();
                     let t_typed = ty.as_ref().is_some_and(|ty| self.type_is_t(ty));
                     for (i, name) in names.iter().enumerate() {
@@ -221,8 +229,20 @@ impl<'a> Interp<'a> {
         match term {
             Term::None => {}
             Term::Failure => self.last_stmt_failure = true,
-            Term::Fatal | Term::Panic => {
+            Term::Fatal => {
                 self.last_stmt_failure = true;
+                self.env = None;
+            }
+            Term::Panic => {
+                self.last_stmt_failure = true;
+                // A panic that a `defer` recovers ends the function as a return
+                // does (DS-1982): the code after the `t.Run` of a subtest goes
+                // on with what it assigned.
+                if self.frames.last().is_some_and(|frame| frame.recover_defer) {
+                    if let (Some(env), Some(frame)) = (self.env.clone(), self.frames.last_mut()) {
+                        frame.returns.push(env);
+                    }
+                }
                 self.env = None;
             }
             Term::Exit => {
@@ -243,7 +263,12 @@ impl<'a> Interp<'a> {
 
     pub(super) fn exec_branch(&mut self, kind: BranchKind, labeled: bool) {
         match kind {
-            BranchKind::Fallthrough => {}
+            BranchKind::Fallthrough => {
+                // Whether the next clause is entered by its own case or by this
+                // clause is not decided by the syntax (DS-1983).
+                self.taint();
+                self.record_undecided();
+            }
             BranchKind::Goto => {
                 self.taint();
                 self.record_exit(true);
@@ -253,6 +278,12 @@ impl<'a> Interp<'a> {
                 if labeled {
                     self.taint();
                     self.record_exit(true);
+                    self.env = None;
+                    return;
+                }
+                if self.dead || self.dec.iter().any(|e| e.never_run) {
+                    // Never taken: it leaves nothing, and what follows the loop
+                    // is reached only by a `break` that is.
                     self.env = None;
                     return;
                 }
@@ -355,13 +386,46 @@ impl<'a> Interp<'a> {
             // Fixed by literals (`X || true`): nothing is read.
             return false;
         }
+        let targets: Vec<&str> = self
+            .cfg
+            .all_targets
+            .iter()
+            .map(|spec| spec.symbol.as_str())
+            .collect();
+        let mut skipped: BTreeSet<usize> = BTreeSet::new();
         let mut found = false;
         for_each_expr(x, true, &mut |e| match &e.kind {
-            ExprKind::Call { .. } => found = true,
+            ExprKind::Call { fun, .. } => {
+                let callee = strip(fun);
+                let name = match &callee.kind {
+                    ExprKind::Ident(n) => Some(n.as_str()),
+                    ExprKind::Selector(_, sel) => Some(sel.name.as_str()),
+                    _ => None,
+                };
+                let bare = matches!(callee.kind, ExprKind::Ident(_));
+                let reads_nothing = name.is_some_and(|n| {
+                    targets.contains(&n)
+                        || (bare
+                            && self.lookup(n).is_none()
+                            && (BUILTIN_TYPES.contains(&n) || matches!(n, "len" | "cap")))
+                });
+                if reads_nothing {
+                    // The name of the callee and its qualifier read no state.
+                    let mut root = callee;
+                    while let ExprKind::Selector(base, _) = &root.kind {
+                        root = strip(base);
+                    }
+                    skipped.insert(root.span.start);
+                } else {
+                    found = true;
+                }
+            }
             ExprKind::Ident(name) => {
-                if self.lookup(name).is_none()
-                    && !matches!(name.as_str(), "true" | "false" | "nil" | "iota")
-                    && !BUILTIN_TYPES.contains(&name.as_str())
+                if !skipped.contains(&e.span.start)
+                    && (self.ext_names.contains(name)
+                        || (self.lookup(name).is_none()
+                            && !matches!(name.as_str(), "true" | "false" | "nil" | "iota")
+                            && !BUILTIN_TYPES.contains(&name.as_str())))
                 {
                     found = true;
                 }
@@ -369,6 +433,17 @@ impl<'a> Interp<'a> {
             _ => {}
         });
         found
+    }
+
+    /// The names `places` are bound to what `values` read (DS-623).
+    pub(super) fn note_external_binding(&mut self, places: &[&Expr], values: &[Expr]) {
+        if values.iter().any(|v| self.reads_external(v)) {
+            for place in places {
+                if let Some(name) = root_ident(place) {
+                    self.ext_names.insert(name.to_owned());
+                }
+            }
+        }
     }
 
     fn extras_len(&self) -> usize {
@@ -598,6 +673,10 @@ impl<'a> Interp<'a> {
             }
             // An exit in one clause does not decide the next (DS-1983).
             clause_extras.extend(self.take_extras(mark));
+            if clause_dead[k] {
+                // No value reaches it: it ends no path.
+                self.env = None;
+            }
             let falls = matches!(
                 clause.body.last().map(|s| &s.kind),
                 Some(StmtKind::Branch {
@@ -881,6 +960,8 @@ impl<'a> Interp<'a> {
     }
 
     pub(super) fn exec_assign(&mut self, lhs: &[Expr], op: &str, rhs: &[Expr]) {
+        let places: Vec<&Expr> = lhs.iter().collect();
+        self.note_external_binding(&places, rhs);
         let vals: Vec<Val> = rhs.iter().map(|r| self.eval(r, PLAIN)).collect();
         let single = rhs.len() == 1 && lhs.len() > 1;
         let val_for = |i: usize| -> Val {
