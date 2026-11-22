@@ -17,14 +17,14 @@
 SpecTracer's verification model is language- and test-runner-agnostic by design.
 The current implementation ships Rust/Cargo (`rust-cargo` in
 `vtest-adapter-rust`) as its officially supported adapter, behind a
-language-neutral adapter API. Only `rust-cargo` supports the full
+language-neutral adapter API. `rust-cargo` and `go` support the full
 `scan` → `run` → `verify` path to `PASS`.
 The Go adapter (`go` in `vtest-adapter-go`) is in the canonical v0.1 production
 scope but still a preview: it discovers Tests by shape, runs them with
-`go test` and measures with `go test`'s coverage whether a Test ran the targets it
-declares (`target_binding` can be `PASS`), while Go static analysis is not
-implemented yet, so `oracle_presence` stays `NO_EVIDENCE` and `vtest verify` on
-Go ends with `Result: NG`.
+`go test`, measures with `go test`'s coverage whether a Test ran the targets it
+declares (`target_binding` can be `PASS`), and reads the Test's text to find a
+check that the target's result decides (`oracle_presence` can be `PASS`; anything
+it cannot tell is `UNKNOWN`). A Go Test is `PASS` as a whole only when both are.
 Ten experimental discovery-only adapters (`vtest-adapter-lexical`: C, C++, C#,
 Java, JavaScript/TypeScript, Kotlin, PHP, Python, Ruby, and Swift) trace
 `@vtest.` declarations without running tests; test runners and coverage for
@@ -122,10 +122,16 @@ ecosystem-specific machinery used to discover and execute tests.
   method gives `W-SCAN-105`. `vtest run` runs `go test -count=1 -json` and
   records `PASS` / `FAIL` Evidence bound to the Execution State. It needs the
   `go` toolchain and a `go.mod`; a Test in no Go module gets `W-EXEC-102` and no
-  Evidence. Coverage and static analysis are not implemented yet, so
-  `target_binding` and `oracle_presence` stay `NO_EVIDENCE` (`NOT_CHECKED`) and
-  `vtest verify` ends with `Result: NG`. See
-  [`docs/adapters/go.md`](docs/adapters/go.md).
+  Evidence. A run without `--fast` measures coverage (`go-cover`) for
+  `target_binding`, and `vtest verify` reads the text of the Test, with a Go reader
+  of its own that starts no process, for `oracle_presence`: it is `PASS` only when
+  a value derived from the call of a declared target decides a failure report,
+  `panic` or listed assertion call, and `UNKNOWN` where the audit cannot tell (a
+  check in a helper, a goroutine or a `defer`, a result that is passed on or
+  changed). The static reach of a target (DA-002) is not provided, so
+  `target_binding` rests on coverage alone. See
+  [`docs/adapters/go.md`](docs/adapters/go.md) for what the audit counts and for
+  its known false `PASS` shapes.
 - **Experimental discovery adapters (`vtest-adapter-lexical`):** Ten
   discovery-only adapters are registered in `crates/vtest-ops/src/registry.rs`:
   `c` (C), `cpp` (C++), `csharp` (C#), `java` (Java), `javascript`
@@ -462,7 +468,7 @@ Current state:
 | Four checks / five states / fail-closed aggregation | Implemented (`vtest-verify`) |
 | Phase gates (`verify --gate`) | Implemented, including approval-role evaluation of the scoped subjects |
 | Adapter API, registry, Rust (`rust-cargo`), and synthetic adapters | Implemented; `rust-cargo` is the officially supported adapter with the full path to `PASS` (`vtest run` needs `cargo-llvm-cov` and `llvm-tools-preview` unless `--fast` is given). Remaining adapter-boundary items (`W-ADAPTER-101`, per-adapter Form conflicts, `assertion_macros` validation) are open issues |
-| Go adapter (`vtest-adapter-go`: `go`) | Preview; in the v0.1 production scope. `source_discovery`, `test_runner` (`go test`) and `coverage` (`go-cover`: `go test` with `-covermode=atomic -coverpkg=./...` and a run that selects no Test; `run.coverage` is `go-cover` or `off`): `target_binding` is `PASS` only for a target that ran under the Test and not before any Test. No static analysis yet, so `oracle_presence` stays `NO_EVIDENCE` and a completed `vtest verify` ends with `Result: NG` |
+| Go adapter (`vtest-adapter-go`: `go`) | Preview; in the v0.1 production scope. `source_discovery`, `test_runner` (`go test`) and `coverage` (`go-cover`: `go test` with `-covermode=atomic -coverpkg=./...` and a run that selects no Test; `run.coverage` is `go-cover` or `off`) and `static_analysis` (an in-process reader of the Test function; DA-001, DA-003, DA-004, DA-005, DA-006): `target_binding` is `PASS` only for a target that ran under the Test and not before any Test, and `oracle_presence` is `PASS` only when a value derived from a target's call result decides an assertion, `UNKNOWN` where the audit cannot tell. A Go Test can be `PASS` as a whole |
 | Ten experimental discovery adapters (`vtest-adapter-lexical`: `c`, `cpp`, `csharp`, `java`, `javascript`, `kotlin`, `php`, `python`, `ruby`, `swift`) | Experimental; `source_discovery` only (`vtest run` rejects with `E-ADAPTER-004`; a completed `vtest verify` ends with `Result: NG`) |
 | MCP stdio server (`vtest mcp`) | Implemented; 24 tools sharing `vtest-ops` with the CLI |
 | Judgment records (`.verify/decisions/`) | `vtest audit bundle` / `audit submit` and reads in `test show` / `report` are implemented; `vtest approval --subject-type judgment` (`E-APPROVAL-001`) and `vtest audit bundle --include-failed` are not implemented yet |
@@ -555,7 +561,7 @@ crates/
 ├── vtest-store              # canonical record persistence
 ├── vtest-adapter-api        # adapter traits, capabilities, registry
 ├── vtest-adapter-rust       # Rust/Cargo adapter (production)
-├── vtest-adapter-go         # Go adapter: discovery via the lexical go module, go test runner and coverage (preview)
+├── vtest-adapter-go         # Go adapter: discovery via the lexical go module, static audit, go test runner and coverage (preview)
 ├── vtest-adapter-lexical    # framework-neutral discovery for 10 languages, plus Go discovery (experimental)
 ├── vtest-adapter-synthetic  # test-only adapter proving language neutrality
 ├── vtest-scan               # scan orchestration and structured test operations

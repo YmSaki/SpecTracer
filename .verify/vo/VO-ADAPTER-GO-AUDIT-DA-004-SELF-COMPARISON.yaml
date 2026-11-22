@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-DA-004-SELF-COMPARISON
+parent: null
+derives_from:
+- doc: DS-624
+claim: 'DA-004（自己比較）はoracle_presenceへ供給する検査であり、2つの値を照合するassert相当（adapterごとの条項が定める）で、照合する2つの値がトークン列として同一であることを内容とし、該当assertが存在することをFAIL条件とし、UNKNOWNへ退避する例は無い（構文的に確定）。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

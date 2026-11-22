@@ -150,15 +150,15 @@ mod captured {
 "#;
 }
 
-/// DES-350, DES-621, BD-354: the adapter declares discovery, the runner and
-/// coverage, and no capability it does not implement; the registry resolves
-/// them, and the values it defines for `run.coverage`.
-/// @vtest.id TEST-ADAPTER-GO-DECLARES-DISCOVERY-RUNNER-AND-COVERAGE
-/// @vtest.covers VO-ADAPTER-LEXICAL-DECLARES-DISCOVERY-ONLY, VO-ADAPTER-GO-REGISTERS-WITHOUT-CORE-CHANGES, VO-ADAPTER-GO-COVERAGE-USES-GO-TEST-COVER, VO-ADAPTER-GO-RUN-COVERAGE-VALUES-ARE-GO-COVER-OR-OFF
+/// DES-350, DES-621, BD-354, BD-357: the adapter declares discovery, the static
+/// audit, the runner and coverage, and no capability it does not implement; the
+/// registry resolves them, and the values it defines for `run.coverage`.
+/// @vtest.id TEST-ADAPTER-GO-DECLARES-DISCOVERY-AUDIT-RUNNER-AND-COVERAGE
+/// @vtest.covers VO-ADAPTER-LEXICAL-DECLARES-DISCOVERY-ONLY, VO-ADAPTER-GO-REGISTERS-WITHOUT-CORE-CHANGES, VO-ADAPTER-GO-COVERAGE-USES-GO-TEST-COVER, VO-ADAPTER-GO-RUN-COVERAGE-VALUES-ARE-GO-COVER-OR-OFF, VO-ADAPTER-GO-AUDIT-ADAPTER-OWNS-DISCOVERY-AUDIT-RUNNER-AND-COVERAGE
 /// @vtest.target crates/vtest-adapter-go/src/lib.rs::adapter
-/// @vtest.intent the go adapter declares its id, its language, its config namespace, source_discovery, test_runner and coverage and no static analysis, registers, resolves its runner and its coverage by the id go, names the method go-cover, and defines the values go-cover and off for run.coverage
+/// @vtest.intent the go adapter declares its id, its language, its config namespace, source_discovery, static_analysis, test_runner and coverage, registers, resolves its static analysis, its runner and its coverage by the id go, names the method go-cover, and defines the values go-cover and off for run.coverage
 #[test]
-fn the_go_adapter_declares_discovery_the_runner_and_coverage() {
+fn the_go_adapter_declares_discovery_the_audit_the_runner_and_coverage() {
     let descriptor = adapter().descriptor();
     assert_eq!(descriptor.id, "go");
     assert_eq!(descriptor.languages, vec!["go".to_owned()]);
@@ -167,6 +167,7 @@ fn the_go_adapter_declares_discovery_the_runner_and_coverage() {
         descriptor.capabilities,
         vec![
             Capability::SourceDiscovery,
+            Capability::StaticAnalysis,
             Capability::TestRunner,
             Capability::Coverage
         ]
@@ -186,7 +187,10 @@ fn the_go_adapter_declares_discovery_the_runner_and_coverage() {
         registry.get("go").and_then(Adapter::run_coverage_values),
         Some(&["go-cover", "off"][..])
     );
-    assert!(registry.static_analysis("go").is_none());
+    assert_eq!(
+        registry.static_analysis("go").map(|audit| audit.id()),
+        Some("go")
+    );
 }
 
 /// DES-643, DES-644, DES-645: a Test in the module root's package.

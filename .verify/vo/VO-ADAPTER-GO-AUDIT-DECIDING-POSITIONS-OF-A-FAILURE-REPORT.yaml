@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-DECIDING-POSITIONS-OF-A-FAILURE-REPORT
+parent: null
+derives_from:
+- doc: DS-1887
+claim: '`go`の失敗の報告と`panic(...)`について、DA-001・DA-003・DA-004が見るassert相当の引数は、その呼出しが実行されるかどうかを決める位置（DS-1947）とし、`go`では次の式をいう。(1) Test関数の本体の中でその呼出しを囲む`if`文の、その呼出しを含む枝の条件式と、同じ`if` / `else if`の連なりでそれより前の枝の条件式。(2) その呼出しを囲む`switch`文の、その呼出しを含む節（前の節の最後の文が`fallthrough`である場合は、その前の節も含め、さかのぼって同じとする）とそれより前の節のcase式、および`switch`文のtag式。それらの節に`default`節が含まれる場合は、すべての節のcase式とする。(3) DS-1983により加わる、その呼出しより前で条件付きで抜けうる文の条件式。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

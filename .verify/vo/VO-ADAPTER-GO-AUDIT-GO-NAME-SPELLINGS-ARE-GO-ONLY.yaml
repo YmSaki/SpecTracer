@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-GO-NAME-SPELLINGS-ARE-GO-ONLY
+parent: null
+derives_from:
+- doc: BD-352
+claim: 'Go固有の呼出し名の綴りや `go-cover` 制約は `go` adapterに限って適用する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

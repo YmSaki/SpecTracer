@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-PER-TARGET-UNKNOWN-WITHOUT-FAIL-IS-UNKNOWN
+parent: null
+derives_from:
+- doc: DS-632
+claim: 'FAILがなく1件でもUNKNOWNがあればrule結果をUNKNOWNとする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

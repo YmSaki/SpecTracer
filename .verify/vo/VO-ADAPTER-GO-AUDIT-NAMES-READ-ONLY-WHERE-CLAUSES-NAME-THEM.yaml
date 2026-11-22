@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-NAMES-READ-ONLY-WHERE-CLAUSES-NAME-THEM
+parent: null
+derives_from:
+- doc: DS-1979
+claim: '`go`で、DS-629の構文から確定できる経路と、本節の`go`の条項の「構文から確定できる」は、名前だけを根拠とする推定を含めない。ただし、本節の`go`の条項が名前で挙げる構文（DS-1884の`*testing.T` / `testing.TB`と失敗の報告のメソッド名、DS-1885の`panic`、DS-1886の`assertion_macros`、DS-1933の`t.Run`、DS-1968のメソッドチェーン、DS-1973の`t.Skip`などの名前、DS-1986の標準の関数と組込み型の名前）は、その名前で判定する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

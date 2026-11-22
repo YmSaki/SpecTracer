@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-CONVERSIONS-AND-COMPARISONS-ARE-NOT-DELEGATION
+parent: null
+derives_from:
+- doc: DS-1986
+claim: '`go`で、assert相当の引数とそこへ流れる束縛に現れる呼出しのうち、組込みの`len`・`cap`、組込み型への型変換（型名が組込み型の名前である変換。`int64(x)`、`string(b)`など）、`reflect.DeepEqual`・`errors.Is`・`bytes.Equal`だけを値の変換・比較としてその引数を値が流れる位置とし、DS-641・DS-1936の照合の委譲先に数えない。それ以外の関数呼出し（`*testing.T`・`testing.TB`を受け取るhelperを含む）は委譲先とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

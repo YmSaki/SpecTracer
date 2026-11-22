@@ -9,9 +9,11 @@
 //! makes the target reached, which is `PASS`. A wrong outcome that passed would
 //! be a Test taken for proof of something it did not do.
 //!
-//! `oracle_presence` stays `NO_EVIDENCE` (`NOT_CHECKED`) for every Go Test: the
-//! adapter has no static analysis (DS-614), so the state of a Test is never
-//! better than `NO_EVIDENCE`, whatever its `target_binding` is.
+//! `oracle_presence` is the static audit's verdict on the text of the Test and
+//! does not depend on the run, so the Test that checks its target's result is
+//! `PASS` for it, and a Test whose `target_binding` and `oracle_presence` are
+//! both `PASS` is `PASS` as a whole. The Tests below that do not check the
+//! result are not: `go_static_audit_e2e.rs` has the ones that check the audit.
 //!
 //! `go` and `git` must be on `PATH`: a missing one fails the test with a message
 //! instead of passing without having run anything.
@@ -129,12 +131,13 @@ fn assert_entries(record: &EvidenceRecord, expected: &[(&str, TargetCoverageResu
 /// DS-1926, DES-663, DES-675, DS-683: a Test that calls its declared target is
 /// recorded with the measured count and the target is reached, which is the one
 /// way a Go Test gets a `target_binding` of `PASS`; the command is the measured
-/// one and the other run's profile is a file of its own; `oracle_presence` and so
-/// the state of the Test are still not `PASS`.
+/// one and the other run's profile is a file of its own; the Test checks the
+/// result of the target, so `oracle_presence` is `PASS` too and the Test as a
+/// whole is `PASS`.
 /// @vtest.id TEST-CLI-GO-COVERAGE-A-TEST-THAT-CALLS-ITS-TARGET-REACHES-IT
 /// @vtest.covers VO-ADAPTER-GO-DEFAULT-MODE-MEASURES-COVERAGE, VO-ADAPTER-GO-COVERAGE-USES-GO-TEST-COVER, VO-ADAPTER-GO-MEASURED-RUN-ADDS-COVER-OPTIONS, VO-ADAPTER-GO-RECORDS-TARGET-COVERAGE-AS-GO-COVER, VO-ADAPTER-GO-MEASURES-THE-RUN-THAT-SELECTS-NO-TEST, VO-ADAPTER-GO-PROFILES-ARE-SEPARATE-FILES-UNDER-CACHE-COV, VO-ADAPTER-GO-TARGET-COUNT-IS-THE-BLOCKS-STARTING-IN-ITS-RANGE, VO-EXEC-TARGET-COVERAGE-COUNT-JUDGEMENT
 /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
-/// @vtest.intent a Go Test that calls the function it declares as its target is recorded with the measured command of runner kind go-test-cover, a target_coverage checked with the method go-cover and one entry of the canonical Locator with result PASS and a count above 0, two profile files with no extension under cache/cov, and verification reports target_binding PASS while oracle_presence stays NO_EVIDENCE with NOT_CHECKED and the Test as a whole NO_EVIDENCE
+/// @vtest.intent a Go Test that calls the function it declares as its target and fails when its result is wrong is recorded with the measured command of runner kind go-test-cover, a target_coverage checked with the method go-cover and one entry of the canonical Locator with result PASS and a count above 0, two profile files with no extension under cache/cov, and verification reports target_binding PASS, oracle_presence PASS and the Test as a whole PASS
 #[test]
 fn a_test_that_calls_its_target_reaches_it() {
     let fixture = calc_project(&test_file(
@@ -198,15 +201,15 @@ fn a_test_that_calls_its_target_reaches_it() {
     );
     assert_eq!(
         outcome_of_test(&outcome, "TEST-COV-ADD", VerificationCheck::OraclePresence).0,
-        VerificationState::NoEvidence
+        VerificationState::Pass
     );
     assert_eq!(
         outcome_of_test(&outcome, "TEST-COV-ADD", VerificationCheck::OraclePresence).1,
-        vec![DiagnosticLabel::NotChecked]
+        Vec::<DiagnosticLabel>::new()
     );
     assert_eq!(
         test_node_state(&outcome, "TEST-COV-ADD"),
-        VerificationState::NoEvidence
+        VerificationState::Pass
     );
 }
 

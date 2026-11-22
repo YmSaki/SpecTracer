@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-DA-002-UNKNOWN-IS-NOT-UNREACHED
+parent: null
+derives_from:
+- doc: DS-612
+claim: 'DA-002のtarget別verdictの`UNKNOWN`は「静的解析の到達判定境界の外にあり、静的には到達を証明できない」ことだけを表し、到達しないことを意味しない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

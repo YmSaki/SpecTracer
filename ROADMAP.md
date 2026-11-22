@@ -32,8 +32,10 @@ item and an implementation detail differ.
   scope and is still a preview. Discovery (by Test shape, delegated to the
   lexical `go` module), the `go test` runner with its Execution State, and
   coverage (`go-cover`) are done; see [docs/adapters/go.md](docs/adapters/go.md).
-  Go static analysis is not implemented, so `oracle_presence` stays
-  `NO_EVIDENCE` and a completed `vtest verify` ends with `Result: NG`.
+  The static audit (an in-process Go reader; DA-001, DA-003, DA-004, DA-005 and
+  DA-006) gives `oracle_presence` a `PASS` for a Test that checks its target's
+  result, so a Go Test can be `PASS` as a whole. The static reach of a target
+  (DA-002) is not provided.
 - Ten experimental, discovery-only adapters are built on the framework-neutral
   `vtest-adapter-lexical` engine (`c`, `cpp`, `csharp`, `java`, `javascript`
   for JS/TS, `kotlin`, `php`, `python`, `ruby`, and `swift`; see
@@ -66,9 +68,10 @@ is in place. Remaining work:
    `E-INTERNAL-001` panic handling);
 2. bring this repository's own self-verification (`vtest run --all` +
    `vtest verify`) toward passing; and
-3. add Go static analysis (Go discovery, the `go test` runner and Go coverage
-   are done), and the specification of the JavaScript Test construct for
-   the `javascript` adapter, which is still discovery only; and
+3. provide the static reach of a target (DA-002) for Go (Go discovery, the `go
+   test` runner, Go coverage and the Go static audit are done), and the
+   specification of the JavaScript Test construct for the `javascript` adapter,
+   which is still discovery only; and
 4. add test-runner, coverage, freshness, and static-analysis capabilities for
    other languages only after canonical specification updates and reproducible
    acceptance coverage (promoting any of the ten experimental discovery-only

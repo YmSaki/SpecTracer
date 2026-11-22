@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-DECIDING-POSITION-REACH-DEFINITION
+parent: null
+derives_from:
+- doc: DS-1947
+claim: 'DA-003で、失敗として発散する構文の、実行されるかどうかを決める位置とは、その構文を支配する条件式、その構文を含む腕とそれより前の腕のガード式、およびそれらの腕のパターン（`if let` / `let ... else`ではそのパターン）のうち反駁可能な部分が検査するscrutineeの位置をいう。失敗として発散する構文への到達とは、決める位置のうち、その位置の値自体が派生である位置へ、値が派生として流れることをいう。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-T-RUN-LITERAL-IS-BODY-CONTINUATION
+parent: null
+derives_from:
+- doc: DS-1933
+claim: '`go`で、Test関数の本体のうち入れ子の関数リテラル（本条により本体の続きとして読むものを除く）の外にある位置で呼ぶ`t.Run`（`*testing.T`型の引数・変数に対する`Run`の呼出し。`go`文・`defer`文で呼ぶものを除く）の第2引数に直接書いた関数リテラルの本体は、DA-002・DA-003のデータフロー解析ではTest関数の本体の続きとして追跡し、DS-1970の数える位置に含める。関数リテラルの引数と、その本体の中で`:=`または`var`により宣言し直した同名の変数は、関数リテラルのスコープの束縛として扱う。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

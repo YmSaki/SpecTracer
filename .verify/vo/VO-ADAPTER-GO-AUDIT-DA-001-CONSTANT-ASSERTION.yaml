@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-DA-001-CONSTANT-ASSERTION
+parent: null
+derives_from:
+- doc: DS-621
+claim: 'DA-001（定数アサーション）はoracle_presenceへ供給する検査であり、引数がすべてリテラル・定数式のassertを内容とし、関数内のassert相当がすべて定数アサーションであることをFAIL条件とし、定数性を確定できない式をUNKNOWNへ退避する例とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

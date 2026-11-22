@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-ASSERTION-MACRO-ARGUMENTS-EXCLUDE-TESTING-T
+parent: null
+derives_from:
+- doc: DS-1888
+claim: '`go` configの`assertion_macros`に列挙された呼出しについて、DA-001・DA-003・DA-004が見るassert相当の引数は、`*testing.T`型または`testing.TB`型の引数を除くその呼出しの引数とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

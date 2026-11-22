@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-UNKNOWN-WITHOUT-FAIL-IS-UNKNOWN
+parent: null
+derives_from:
+- doc: DS-608
+claim: '`oracle_presence`は、`FAIL`がなく`UNKNOWN`があれば`UNKNOWN`とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

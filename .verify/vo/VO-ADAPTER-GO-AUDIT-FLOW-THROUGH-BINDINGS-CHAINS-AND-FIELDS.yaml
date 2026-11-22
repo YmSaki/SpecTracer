@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-FLOW-THROUGH-BINDINGS-CHAINS-AND-FIELDS
+parent: null
+derives_from:
+- doc: DS-1968
+claim: '`go`のDA-002 / DA-003のデータフロー解析は、少なくとも`:=`・`var`によるローカル変数への束縛、メソッドチェーン、フィールドアクセスを通る経路を派生として追跡する。メソッドの受け手として流れる値は、DS-1936にかかわらず本条による。メソッドに引数として渡す値はDS-1936による。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

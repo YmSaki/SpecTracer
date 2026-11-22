@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-CONSTANCY-BY-DECIDING-POSITION
+parent: null
+derives_from:
+- doc: DS-1950
+claim: 'DA-001で、失敗として発散する構文（adapterごとの条項が定める）の定数性は、そのメッセージ引数ではなく、その構文が実行されるかどうかを決める位置（DS-1947）で判定する。決める位置が1つも無い構文（反駁不能なパターン（adapterごとの条項が定める）だけの腕にあり、支配する条件式とガードが無いものを含む）と、決める位置がすべてDA-001の定数判定で確定する構文は、定数アサーションとする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

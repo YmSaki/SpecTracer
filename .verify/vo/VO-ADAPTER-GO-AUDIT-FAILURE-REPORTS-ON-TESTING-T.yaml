@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-FAILURE-REPORTS-ON-TESTING-T
+parent: null
+derives_from:
+- doc: DS-1884
+claim: '`go`のassert相当の構文は、Test関数の本体（関数リテラルの中を含む）で`*testing.T`型または`testing.TB`型として宣言された引数・変数に対する`Error` / `Errorf` / `Fatal` / `Fatalf` / `Fail` / `FailNow`の呼出し（以下、失敗の報告）を含む。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

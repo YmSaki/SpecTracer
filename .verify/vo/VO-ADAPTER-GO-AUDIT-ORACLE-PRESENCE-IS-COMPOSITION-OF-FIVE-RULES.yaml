@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-ORACLE-PRESENCE-IS-COMPOSITION-OF-FIVE-RULES
+parent: null
+derives_from:
+- doc: DS-605
+claim: '`oracle_presence`はDA-001 / DA-003 / DA-004 / DA-005 / DA-006の合成とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

@@ -38,7 +38,7 @@ there is an environment difference to report as such, and one that fails only
 on the PR branch is a regression.
 
 The tests of the `go` runner start the real `go` command and `git`:
-`vtest-adapter-go` (`execution_state::tests`, `coverage::tests`) and `crates/vtest-cli/tests/go_runner_e2e.rs` and `go_coverage_e2e.rs`.
+`vtest-adapter-go` (`execution_state::tests`, `coverage::tests`, and `syntax::tests`, which reads the whole Go standard library of the installed `go`) and `crates/vtest-cli/tests/go_runner_e2e.rs`, `go_coverage_e2e.rs` and `go_static_audit_e2e.rs`.
 They fail with a message that names the missing tool when `go` or `git` is not
 on `PATH`, because a skipped run would say nothing about the runner, so Go is
 required to run the workspace tests. The tests were developed against go 1.26;

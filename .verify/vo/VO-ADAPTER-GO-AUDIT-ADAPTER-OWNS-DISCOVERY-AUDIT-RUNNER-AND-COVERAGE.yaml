@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-ADAPTER-OWNS-DISCOVERY-AUDIT-RUNNER-AND-COVERAGE
+parent: null
+derives_from:
+- doc: BD-357
+claim: '`go` adapterはGoのdiscovery、static audit、runner、coverageを所有する。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

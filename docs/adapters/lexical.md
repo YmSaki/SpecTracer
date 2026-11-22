@@ -9,8 +9,8 @@ same rules work with pytest, JUnit, Jest, GoogleTest, or a hand-written runner.
 >
 > REQ-264, SPEC-218, SPEC-361, and SPEC-458 include `go` and `javascript`,
 > alongside `rust-cargo`, as v0.1 production language adapters. The `go` adapter
-> now lives in `vtest-adapter-go` and has a `go test` runner and coverage (see
-> [go.md](go.md)); it has no oracle check yet. The
+> now lives in `vtest-adapter-go` and has a `go test` runner, coverage and a
+> static audit for the oracle check (see [go.md](go.md)). The
 > `javascript` adapter does not meet that contract yet. It implements only
 > `source_discovery`: there is no runner, no coverage, and no oracle check.
 > Every other language is outside the v0.1 production scope.

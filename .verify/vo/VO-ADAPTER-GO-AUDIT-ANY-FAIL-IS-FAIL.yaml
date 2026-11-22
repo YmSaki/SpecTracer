@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-ANY-FAIL-IS-FAIL
+parent: null
+derives_from:
+- doc: DS-607
+claim: '`oracle_presence`は、1つでも`FAIL`があれば`FAIL`とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

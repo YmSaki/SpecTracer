@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-PER-TARGET-ALL-NO-VIOLATION-IS-PASS
+parent: null
+derives_from:
+- doc: DS-633
+claim: '全targetが違反なしの場合だけrule結果をPASSとする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z
