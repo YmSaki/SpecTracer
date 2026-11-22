@@ -184,7 +184,14 @@ fn a_test_whose_target_result_decides_a_failure_is_pass() {
         row!("errors.Is", "err := Run()\nif !errors.Is(err, ErrX) {\n\tt.Fatal(err)\n}", RUN, "PASS"),
         row!("composite compared whole", "s := []int{Double(2), 1}\nif !reflect.DeepEqual(s, []int{4, 1}) {\n\tt.Fatal(\"no\")\n}", DOUBLE, "PASS"),
         row!("panic", "if Add(1, 2) != 3 {\n\tpanic(\"sum\")\n}", ADD, "PASS"),
-        row!("method target", "c := New()\nif c.Add(1, 2) != 3 {\n\tt.Fatal(\"sum\")\n}", ADD_METHOD, "PASS"),
+        row!("method target, receiver typed by a composite literal", "c := &Calc{}\nif c.Add(1, 2) != 3 {\n\tt.Fatal(\"sum\")\n}", ADD_METHOD, "PASS"),
+        row!("method target, receiver typed by a value literal", "c := Calc{}\nif c.Add(1, 2) != 3 {\n\tt.Fatal(\"sum\")\n}", ADD_METHOD, "PASS"),
+        row!("method target, receiver typed by new", "c := new(Calc)\nif c.Add(1, 2) != 3 {\n\tt.Fatal(\"sum\")\n}", ADD_METHOD, "PASS"),
+        row!("method target, receiver typed by its declaration", "var c Calc\nif c.Add(1, 2) != 3 {\n\tt.Fatal(\"sum\")\n}", ADD_METHOD, "PASS"),
+        row!("method target, receiver of a type the syntax does not give", "c := New()\nif c.Add(1, 2) != 3 {\n\tt.Fatal(\"sum\")\n}", ADD_METHOD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("method target, receiver typed by a local type of the same name", "type Calc struct{}\nc := &Calc{}\nif c.Add(1, 2) != 3 {\n\tt.Fatal(\"sum\")\n}", ADD_METHOD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("method target, the check is of another type with a method of the name", "c := &Calc{}\n_ = c.Add(1, 2)\no := Other{}\nif o.Add(1, 2) != 3 {\n\tt.Fatal(\"x\")\n}", ADD_METHOD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("method target, a field of a value", "s := &Suite{}\nif s.calc.Add(1, 2) != 3 {\n\tt.Fatal(\"sum\")\n}", ADD_METHOD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("compound assignment keeps it", "x := Add(1, 2)\nx += 1\nif x != 4 {\n\tt.Fatal(\"x\")\n}", ADD, "PASS"),
         row!("both branches derived", "var x int\nif flag {\n\tx = Add(1, 2)\n} else {\n\tx = Add(2, 2)\n}\nif x != 3 {\n\tt.Fatal(\"x\")\n}", ADD, "PASS"),
         row!("failure arm leaves the merge", "x := Add(1, 2)\nif flag {\n\tx = 5\n\tt.Error(\"e\")\n}\nif x != 3 {\n\tt.Fatal(\"x\")\n}", ADD, "PASS"),
@@ -209,6 +216,20 @@ fn a_test_whose_target_result_decides_a_failure_is_pass() {
         &["require.NoError"],
     );
     assert_eq!(a.state(), "PASS");
+    // A listed call after an exit that the syntax does not fix is not decided.
+    let a = with_macros(
+        "got := Add(1, 2)\nfor _, v := range vs {\n\tif v == 1 {\n\t\treturn\n\t}\n}\nassert.Equal(t, 3, got)",
+        ADD,
+        &["assert.Equal"],
+    );
+    assert_eq!(a.rule("DA-003"), "UNKNOWN", "{:#?}", a.evaluation);
+    assert_ne!(a.state(), "PASS");
+    let a = with_macros(
+        "got := Add(1, 2)\nshort := false\nif short {\n\treturn\n}\nassert.Equal(t, 3, got)",
+        ADD,
+        &["assert.Equal"],
+    );
+    assert_eq!(a.state(), "PASS", "{:#?}", a.evaluation);
     // A listed call that may compare an argument with itself (DS-1888, DS-1889).
     for body in [
         "got := Add(1, 2)\nassert.Equal(t, got, got)",
@@ -245,6 +266,11 @@ fn a_test_with_no_check_or_a_constant_check_fails() {
         row!("a local closure named like the target", "Add(1, 2)\nAdd := func(a, b int) int {\n\treturn a + b\n}\nif Add(1, 2) != 3 {\n\tt.Fatal(\"x\")\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("a local that a call fills through its address", "Push(5)\nvar got []int\nSnapshot(&got)\nif got[0] != 5 {\n\tt.Fatal(\"x\")\n}", PUSH, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("a local that a pointer receiver method fills", "Push(5)\nvar s Snap\ns.Load()\nif s.n != 5 {\n\tt.Fatal(\"x\")\n}", PUSH, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a self-comparison in an exit before the failure report", "got := Add(1, 2)\nif got == got {\n\treturn\n}\nt.Fatal(\"x\")", ADD, "FAIL", &[("DA-004", "FAIL")]),
+        row!("a self-comparison through parentheses", "got := Add(1, 2)\nif (got) != got {\n\tt.Fatal(\"x\")\n}", ADD, "FAIL", &[("DA-004", "FAIL")]),
+        row!("a switch whose case is its tag", "got := Add(1, 2)\nswitch got {\ncase got:\ndefault:\n\tt.Error(\"x\")\n}", ADD, "FAIL", &[("DA-004", "FAIL")]),
+        row!("an assertion call defers the failure report", "got := Add(1, 2)\nif got != 3 {\n\tdefer t.Fatal(\"x\")\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a T that is assigned another value", "got := Add(1, 2)\nt = new(testing.T)\nif got != 3 {\n\tt.Fatal(\"x\")\n}", ADD, "UNKNOWN", &[("DA-001", "UNKNOWN"), ("DA-003", "UNKNOWN"), ("DA-004", "UNKNOWN"), ("DA-005", "UNKNOWN"), ("DA-006", "UNKNOWN")]),
         row!("the effect is on the receiver", "c := New()\nc.Inc()\nif c.Value() != 1 {\n\tt.Fatal(\"x\")\n}", INC_METHOD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("the effect is on an argument", "buf := make([]byte, 1)\nFill(buf)\nif buf[0] != 120 {\n\tt.Fatal(\"x\")\n}", FILL, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("the effect is on an argument that nothing reads", "buf := make([]byte, 1)\nFill(buf)\nx := 5\nif x != 5 {\n\tt.Fatal(\"x\")\n}", FILL, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
@@ -341,6 +367,13 @@ fn a_changed_or_shared_value_is_unknown() {
         row!("Parallel kept as a method value", "got := Add(1, 2)\nt.Run(\"p\", func(t *testing.T) {\n\tpause := t.Parallel\n\tpause()\n\tif got != 3 {\n\t\tt.Error(\"e\")\n\t}\n})\ngot = 3", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("a condition that is constant only for a raw string with a carriage return", "got := Add(1, 2)\nif `a\r` == \"a\" {\n\tgot = 3\n}\nif got != 3 {\n\tt.Fatal(\"x\")\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("a subtest T of an aliased type handed to a helper", "got := 0\nt.Run(\"x\", func(s *T) {\n\tpause(s)\n\tgot = Add(1, 2)\n})\nif got != 0 {\n\tt.Fatal(\"x\")\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a char comparison that is not evaluated guards the check", "got := Add(1, 2)\nif 'a' == 'b' {\n\tif got != 3 {\n\t\tt.Fatal(\"x\")\n\t}\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a float comparison that is not evaluated guards the check", "got := Add(1, 2)\nif 1.0 == 2.0 {\n\tif got != 3 {\n\t\tt.Fatal(\"x\")\n\t}\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("an escaped string comparison that is not evaluated guards the check", "got := Add(1, 2)\nif \"a\\n\" == \"b\" {\n\tif got != 3 {\n\t\tt.Fatal(\"x\")\n\t}\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a loop whose condition is not evaluated guards the check", "got := Add(1, 2)\nfor 'a' == 'b' {\n\tif got != 3 {\n\t\tt.Fatal(\"x\")\n\t}\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a loop over an empty literal runs no body", "got := Add(1, 2)\nfor range []int{} {\n\tif got != 3 {\n\t\tt.Fatal(\"x\")\n\t}\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a switch of literals that is not evaluated guards the clause", "got := Add(1, 2)\nswitch 'a' {\ncase 'b':\n\tif got != 3 {\n\t\tt.Fatal(\"x\")\n\t}\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("the only failure report is guarded by literals that are not evaluated", "Add(1, 2)\nif 'a' == 'b' {\n\tt.Fatal(\"x\")\n}", ADD, "UNKNOWN", &[("DA-001", "UNKNOWN")]),
         row!("projection assignment", "r := Make()\nr.F = 5\nif r.F != 5 {\n\tt.Fatal(\"f\")\n}", MAKE, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("element assignment", "s := Make()\ns[0] = 1\nif s[0] != 1 {\n\tt.Fatal(\"x\")\n}", MAKE, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("compound projection assignment", "r := Make()\nr.F += 5\nif r.F != 5 {\n\tt.Fatal(\"f\")\n}", MAKE, "UNKNOWN", &[("DA-003", "UNKNOWN")]),

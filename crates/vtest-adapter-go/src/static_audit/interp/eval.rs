@@ -432,7 +432,16 @@ impl Interp<'_> {
         }
         if let Some(target) = self.target {
             if target.is_method && method == target.symbol {
-                return Callee::Target(TargetMatch::Definite);
+                // The method of the target only when the syntax fixes the type
+                // of the receiver (DS-1979); another type's method with the
+                // same name is not its call, and an unknown type may be either.
+                match self.static_type_of(base) {
+                    Some(ty) if Some(ty.as_str()) == target.receiver.as_deref() => {
+                        return Callee::Target(TargetMatch::Definite);
+                    }
+                    Some(_) => {}
+                    None => return Callee::Target(TargetMatch::Ambiguous),
+                }
             }
         }
         let other_method = self
@@ -784,6 +793,9 @@ impl Interp<'_> {
             return;
         }
         let live = self.counted && !self.dead;
+        if !self.counted && !self.dead && self.target.is_some() {
+            self.facts.uncounted_assert = true;
+        }
         let Some(frame) = self.frames.last() else {
             return;
         };
@@ -808,7 +820,8 @@ impl Interp<'_> {
                     Constness::Const
                 };
                 let merged = entries.iter().fold(Val::NO, |m, e| m.merge(e.val));
-                let self_cmp = self.dec.iter().any(|e| e.self_cmp);
+                let self_cmp = self.dec.iter().any(|e| e.self_cmp)
+                    || frame.extras.iter().any(|e| e.entry.self_cmp);
                 let ext = entries.iter().any(|e| e.ext);
                 (merged, constness, self_cmp, undecided, ext)
             }
@@ -822,7 +835,8 @@ impl Interp<'_> {
                 } else {
                     *constness
                 };
-                (*val, constness, false, false, *ext)
+                // The exits before it decide whether it runs (DS-1983).
+                (*val, constness, false, frame.undecided_after, *ext)
             }
         };
         if ext {

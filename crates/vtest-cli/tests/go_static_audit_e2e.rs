@@ -27,7 +27,7 @@ use vtest_verify::{NodeKind, TreeNode, VerifyOutcome};
 
 const GO_MOD: &str = "module app\n\ngo 1.21\n";
 
-const CALC: &str = "package app\n\nfunc Add(a, b int) int { return a + b }\n\nfunc Double(a int) int { return a * 2 }\n\ntype Calc struct{}\n\nfunc (c *Calc) Add(a, b int) int { return a + b }\n\nvar counter int\n\nfunc Reset() { counter = 0 }\n\ntype Counter struct{ n int }\n\nfunc (c *Counter) Inc() { c.n++ }\n\nfunc (c *Counter) Value() int { return c.n }\n\nvar stack []int\n\nfunc Push(v int) { stack = append(stack, v) }\n\nfunc Peek() int { return stack[len(stack)-1] }\n";
+const CALC: &str = "package app\n\nfunc Add(a, b int) int { return a + b }\n\nfunc Double(a int) int { return a * 2 }\n\ntype Calc struct{}\n\nfunc (c *Calc) Add(a, b int) int { return a + b }\n\ntype Other struct{}\n\nfunc (o Other) Add(a, b int) int { return a + b }\n\nvar counter int\n\nfunc Reset() { counter = 0 }\n\ntype Counter struct{ n int }\n\nfunc (c *Counter) Inc() { c.n++ }\n\nfunc (c *Counter) Value() int { return c.n }\n\nvar stack []int\n\nfunc Push(v int) { stack = append(stack, v) }\n\nfunc Peek() int { return stack[len(stack)-1] }\n";
 
 const HELPERS: &str = r#"package app
 
@@ -176,6 +176,71 @@ const CASES: &[Case] = &[
         target: ADD,
         body: "\tgot := Add(1, 2)\n\tt.Run(\"x\", func(t *testing.T) {\n\t\tdefer func() {\n\t\t\trecover()\n\t\t}()\n\t\tgot = 3\n\t\tpanic(\"leave\")\n\t})\n\tif got != 3 {\n\t\tt.Fatal(\"x\")\n\t}",
         oracle: VerificationState::Fail,
+        passes: false,
+    },
+    // The check is of a value that is not the target's, or never runs.
+    Case {
+        name: "TestSelfComparisonInAnExit",
+        target: ADD,
+        body: "\tgot := Add(1, 2)\n\tif got == got {\n\t\treturn\n\t}\n\tt.Fatal(\"x\")",
+        oracle: VerificationState::Fail,
+        passes: false,
+    },
+    Case {
+        name: "TestSelfComparisonInParentheses",
+        target: ADD,
+        body: "\tgot := Add(1, 2)\n\tif (got) != got {\n\t\tt.Fatal(\"x\")\n\t}",
+        oracle: VerificationState::Fail,
+        passes: false,
+    },
+    Case {
+        name: "TestSwitchCaseIsItsTag",
+        target: ADD,
+        body: "\tgot := Add(1, 2)\n\tswitch got {\n\tcase got:\n\tdefault:\n\t\tt.Error(\"x\")\n\t}",
+        oracle: VerificationState::Fail,
+        passes: false,
+    },
+    // A check the audit cannot tie to the result.
+    Case {
+        name: "TestMethodOfAnotherTypeWithTheName",
+        target: CALC_ADD,
+        body: "\tc := &Calc{}\n\t_ = c.Add(1, 2)\n\to := Other{}\n\tif o.Add(1, 2) != 3 {\n\t\tt.Fatal(\"x\")\n\t}",
+        oracle: VerificationState::Unknown,
+        passes: false,
+    },
+    Case {
+        name: "TestGuardedByACharComparison",
+        target: ADD,
+        body: "\tgot := Add(1, 2)\n\tif 'a' == 'b' {\n\t\tif got != 3 {\n\t\t\tt.Fatal(\"x\")\n\t\t}\n\t}",
+        oracle: VerificationState::Unknown,
+        passes: false,
+    },
+    Case {
+        name: "TestLoopOverAnEmptyLiteral",
+        target: ADD,
+        body: "\tgot := Add(1, 2)\n\tfor range []int{} {\n\t\tif got != 3 {\n\t\t\tt.Fatal(\"x\")\n\t\t}\n\t}",
+        oracle: VerificationState::Unknown,
+        passes: false,
+    },
+    Case {
+        name: "TestAssertionCallAfterAnExitFromALoop",
+        target: ADD,
+        body: "\tgot := Add(1, 2)\n\tfor _, v := range []int{1} {\n\t\tif v == 1 {\n\t\t\treturn\n\t\t}\n\t}\n\tassert.Equal(t, 3, got)",
+        oracle: VerificationState::Unknown,
+        passes: false,
+    },
+    Case {
+        name: "TestTIsAssignedAnotherValue",
+        target: ADD,
+        body: "\tgot := Add(1, 2)\n\tt = new(testing.T)\n\tif got != 3 {\n\t\tt.Fatal(\"x\")\n\t}",
+        oracle: VerificationState::Unknown,
+        passes: false,
+    },
+    Case {
+        name: "TestFailureReportInADefer",
+        target: ADD,
+        body: "\tgot := Add(1, 2)\n\tif got != 3 {\n\t\tdefer t.Fatal(\"x\")\n\t}",
+        oracle: VerificationState::Unknown,
         passes: false,
     },
     // A check the audit cannot tie to the result.
@@ -373,7 +438,7 @@ fn run_project() -> (support::Fixture, ExecutionResult, VerifyOutcome) {
 /// @vtest.id TEST-CLI-GO-AUDIT-A-TEST-THAT-CHECKS-ITS-RESULT-IS-PASS-AND-THE-WRONG-ONES-ARE-NOT
 /// @vtest.covers VO-ADAPTER-GO-AUDIT-ALL-NO-VIOLATION-IS-PASS, VO-ADAPTER-GO-AUDIT-ANY-FAIL-IS-FAIL, VO-ADAPTER-GO-AUDIT-UNKNOWN-WITHOUT-FAIL-IS-UNKNOWN, VO-ADAPTER-GO-AUDIT-ADAPTER-OWNS-DISCOVERY-AUDIT-RUNNER-AND-COVERAGE, VO-ADAPTER-GO-AUDIT-DA-003-RESULT-UNVERIFIED, VO-ADAPTER-GO-AUDIT-ONLY-COUNTED-POSITIONS-COUNT, VO-ADAPTER-GO-AUDIT-ALIASING-FORMS-MAKE-DERIVATION-UNKNOWN, VO-ADAPTER-GO-AUDIT-ASSIGNMENT-AND-MERGE-OF-DERIVATION, VO-ADAPTER-GO-AUDIT-RECOVERED-PANIC-DOES-NOT-COUNT, VO-ADAPTER-GO-AUDIT-COMPOSITE-LITERAL-WITH-DERIVED-ELEMENT, VO-ADAPTER-GO-AUDIT-ASSERTION-MACROS-BY-CALLEE-SPELLING, VO-ADAPTER-GO-AUDIT-NAMES-READ-ONLY-WHERE-CLAUSES-NAME-THEM, VO-ADAPTER-GO-AUDIT-DA-001-CONSTANT-ASSERTION, VO-ADAPTER-GO-AUDIT-DA-004-SELF-COMPARISON, VO-ADAPTER-GO-AUDIT-ONLY-FAILURE-REPORT-AND-PANIC-DIVERGE, VO-ADAPTER-GO-AUDIT-T-RUN-LITERAL-IS-BODY-CONTINUATION, VO-ADAPTER-GO-AUDIT-DELEGATION-NOT-CONFIRMED-IS-UNKNOWN, VO-ADAPTER-GO-AUDIT-EARLIER-EXITS-AND-LOOPS-DECIDE, VO-ADAPTER-GO-AUDIT-DA-003-TARGET-NOT-IN-THE-BODY-IS-UNKNOWN, VO-ADAPTER-GO-AUDIT-INCOMPLETE-ANALYSIS-IS-UNKNOWN
 /// @vtest.target crates/vtest-adapter-go/src/static_audit.rs::compose
-/// @vtest.intent in a real Go project run with go test and its coverage, a Test whose failure report is decided by the target's result, through a binding, a table with subtests, a method target or a listed assertion call, is PASS for oracle_presence and for target_binding and as a whole, as is one whose only failure report follows a recovered panic that the result decides, and a Test that has no assertion, a constant or unrelated or self-comparing check, a skip as its only divergence or a subtest that redeclares the name, a return in one branch whose condition the other branch does not share, or a skipped subtest or one that recovers a panic after assigning the name is FAIL for oracle_presence, and one whose check is in a goroutine or a defer, whose result has its address taken or is merged with another value, whose panic is recovered, whose result is in a composite literal or in a helper, whose check follows a return that a constant condition always takes, is in a parallel subtest, is in a subtest after an exit from a loop, compares an argument of an assertion call with itself, or reads a type switch on the result, whose target changes its receiver or package state that the check reads (directly or through a local bound from a call), whose check follows an endless loop that only a never-taken break leaves, or is in a clause that another falls through to, or that calls a local function named like the target is UNKNOWN, and none of them is PASS as a whole, nor is one that declares no target
+/// @vtest.intent in a real Go project run with go test and its coverage, a Test whose failure report is decided by the target's result, through a binding, a table with subtests, a method target or a listed assertion call, is PASS for oracle_presence and for target_binding and as a whole, as is one whose only failure report follows a recovered panic that the result decides, and a Test that has no assertion, a constant or unrelated or self-comparing check, a skip as its only divergence or a subtest that redeclares the name, a return in one branch whose condition the other branch does not share, or a skipped subtest or one that recovers a panic after assigning the name, a self-comparison in an exit, through parentheses or as a switch case of its tag is FAIL for oracle_presence, and one whose check is in a goroutine or a defer, whose result has its address taken or is merged with another value, whose panic is recovered, whose result is in a composite literal or in a helper, whose check follows a return that a constant condition always takes, is in a parallel subtest, is in a subtest or is an assertion call after an exit from a loop, is guarded by a comparison of literals that is not evaluated or runs over an empty literal, is a method of another type with the name of a method target, assigns the T another value, has its failure report only in a defer, compares an argument of an assertion call with itself, or reads a type switch on the result, whose target changes its receiver or package state that the check reads (directly or through a local bound from a call), whose check follows an endless loop that only a never-taken break leaves, or is in a clause that another falls through to, or that calls a local function named like the target is UNKNOWN, and none of them is PASS as a whole, nor is one that declares no target
 #[test]
 fn a_go_test_that_checks_its_result_is_pass_and_the_wrong_ones_are_not() {
     let (_fixture, result, outcome) = run_project();

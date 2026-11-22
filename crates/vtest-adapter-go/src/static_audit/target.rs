@@ -19,6 +19,8 @@ pub(crate) struct TargetSpec {
     pub(crate) symbol: String,
     /// The locator names a method (`<path>::<Receiver>::<Name>`).
     pub(crate) is_method: bool,
+    /// The receiver type of a method target, without `*`.
+    pub(crate) receiver: Option<String>,
     /// The project-relative directory of the target's file; empty at the
     /// project root.
     pub(crate) dir: String,
@@ -36,6 +38,12 @@ impl TargetSpec {
         Some(Self {
             symbol: (*symbol).to_owned(),
             is_method: parts.len() >= 3,
+            receiver: parts
+                .len()
+                .checked_sub(2)
+                .filter(|_| parts.len() >= 3)
+                .and_then(|i| parts.get(i))
+                .map(|receiver| receiver.trim_start_matches('*').to_owned()),
             dir: parent_dir(path),
         })
     }

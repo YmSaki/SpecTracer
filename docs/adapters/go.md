@@ -164,7 +164,8 @@ it, so a Test function that has no `@vtest.` declaration is still observed.
     earlier `return`, `break`, `continue`, `t.Skip` or `os.Exit` that may leave
     before it. For an `assertion_macros` call, its arguments.
   - **`PASS` needs a derived value shown to decide an assertion**: a value from
-    the call of a declared target (a function, or a method matched by its name),
+    the call of a declared target (a function, or a method of a receiver whose type
+    the syntax fixes: `T{}`, `&T{}`, `new(T)`, `var x T`),
     followed through `:=` and `var` bindings, assignments, method chains, fields,
     branches and loops (a value that differs between paths is unknown), and
     through the body of a `t.Run` call's function literal as the rest of the Test.
@@ -194,9 +195,15 @@ it, so a Test function that has no `@vtest.` declaration is still observed.
     `fallthrough` (the next clause is entered by its own case or by the clause before);
     an `assertion_macros` call with two equal arguments or one that compares a value
     with itself (DS-1888 has DA-004 read the arguments, DS-1889 only the conditions);
-    code that never runs (`if false`, after a `return`); a call that cannot be tied
+    code that never runs (`if false`, after a `return`); a condition built from
+    literals that is not evaluated (`'a' == 'b'`, `1.0 == 2.0`) or a loop over an
+    empty literal, which guard what may never run; a failure report only in a
+    `defer` or `go` statement; a variable declared `testing.T` that is assigned
+    another value (`t = new(testing.T)`); an `assertion_macros` call after an exit
+    from a loop; a call that cannot be tied
     to the target (a local function named like it, a function of another package, a
-    method of another type for a function target, a package that is not imported, a
+    method of another type for a function target, a method of a value whose type
+    the syntax does not give for a method target, a package that is not imported, a
     bare call in an `x_test` package); a call of the target that has a receiver or
     an argument that is not a literal, or an assertion whose deciding positions
     read a call or a package-level name, when no value derived from the result
@@ -229,11 +236,9 @@ it, so a Test function that has no `@vtest.` declaration is still observed.
   (`var u *testing.T = &testing.T{}`, a `testing.TB` value whose `Error` does
   nothing), a type of the project that has the name `T`
   and `Fatal` but records no failure, a package-level `panic`, `true` or `len`
-  that replaces the built-in, a method of another type with the name of a method
-  target, a derived value in a message argument of an `assertion_macros` call,
+  that replaces the built-in, a derived value in a message argument of an `assertion_macros` call,
   a value compared with a copy of itself (`b := a; a != b`) or by
-  `reflect.DeepEqual(a, a)`, a condition that is constant through a named constant
-  or an operation other than `||` / `&&` with a literal, a loop over a table
+  `reflect.DeepEqual(a, a)`, a condition that is constant through a named constant, a loop over a table
   that is empty at run time, a slice, a method value or a pointer receiver that
   keeps the address of a variable before the result is assigned to it and a call
   that then writes through it (`keep(buf[:]); buf = Fill(); overwrite()`; only the

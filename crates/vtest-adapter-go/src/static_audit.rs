@@ -221,6 +221,7 @@ fn da_003(structure: &Structure, facts: &Facts) -> Da {
         || facts.uncertain
         || facts.uncounted_flow
         || facts.uncounted_calls > 0
+        || facts.uncounted_assert
         || facts.ambiguous_calls > 0
         || structure.maybe_asserts > 0
     {
@@ -333,6 +334,11 @@ fn evaluate_text(subject: &Subject<'_>) -> Evaluation {
     if structure.unrecognized_t {
         return unreadable_all(
             "its testing.T is taken through a package name other than `testing`",
+        );
+    }
+    if structure.t_replaced {
+        return unreadable_all(
+            "a variable declared testing.T is assigned a value that is not a testing.T of the Test",
         );
     }
     let da_003 = subject

@@ -194,7 +194,14 @@ impl<'a> Interp<'a> {
                         } else {
                             vals.get(i).copied().unwrap_or(Val::NO)
                         };
-                        self.declare(name, t_typed, val);
+                        let ty = match ty {
+                            Some(ty) => self.type_ident(ty),
+                            None if vals.len() == 1 && names.len() > 1 => None,
+                            None => values.get(i).and_then(|v| self.static_type_of(v)),
+                        };
+                        if let Some(id) = self.declare(name, t_typed, val) {
+                            self.vars[id].ty = ty;
+                        }
                     }
                     if !names.iter().all(|n| n.name == "_") {
                         for value in values {
@@ -490,14 +497,35 @@ impl<'a> Interp<'a> {
         found
     }
 
+    /// Whether two expressions are the same tokens, through the parentheses
+    /// around either (DS-1889).
+    pub(super) fn same_tokens(&self, a: &Expr, b: &Expr) -> bool {
+        let (ta, tb) = (self.tokens_of(strip(a).span), self.tokens_of(strip(b).span));
+        ta.is_some() && ta == tb
+    }
+
+    /// A condition built from literals that is not evaluated here (`'a' == 'b'`):
+    /// it may be false, so what it guards may never run (DS-621).
+    pub(super) fn unevaluated_literal(&self, cond: &Expr) -> bool {
+        classify(cond, self) == Constness::Const && const_bool(cond, self).is_none()
+    }
+
+    /// The same for the tag and a case of a `switch`, which compare as `==`.
+    fn unevaluated_case(&self, tag: &Expr, case: &Expr) -> bool {
+        let equal = Expr {
+            span: case.span,
+            kind: ExprKind::Binary("==", Box::new(tag.clone()), Box::new(case.clone())),
+        };
+        classify(tag, self) == Constness::Const
+            && classify(case, self) == Constness::Const
+            && const_bool(&equal, self).is_none()
+    }
+
     fn find_self_comparison(&self, cond: &Expr) -> bool {
         let mut found = false;
         for_each_expr(cond, false, &mut |e| {
             if let ExprKind::Binary("==" | "!=", a, b) = &e.kind {
-                let (ta, tb) = (self.tokens_of(a.span), self.tokens_of(b.span));
-                if ta.is_some() && ta == tb {
-                    found = true;
-                }
+                found |= self.same_tokens(a, b);
             }
         });
         found
@@ -515,7 +543,8 @@ impl<'a> Interp<'a> {
             self.exec_stmt(init);
         }
         let val = self.eval(cond, DECIDER);
-        let entry = self.make_entry(cond, val);
+        let mut entry = self.make_entry(cond, val);
+        entry.undecided = self.unevaluated_literal(cond);
         let fixed = const_bool(cond, self);
         let base = self.env.clone();
         let mark = self.extras_len();
@@ -585,7 +614,16 @@ impl<'a> Interp<'a> {
                     continue;
                 }
                 let v = self.eval(e, PLAIN);
-                entries.push(self.make_entry(e, v));
+                let mut entry = self.make_entry(e, v);
+                // `switch x { case x: }` compares the tag with itself (DS-1889).
+                entry.self_cmp |= tag.is_some_and(|t| self.same_tokens(t, e));
+                // Literals compared without being evaluated: the clause may
+                // never run (DS-621).
+                entry.undecided |= match tag {
+                    Some(t) => self.unevaluated_case(t, e),
+                    None => self.unevaluated_literal(e),
+                };
+                entries.push(entry);
             }
             case_entries.push(entries);
         }
@@ -796,8 +834,11 @@ impl<'a> Interp<'a> {
             _ => None,
         };
         if let Some(entry) = &mut entry {
-            entry.undecided = undecided;
-            entry.never_run = fixed_cond == Some(false);
+            entry.undecided |= undecided
+                || matches!(header, LoopHeader::For { cond: Some(c), .. } if self.unevaluated_literal(c));
+            // `for false {}` and a range over an empty literal run no body.
+            entry.never_run = fixed_cond == Some(false)
+                || matches!(header, LoopHeader::Range { x, .. } if range_is_empty(x));
         }
         // `for {}` and `for true {}` end only by a `break`.
         let endless =
@@ -996,7 +1037,12 @@ impl<'a> Interp<'a> {
                         Some(id) if name != "_" => self.set(id, val),
                         _ => {
                             let t_typed = !single && rhs.get(i).is_some_and(|r| self.is_t_ident(r));
-                            self.declare(
+                            let ty = if single {
+                                None
+                            } else {
+                                rhs.get(i).and_then(|r| self.static_type_of(r))
+                            };
+                            let declared = self.declare(
                                 &Ident {
                                     name: name.clone(),
                                     span: l.span,
@@ -1004,6 +1050,9 @@ impl<'a> Interp<'a> {
                                 t_typed,
                                 val,
                             );
+                            if let Some(id) = declared {
+                                self.vars[id].ty = ty;
+                            }
                         }
                     }
                 }
@@ -1011,6 +1060,13 @@ impl<'a> Interp<'a> {
             "=" => {
                 for (i, l) in lhs.iter().enumerate() {
                     let val = val_for(i);
+                    if let ExprKind::Ident(name) = &strip(l).kind {
+                        let holds_t = self.lookup(name).is_some_and(|id| self.vars[id].t_typed);
+                        let from_t = !single && rhs.get(i).is_some_and(|r| self.is_t_ident(r));
+                        if holds_t && !from_t {
+                            self.structure.t_replaced = true;
+                        }
+                    }
                     self.assign_place(l, val);
                 }
             }

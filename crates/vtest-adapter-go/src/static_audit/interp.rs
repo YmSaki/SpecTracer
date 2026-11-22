@@ -31,7 +31,7 @@ use super::target::{FileInfo, TargetMatch, TargetSpec};
 use super::visit::{for_each_expr, for_each_expr_in_stmts, for_each_stmt};
 use crate::syntax::{
     tokenize, Block, BranchKind, CaseClause, DeclSpec, Expr, ExprKind, FuncDecl, FuncType, Ident,
-    Span, Stmt, StmtKind, Tok,
+    LitKind, Span, Stmt, StmtKind, Tok,
 };
 
 /// DS-1884: the methods of a `*testing.T` / `testing.TB` that report a failure.
@@ -197,6 +197,9 @@ struct VarInfo {
     name: String,
     /// Declared as a `*testing.T` / `testing.TB` (DS-1884).
     t_typed: bool,
+    /// The named type the syntax of the declaration fixes (`T{..}`, `&T{..}`,
+    /// `new(T)`, `var x T`), which Go keeps for the variable.
+    ty: Option<String>,
 }
 
 /// A position that decides whether a later statement runs (DS-1887).
@@ -292,6 +295,9 @@ pub(crate) struct Structure {
     pub(crate) empty_body: bool,
     /// The Test takes a `T` through a package name other than `testing`.
     pub(crate) unrecognized_t: bool,
+    /// A variable declared `testing.T` is assigned a value that is not a `T` of
+    /// the Test, which may record no failure.
+    pub(crate) t_replaced: bool,
     /// The walk stopped at its budget, so nothing it found is complete.
     pub(crate) exhausted: bool,
 }
@@ -325,6 +331,9 @@ pub(crate) struct Facts {
     pub(crate) ext_observed: bool,
     /// A derived value is read where DS-1970 does not count a position.
     pub(crate) uncounted_flow: bool,
+    /// An assert-equivalent call is in a part DS-1970 does not count (a `go` or
+    /// `defer` statement, a function literal that is not a subtest).
+    pub(crate) uncounted_assert: bool,
 }
 
 /// The input of one walk.
@@ -511,6 +520,19 @@ fn has_recover_defer(stmts: &[Stmt]) -> bool {
     found
 }
 
+/// A range over a literal that holds no element (`[]int{}`, `0`): its body never
+/// runs.
+fn range_is_empty(x: &Expr) -> bool {
+    match &strip(x).kind {
+        ExprKind::CompositeLit { elts, .. } => elts.is_empty(),
+        ExprKind::BasicLit {
+            kind: LitKind::Int,
+            text,
+        } => text == "0",
+        _ => false,
+    }
+}
+
 /// DS-1933 does not say when a subtest that may call `Parallel` runs its body: it
 /// is paused until the parent returns, so the body is not read as the rest of
 /// the Test.
@@ -654,12 +676,14 @@ impl<'a> Interp<'a> {
                 self.vars.push(VarInfo {
                     name: ident.name.clone(),
                     t_typed,
+                    ty: None,
                 });
                 self.decl_ids.insert(ident.span.start, self.vars.len() - 1);
                 self.vars.len() - 1
             }
         };
         self.vars[id].t_typed = t_typed;
+        self.vars[id].ty = None;
         if let Some(scope) = self.scopes.last_mut() {
             scope.insert(ident.name.clone(), id);
         }
@@ -715,6 +739,37 @@ impl<'a> Interp<'a> {
             for name in &field.names {
                 self.declare(name, false, Val::NO);
             }
+        }
+    }
+
+    /// The named type the syntax fixes for `x`: `T{..}`, `&T{..}`, `new(T)`, or
+    /// a variable declared by one of them or by `var x T` (DS-1979).
+    fn static_type_of(&self, x: &Expr) -> Option<String> {
+        let x = strip(x);
+        match &x.kind {
+            ExprKind::Ident(name) => self.lookup(name).and_then(|id| self.vars[id].ty.clone()),
+            ExprKind::Unary("&", inner)
+                if matches!(strip(inner).kind, ExprKind::CompositeLit { .. }) =>
+            {
+                self.static_type_of(inner)
+            }
+            ExprKind::CompositeLit { ty: Some(ty), .. } => self.type_ident(ty),
+            ExprKind::Call { fun, args, .. } => match (&strip(fun).kind, args.as_slice()) {
+                (ExprKind::Ident(new), [arg]) if new == "new" && self.lookup("new").is_none() => {
+                    self.type_ident(arg)
+                }
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    /// `T` or `*T`, where no local declaration hides the name `T`.
+    fn type_ident(&self, ty: &Expr) -> Option<String> {
+        match &strip(ty).kind {
+            ExprKind::Star(inner) => self.type_ident(inner),
+            ExprKind::Ident(name) if self.lookup(name).is_none() => Some(name.clone()),
+            _ => None,
         }
     }
 
