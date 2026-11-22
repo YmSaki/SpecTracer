@@ -23,6 +23,7 @@
 mod eval;
 mod exec;
 
+use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap};
 
 use super::constant::{absorbing_literal, classify, const_bool, is_bool_literal, Constness, Names};
@@ -68,6 +69,13 @@ const BUILTIN_TYPES: &[&str] = &[
 const OTHER_BUILTINS: &[&str] = &[
     "append", "clear", "close", "complex", "copy", "delete", "imag", "make", "max", "min", "new",
     "print", "println", "real",
+];
+/// The methods of a `testing.T` that take no function to run and decide nothing:
+/// a call of another one (`Cleanup`, `Run` with a function value) may run a
+/// check (DS-642).
+const HARMLESS_T_METHODS: &[&str] = &[
+    "Chdir", "Context", "Deadline", "Failed", "Helper", "Log", "Logf", "Name", "Parallel",
+    "Setenv", "Skipped", "TempDir",
 ];
 /// DS-1986: the comparison functions, by their spelling.
 const COMPARISONS: &[&str] = &["reflect.DeepEqual", "errors.Is", "bytes.Equal"];
@@ -202,6 +210,10 @@ struct DEntry {
     self_cmp: bool,
     /// Whether the position is reached is not decided by the syntax (DS-1983).
     undecided: bool,
+    /// The position reads something the Test does not hold in a local variable
+    /// (a call, a package-level name), through which an effect of the target
+    /// may be observed (DS-623).
+    ext: bool,
 }
 
 /// A deciding position added by an exit that comes before (DS-1983).
@@ -241,8 +253,10 @@ enum Term {
     /// `Fatal`, `Fatalf`, `FailNow`.
     Fatal,
     Panic,
-    /// `os.Exit`, `runtime.Goexit`.
+    /// `os.Exit`.
     Exit,
+    /// `runtime.Goexit`: ends the goroutine, which is the subtest of a `t.Run`.
+    Goexit,
     /// `Skip`, `Skipf`, `SkipNow`.
     Skip,
 }
@@ -298,6 +312,13 @@ pub(crate) struct Facts {
     pub(crate) uncertain: bool,
     /// A form the walk does not follow (`goto`, labeled `break`, `select`).
     pub(crate) taint: bool,
+    /// A call of the target takes an argument that is not a literal, or has a
+    /// receiver: its effect may be on that argument or receiver, which a later
+    /// check reads (DS-623).
+    pub(crate) out_channel: bool,
+    /// A deciding position of an assert-equivalent reads a call or a package-level
+    /// name, through which the target's effect on state may be observed (DS-623).
+    pub(crate) ext_observed: bool,
     /// A derived value is read where DS-1970 does not count a position.
     pub(crate) uncounted_flow: bool,
 }
@@ -325,9 +346,13 @@ enum Callee<'e> {
     },
     Skip,
     Run,
-    /// Another method of a `testing.T`.
-    TMethod,
+    /// Another method of a `testing.T`; `harmless` for the ones that take no
+    /// function to run.
+    TMethod {
+        harmless: bool,
+    },
     Exit,
+    Goexit,
     Macro,
     Target(TargetMatch),
     OtherTarget,
@@ -338,7 +363,11 @@ enum Callee<'e> {
 enum SiteKind {
     Failure,
     Panic,
-    Macro { val: Val, constness: Constness },
+    Macro {
+        val: Val,
+        constness: Constness,
+        ext: bool,
+    },
 }
 
 enum LoopHeader<'e> {
@@ -369,6 +398,13 @@ struct Interp<'a> {
     decl_ids: HashMap<usize, usize>,
     /// The names that a part the walk does not count refers to.
     captured: BTreeSet<String>,
+    /// The variables whose address was taken, or that a method value or a
+    /// slice was made from: what is assigned to them may be changed through
+    /// another name (DS-1976).
+    addr_taken: BTreeSet<usize>,
+    /// Whether a condition holds a `==` / `!=` of one value with itself, by the
+    /// start of the condition.
+    self_cmp_cache: RefCell<HashMap<usize, bool>>,
     env: Option<Env>,
     counted: bool,
     dead: bool,
@@ -467,6 +503,21 @@ fn has_recover_defer(stmts: &[Stmt]) -> bool {
     found
 }
 
+/// DS-1933 does not say when a subtest that calls `Parallel` runs its body: it
+/// is paused until the parent returns, so the body is not read as the rest of
+/// the Test.
+fn body_calls_parallel(stmts: &[Stmt]) -> bool {
+    let mut found = false;
+    for_each_expr_in_stmts(stmts, false, &mut |e| {
+        if let ExprKind::Call { fun, .. } = &e.kind {
+            if matches!(&strip(fun).kind, ExprKind::Selector(_, sel) if sel.name == "Parallel") {
+                found = true;
+            }
+        }
+    });
+    found
+}
+
 /// DS-1983: whether the body assigns a name that the loop's condition or range
 /// expression reads (the post statement of a `for` is not part of the body).
 fn assigns_any(body: &[Stmt], names: &BTreeSet<String>) -> bool {
@@ -499,6 +550,8 @@ impl<'a> Interp<'a> {
             vars: Vec::new(),
             decl_ids: HashMap::new(),
             captured: BTreeSet::new(),
+            addr_taken: BTreeSet::new(),
+            self_cmp_cache: RefCell::new(HashMap::new()),
             env: Some(Vec::new()),
             counted: true,
             dead: false,
@@ -550,10 +603,22 @@ impl<'a> Interp<'a> {
     }
 
     fn set(&mut self, id: usize, val: Val) {
-        if val.derived() && self.recording && self.captured.contains(&self.vars[id].name) {
-            // A part that DS-1970 does not count reads this name.
-            self.facts.uncounted_flow = true;
-            self.facts.uncertain = true;
+        let mut val = val;
+        if val.derived() {
+            let captured = self.captured.contains(&self.vars[id].name);
+            if captured || self.addr_taken.contains(&id) {
+                // A part that DS-1970 does not count reads this name, or another
+                // name may change what it holds: it is no longer known (DS-1976).
+                if self.recording {
+                    self.facts.uncertain = true;
+                    self.facts.uncounted_flow |= captured;
+                }
+                val = Val {
+                    d: D::Unk,
+                    comp: false,
+                    deleg: val.deleg,
+                };
+            }
         }
         if let Some(env) = &mut self.env {
             if env.len() <= id {

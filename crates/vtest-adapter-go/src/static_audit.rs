@@ -62,7 +62,7 @@ struct Evaluation {
 
 fn unreadable(reason: &str) -> Da {
     Da::Unknown(format!(
-        "the Test's text was not read as Go source ({reason}), so no rule is decided (DS-615)"
+        "the audit could not decide the Test ({reason}), so no rule is decided (DS-615)"
     ))
 }
 
@@ -193,6 +193,15 @@ fn da_003(structure: &Structure, facts: &Facts) -> Da {
                 .to_owned(),
         );
     }
+    if facts.out_channel || facts.ext_observed {
+        return Da::Unknown(
+            "a call of the target takes an argument that is not a literal or has a receiver, or \
+             a deciding position reads a call or a package-level name, so the target's effect \
+             may be checked through a mutable argument, its receiver or state it changes, which \
+             is not the result this analysis follows (DS-623, DS-1680)"
+                .to_owned(),
+        );
+    }
     if structure.sites.iter().any(|s| s.undecided) {
         return Da::Unknown(
             "an assert-equivalent call of the function may not run, or whether it runs is not \
@@ -277,22 +286,28 @@ fn evaluate(subject: &Subject<'_>) -> Evaluation {
             .stack_size(AUDIT_STACK_BYTES)
             .spawn_scoped(scope, || evaluate_text(subject))
         {
+            // A walk that panics is UNKNOWN, never a crash of a verification and
+            // never a verdict (DS-615).
             Ok(handle) => handle
                 .join()
-                .unwrap_or_else(|panic| std::panic::resume_unwind(panic)),
-            Err(_) => evaluate_text(subject),
+                .unwrap_or_else(|_| all_unknown(subject, "the audit stopped on an internal error")),
+            Err(_) => all_unknown(subject, "the audit could not start a thread to run on"),
         }
     })
 }
 
-fn evaluate_text(subject: &Subject<'_>) -> Evaluation {
-    let unreadable_all = |reason: &str| Evaluation {
+fn all_unknown(subject: &Subject<'_>, reason: &str) -> Evaluation {
+    Evaluation {
         da_001: unreadable(reason),
         da_003: subject.specs.iter().map(|_| unreadable(reason)).collect(),
         da_004: unreadable(reason),
         da_005: unreadable(reason),
         da_006: unreadable(reason),
-    };
+    }
+}
+
+fn evaluate_text(subject: &Subject<'_>) -> Evaluation {
+    let unreadable_all = |reason: &str| all_unknown(subject, reason);
     let decl = match parse_func_decl(subject.construct) {
         Ok(decl) => decl,
         Err(error) => return unreadable_all(&error.to_string()),

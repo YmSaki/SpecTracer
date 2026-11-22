@@ -150,6 +150,11 @@ impl<'a> Interp<'a> {
                 body,
             } => {
                 let xval = self.eval(x, PLAIN);
+                if xval.derived() {
+                    // The variables of the loop hold its elements, which they
+                    // may change.
+                    self.alias_source(x);
+                }
                 self.push_scope();
                 self.exec_loop(
                     LoopHeader::Range {
@@ -220,8 +225,17 @@ impl<'a> Interp<'a> {
                 self.last_stmt_failure = true;
                 self.env = None;
             }
-            Term::Exit | Term::Skip => {
+            Term::Exit => {
                 self.record_exit(false);
+                self.env = None;
+            }
+            Term::Skip | Term::Goexit => {
+                // The subtest ends and the code after its `t.Run` goes on, with
+                // what the subtest assigned.
+                self.record_exit(false);
+                if let (Some(env), Some(frame)) = (self.env.clone(), self.frames.last_mut()) {
+                    frame.returns.push(env);
+                }
                 self.env = None;
             }
         }
@@ -267,6 +281,10 @@ impl<'a> Interp<'a> {
     /// An exit that leaves the function or a statement (DS-1983): what
     /// decides it also decides what comes after, in the same body.
     pub(super) fn record_exit(&mut self, unfixed: bool) {
+        if self.dead || self.dec.iter().any(|e| e.never_run) {
+            // An exit that is never taken decides nothing.
+            return;
+        }
         let depth = self.dec.len();
         let Some(frame) = self.frames.last_mut() else {
             return;
@@ -285,6 +303,9 @@ impl<'a> Interp<'a> {
 
     /// `break` or `continue` that leaves the statement at `index`.
     pub(super) fn record_break(&mut self, index: usize, loop_frame: bool) {
+        if self.dead || self.dec.iter().any(|e| e.never_run) {
+            return;
+        }
         let depth = self.dec.len();
         let Some(frame) = self.frames.last_mut() else {
             return;
@@ -323,6 +344,49 @@ impl<'a> Interp<'a> {
             never_run: false,
             self_cmp: self.has_self_comparison(cond),
             undecided: false,
+            ext: self.reads_external(cond),
+        }
+    }
+
+    /// Whether `x` reads a call or a name that is not a local variable: state
+    /// that the target may have changed (DS-623).
+    pub(super) fn reads_external(&self, x: &Expr) -> bool {
+        if const_bool(x, self).is_some() {
+            // Fixed by literals (`X || true`): nothing is read.
+            return false;
+        }
+        let mut found = false;
+        for_each_expr(x, true, &mut |e| match &e.kind {
+            ExprKind::Call { .. } => found = true,
+            ExprKind::Ident(name) => {
+                if self.lookup(name).is_none()
+                    && !matches!(name.as_str(), "true" | "false" | "nil" | "iota")
+                    && !BUILTIN_TYPES.contains(&name.as_str())
+                {
+                    found = true;
+                }
+            }
+            _ => {}
+        });
+        found
+    }
+
+    fn extras_len(&self) -> usize {
+        self.frames.last().map_or(0, |frame| frame.extras.len())
+    }
+
+    /// The exits recorded since `mark`, taken out: an exit in one branch does
+    /// not decide the other branch (DS-1983).
+    fn take_extras(&mut self, mark: usize) -> Vec<Extra> {
+        self.frames
+            .last_mut()
+            .map(|frame| frame.extras.split_off(mark.min(frame.extras.len())))
+            .unwrap_or_default()
+    }
+
+    fn restore_extras(&mut self, extras: Vec<Extra>) {
+        if let Some(frame) = self.frames.last_mut() {
+            frame.extras.extend(extras);
         }
     }
 
@@ -341,6 +405,17 @@ impl<'a> Interp<'a> {
 
     /// DS-1889: a `==` / `!=` whose two sides are the same tokens.
     pub(super) fn has_self_comparison(&self, cond: &Expr) -> bool {
+        if let Some(known) = self.self_cmp_cache.borrow().get(&cond.span.start) {
+            return *known;
+        }
+        let found = self.find_self_comparison(cond);
+        self.self_cmp_cache
+            .borrow_mut()
+            .insert(cond.span.start, found);
+        found
+    }
+
+    fn find_self_comparison(&self, cond: &Expr) -> bool {
         let mut found = false;
         for_each_expr(cond, false, &mut |e| {
             if let ExprKind::Binary("==" | "!=", a, b) = &e.kind {
@@ -368,6 +443,7 @@ impl<'a> Interp<'a> {
         let entry = self.make_entry(cond, val);
         let fixed = const_bool(cond, self);
         let base = self.env.clone();
+        let mark = self.extras_len();
 
         let mut then_entry = entry.clone();
         then_entry.never_run = fixed == Some(false);
@@ -375,6 +451,7 @@ impl<'a> Interp<'a> {
         self.exec_arm(&then.stmts);
         self.dec.pop();
         let then_env = self.env.take();
+        let then_extras = self.take_extras(mark);
 
         self.env = base;
         if let Some(els) = els {
@@ -385,6 +462,15 @@ impl<'a> Interp<'a> {
             self.dec.pop();
         }
         let else_env = self.env.take();
+        let else_extras = self.take_extras(mark);
+        // What an exit in one branch adds decides what comes after the `if`,
+        // not the other branch (DS-1983).
+        self.restore_extras(then_extras);
+        self.restore_extras(else_extras);
+        // A constant condition takes one way only: the other path does not
+        // reach what follows.
+        let then_env = if fixed == Some(false) { None } else { then_env };
+        let else_env = if fixed == Some(true) { None } else { else_env };
         self.env = join_opt(then_env, else_env);
         self.pop_scope();
     }
@@ -400,7 +486,20 @@ impl<'a> Interp<'a> {
         if let Some(init) = init {
             self.exec_stmt(init);
         }
-        let tag_val = tag.map(|t| self.eval(t, PLAIN));
+        let x_val = tag.map(|t| self.eval(t, PLAIN));
+        // The guard of a type switch is not a tag expression (DS-1887): a check
+        // of the type of a derived value is not shown to decide by the value.
+        let tag_val = x_val.map(|v| {
+            if bind.is_some() && v.derived() {
+                Val {
+                    d: D::Unk,
+                    comp: false,
+                    deleg: v.deleg,
+                }
+            } else {
+                v
+            }
+        });
         let tag_entry = tag.zip(tag_val).map(|(t, v)| self.make_entry(t, v));
         let mut case_entries: Vec<Vec<DEntry>> = Vec::new();
         for clause in clauses {
@@ -415,8 +514,28 @@ impl<'a> Interp<'a> {
             }
             case_entries.push(entries);
         }
+        // A clause that no value reaches: `switch 1 { case 2: .. }`, `case false:`.
+        let clause_dead: Vec<bool> = clauses
+            .iter()
+            .map(|clause| {
+                if bind.is_some() || clause.default || clause.exprs.is_empty() {
+                    return false;
+                }
+                clause.exprs.iter().all(|e| match tag {
+                    Some(t) => {
+                        let equal = Expr {
+                            span: e.span,
+                            kind: ExprKind::Binary("==", Box::new(t.clone()), Box::new(e.clone())),
+                        };
+                        const_bool(&equal, self) == Some(false)
+                    }
+                    None => const_bool(e, self) == Some(false),
+                })
+            })
+            .collect();
         let base = self.env.clone();
         let has_default = clauses.iter().any(|c| c.default);
+        let mut clause_extras: Vec<Extra> = Vec::new();
         self.breaks.push(BreakFrame {
             is_loop: false,
             breaks: Vec::new(),
@@ -437,12 +556,15 @@ impl<'a> Interp<'a> {
                 self.dec.push(entry.clone());
                 pushed += 1;
             }
-            for entries in &case_entries[range] {
+            for (j, entries) in case_entries[range].iter().enumerate() {
                 for entry in entries {
-                    self.dec.push(entry.clone());
+                    let mut entry = entry.clone();
+                    entry.never_run = j == k && clause_dead[k];
+                    self.dec.push(entry);
                     pushed += 1;
                 }
             }
+            let mark = self.extras_len();
             self.env = join_opt(base.clone(), carry.take());
             self.push_scope();
             if let Some(Some(ident)) = bind {
@@ -450,7 +572,7 @@ impl<'a> Interp<'a> {
                     start: clause.span.start,
                     end: clause.span.start,
                 };
-                let xv = tag_val.unwrap_or(Val::NO);
+                let xv = x_val.unwrap_or(Val::NO);
                 let val = if xv.comp {
                     Val {
                         d: D::Unk,
@@ -474,6 +596,8 @@ impl<'a> Interp<'a> {
             for _ in 0..pushed {
                 self.dec.pop();
             }
+            // An exit in one clause does not decide the next (DS-1983).
+            clause_extras.extend(self.take_extras(mark));
             let falls = matches!(
                 clause.body.last().map(|s| &s.kind),
                 Some(StmtKind::Branch {
@@ -493,6 +617,7 @@ impl<'a> Interp<'a> {
                 ends = join_opt(ends, Some(state));
             }
         }
+        self.restore_extras(clause_extras);
         if let Some(frame) = self.frames.last_mut() {
             frame
                 .extras
@@ -577,10 +702,18 @@ impl<'a> Interp<'a> {
                 entry = Some(self.make_entry(x, *xval));
             }
         }
+        let fixed_cond = match header {
+            LoopHeader::For { cond: Some(c), .. } => const_bool(c, self),
+            _ => None,
+        };
         if let Some(entry) = &mut entry {
             entry.undecided = undecided;
+            entry.never_run = fixed_cond == Some(false);
         }
-        let exit = self.env.clone();
+        // `for {}` and `for true {}` end only by a `break`.
+        let endless =
+            matches!(header, LoopHeader::For { cond: None, .. }) || fixed_cond == Some(true);
+        let exit = if endless { None } else { self.env.clone() };
         self.push_scope();
         if let LoopHeader::Range {
             xval,
@@ -618,6 +751,10 @@ impl<'a> Interp<'a> {
         let mut end = self.env.take();
         for state in continues {
             end = join_opt(end, Some(state));
+        }
+        if fixed_cond == Some(false) {
+            // The body never runs.
+            end = None;
         }
         if let LoopHeader::For {
             post: Some(post), ..
@@ -681,21 +818,38 @@ impl<'a> Interp<'a> {
     /// DS-1976: a derived `x` assigned to another variable or passed on is no
     /// longer known afterwards.
     pub(super) fn alias_source(&mut self, x: &Expr) {
-        if let ExprKind::Ident(name) = &strip(x).kind {
-            if let Some(id) = self.lookup(name) {
-                let val = self.get(id);
-                if val.derived() {
-                    self.set(
-                        id,
-                        Val {
-                            d: D::Unk,
-                            comp: false,
-                            deleg: val.deleg,
-                        },
-                    );
-                    self.uncertain();
-                }
-            }
+        let x = strip(x);
+        let aliasing = matches!(
+            x.kind,
+            ExprKind::Selector(..)
+                | ExprKind::Index(..)
+                | ExprKind::Slice(..)
+                | ExprKind::Star(_)
+                | ExprKind::TypeAssert(..)
+        );
+        if !(aliasing || matches!(x.kind, ExprKind::Ident(_))) {
+            return;
+        }
+        // A bare name, or a part of a variable (a field, a slice of it, a method
+        // value, which holds its address): the variable may be changed through
+        // what it was assigned to.
+        let Some(id) = root_ident(x).and_then(|name| self.lookup(name)) else {
+            return;
+        };
+        if aliasing {
+            self.addr_taken.insert(id);
+        }
+        let val = self.get(id);
+        if val.derived() {
+            self.set(
+                id,
+                Val {
+                    d: D::Unk,
+                    comp: false,
+                    deleg: val.deleg,
+                },
+            );
+            self.uncertain();
         }
     }
 

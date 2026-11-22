@@ -187,6 +187,11 @@ impl Interp<'_> {
                     return self.eval(target, PLAIN);
                 }
                 let v = self.eval(target, PLAIN);
+                if let Some(id) = root_ident(target).and_then(|name| self.lookup(name)) {
+                    // What is assigned to the variable later may be changed
+                    // through the pointer.
+                    self.addr_taken.insert(id);
+                }
                 if v.derived() {
                     // A pointer to a derived value: it may be changed through it.
                     self.escape(target);
@@ -251,7 +256,13 @@ impl Interp<'_> {
         }
         let (va, vb) = (self.eval(a, PLAIN), self.eval(b, PLAIN));
         if va.comp || vb.comp {
-            if matches!(op, "==" | "!=") && c.decider {
+            // A composite literal is never `nil`: a comparison with it checks
+            // nothing of its elements.
+            let against_nil = |x: &Expr| {
+                matches!(&strip(x).kind, ExprKind::Ident(name) if name == "nil")
+                    && !self.is_local("nil")
+            };
+            if matches!(op, "==" | "!=") && c.decider && !against_nil(a) && !against_nil(b) {
                 // DS-1984: a composite value compared whole.
                 return Val {
                     comp: false,
@@ -360,7 +371,9 @@ impl Interp<'_> {
                     } else if method == "Run" {
                         Callee::Run
                     } else {
-                        Callee::TMethod
+                        Callee::TMethod {
+                            harmless: HARMLESS_T_METHODS.contains(&method),
+                        }
                     };
                 }
                 return self.value_method(base, method);
@@ -370,8 +383,11 @@ impl Interp<'_> {
             if COMPARISONS.contains(&spelled.as_str()) {
                 return Callee::Compare;
             }
-            if spelled == "os.Exit" || spelled == "runtime.Goexit" {
+            if spelled == "os.Exit" {
                 return Callee::Exit;
+            }
+            if spelled == "runtime.Goexit" {
+                return Callee::Goexit;
             }
             if let Some(target) = self.target {
                 if method == target.symbol {
@@ -496,7 +512,12 @@ impl Interp<'_> {
                 }
                 match args.get(1).map(|a| &a.kind) {
                     Some(ExprKind::FuncLit(lit)) if args.len() == 2 => {
-                        self.run_continuation(&lit.sig, &lit.body);
+                        if body_calls_parallel(&lit.body.stmts) {
+                            // Its body runs after the parent returns.
+                            self.eval_func_lit(&lit.sig, &lit.body);
+                        } else {
+                            self.run_continuation(&lit.sig, &lit.body);
+                        }
                     }
                     _ => {
                         // A function value is run as the subtest: a delegation.
@@ -506,8 +527,11 @@ impl Interp<'_> {
                 }
                 Val::NO
             }
-            Callee::TMethod => {
+            Callee::TMethod { harmless } => {
                 self.eval_call_args(args);
+                if !harmless {
+                    self.candidate();
+                }
                 Val {
                     deleg: true,
                     ..Val::NO
@@ -518,14 +542,22 @@ impl Interp<'_> {
                 term = Term::Exit;
                 Val::NO
             }
+            Callee::Goexit => {
+                self.eval_call_args(args);
+                term = Term::Goexit;
+                Val::NO
+            }
             Callee::Macro => self.eval_macro(args),
             Callee::Target(kind) => self.eval_target_call(fun, args, kind),
             Callee::OtherTarget => {
+                // Another declared target: Go has no exception for it among the
+                // delegation targets (DS-1986), so a value that meets its call
+                // in one deciding position is not clean.
                 let (_, any) = self.eval_call_args(args);
-                if any {
-                    Val::UNK
-                } else {
-                    Val::NO
+                Val {
+                    d: if any { D::Unk } else { D::No },
+                    comp: false,
+                    deleg: true,
                 }
             }
             Callee::Method(base) => self.eval_method_call(base, args),
@@ -606,10 +638,12 @@ impl Interp<'_> {
     pub(super) fn eval_macro(&mut self, args: &[Expr]) -> Val {
         let mut merged = Val::NO;
         let mut constness = Constness::Const;
+        let mut ext = false;
         for arg in args {
             if self.is_t_ident(arg) {
                 continue;
             }
+            ext |= self.reads_external(arg);
             let v = self.eval(arg, PLAIN);
             // DS-1984: a composite value reaches a macro only as unknown.
             let v = self.uncomp(v);
@@ -623,6 +657,7 @@ impl Interp<'_> {
         self.record_site(SiteKind::Macro {
             val: merged,
             constness,
+            ext,
         });
         Val::NO
     }
@@ -636,6 +671,10 @@ impl Interp<'_> {
                 _ => true,
             };
             if is_value {
+                if self.recording {
+                    // What the method changes is on its receiver.
+                    self.facts.out_channel = true;
+                }
                 let rv = self.eval(base, PLAIN);
                 if rv.derived() {
                     self.escape(base);
@@ -644,6 +683,10 @@ impl Interp<'_> {
             }
         }
         self.eval_call_args(args);
+        if self.recording && args.iter().any(|a| classify(a, self) != Constness::Const) {
+            // An argument that is not a literal may be changed by the call.
+            self.facts.out_channel = true;
+        }
         match kind {
             TargetMatch::Definite => {
                 if self.recording {
@@ -711,7 +754,7 @@ impl Interp<'_> {
         let neutral = matches!(kind, SiteKind::Panic) && frame.recover_defer;
         let never_run =
             self.dec.iter().any(|e| e.never_run) || frame.extras.iter().any(|e| e.entry.never_run);
-        let (merged, constness, self_cmp, undecided_flag) = match &kind {
+        let (merged, constness, self_cmp, undecided_flag, ext) = match &kind {
             SiteKind::Failure | SiteKind::Panic => {
                 let entries: Vec<&DEntry> = self
                     .dec
@@ -730,17 +773,25 @@ impl Interp<'_> {
                 };
                 let merged = entries.iter().fold(Val::NO, |m, e| m.merge(e.val));
                 let self_cmp = self.dec.iter().any(|e| e.self_cmp);
-                (merged, constness, self_cmp, undecided)
+                let ext = entries.iter().any(|e| e.ext);
+                (merged, constness, self_cmp, undecided, ext)
             }
-            SiteKind::Macro { val, constness } => {
+            SiteKind::Macro {
+                val,
+                constness,
+                ext,
+            } => {
                 let constness = if self.dead {
                     Constness::Undecided
                 } else {
                     *constness
                 };
-                (*val, constness, false, false)
+                (*val, constness, false, false, *ext)
             }
         };
+        if ext {
+            self.facts.ext_observed = true;
+        }
         if live && self.target.is_some() {
             if merged.d == D::Yes {
                 if merged.deleg {

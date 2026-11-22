@@ -194,8 +194,15 @@ it, so a Test function that has no `@vtest.` declaration is still observed.
     code that never runs (`if false`, after a `return`); a call that cannot be tied
     to the target (a local function named like it, a function of another package, a
     method of another type for a function target, a package that is not imported, a
-    bare call in an `x_test` package); a target declared by a permanent SRC ID; a
-    Test that takes its `T` through another name for `testing`.
+    bare call in an `x_test` package); a call of the target that has a receiver or
+    an argument that is not a literal, or an assertion whose deciding positions
+    read a call or a package-level name, when no value derived from the result
+    decides an assertion (the effect of the target may be checked through the
+    argument, the receiver or the state it changes, so the result not reaching an
+    assertion is no proof); a subtest that calls `Parallel` (its body runs after the
+    parent returns, so it is not read as the rest of the Test); a `switch` on the
+    type of a derived value; a target declared by a permanent SRC ID; a Test that
+    takes its `T` through another name for `testing`.
   - **Not provided**: DA-002 (the static reach of a target). `target_reach` keeps the
     default of the adapter contract, which proves no reach, so `target_binding`
     rests on `go-cover` alone.
@@ -215,8 +222,10 @@ it, so a Test function that has no `@vtest.` declaration is still observed.
   target, a derived value in a message argument of an `assertion_macros` call,
   a value compared with a copy of itself (`b := a; a != b`) or by
   `reflect.DeepEqual(a, a)`, a condition that is constant through a named constant
-  or an operation other than `||` / `&&` with a literal, and a loop over a table
-  that is empty at run time. A Test that logs the derived value before checking
+  or an operation other than `||` / `&&` with a literal, a loop over a table
+  that is empty at run time, and a qualified call `pkg.Name` whose import path ends
+  with the target's directory, which is taken for the target's package (the audit
+  has no module path to compare). A Test that logs the derived value before checking
   it (`t.Logf("%d", got)`) is `UNKNOWN`: passing it to a method makes it unknown.
 - **Known false `PASS` of `target_binding`**: a target is told apart from code
   outside the Test only by comparing the Test's run with the run that selects no

@@ -13,6 +13,12 @@ const DOUBLE: &[&str] = &["app/calc.go::Double"];
 const SPLIT: &[&str] = &["app/calc.go::Split"];
 const RUN: &[&str] = &["app/calc.go::Run"];
 const ADD_METHOD: &[&str] = &["app/calc.go::Calc::Add"];
+const RESET: &[&str] = &["app/calc.go::Reset"];
+const FILL: &[&str] = &["app/calc.go::Fill"];
+const INC_METHOD: &[&str] = &["app/calc.go::Counter::Inc"];
+const SORTED: &[&str] = &["app/calc.go::Sorted"];
+const PTRS: &[&str] = &["app/calc.go::Ptrs"];
+const ADD_AND_DOUBLE: &[&str] = &["app/calc.go::Add", "app/calc.go::Double"];
 const NO_TARGET: &[&str] = &[];
 const NO_MACROS: &[&str] = &[];
 
@@ -219,6 +225,15 @@ fn a_test_whose_target_result_decides_a_failure_is_pass() {
 fn a_test_with_no_check_or_a_constant_check_fails() {
     let rows = [
         row!("no assertion", "Add(1, 2)", ADD, "FAIL", &[("DA-003", "FAIL"), ("DA-006", "FAIL")]),
+        row!("a target with no result, and a check of local values only", "Reset()\nx := 5\nif x != 5 {\n\tt.Fatal(\"x\")\n}", RESET, "FAIL", &[("DA-003", "FAIL")]),
+        row!("the effect is on the receiver", "c := New()\nc.Inc()\nif c.Value() != 1 {\n\tt.Fatal(\"x\")\n}", INC_METHOD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("the effect is on an argument", "buf := make([]byte, 1)\nFill(buf)\nif buf[0] != 120 {\n\tt.Fatal(\"x\")\n}", FILL, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("the effect is on an argument that nothing reads", "buf := make([]byte, 1)\nFill(buf)\nx := 5\nif x != 5 {\n\tt.Fatal(\"x\")\n}", FILL, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("the effect is read through a call", "Reset()\nif Count() != 0 {\n\tt.Fatal(\"x\")\n}", RESET, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("the effect is read through a package variable", "Reset()\nif counter != 0 {\n\tt.Fatal(\"x\")\n}", RESET, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a cleanup function may check", "Add(1, 2)\nt.Cleanup(verify)", ADD, "UNKNOWN", &[("DA-006", "UNKNOWN")]),
+        row!("a log is no check", "Add(1, 2)\nt.Log(\"x\")", ADD, "FAIL", &[("DA-006", "FAIL")]),
+        row!("another declared target in the same position", "if Add(1, 2) != Double(1) {\n\tt.Fatal(\"x\")\n}", ADD_AND_DOUBLE, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("discarded", "_ = Add(1, 2)", ADD, "FAIL", &[("DA-003", "FAIL")]),
         row!("unconditional failure report", "Add(1, 2)\nt.Fatal(\"always\")", ADD, "FAIL", &[("DA-001", "FAIL"), ("DA-003", "FAIL")]),
         row!("literal true", "Add(1, 2)\nif true {\n\tt.Error(\"x\")\n}", ADD, "FAIL", &[("DA-001", "FAIL")]),
@@ -229,7 +244,7 @@ fn a_test_with_no_check_or_a_constant_check_fails() {
         row!("a literal that does not absorb", "if Add(1, 2) != 3 || false {\n\tt.Fatal(\"x\")\n}", ADD, "PASS"),
         row!("unconditional panic", "Add(1, 2)\npanic(\"always\")", ADD, "FAIL", &[("DA-001", "FAIL")]),
         row!("unrelated condition", "Add(1, 2)\nx := 5\nif x != 5 {\n\tt.Fatal(\"x\")\n}", ADD, "FAIL", &[("DA-001", "OK"), ("DA-003", "FAIL")]),
-        row!("result unused in the condition", "if x := Add(1, 2); flag {\n\tt.Fatal(\"x\")\n}", ADD, "FAIL", &[("DA-003", "FAIL")]),
+        row!("result unused in the condition", "flag := true\nif x := Add(1, 2); flag {\n\tt.Fatal(\"x\")\n}", ADD, "FAIL", &[("DA-003", "FAIL")]),
         row!("reassigned before the check", "x := Add(1, 2)\nx = 4\nif x != 4 {\n\tt.Error(\"x\")\n}", ADD, "FAIL", &[("DA-003", "FAIL")]),
         row!("redeclared in the subtest", "got := Add(1, 2)\nt.Run(\"x\", func(t *testing.T) {\n\tgot := 5\n\tif got != 5 {\n\t\tt.Fatal(\"x\")\n\t}\n})", ADD, "FAIL", &[("DA-003", "FAIL")]),
         row!("skip is not a failure", "if Add(1, 2) != 3 {\n\tt.Skip(\"odd\")\n}", ADD, "FAIL", &[("DA-003", "FAIL"), ("DA-006", "FAIL")]),
@@ -292,6 +307,15 @@ fn a_flow_through_parts_that_do_not_count_is_unknown() {
 #[test]
 fn a_changed_or_shared_value_is_unknown() {
     let rows = [
+        row!("a skipped subtest hands on what it assigned", "got := Add(1, 2)\nt.Run(\"r\", func(t *testing.T) {\n\tgot = 0\n\tt.Skip(\"x\")\n})\nif got != 0 {\n\tt.Error(\"e\")\n}", ADD, "FAIL", &[("DA-003", "FAIL")]),
+        row!("a subtest that ends by Goexit hands on what it assigned", "got := Add(1, 2)\nt.Run(\"r\", func(t *testing.T) {\n\tgot = 0\n\truntime.Goexit()\n})\nif got != 0 {\n\tt.Error(\"e\")\n}", ADD, "FAIL", &[("DA-003", "FAIL")]),
+        row!("a skipped subtest that assigns nothing", "got := Add(1, 2)\nt.Run(\"r\", func(t *testing.T) {\n\tt.Skip(\"x\")\n})\nif got != 3 {\n\tt.Error(\"e\")\n}", ADD, "PASS"),
+        row!("a parallel subtest runs after the parent", "got := Add(1, 2)\nt.Run(\"c\", func(t *testing.T) {\n\tt.Parallel()\n\tif got != 3 {\n\t\tt.Error(\"e\")\n\t}\n})\ngot = 3", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a closure that changes the name, made before the result", "var got int\nreset := func() {\n\tgot = 0\n}\ngot = Add(1, 2)\nreset()\nif got != 0 {\n\tt.Error(\"e\")\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a pointer taken before the result", "var got int\np := &got\ngot = Add(1, 2)\n*p = 0\nif got != 0 {\n\tt.Error(\"e\")\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a method value of the result", "got := Make()\nreset := got.Reset\nreset()\nif got.F != 0 {\n\tt.Error(\"e\")\n}", MAKE, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a slice of the result", "s := Sorted(x)\nv := s[:]\nv[0] = 9\nif s[0] != 9 {\n\tt.Error(\"e\")\n}", SORTED, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("elements the loop variable changes", "ptrs := Ptrs()\nfor _, p := range ptrs {\n\tp.V = 5\n}\nif ptrs[0].V != 5 {\n\tt.Error(\"e\")\n}", PTRS, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("projection assignment", "r := Make()\nr.F = 5\nif r.F != 5 {\n\tt.Fatal(\"f\")\n}", MAKE, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("element assignment", "s := Make()\ns[0] = 1\nif s[0] != 1 {\n\tt.Fatal(\"x\")\n}", MAKE, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("compound projection assignment", "r := Make()\nr.F += 5\nif r.F != 5 {\n\tt.Fatal(\"f\")\n}", MAKE, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
@@ -323,6 +347,7 @@ fn a_changed_or_shared_value_is_unknown() {
 #[test]
 fn a_composite_literal_with_the_result_is_read_whole() {
     let rows = [
+        row!("compared with nil", "s := []int{Add(1, 2)}\nif s == nil {\n\tt.Error(\"e\")\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("an element", "s := []int{Double(2), 1}\nif s[1] != 1 {\n\tt.Fatal(\"x\")\n}", DOUBLE, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("the first element", "s := []int{Double(2), 1}\nif s[0] != 4 {\n\tt.Fatal(\"x\")\n}", DOUBLE, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("the length", "s := []int{Double(2), 1}\nif len(s) != 2 {\n\tt.Fatal(\"x\")\n}", DOUBLE, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
@@ -383,6 +408,12 @@ fn a_recovered_panic_is_no_assertion() {
 #[test]
 fn an_exit_the_syntax_does_not_fix_leaves_the_check_unknown() {
     let rows = [
+        row!("an exit in one branch does not decide the other", "got := Add(1, 2)\nmode := 1\nif mode == 1 {\n\tif got == 3 {\n\t\treturn\n\t}\n} else {\n\tt.Error(\"e\")\n}", ADD, "FAIL", &[("DA-003", "FAIL")]),
+        row!("a break in one clause does not decide the next", "got := Add(1, 2)\nmode := 1\nswitch mode {\ncase 1:\n\tif got == 3 {\n\t\tbreak\n\t}\ncase 2:\n\tt.Error(\"e\")\n}", ADD, "FAIL", &[("DA-003", "FAIL")]),
+        row!("a constant exit leaves the check dead", "got := Add(1, 2)\nif true {\n\treturn\n}\nif got != 3 {\n\tt.Error(\"e\")\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a loop that never runs", "got := Add(1, 2)\nfor false {\n\tif got != 3 {\n\t\tt.Error(\"e\")\n\t}\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a clause no value reaches", "got := Add(1, 2)\nswitch 1 {\ncase 2:\n\tif got != 3 {\n\t\tt.Error(\"e\")\n\t}\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("an exit that is never taken", "got := Add(1, 2)\nif false {\n\treturn\n}\nif got != 3 {\n\tt.Error(\"e\")\n}", ADD, "PASS"),
         row!("continue in a loop", "for _, v := range []int{1, 2} {\n\tif v == 1 {\n\t\tcontinue\n\t}\n\tif Add(v, 1) != v+1 {\n\t\tt.Fatal(\"x\")\n\t}\n}", ADD, "UNKNOWN", &[("DA-001", "UNKNOWN"), ("DA-003", "UNKNOWN")]),
         row!("break in a loop", "for _, v := range []int{1, 2} {\n\tif v == 1 {\n\t\tbreak\n\t}\n\tif Add(v, 1) != v+1 {\n\t\tt.Fatal(\"x\")\n\t}\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("return in a loop, check after it", "got := Add(1, 2)\nfor _, v := range xs {\n\tif v == got {\n\t\treturn\n\t}\n}\nt.Fatal(\"x\")", ADD, "UNKNOWN", &[("DA-001", "UNKNOWN"), ("DA-003", "UNKNOWN")]),
@@ -733,7 +764,7 @@ fn unreadable_text_and_several_targets_compose_as_the_clauses_say() {
     );
     assert_eq!(a.state(), "PASS", "{:#?}", a.evaluation);
     let a = audit(
-        "if Add(1, 2) != 3 {\n\tt.Fatal(\"x\")\n}\nDouble(2)",
+        "if got := Add(1, 2); got != 3 {\n\tt.Fatal(\"x\")\n}\nDouble(2)",
         both,
         NO_MACROS,
     );
@@ -744,7 +775,7 @@ fn unreadable_text_and_several_targets_compose_as_the_clauses_say() {
         a.evaluation
     );
     let a = audit(
-        "if Add(1, 2) != 3 {\n\tt.Fatal(\"x\")\n}\ncheckDouble(t)",
+        "if got := Add(1, 2); got != 3 {\n\tt.Fatal(\"x\")\n}\ncheckDouble(t)",
         both,
         NO_MACROS,
     );
@@ -871,8 +902,8 @@ fn a_switch_clause_is_decided_by_the_clauses_up_to_it() {
         row!("an earlier case decides a later clause", "switch {\ncase Add(1, 2) != 3:\ncase y > 1:\n\tt.Error(\"e\")\n}", ADD, "PASS"),
         row!("a default is decided by all the cases", "switch {\ncase y > 1:\ndefault:\n\tt.Error(\"e\")\ncase Add(1, 2) != 3:\n}", ADD, "PASS"),
         row!("a default before the derived case", "switch k {\ndefault:\n\tt.Error(\"e\")\ncase Add(1, 2):\n}", ADD, "PASS"),
-        row!("a clause before the default is not decided by a case after it", "switch k {\ncase 1:\n\tt.Error(\"e\")\ndefault:\ncase Add(1, 2):\n}", ADD, "FAIL", &[("DA-003", "FAIL")]),
-        row!("a type switch tag", "switch v := any(Add(1, 2)).(type) {\ncase int:\n\t_ = v\ndefault:\n\tt.Fatal(\"x\")\n}", ADD, "PASS"),
+        row!("a clause before the default is not decided by a case after it", "k := 1\nswitch k {\ncase 1:\n\tt.Error(\"e\")\ndefault:\ncase Add(1, 2):\n}", ADD, "FAIL", &[("DA-003", "FAIL")]),
+        row!("a type switch guard is not a tag", "switch v := any(Add(1, 2)).(type) {\ncase int:\n\t_ = v\ndefault:\n\tt.Fatal(\"x\")\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("a fallthrough keeps the clause", "switch Add(1, 2) {\ncase 3:\n\tfallthrough\ncase 4:\n\tt.Error(\"e\")\n}", ADD, "PASS"),
     ];
     check(&rows);
@@ -887,7 +918,7 @@ fn a_switch_clause_is_decided_by_the_clauses_up_to_it() {
 /// @vtest.intent the rule rows of a Go Test with two targets are DA-001, then DA-002 and DA-003 for the first target, DA-002 and DA-003 for the second, then DA-004, DA-005 and DA-006, DA-002 is UNKNOWN for every target, and a failing DA-003 is reported on the target it is for
 #[test]
 fn the_rules_are_reported_once_and_per_target() {
-    let construct = construct("if Add(1, 2) != 3 {\n\tt.Fatal(\"x\")\n}\nDouble(2)");
+    let construct = construct("if got := Add(1, 2); got != 3 {\n\tt.Fatal(\"x\")\n}\nDouble(2)");
     let file = file_of(&construct, "", "app");
     let macros: Vec<String> = Vec::new();
     let subject = Subject {
