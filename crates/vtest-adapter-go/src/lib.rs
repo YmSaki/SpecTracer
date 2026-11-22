@@ -23,6 +23,7 @@ mod coverage;
 mod execution_state;
 mod module;
 mod runner;
+mod syntax;
 
 use std::path::Path;
 
