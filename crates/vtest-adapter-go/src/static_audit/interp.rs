@@ -199,7 +199,16 @@ struct VarInfo {
     t_typed: bool,
     /// The named type the syntax of the declaration fixes (`T{..}`, `&T{..}`,
     /// `new(T)`, `var x T`), which Go keeps for the variable.
-    ty: Option<String>,
+    ty: Option<TypeRef>,
+    /// Declared by `const`: a constant that is not evaluated here.
+    is_const: bool,
+}
+
+/// A named type: `T`, or `q.T` for a package the file imports as `q`.
+#[derive(Clone, Debug)]
+struct TypeRef {
+    pkg: Option<String>,
+    name: String,
 }
 
 /// A position that decides whether a later statement runs (DS-1887).
@@ -295,8 +304,10 @@ pub(crate) struct Structure {
     pub(crate) empty_body: bool,
     /// The Test takes a `T` through a package name other than `testing`.
     pub(crate) unrecognized_t: bool,
-    /// A variable declared `testing.T` is assigned a value that is not a `T` of
-    /// the Test, which may record no failure.
+    /// The `T` of the Test is replaced (assigned a value that is not a `T` of the
+    /// Test), has its address taken, or is used other than as the receiver of a
+    /// selector, an argument of a call or the value of a binding, which may
+    /// record no failure.
     pub(crate) t_replaced: bool,
     /// The walk stopped at its budget, so nothing it found is complete.
     pub(crate) exhausted: bool,
@@ -419,6 +430,10 @@ struct Interp<'a> {
     /// or a name that is not a local one: what such a name holds may be an effect
     /// of the target (DS-623).
     ext_names: BTreeSet<String>,
+    /// The starts of the identifiers where a `testing.T` may be written: the
+    /// receiver of a selector, an argument of a call, the value of a binding.
+    /// Any other use of a `T` hands it where this analysis does not read.
+    t_allowed: BTreeSet<usize>,
     /// Whether a condition holds a `==` / `!=` of one value with itself, by the
     /// start of the condition.
     self_cmp_cache: RefCell<HashMap<usize, bool>>,
@@ -440,6 +455,10 @@ struct Interp<'a> {
 impl Names for Interp<'_> {
     fn is_local(&self, name: &str) -> bool {
         self.lookup(name).is_some()
+    }
+
+    fn is_const(&self, name: &str) -> bool {
+        self.lookup(name).is_some_and(|id| self.vars[id].is_const)
     }
 }
 
@@ -520,16 +539,92 @@ fn has_recover_defer(stmts: &[Stmt]) -> bool {
     found
 }
 
-/// A range over a literal that holds no element (`[]int{}`, `0`): its body never
-/// runs.
-fn range_is_empty(x: &Expr) -> bool {
+/// The identifiers where a `testing.T` may be written: as the receiver of a
+/// selector, as an argument of a call, as the value of an assignment or `var`.
+fn t_allowed_spans(body: &Block) -> BTreeSet<usize> {
+    let mut allowed = BTreeSet::new();
+    for_each_expr_in_stmts(&body.stmts, true, &mut |e| match &e.kind {
+        ExprKind::Selector(base, _) => {
+            allowed.insert(strip(base).span.start);
+        }
+        ExprKind::Call { args, .. } => {
+            allowed.extend(args.iter().map(|arg| strip(arg).span.start));
+        }
+        _ => {}
+    });
+    for_each_stmt(&body.stmts, true, &mut |s| match &s.kind {
+        StmtKind::Assign { op, rhs, .. } if matches!(*op, ":=" | "=") => {
+            allowed.extend(rhs.iter().map(|value| strip(value).span.start));
+        }
+        StmtKind::Decl(specs) => {
+            for spec in specs {
+                if let DeclSpec::Var { values, .. } = spec {
+                    allowed.extend(values.iter().map(|value| strip(value).span.start));
+                }
+            }
+        }
+        _ => {}
+    });
+    allowed
+}
+
+/// What the syntax says of how many times a `range` runs its body.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum Emptiness {
+    /// Not a literal: it is read by the flow of its value.
+    NotLiteral,
+    Empty,
+    NonEmpty,
+    /// A literal whose length is not decided here.
+    Unknown,
+}
+
+fn range_emptiness(x: &Expr) -> Emptiness {
+    let size = |empty: bool| {
+        if empty {
+            Emptiness::Empty
+        } else {
+            Emptiness::NonEmpty
+        }
+    };
+    let digits = |text: &str| !text.is_empty() && text.chars().all(|c| c.is_ascii_digit());
     match &strip(x).kind {
-        ExprKind::CompositeLit { elts, .. } => elts.is_empty(),
         ExprKind::BasicLit {
             kind: LitKind::Int,
             text,
-        } => text == "0",
-        _ => false,
+        } if digits(text) => size(text.chars().all(|c| c == '0')),
+        ExprKind::BasicLit {
+            kind: LitKind::Str,
+            text,
+        } => {
+            let raw = text.starts_with('`');
+            let inner = text
+                .get(1..text.len().saturating_sub(1))
+                .unwrap_or_default();
+            if (raw && inner.contains('\r')) || (!raw && inner.contains('\\')) {
+                Emptiness::Unknown
+            } else {
+                size(inner.is_empty())
+            }
+        }
+        ExprKind::BasicLit { .. } => Emptiness::Unknown,
+        ExprKind::Ident(name) if matches!(name.as_str(), "true" | "false" | "nil") => {
+            Emptiness::Unknown
+        }
+        ExprKind::CompositeLit { ty: Some(ty), elts } => match &strip(ty).kind {
+            ExprKind::MapType(..) | ExprKind::ArrayType { len: None, .. } => size(elts.is_empty()),
+            ExprKind::ArrayType { len: Some(len), .. } => match &strip(len).kind {
+                ExprKind::Ellipsis(None) => size(elts.is_empty()),
+                ExprKind::BasicLit {
+                    kind: LitKind::Int,
+                    text,
+                } if digits(text) => size(text.chars().all(|c| c == '0')),
+                _ => Emptiness::Unknown,
+            },
+            _ => Emptiness::Unknown,
+        },
+        ExprKind::CompositeLit { ty: None, .. } => Emptiness::Unknown,
+        _ => Emptiness::NotLiteral,
     }
 }
 
@@ -589,6 +684,7 @@ impl<'a> Interp<'a> {
             captured: BTreeSet::new(),
             addr_taken: BTreeSet::new(),
             ext_names: BTreeSet::new(),
+            t_allowed: BTreeSet::new(),
             self_cmp_cache: RefCell::new(HashMap::new()),
             env: Some(Vec::new()),
             counted: true,
@@ -677,6 +773,7 @@ impl<'a> Interp<'a> {
                     name: ident.name.clone(),
                     t_typed,
                     ty: None,
+                    is_const: false,
                 });
                 self.decl_ids.insert(ident.span.start, self.vars.len() - 1);
                 self.vars.len() - 1
@@ -684,6 +781,7 @@ impl<'a> Interp<'a> {
         };
         self.vars[id].t_typed = t_typed;
         self.vars[id].ty = None;
+        self.vars[id].is_const = false;
         if let Some(scope) = self.scopes.last_mut() {
             scope.insert(ident.name.clone(), id);
         }
@@ -744,7 +842,7 @@ impl<'a> Interp<'a> {
 
     /// The named type the syntax fixes for `x`: `T{..}`, `&T{..}`, `new(T)`, or
     /// a variable declared by one of them or by `var x T` (DS-1979).
-    fn static_type_of(&self, x: &Expr) -> Option<String> {
+    fn static_type_of(&self, x: &Expr) -> Option<TypeRef> {
         let x = strip(x);
         match &x.kind {
             ExprKind::Ident(name) => self.lookup(name).and_then(|id| self.vars[id].ty.clone()),
@@ -765,10 +863,20 @@ impl<'a> Interp<'a> {
     }
 
     /// `T` or `*T`, where no local declaration hides the name `T`.
-    fn type_ident(&self, ty: &Expr) -> Option<String> {
+    fn type_ident(&self, ty: &Expr) -> Option<TypeRef> {
         match &strip(ty).kind {
             ExprKind::Star(inner) => self.type_ident(inner),
-            ExprKind::Ident(name) if self.lookup(name).is_none() => Some(name.clone()),
+            ExprKind::Ident(name) if self.lookup(name).is_none() => Some(TypeRef {
+                pkg: None,
+                name: name.clone(),
+            }),
+            ExprKind::Selector(base, sel) => match &strip(base).kind {
+                ExprKind::Ident(qualifier) if self.lookup(qualifier).is_none() => Some(TypeRef {
+                    pkg: Some(qualifier.clone()),
+                    name: sel.name.clone(),
+                }),
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -911,6 +1019,7 @@ pub(crate) fn run(
         Some(body) => {
             interp.structure.empty_body =
                 body.stmts.iter().all(|s| matches!(s.kind, StmtKind::Empty));
+            interp.t_allowed = t_allowed_spans(body);
             interp.exec_func_body(&decl.sig, body, true, false);
         }
         None => interp.structure.empty_body = true,

@@ -239,6 +239,56 @@ fn a_test_whose_target_result_decides_a_failure_is_pass() {
         assert_eq!(a.rule("DA-004"), "UNKNOWN", "{body}");
         assert_ne!(a.state(), "PASS", "{body}");
     }
+    // The receiver type is the target's only in the target's package (DS-1979).
+    let in_package = |body: &str, imports: &str, path: &str, package: &str| {
+        let construct = construct(body);
+        let file = file_of(&construct, imports, package);
+        audit_text(&construct, &file, ADD_METHOD, NO_MACROS, path)
+    };
+    let imports = "\t\"example.com/proj/app\"\n";
+    let a = in_package(
+        "ac := &app.Calc{}\n_ = ac.Add(1, 2)\nc := &Calc{}\nif c.Add(1, 2) != 3 {\n\tt.Fatal(\"x\")\n}",
+        imports,
+        "other/calc_test.go",
+        "other",
+    );
+    assert_ne!(a.state(), "PASS", "{:#?}", a.evaluation);
+    assert_eq!(a.rule("DA-003"), "UNKNOWN", "{:#?}", a.evaluation);
+    let a = in_package(
+        "c := &app.Calc{}\nif c.Add(1, 2) != 3 {\n\tt.Fatal(\"x\")\n}",
+        imports,
+        "other/calc_test.go",
+        "other",
+    );
+    assert_eq!(a.state(), "PASS", "{:#?}", a.evaluation);
+    let a = in_package(
+        "c := &lib.Calc{}\nif c.Add(1, 2) != 3 {\n\tt.Fatal(\"x\")\n}",
+        "\t\"example.com/proj/lib\"\n",
+        "app/calc_test.go",
+        "app",
+    );
+    assert_ne!(a.state(), "PASS", "{:#?}", a.evaluation);
+    let a = in_package(
+        "c := &Calc{}\nif c.Add(1, 2) != 3 {\n\tt.Fatal(\"x\")\n}",
+        "",
+        "app/calc_test.go",
+        "app_test",
+    );
+    assert_ne!(a.state(), "PASS", "{:#?}", a.evaluation);
+    // A listed call under a position that this analysis does not decide.
+    for body in [
+        "got := Add(1, 2)\nif 'a' == 'b' {\n\tassert.Equal(t, 3, got)\n}",
+        "got := Add(1, 2)\nfor 'a' == 'b' {\n\tassert.Equal(t, 3, got)\n}",
+        "got := Add(1, 2)\nswitch 'a' {\ncase 'b':\n\tassert.Equal(t, 3, got)\n}",
+        "got := Add(1, 2)\nif false {\n\tassert.Equal(t, 3, got)\n}",
+        "got := Add(1, 2)\nconst off = false\nif off {\n\tassert.Equal(t, 3, got)\n}",
+        "got := Add(1, 2)\nfor range \"\" {\n\tassert.Equal(t, 3, got)\n}",
+        "got := Add(1, 2)\nswitch {\ncase true:\ndefault:\n\tassert.Equal(t, 3, got)\n}",
+    ] {
+        let a = with_macros(body, ADD, &["assert.Equal"]);
+        assert_eq!(a.rule("DA-003"), "UNKNOWN", "{body}\n{:#?}", a.evaluation);
+        assert_ne!(a.state(), "PASS", "{body}");
+    }
     // The target called through the package name of an external test package.
     let construct = construct("if app.Add(1, 2) != 3 {\n\tt.Fatal(\"sum\")\n}");
     let file = file_of(&construct, "\t\"example.com/proj/app\"\n", "app_test");
@@ -372,6 +422,23 @@ fn a_changed_or_shared_value_is_unknown() {
         row!("an escaped string comparison that is not evaluated guards the check", "got := Add(1, 2)\nif \"a\\n\" == \"b\" {\n\tif got != 3 {\n\t\tt.Fatal(\"x\")\n\t}\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("a loop whose condition is not evaluated guards the check", "got := Add(1, 2)\nfor 'a' == 'b' {\n\tif got != 3 {\n\t\tt.Fatal(\"x\")\n\t}\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("a loop over an empty literal runs no body", "got := Add(1, 2)\nfor range []int{} {\n\tif got != 3 {\n\t\tt.Fatal(\"x\")\n\t}\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a default clause after a case that is true never runs", "got := Add(1, 2)\nswitch {\ncase true:\ndefault:\n\tif got != 3 {\n\t\tt.Error(\"x\")\n\t}\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a clause after a case that is true never runs", "got := Add(1, 2)\nswitch {\ncase true:\ncase got == 3:\n\tt.Error(\"x\")\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a default placed before a case that is true never runs", "got := Add(1, 2)\nswitch {\ndefault:\n\tif got != 3 {\n\t\tt.Error(\"x\")\n\t}\ncase true:\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a local constant guards the check", "got := Add(1, 2)\nconst off = false\nif off {\n\tif got != 3 {\n\t\tt.Fatal(\"x\")\n\t}\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a local constant compared with a literal guards the check", "got := Add(1, 2)\nconst want = 3\nif want != 3 {\n\tif got != 3 {\n\t\tt.Fatal(\"x\")\n\t}\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a local constant in a check of the result is read", "got := Add(1, 2)\nconst want = 3\nif got != want {\n\tt.Fatal(\"x\")\n}", ADD, "PASS"),
+        row!("a loop over an empty string runs no body", "got := Add(1, 2)\nfor range \"\" {\n\tif got != 3 {\n\t\tt.Fatal(\"x\")\n\t}\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a loop over an empty array literal of length zero", "got := Add(1, 2)\nfor range [0]int{} {\n\tif got != 3 {\n\t\tt.Fatal(\"x\")\n\t}\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a loop over a literal of a named type", "got := Add(1, 2)\nfor range (Items{}) {\n\tif got != 3 {\n\t\tt.Fatal(\"x\")\n\t}\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("a loop over a string literal that has characters runs", "got := Add(1, 2)\nfor range \"ab\" {\n\tif got != 3 {\n\t\tt.Fatal(\"x\")\n\t}\n}", ADD, "PASS"),
+        row!("a loop over an array literal of length three runs", "got := Add(1, 2)\nfor range [3]int{} {\n\tif got != 3 {\n\t\tt.Fatal(\"x\")\n\t}\n}", ADD, "PASS"),
+        row!("a method of the T kept and never called", "Add(1, 2)\nreport := t.Fatal\n_ = report", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN"), ("DA-006", "UNKNOWN")]),
+        row!("the address of the T is taken", "got := Add(1, 2)\np := &t\n*p = new(testing.T)\nif got != 3 {\n\tt.Fatal(\"x\")\n}", ADD, "UNKNOWN", &[("DA-001", "UNKNOWN"), ("DA-003", "UNKNOWN"), ("DA-004", "UNKNOWN"), ("DA-005", "UNKNOWN"), ("DA-006", "UNKNOWN")]),
+        row!("a method of the T kept as a value", "got := Add(1, 2)\nreport := t.Fatal\nif got != 3 {\n\treport(\"x\")\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("the T kept in a composite literal", "got := Add(1, 2)\ns := Suite{t}\nif got != 3 {\n\ts.fail()\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("the T sent on a channel", "got := Add(1, 2)\nch <- t\nif got != 3 {\n\tt.Fatal(\"x\")\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
+        row!("the T handed to a helper is read", "got := Add(1, 2)\nsetup(t)\nif got != 3 {\n\tt.Fatal(\"x\")\n}", ADD, "PASS"),
         row!("a switch of literals that is not evaluated guards the clause", "got := Add(1, 2)\nswitch 'a' {\ncase 'b':\n\tif got != 3 {\n\t\tt.Fatal(\"x\")\n\t}\n}", ADD, "UNKNOWN", &[("DA-003", "UNKNOWN")]),
         row!("the only failure report is guarded by literals that are not evaluated", "Add(1, 2)\nif 'a' == 'b' {\n\tt.Fatal(\"x\")\n}", ADD, "UNKNOWN", &[("DA-001", "UNKNOWN")]),
         row!("projection assignment", "r := Make()\nr.F = 5\nif r.F != 5 {\n\tt.Fatal(\"f\")\n}", MAKE, "UNKNOWN", &[("DA-003", "UNKNOWN")]),

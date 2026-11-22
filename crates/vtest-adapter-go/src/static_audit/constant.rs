@@ -16,6 +16,8 @@ use crate::syntax::{Expr, ExprKind, LitKind};
 /// `false` are not the predeclared ones).
 pub(crate) trait Names {
     fn is_local(&self, name: &str) -> bool;
+    /// Declared by `const` in the function: its value is not evaluated here.
+    fn is_const(&self, name: &str) -> bool;
 }
 
 /// What DA-001 makes of a deciding position.
@@ -64,7 +66,9 @@ pub(crate) fn classify(x: &Expr, names: &dyn Names) -> Constness {
     match &x.kind {
         ExprKind::BasicLit { .. } => Constness::Const,
         ExprKind::Ident(name) => {
-            if !names.is_local(name) && matches!(name.as_str(), "true" | "false" | "nil") {
+            if (!names.is_local(name) && matches!(name.as_str(), "true" | "false" | "nil"))
+                || names.is_const(name)
+            {
                 Constness::Const
             } else {
                 Constness::NonConst

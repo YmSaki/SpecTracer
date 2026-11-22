@@ -172,6 +172,46 @@ it, so a Test function that has no `@vtest.` declaration is still observed.
     A conversion to a built-in type, `len`, `cap`, `reflect.DeepEqual`,
     `errors.Is` and `bytes.Equal` pass a value on; a composite literal holding the
     result is read only as a whole (`reflect.DeepEqual(s, want)`, `p == want`).
+  - **What can give `PASS`** (an allowlist: whatever is not listed here is
+    `UNKNOWN`, or `FAIL` where the clauses prove it):
+    - *Assertions*: `Error`, `Errorf`, `Fatal`, `Fatalf`, `Fail` and `FailNow` on a
+      variable declared `*testing.T` or `testing.TB`; `panic` in a body with no
+      `defer` that may recover; a call spelled as an `assertion_macros` entry.
+    - *The `T`*: it is written only as the receiver of a method call, as an argument
+      of a call (a helper, an `assertion_macros` call) or as the value of `:=`,
+      `=` and `var`. Its address is not taken, it is not assigned another value, and
+      no method of it is kept as a value.
+    - *The call of the target*: a bare call of a function target from the same
+      package directory (not an `x_test` package); `q.Name` through an import
+      whose path ends with the target's directory; a method call whose receiver
+      has a type that the syntax fixes (`T{}`, `&T{}`, `new(T)`, `var x T` or
+      `var x *T`, or a variable declared by one of them) and that is the target's
+      receiver type, bare from the target's package directory or `q.T` through an
+      import of it. A receiver of any other or unknown type is `UNKNOWN`.
+    - *A deciding position* (the condition of an `if` or `for`, the tag and the
+      cases of a `switch`, the expression of a `range`, the condition of an exit
+      before the assertion) is read when it is not built from literals alone (it
+      holds a variable, a call, a field or an element), or when it is built from
+      literals and decided exactly: `true` and `false`, `!`, `&&` and `||` with a
+      literal that absorbs, the comparison of two decimal integer literals, of
+      two strings without escapes or of two booleans. A position built from
+      literals, `nil` or constants of the Test that this does not decide (a
+      character, a float, a string with an escape, arithmetic, a local `const`)
+      makes what it guards `UNKNOWN`, for a failure report, a `panic` and an
+      `assertion_macros` call alike.
+    - *A `range`* is read over a variable or a call, a slice, map or array literal,
+      a string literal with characters, or a positive integer literal. An empty
+      literal (`[]int{}`, `""`, `0`, `[0]int{}`) runs no body, and a literal of a
+      named type or of an unknown length is not decided: both are `UNKNOWN`.
+    - *A `switch`* is read clause by clause, by the tag and the cases up to the
+      clause (all of them for a `default`). A clause after a case that is true, a
+      `default` when some case is true, and a clause whose cases are all false
+      never run, so what they guard is `UNKNOWN`. A `fallthrough`, a `select`, a
+      `goto` and a labeled `break` or `continue` are not followed.
+    - *Exits*: a `return`, `break`, `continue`, `t.Skip`, `os.Exit` or recovered
+      `panic` decides what follows through its conditions only when they are
+      fixed by the syntax; one from inside a loop is not decided, for a failure
+      report, a `panic` and an `assertion_macros` call alike.
   - **`FAIL`** when the Test has no assertion and calls nothing that could
     check, when every assertion has no deciding position or only literal ones
     (`if false { t.Fatal() }`, `if x != 1 || true`), when no value derived from
@@ -198,12 +238,16 @@ it, so a Test function that has no `@vtest.` declaration is still observed.
     code that never runs (`if false`, after a `return`); a condition built from
     literals that is not evaluated (`'a' == 'b'`, `1.0 == 2.0`) or a loop over an
     empty literal, which guard what may never run; a failure report only in a
-    `defer` or `go` statement; a variable declared `testing.T` that is assigned
-    another value (`t = new(testing.T)`); an `assertion_macros` call after an exit
+    `defer` or `go` statement; a `T` that is assigned another value
+    (`t = new(testing.T)`), has its address taken, is kept in a value or is used
+    other than as a receiver, a call argument or the value of a binding; a method of
+    it kept as a value (`f := t.Fatal`); a condition built from a local `const`
+    (`const off = false; if off`); an `assertion_macros` call after an exit
     from a loop; a call that cannot be tied
     to the target (a local function named like it, a function of another package, a
     method of another type for a function target, a method of a value whose type
-    the syntax does not give for a method target, a package that is not imported, a
+    the syntax does not give, or is not the target's receiver type in the target's
+    package, for a method target, a package that is not imported, a
     bare call in an `x_test` package); a call of the target that has a receiver or
     an argument that is not a literal, or an assertion whose deciding positions
     read a call or a package-level name, when no value derived from the result
@@ -238,7 +282,8 @@ it, so a Test function that has no `@vtest.` declaration is still observed.
   and `Fatal` but records no failure, a package-level `panic`, `true` or `len`
   that replaces the built-in, a derived value in a message argument of an `assertion_macros` call,
   a value compared with a copy of itself (`b := a; a != b`) or by
-  `reflect.DeepEqual(a, a)`, a condition that is constant through a named constant, a loop over a table
+  `reflect.DeepEqual(a, a)`, a condition that is constant through a named constant of the package (a `const`
+  of the Test is read as a literal), a loop over a table
   that is empty at run time, a slice, a method value or a pointer receiver that
   keeps the address of a variable before the result is assigned to it and a call
   that then writes through it (`keep(buf[:]); buf = Fill(); overwrite()`; only the

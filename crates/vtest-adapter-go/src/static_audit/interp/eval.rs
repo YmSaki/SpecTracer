@@ -37,7 +37,7 @@ impl Interp<'_> {
             | ExprKind::InterfaceType
             | ExprKind::MapType(..)
             | ExprKind::ChanType(_) => Val::NO,
-            ExprKind::Ident(name) => self.eval_ident(name),
+            ExprKind::Ident(name) => self.eval_ident(name, x.span.start),
             ExprKind::Paren(inner) => self.eval(inner, c),
             ExprKind::CompositeLit { elts, .. } => self.eval_composite(elts),
             ExprKind::FuncLit(lit) => {
@@ -86,8 +86,11 @@ impl Interp<'_> {
         }
     }
 
-    pub(super) fn eval_ident(&mut self, name: &str) -> Val {
+    pub(super) fn eval_ident(&mut self, name: &str, at: usize) -> Val {
         if let Some(id) = self.lookup(name) {
+            if self.vars[id].t_typed && !self.t_allowed.contains(&at) {
+                self.structure.t_replaced = true;
+            }
             return self.get(id);
         }
         if let Some(target) = self.target {
@@ -100,6 +103,11 @@ impl Interp<'_> {
     }
 
     pub(super) fn eval_selector(&mut self, base: &Expr, sel: &str) -> Val {
+        if self.is_t_ident(base) {
+            // A method of the `T` kept as a value (`f := t.Fatal`): it may be
+            // called where this analysis does not read.
+            self.structure.t_replaced = true;
+        }
         if let Some(target) = self.target {
             if sel == target.symbol {
                 self.uncertain();
@@ -436,8 +444,23 @@ impl Interp<'_> {
                 // of the receiver (DS-1979); another type's method with the
                 // same name is not its call, and an unknown type may be either.
                 match self.static_type_of(base) {
-                    Some(ty) if Some(ty.as_str()) == target.receiver.as_deref() => {
-                        return Callee::Target(TargetMatch::Definite);
+                    Some(ty) if Some(ty.name.as_str()) == target.receiver.as_deref() => {
+                        // The type is the target's only in the target's package.
+                        let in_package = match &ty.pkg {
+                            None => self.cfg.file.bare_call_matches(target),
+                            Some(qualifier) => {
+                                self.cfg.file.qualified_call_matches(qualifier, target)
+                            }
+                        };
+                        match in_package {
+                            TargetMatch::Definite => {
+                                return Callee::Target(TargetMatch::Definite);
+                            }
+                            TargetMatch::Ambiguous => {
+                                return Callee::Target(TargetMatch::Ambiguous);
+                            }
+                            TargetMatch::No => {}
+                        }
                     }
                     Some(_) => {}
                     None => return Callee::Target(TargetMatch::Ambiguous),
@@ -800,6 +823,8 @@ impl Interp<'_> {
             return;
         };
         let neutral = matches!(kind, SiteKind::Panic) && frame.recover_defer;
+        let entry_undecided =
+            self.dec.iter().any(|e| e.undecided) || frame.extras.iter().any(|e| e.entry.undecided);
         let never_run =
             self.dec.iter().any(|e| e.never_run) || frame.extras.iter().any(|e| e.entry.never_run);
         let (merged, constness, self_cmp, undecided_flag, ext) = match &kind {
@@ -836,7 +861,13 @@ impl Interp<'_> {
                     *constness
                 };
                 // The exits before it decide whether it runs (DS-1983).
-                (*val, constness, false, frame.undecided_after, *ext)
+                (
+                    *val,
+                    constness,
+                    false,
+                    frame.undecided_after || entry_undecided,
+                    *ext,
+                )
             }
         };
         if ext {

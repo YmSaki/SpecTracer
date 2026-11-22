@@ -214,7 +214,9 @@ impl<'a> Interp<'a> {
                         self.eval(value, PLAIN);
                     }
                     for name in names {
-                        self.declare(name, false, Val::NO);
+                        if let Some(id) = self.declare(name, false, Val::NO) {
+                            self.vars[id].is_const = true;
+                        }
                     }
                 }
                 DeclSpec::Type { name } => {
@@ -627,23 +629,43 @@ impl<'a> Interp<'a> {
             }
             case_entries.push(entries);
         }
-        // A clause that no value reaches: `switch 1 { case 2: .. }`, `case false:`.
+        // A clause that no value reaches: one whose cases are all false (`switch 1
+        // { case 2: .. }`, `case false:`), and every clause after a case that is
+        // true, a `default` wherever it stands (it is chosen only when no case
+        // matches).
+        let case_holds = |e: &Expr| -> Option<bool> {
+            match tag {
+                Some(t) => {
+                    let equal = Expr {
+                        span: e.span,
+                        kind: ExprKind::Binary("==", Box::new(t.clone()), Box::new(e.clone())),
+                    };
+                    const_bool(&equal, self)
+                }
+                None => const_bool(e, self),
+            }
+        };
+        let first_true = if bind.is_some() {
+            None
+        } else {
+            clauses
+                .iter()
+                .position(|c| c.exprs.iter().any(|e| case_holds(e) == Some(true)))
+        };
         let clause_dead: Vec<bool> = clauses
             .iter()
-            .map(|clause| {
-                if bind.is_some() || clause.default || clause.exprs.is_empty() {
+            .enumerate()
+            .map(|(k, clause)| {
+                if bind.is_some() {
                     return false;
                 }
-                clause.exprs.iter().all(|e| match tag {
-                    Some(t) => {
-                        let equal = Expr {
-                            span: e.span,
-                            kind: ExprKind::Binary("==", Box::new(t.clone()), Box::new(e.clone())),
-                        };
-                        const_bool(&equal, self) == Some(false)
-                    }
-                    None => const_bool(e, self) == Some(false),
-                })
+                if first_true.is_some_and(|j| k > j || clause.default) {
+                    return true;
+                }
+                if clause.default || clause.exprs.is_empty() {
+                    return false;
+                }
+                clause.exprs.iter().all(|e| case_holds(e) == Some(false))
             })
             .collect();
         let base = self.env.clone();
@@ -672,7 +694,6 @@ impl<'a> Interp<'a> {
             for (j, entries) in case_entries[range].iter().enumerate() {
                 for entry in entries {
                     let mut entry = entry.clone();
-                    entry.never_run = j == k && clause_dead[k];
                     if j > k && !clause.default && entry.val.derived() {
                         // The cases are tried in order: a clause is not decided by
                         // the case expressions after it, whatever the place of
@@ -686,6 +707,18 @@ impl<'a> Interp<'a> {
                     self.dec.push(entry);
                     pushed += 1;
                 }
+            }
+            if clause_dead[k] {
+                // No value reaches the clause: what it holds never runs.
+                self.dec.push(DEntry {
+                    val: Val::NO,
+                    constness: Constness::Const,
+                    never_run: true,
+                    self_cmp: false,
+                    undecided: false,
+                    ext: false,
+                });
+                pushed += 1;
             }
             let mark = self.extras_len();
             self.env = join_opt(base.clone(), carry.take());
@@ -834,11 +867,15 @@ impl<'a> Interp<'a> {
             _ => None,
         };
         if let Some(entry) = &mut entry {
+            let emptiness = match header {
+                LoopHeader::Range { x, .. } => range_emptiness(x),
+                LoopHeader::For { .. } => Emptiness::NotLiteral,
+            };
             entry.undecided |= undecided
+                || emptiness == Emptiness::Unknown
                 || matches!(header, LoopHeader::For { cond: Some(c), .. } if self.unevaluated_literal(c));
             // `for false {}` and a range over an empty literal run no body.
-            entry.never_run = fixed_cond == Some(false)
-                || matches!(header, LoopHeader::Range { x, .. } if range_is_empty(x));
+            entry.never_run = fixed_cond == Some(false) || emptiness == Emptiness::Empty;
         }
         // `for {}` and `for true {}` end only by a `break`.
         let endless =

@@ -245,6 +245,48 @@ const CASES: &[Case] = &[
     },
     // A check the audit cannot tie to the result.
     Case {
+        name: "TestAssertionCallUnderACharComparison",
+        target: ADD,
+        body: "\tgot := Add(1, 2)\n\tif 'a' == 'b' {\n\t\tassert.Equal(t, 3, got)\n\t}",
+        oracle: VerificationState::Unknown,
+        passes: false,
+    },
+    Case {
+        name: "TestAssertionCallInALoopOfAnUnevaluatedCondition",
+        target: ADD,
+        body: "\tgot := Add(1, 2)\n\tfor 'a' == 'b' {\n\t\tassert.Equal(t, 3, got)\n\t}",
+        oracle: VerificationState::Unknown,
+        passes: false,
+    },
+    Case {
+        name: "TestDefaultAfterATrueCase",
+        target: ADD,
+        body: "\tgot := Add(1, 2)\n\tswitch {\n\tcase true:\n\tdefault:\n\t\tif got != 3 {\n\t\t\tt.Error(\"x\")\n\t\t}\n\t}",
+        oracle: VerificationState::Unknown,
+        passes: false,
+    },
+    Case {
+        name: "TestTheAddressOfTheTIsTaken",
+        target: ADD,
+        body: "\tgot := Add(1, 2)\n\tp := &t\n\t*p = new(testing.T)\n\tif got != 3 {\n\t\tt.Fatal(\"x\")\n\t}",
+        oracle: VerificationState::Unknown,
+        passes: false,
+    },
+    Case {
+        name: "TestLoopOverAnEmptyString",
+        target: ADD,
+        body: "\tgot := Add(1, 2)\n\tfor range \"\" {\n\t\tif got != 3 {\n\t\t\tt.Fatal(\"x\")\n\t\t}\n\t}",
+        oracle: VerificationState::Unknown,
+        passes: false,
+    },
+    Case {
+        name: "TestGuardedByALocalConstant",
+        target: ADD,
+        body: "\tconst off = false\n\tgot := Add(1, 2)\n\tif off {\n\t\tif got != 3 {\n\t\t\tt.Fatal(\"x\")\n\t\t}\n\t}",
+        oracle: VerificationState::Unknown,
+        passes: false,
+    },
+    Case {
         name: "TestSubtestAfterAnExitFromALoop",
         target: ADD,
         body: "\tgot := Add(1, 2)\n\tfor _, v := range []int{1} {\n\t\tif v == 1 {\n\t\t\treturn\n\t\t}\n\t}\n\tt.Run(\"x\", func(t *testing.T) {\n\t\tif got != 3 {\n\t\t\tt.Error(\"e\")\n\t\t}\n\t})",
@@ -438,7 +480,7 @@ fn run_project() -> (support::Fixture, ExecutionResult, VerifyOutcome) {
 /// @vtest.id TEST-CLI-GO-AUDIT-A-TEST-THAT-CHECKS-ITS-RESULT-IS-PASS-AND-THE-WRONG-ONES-ARE-NOT
 /// @vtest.covers VO-ADAPTER-GO-AUDIT-ALL-NO-VIOLATION-IS-PASS, VO-ADAPTER-GO-AUDIT-ANY-FAIL-IS-FAIL, VO-ADAPTER-GO-AUDIT-UNKNOWN-WITHOUT-FAIL-IS-UNKNOWN, VO-ADAPTER-GO-AUDIT-ADAPTER-OWNS-DISCOVERY-AUDIT-RUNNER-AND-COVERAGE, VO-ADAPTER-GO-AUDIT-DA-003-RESULT-UNVERIFIED, VO-ADAPTER-GO-AUDIT-ONLY-COUNTED-POSITIONS-COUNT, VO-ADAPTER-GO-AUDIT-ALIASING-FORMS-MAKE-DERIVATION-UNKNOWN, VO-ADAPTER-GO-AUDIT-ASSIGNMENT-AND-MERGE-OF-DERIVATION, VO-ADAPTER-GO-AUDIT-RECOVERED-PANIC-DOES-NOT-COUNT, VO-ADAPTER-GO-AUDIT-COMPOSITE-LITERAL-WITH-DERIVED-ELEMENT, VO-ADAPTER-GO-AUDIT-ASSERTION-MACROS-BY-CALLEE-SPELLING, VO-ADAPTER-GO-AUDIT-NAMES-READ-ONLY-WHERE-CLAUSES-NAME-THEM, VO-ADAPTER-GO-AUDIT-DA-001-CONSTANT-ASSERTION, VO-ADAPTER-GO-AUDIT-DA-004-SELF-COMPARISON, VO-ADAPTER-GO-AUDIT-ONLY-FAILURE-REPORT-AND-PANIC-DIVERGE, VO-ADAPTER-GO-AUDIT-T-RUN-LITERAL-IS-BODY-CONTINUATION, VO-ADAPTER-GO-AUDIT-DELEGATION-NOT-CONFIRMED-IS-UNKNOWN, VO-ADAPTER-GO-AUDIT-EARLIER-EXITS-AND-LOOPS-DECIDE, VO-ADAPTER-GO-AUDIT-DA-003-TARGET-NOT-IN-THE-BODY-IS-UNKNOWN, VO-ADAPTER-GO-AUDIT-INCOMPLETE-ANALYSIS-IS-UNKNOWN
 /// @vtest.target crates/vtest-adapter-go/src/static_audit.rs::compose
-/// @vtest.intent in a real Go project run with go test and its coverage, a Test whose failure report is decided by the target's result, through a binding, a table with subtests, a method target or a listed assertion call, is PASS for oracle_presence and for target_binding and as a whole, as is one whose only failure report follows a recovered panic that the result decides, and a Test that has no assertion, a constant or unrelated or self-comparing check, a skip as its only divergence or a subtest that redeclares the name, a return in one branch whose condition the other branch does not share, or a skipped subtest or one that recovers a panic after assigning the name, a self-comparison in an exit, through parentheses or as a switch case of its tag is FAIL for oracle_presence, and one whose check is in a goroutine or a defer, whose result has its address taken or is merged with another value, whose panic is recovered, whose result is in a composite literal or in a helper, whose check follows a return that a constant condition always takes, is in a parallel subtest, is in a subtest or is an assertion call after an exit from a loop, is guarded by a comparison of literals that is not evaluated or runs over an empty literal, is a method of another type with the name of a method target, assigns the T another value, has its failure report only in a defer, compares an argument of an assertion call with itself, or reads a type switch on the result, whose target changes its receiver or package state that the check reads (directly or through a local bound from a call), whose check follows an endless loop that only a never-taken break leaves, or is in a clause that another falls through to, or that calls a local function named like the target is UNKNOWN, and none of them is PASS as a whole, nor is one that declares no target
+/// @vtest.intent in a real Go project run with go test and its coverage, a Test whose failure report is decided by the target's result, through a binding, a table with subtests, a method target or a listed assertion call, is PASS for oracle_presence and for target_binding and as a whole, as is one whose only failure report follows a recovered panic that the result decides, and a Test that has no assertion, a constant or unrelated or self-comparing check, a skip as its only divergence or a subtest that redeclares the name, a return in one branch whose condition the other branch does not share, or a skipped subtest or one that recovers a panic after assigning the name, a self-comparison in an exit, through parentheses or as a switch case of its tag is FAIL for oracle_presence, and one whose check is in a goroutine or a defer, whose result has its address taken or is merged with another value, whose panic is recovered, whose result is in a composite literal or in a helper, whose check follows a return that a constant condition always takes, is in a parallel subtest, is in a subtest or is an assertion call after an exit from a loop, is guarded by a comparison of literals that is not evaluated or runs over an empty literal, is a method of another type with the name of a method target, is an assertion call under a comparison of literals or in a loop of one, is a clause after a case that is true, has the address of its T taken, runs over an empty string, is guarded by a local constant, assigns the T another value, has its failure report only in a defer, compares an argument of an assertion call with itself, or reads a type switch on the result, whose target changes its receiver or package state that the check reads (directly or through a local bound from a call), whose check follows an endless loop that only a never-taken break leaves, or is in a clause that another falls through to, or that calls a local function named like the target is UNKNOWN, and none of them is PASS as a whole, nor is one that declares no target
 #[test]
 fn a_go_test_that_checks_its_result_is_pass_and_the_wrong_ones_are_not() {
     let (_fixture, result, outcome) = run_project();
@@ -484,6 +526,45 @@ fn a_go_test_that_checks_its_result_is_pass_and_the_wrong_ones_are_not() {
             _ => assert_eq!(binding, VerificationState::Pass, "{}", case.name),
         }
     }
+}
+
+/// DS-1979, DS-1980: a method call is the target's only when the receiver's type
+/// is the target's type in the target's package. A Test of another package that
+/// calls the target's method on a `Calc` of that package, and checks only the
+/// result of a method of its own `Calc` with the name, is not `PASS`; the same
+/// Test that checks the result of the target's own `Calc` is.
+/// @vtest.id TEST-CLI-GO-AUDIT-A-RECEIVER-OF-ANOTHER-PACKAGE-IS-NOT-THE-TARGET
+/// @vtest.covers VO-ADAPTER-GO-AUDIT-DA-003-TARGET-NOT-IN-THE-BODY-IS-UNKNOWN, VO-ADAPTER-GO-AUDIT-ANY-FAIL-IS-FAIL, VO-ADAPTER-GO-AUDIT-UNKNOWN-WITHOUT-FAIL-IS-UNKNOWN
+/// @vtest.target crates/vtest-adapter-go/src/static_audit.rs::compose
+/// @vtest.intent in a real Go project with two packages, a Test of the package other that calls the method of a Calc of the package app and checks the result of a method of its own Calc with the same name is UNKNOWN for oracle_presence and not PASS as a whole, and a Test of that package that checks the result of the method of a Calc of the package app is PASS for oracle_presence
+#[test]
+fn a_receiver_of_another_package_is_not_the_target() {
+    let other = "package other\n\nimport (\n\t\"testing\"\n\n\t\"app/app\"\n)\n\ntype Calc struct{}\n\nfunc (c *Calc) Add(a, b int) int { return 3 }\n\n// @vtest.id TEST-AUDIT-OTHERPACKAGEWRONG\n// @vtest.covers VO-FIXTURE-ONE\n// @vtest.target app/calc.go::Calc::Add\n// @vtest.intent the method of another package is not the target\nfunc TestOtherPackageWrong(t *testing.T) {\n\tac := &app.Calc{}\n\t_ = ac.Add(1, 2)\n\tc := &Calc{}\n\tif c.Add(1, 2) != 3 {\n\t\tt.Fatal(\"x\")\n\t}\n}\n\n// @vtest.id TEST-AUDIT-OTHERPACKAGERIGHT\n// @vtest.covers VO-FIXTURE-ONE\n// @vtest.target app/calc.go::Calc::Add\n// @vtest.intent the method of the target package is checked\nfunc TestOtherPackageRight(t *testing.T) {\n\tc := &app.Calc{}\n\tif c.Add(1, 2) != 3 {\n\t\tt.Fatal(\"x\")\n\t}\n}\n";
+    let fixture = project(&[
+        ("go.mod", GO_MOD),
+        ("app/calc.go", CALC),
+        ("other/calc_test.go", other),
+    ]);
+    let config = CONFIG.replace("        - 'app'\n", "        - 'app'\n        - 'other'\n");
+    fs::write(fixture.root.join(".verify/config.yaml"), config).expect("write the config");
+    let (result, outcome) = run_and_verify(&fixture, false);
+    assert_eq!(result.evidence.len(), 2, "{:?}", result.diagnostics);
+    let (wrong, _, basis) = outcome_of_test(
+        &outcome,
+        "TEST-AUDIT-OTHERPACKAGEWRONG",
+        VerificationCheck::OraclePresence,
+    );
+    assert_eq!(wrong, VerificationState::Unknown, "{basis:?}");
+    assert_ne!(
+        node_state(&outcome, "TEST-AUDIT-OTHERPACKAGEWRONG"),
+        VerificationState::Pass
+    );
+    let (right, _, basis) = outcome_of_test(
+        &outcome,
+        "TEST-AUDIT-OTHERPACKAGERIGHT",
+        VerificationCheck::OraclePresence,
+    );
+    assert_eq!(right, VerificationState::Pass, "{basis:?}");
 }
 
 /// DS-1884, DS-1887, DS-2012: the same project through the `vtest` binary: init

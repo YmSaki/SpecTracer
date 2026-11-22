@@ -338,7 +338,7 @@ fn evaluate_text(subject: &Subject<'_>) -> Evaluation {
     }
     if structure.t_replaced {
         return unreadable_all(
-            "a variable declared testing.T is assigned a value that is not a testing.T of the Test",
+            "the testing.T of the Test is replaced, has its address taken, or is used other than as the receiver of a method, an argument of a call or the value of a binding",
         );
     }
     let da_003 = subject
