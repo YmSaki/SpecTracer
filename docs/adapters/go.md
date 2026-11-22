@@ -192,6 +192,8 @@ it, so a Test function that has no `@vtest.` declaration is still observed.
     when the helper checks; a `panic` in a body that has a `defer` that may recover;
     an exit before an assertion from inside a loop, by a label or `goto`, a `select`, a
     `fallthrough` (the next clause is entered by its own case or by the clause before);
+    an `assertion_macros` call with two equal arguments or one that compares a value
+    with itself (DS-1888 has DA-004 read the arguments, DS-1889 only the conditions);
     code that never runs (`if false`, after a `return`); a call that cannot be tied
     to the target (a local function named like it, a function of another package, a
     method of another type for a function target, a package that is not imported, a
@@ -201,7 +203,9 @@ it, so a Test function that has no `@vtest.` declaration is still observed.
     decides an assertion (the effect of the target may be checked through the
     argument, the receiver or the state it changes, so the result not reaching an
     assertion is no proof; a local bound or assigned from a call or from a name that
-    is not a local one counts as such a name); a subtest that may call `Parallel`
+    is not a local one, from a call of another declared target, or that had its
+    address taken or a method called on it, counts as such a name); a subtest that
+    may call `Parallel`
     (its body runs after the parent returns, so it is not read as the rest of the
     Test: one that calls or keeps `t.Parallel`, or hands its `T` to a function); a
     `switch` on the type of a derived value; a pointer to a composite literal that
@@ -220,7 +224,10 @@ it, so a Test function that has no `@vtest.` declaration is still observed.
   says there is a check, not that the check is right. The audit reads names where
   a clause names them (`testing.T`, `panic`, `true`, `false`, `len`, a
   conversion's type, `reflect.DeepEqual`, an `assertion_macros` spelling), so
-  these remain false `PASS` shapes: a type of the project that has the name `T`
+  these remain false `PASS` shapes: a variable declared `*testing.T` or
+  `testing.TB` that is not the `T` of the Test and records no failure
+  (`var u *testing.T = &testing.T{}`, a `testing.TB` value whose `Error` does
+  nothing), a type of the project that has the name `T`
   and `Fatal` but records no failure, a package-level `panic`, `true` or `len`
   that replaces the built-in, a method of another type with the name of a method
   target, a derived value in a message argument of an `assertion_macros` call,

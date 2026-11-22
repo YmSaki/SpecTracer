@@ -190,6 +190,10 @@ impl Interp<'_> {
                     return self.uncomp(v);
                 }
                 let v = self.eval(target, PLAIN);
+                if let Some(name) = root_ident(target) {
+                    // A call that is handed the address may fill it.
+                    self.ext_names.insert(name.to_owned());
+                }
                 if let Some(id) = root_ident(target).and_then(|name| self.lookup(name)) {
                     // What is assigned to the variable later may be changed
                     // through the pointer.
@@ -518,11 +522,11 @@ impl Interp<'_> {
                 }
                 match args.get(1).map(|a| &a.kind) {
                     Some(ExprKind::FuncLit(lit)) if args.len() == 2 => {
+                        // Whatever the parameter is typed (`type T = testing.T`).
                         let t_names: BTreeSet<&str> = lit
                             .sig
                             .params
                             .iter()
-                            .filter(|field| self.type_is_t(&field.ty))
                             .flat_map(|field| field.names.iter().map(|n| n.name.as_str()))
                             .collect();
                         if body_may_pause(&lit.body.stmts, &t_names) {
@@ -652,6 +656,21 @@ impl Interp<'_> {
         let mut merged = Val::NO;
         let mut constness = Constness::Const;
         let mut ext = false;
+        let text = |x: &Expr| -> String {
+            self.cfg
+                .src
+                .get(x.span.start..x.span.end)
+                .unwrap_or_default()
+                .split_whitespace()
+                .collect()
+        };
+        let checked: Vec<&Expr> = args.iter().filter(|a| !self.is_t_ident(a)).collect();
+        let compares_itself = checked.iter().enumerate().any(|(i, a)| {
+            self.has_self_comparison(a) || checked[i + 1..].iter().any(|b| text(a) == text(b))
+        });
+        if compares_itself {
+            self.structure.macro_self_compare = true;
+        }
         for arg in args {
             if self.is_t_ident(arg) {
                 continue;
@@ -724,6 +743,10 @@ impl Interp<'_> {
     /// DS-1968: the value of the receiver of a method flows into the result,
     /// DS-1936: a derived argument is handed to a delegation target.
     pub(super) fn eval_method_call(&mut self, base: &Expr, args: &[Expr]) -> Val {
+        if let Some(name) = root_ident(base) {
+            // A method with a pointer receiver may fill what it is called on.
+            self.ext_names.insert(name.to_owned());
+        }
         let rv = self.eval(base, PLAIN);
         let (_, any_arg) = self.eval_call_args(args);
         self.candidate();

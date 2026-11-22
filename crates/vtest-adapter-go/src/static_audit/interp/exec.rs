@@ -239,6 +239,7 @@ impl<'a> Interp<'a> {
                 // does (DS-1982): the code after the `t.Run` of a subtest goes
                 // on with what it assigned.
                 if self.frames.last().is_some_and(|frame| frame.recover_defer) {
+                    self.record_exit(false);
                     if let (Some(env), Some(frame)) = (self.env.clone(), self.frames.last_mut()) {
                         frame.returns.push(env);
                     }
@@ -386,29 +387,28 @@ impl<'a> Interp<'a> {
             // Fixed by literals (`X || true`): nothing is read.
             return false;
         }
-        let targets: Vec<&str> = self
-            .cfg
-            .all_targets
-            .iter()
-            .map(|spec| spec.symbol.as_str())
-            .collect();
         let mut skipped: BTreeSet<usize> = BTreeSet::new();
         let mut found = false;
         for_each_expr(x, true, &mut |e| match &e.kind {
             ExprKind::Call { fun, .. } => {
                 let callee = strip(fun);
-                let name = match &callee.kind {
-                    ExprKind::Ident(n) => Some(n.as_str()),
-                    ExprKind::Selector(_, sel) => Some(sel.name.as_str()),
-                    _ => None,
+                // The call of the target being audited, a conversion and `len` /
+                // `cap` read no state of their own.
+                let reads_nothing = match (&callee.kind, self.target) {
+                    (ExprKind::Ident(n), target) => {
+                        self.lookup(n).is_none()
+                            && (BUILTIN_TYPES.contains(&n.as_str())
+                                || matches!(n.as_str(), "len" | "cap")
+                                || target.is_some_and(|t| !t.is_method && t.symbol == *n))
+                    }
+                    (ExprKind::Selector(base, sel), Some(t)) if t.symbol == sel.name.as_str() => {
+                        // A method of a value is the target's when it is a method
+                        // target; `pkg.Name` is a function of a package.
+                        t.is_method
+                            || matches!(&strip(base).kind, ExprKind::Ident(q) if self.lookup(q).is_none())
+                    }
+                    _ => false,
                 };
-                let bare = matches!(callee.kind, ExprKind::Ident(_));
-                let reads_nothing = name.is_some_and(|n| {
-                    targets.contains(&n)
-                        || (bare
-                            && self.lookup(n).is_none()
-                            && (BUILTIN_TYPES.contains(&n) || matches!(n, "len" | "cap")))
-                });
                 if reads_nothing {
                     // The name of the callee and its qualifier read no state.
                     let mut root = callee;
@@ -635,6 +635,16 @@ impl<'a> Interp<'a> {
                 for entry in entries {
                     let mut entry = entry.clone();
                     entry.never_run = j == k && clause_dead[k];
+                    if j > k && !clause.default && entry.val.derived() {
+                        // The cases are tried in order: a clause is not decided by
+                        // the case expressions after it, whatever the place of
+                        // `default` (DS-1887 reads them as deciding).
+                        entry.val = Val {
+                            d: D::Unk,
+                            comp: false,
+                            deleg: entry.val.deleg,
+                        };
+                    }
                     self.dec.push(entry);
                     pushed += 1;
                 }

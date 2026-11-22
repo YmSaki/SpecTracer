@@ -116,6 +116,12 @@ fn da_004(structure: &Structure) -> Da {
              itself with == or != (DS-1889, DS-624)"
                 .to_owned(),
         )
+    } else if structure.macro_self_compare {
+        Da::Unknown(
+            "an assertion_macros call has two equal arguments or one that compares a value with \
+             itself, which DA-004 may read as a value checked against itself (DS-1888, DS-1889)"
+                .to_owned(),
+        )
     } else {
         Da::NoViolation
     }

@@ -279,6 +279,10 @@ pub(crate) struct Site {
 #[derive(Debug, Default)]
 pub(crate) struct Structure {
     pub(crate) sites: Vec<Site>,
+    /// An `assertion_macros` call with two equal arguments, or an argument that
+    /// compares a value with itself: DS-1888 has DA-004 read the arguments, and
+    /// DS-1889 reads only the conditions of a failure report.
+    pub(crate) macro_self_compare: bool,
     /// A call named like a failure report on a receiver that is not declared a
     /// `testing.T` (DS-1979 reads only declared ones).
     pub(crate) maybe_asserts: usize,
@@ -724,14 +728,30 @@ impl<'a> Interp<'a> {
     // -- functions and regions -----------------------------------------
 
     /// Reads the body of a function (the Test, or a function literal).
-    fn exec_func_body(&mut self, sig: &FuncType, body: &Block, top: bool) {
+    fn exec_func_body(&mut self, sig: &FuncType, body: &Block, top: bool, continues: bool) {
         self.push_scope();
         self.declare_params(sig, top);
         let saved_breaks = std::mem::take(&mut self.breaks);
+        // A `t.Run` literal is the rest of the body that holds the call (DS-1933),
+        // so what the exits before the call decide, it decides (DS-1983).
+        let (extras, undecided_after) = match self.frames.last() {
+            Some(parent) if continues => (
+                parent
+                    .extras
+                    .iter()
+                    .map(|extra| Extra {
+                        entry: extra.entry.clone(),
+                        until: None,
+                    })
+                    .collect(),
+                parent.undecided_after,
+            ),
+            _ => (Vec::new(), false),
+        };
         self.frames.push(Frame {
             base: self.dec.len(),
-            extras: Vec::new(),
-            undecided_after: false,
+            extras,
+            undecided_after,
             recover_defer: has_recover_defer(&body.stmts),
             loop_depth: 0,
             returns: Vec::new(),
@@ -790,7 +810,7 @@ impl<'a> Interp<'a> {
         let mut names = BTreeSet::new();
         names_in_stmts(&body.stmts, &mut names);
         self.mark_captured(names);
-        self.in_uncounted(|this| this.exec_func_body(sig, body, false));
+        self.in_uncounted(|this| this.exec_func_body(sig, body, false, false));
     }
 
     /// A call started by `go` or `defer` (DS-1970).
@@ -806,7 +826,7 @@ impl<'a> Interp<'a> {
     /// DS-1933: the literal passed to `t.Run` runs as the rest of the body.
     fn run_continuation(&mut self, sig: &FuncType, body: &Block) {
         let entry = self.env.clone();
-        self.exec_func_body(sig, body, false);
+        self.exec_func_body(sig, body, false, true);
         if self.env.is_none() {
             self.env = entry;
         }
@@ -836,7 +856,7 @@ pub(crate) fn run(
         Some(body) => {
             interp.structure.empty_body =
                 body.stmts.iter().all(|s| matches!(s.kind, StmtKind::Empty));
-            interp.exec_func_body(&decl.sig, body, true);
+            interp.exec_func_body(&decl.sig, body, true, false);
         }
         None => interp.structure.empty_body = true,
     }
