@@ -282,9 +282,13 @@ it, so a Test function that has no `@vtest.` declaration is still observed.
   and `Fatal` but records no failure, a package-level `panic`, `true` or `len`
   that replaces the built-in, a derived value in a message argument of an `assertion_macros` call,
   a value compared with a copy of itself (`b := a; a != b`) or by
-  `reflect.DeepEqual(a, a)`, a condition that is constant through a named constant of the package (a `const`
-  of the Test is read as a literal), a loop over a table
-  that is empty at run time, a slice, a method value or a pointer receiver that
+  `reflect.DeepEqual(a, a)`, a condition that is constant through a named constant or a variable of the
+  package (`const off = false`, `var enabled bool`; a `const` of the Test is read
+  as a literal), a loop over a table that is empty at run time, a second name
+  for a derived value that shares its storage and is checked after the original
+  is written (`v := s[:1]; s[0] = 3; if v[0] != 3`, `v := s; copy(s, ...)`), a
+  pointer to a field taken before a method of the receiver writes the field
+  (`p := r.Ptr; r.Set3(); if *p != 3`), a slice, a method value or a pointer receiver that
   keeps the address of a variable before the result is assigned to it and a call
   that then writes through it (`keep(buf[:]); buf = Fill(); overwrite()`; only the
   forms `&x`, a bound field, element, slice or method value, and a range over the
