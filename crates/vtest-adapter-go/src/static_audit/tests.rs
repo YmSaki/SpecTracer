@@ -287,7 +287,7 @@ fn a_flow_through_parts_that_do_not_count_is_unknown() {
 /// on before the check is not known to be the result any more.
 /// @vtest.id TEST-ADAPTER-GO-AUDIT-A-CHANGED-OR-SHARED-VALUE-IS-UNKNOWN
 /// @vtest.covers VO-ADAPTER-GO-AUDIT-ASSIGNMENT-AND-MERGE-OF-DERIVATION, VO-ADAPTER-GO-AUDIT-ALIASING-FORMS-MAKE-DERIVATION-UNKNOWN, VO-ADAPTER-GO-AUDIT-FLOW-THROUGH-BINDINGS-CHAINS-AND-FIELDS, VO-ADAPTER-GO-AUDIT-INCOMPLETE-ANALYSIS-IS-UNKNOWN, VO-ADAPTER-GO-AUDIT-ONLY-SYNTAX-FIXED-PATHS-ARE-DERIVED, VO-ADAPTER-GO-AUDIT-UNKNOWN-ONLY-WHEN-NEITHER-IS-SHOWN
-/// @vtest.target crates/vtest-adapter-go/src/static_audit/interp.rs::Interp::assign_place
+/// @vtest.target crates/vtest-adapter-go/src/static_audit/interp/exec.rs::Interp::assign_place
 /// @vtest.intent a Go Test whose target result is assigned to a field or an element, has its address taken, is the receiver of a method, is passed to a function or a method, is assigned to another variable, is assigned in only one branch, or is changed in a loop, and is then checked, is UNKNOWN for DA-003 and never PASS
 #[test]
 fn a_changed_or_shared_value_is_unknown() {
@@ -318,7 +318,7 @@ fn a_changed_or_shared_value_is_unknown() {
 /// DS-1984: a composite literal holding the result is read only as a whole.
 /// @vtest.id TEST-ADAPTER-GO-AUDIT-A-COMPOSITE-LITERAL-IS-READ-WHOLE
 /// @vtest.covers VO-ADAPTER-GO-AUDIT-COMPOSITE-LITERAL-WITH-DERIVED-ELEMENT, VO-ADAPTER-GO-AUDIT-CONVERSIONS-AND-COMPARISONS-ARE-NOT-DELEGATION
-/// @vtest.target crates/vtest-adapter-go/src/static_audit/interp.rs::Interp::eval_composite
+/// @vtest.target crates/vtest-adapter-go/src/static_audit/interp/eval.rs::Interp::eval_composite
 /// @vtest.intent a Go Test that puts the target result in a slice, an array, a map or a struct literal and then reads an element, a field, the length or a converted value, or hands the literal to an assertion call or an operator other than == and !=, is UNKNOWN for DA-003, while the same literal compared whole by DeepEqual or == is PASS
 #[test]
 fn a_composite_literal_with_the_result_is_read_whole() {
@@ -378,7 +378,7 @@ fn a_recovered_panic_is_no_assertion() {
 /// undecided.
 /// @vtest.id TEST-ADAPTER-GO-AUDIT-EXITS-BEFORE-THE-CHECK
 /// @vtest.covers VO-ADAPTER-GO-AUDIT-EARLIER-EXITS-AND-LOOPS-DECIDE, VO-ADAPTER-GO-AUDIT-DECIDING-POSITIONS-OF-A-FAILURE-REPORT, VO-ADAPTER-GO-AUDIT-DECIDING-LOOP-IS-THE-FOR-STATEMENT, VO-ADAPTER-GO-AUDIT-ONLY-FAILURE-REPORT-AND-PANIC-DIVERGE
-/// @vtest.target crates/vtest-adapter-go/src/static_audit/interp.rs::Interp::record_exit
+/// @vtest.target crates/vtest-adapter-go/src/static_audit/interp/exec.rs::Interp::record_exit
 /// @vtest.intent a Go Test whose check comes after a return, break or continue inside a loop body, a goto, a labeled break or continue, a select statement, a loop body that assigns what the loop condition reads, a statement that never runs or code after a return is UNKNOWN and never FAIL or PASS, while a return outside a loop adds its condition to what decides the check
 #[test]
 fn an_exit_the_syntax_does_not_fix_leaves_the_check_unknown() {
@@ -409,7 +409,7 @@ fn an_exit_the_syntax_does_not_fix_leaves_the_check_unknown() {
 /// the result, is a delegation target whose termination is not confirmed.
 /// @vtest.id TEST-ADAPTER-GO-AUDIT-A-DELEGATION-IS-UNKNOWN
 /// @vtest.covers VO-ADAPTER-GO-AUDIT-CONVERSIONS-AND-COMPARISONS-ARE-NOT-DELEGATION, VO-ADAPTER-GO-AUDIT-DELEGATION-TARGET-OF-THE-CHECK, VO-ADAPTER-GO-AUDIT-DELEGATION-NOT-CONFIRMED-IS-UNKNOWN, VO-ADAPTER-GO-AUDIT-DELEGATION-WITHOUT-A-DECLARING-TEST-IS-UNKNOWN, VO-ADAPTER-GO-AUDIT-A-CALL-OUTSIDE-THE-TEST-IS-A-DELEGATION, VO-ADAPTER-GO-AUDIT-DA-006-DELEGATION-TARGET-OF-A-BODY-WITHOUT-ASSERTIONS
-/// @vtest.target crates/vtest-adapter-go/src/static_audit/interp.rs::Interp::eval_call
+/// @vtest.target crates/vtest-adapter-go/src/static_audit/interp/eval.rs::Interp::eval_call
 /// @vtest.intent a Go Test that hands the target result to a helper that takes the testing T or to another function or method, or compares it with a value that a function call returns, or has no assertion and calls a function or a method, is UNKNOWN and never PASS or FAIL, while len, cap, a conversion to a built-in type and DeepEqual, errors.Is and bytes.Equal are not delegations
 #[test]
 fn a_delegated_check_is_unknown() {
@@ -542,7 +542,7 @@ fn a_delegated_check_is_unknown() {
 /// not read as the target or as an assertion.
 /// @vtest.id TEST-ADAPTER-GO-AUDIT-NAMES-ARE-READ-ONLY-WHERE-NAMED
 /// @vtest.covers VO-ADAPTER-GO-AUDIT-NAMES-READ-ONLY-WHERE-CLAUSES-NAME-THEM, VO-ADAPTER-GO-AUDIT-ASSERTION-MACROS-BY-CALLEE-SPELLING, VO-ADAPTER-GO-AUDIT-ASSERTION-MACRO-ARGUMENTS-EXCLUDE-TESTING-T, VO-ADAPTER-GO-AUDIT-ASSERTION-MACROS-NAME-IS-CALLEE-NAME, VO-ADAPTER-GO-AUDIT-GO-NAME-SPELLINGS-ARE-GO-ONLY, VO-ADAPTER-GO-AUDIT-FAILURE-REPORTS-ON-TESTING-T, VO-ADAPTER-GO-AUDIT-PANIC-IS-ASSERT-EQUIVALENT, VO-ADAPTER-GO-AUDIT-DA-003-TARGET-NOT-IN-THE-BODY-IS-UNKNOWN
-/// @vtest.target crates/vtest-adapter-go/src/static_audit/interp.rs::Interp::classify_call
+/// @vtest.target crates/vtest-adapter-go/src/static_audit/interp/eval.rs::Interp::classify_call
 /// @vtest.intent a Go Test whose check calls a local function, a function of another package or a method of another type that is named like the declared target, calls an assertion spelled differently from the config entry, reports through a shadowed t, calls a shadowed panic, takes its T under another package name, or calls the target through a package it does not import is UNKNOWN or FAIL and never PASS, a call spelled as a config entry is an assertion with the testing T left out of its arguments, and a constant assertion call fails
 #[test]
 fn names_are_read_only_where_a_clause_names_them() {
@@ -861,7 +861,7 @@ fn a_test_beyond_the_reader_or_the_walk_is_unknown() {
 /// expressions when a default is among them.
 /// @vtest.id TEST-ADAPTER-GO-AUDIT-SWITCH-CLAUSES-DECIDE-WHAT-THEY-SEE
 /// @vtest.covers VO-ADAPTER-GO-AUDIT-DECIDING-POSITIONS-OF-A-FAILURE-REPORT, VO-ADAPTER-GO-AUDIT-NO-DECIDING-POSITION-IS-CONSTANT
-/// @vtest.target crates/vtest-adapter-go/src/static_audit/interp.rs::Interp::exec_switch
+/// @vtest.target crates/vtest-adapter-go/src/static_audit/interp/exec.rs::Interp::exec_switch
 /// @vtest.intent in a Go switch a failure report in a clause is decided by the tag and the case expressions of the clauses before it and its own, the case expressions after it do not decide it, and a default clause is decided by all of them, with a fallthrough keeping the clause it leaves
 #[test]
 fn a_switch_clause_is_decided_by_the_clauses_up_to_it() {
