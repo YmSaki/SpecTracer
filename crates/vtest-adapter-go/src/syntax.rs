@@ -13,13 +13,17 @@ mod ast;
 mod lexer;
 mod parser;
 
-pub(crate) use ast::{
-    BranchKind, CaseClause, CommClause, DeclSpec, Expr, ExprKind, Field, FuncDecl, FuncType,
-    Ident, LitKind, Span, Stmt, StmtKind,
-};
+#[cfg(test)]
+pub(crate) use ast::Field;
 pub(crate) use ast::{Block, FileHeader};
+pub(crate) use ast::{
+    BranchKind, CaseClause, DeclSpec, Expr, ExprKind, FuncDecl, FuncType, Ident, LitKind, Span,
+    Stmt, StmtKind,
+};
 pub(crate) use lexer::{tokenize, Tok};
-pub(crate) use parser::{parse_file, parse_file_header, parse_func_decl};
+#[cfg(test)]
+pub(crate) use parser::parse_file;
+pub(crate) use parser::{parse_file_header, parse_func_decl};
 
 /// A Go text this module cannot read: where (a byte offset) and why. The
 /// message is for the person reading a diagnostic and is never matched on.

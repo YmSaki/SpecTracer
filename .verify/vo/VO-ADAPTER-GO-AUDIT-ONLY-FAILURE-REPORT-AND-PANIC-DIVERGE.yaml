@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-ONLY-FAILURE-REPORT-AND-PANIC-DIVERGE
+parent: null
+derives_from:
+- doc: DS-1973
+claim: '`go`で、失敗としての発散に数えるのは、失敗の報告（DS-1884の`Error` / `Errorf` / `Fatal` / `Fatalf` / `Fail` / `FailNow`）と`panic(...)`（DS-1885）だけとし、それ以外の`return`、`t.Skip` / `t.Skipf` / `t.SkipNow`、`runtime.Goexit`、`os.Exit`と、`break` / `continue` / `goto`で抜ける腕は数えない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

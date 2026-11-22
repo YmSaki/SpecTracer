@@ -9,12 +9,17 @@
 //! The Evidence of a Go Test is never turned into a `PASS` here, whatever the
 //! Test did: the Tests are run with `--fast` (DS-1923), so their `target_coverage`
 //! is not checked and `target_binding` is `NO_EVIDENCE` (`NOT_CHECKED`, DS-778),
-//! the adapter has no static analysis, so `oracle_presence` is too (DS-614), and
-//! a Test that did not produce Evidence is `NO_EVIDENCE` (`NOT_EXECUTED`,
-//! DS-825) or, when the runner reported a failure, `FAIL` (DS-830). The
-//! wrong-outcome tests below check that the Evidence is the true one and that
-//! each state is the one of its clause. `go_coverage_e2e.rs` has the runs that
-//! measure coverage.
+//! and a Test that did not produce Evidence is `NO_EVIDENCE` (`NOT_EXECUTED`,
+//! DS-825) or, when the runner reported a failure, `FAIL` (DS-830).
+//! `oracle_presence` is the static audit's verdict on the text of the Test
+//! (DS-605 to DS-608), which does not depend on the run: the Test that checks
+//! its target's result is `PASS`, and the ones below that do not check it are
+//! `FAIL` (the result of `_ = Add(1, 2)`, `t.Fatal("..")` and `t.Skip("..")`
+//! reaches no assertion, DS-623, DS-1928) or `UNKNOWN` (a Test that does not call
+//! the target, DS-634). The wrong-outcome tests below check that the Evidence is
+//! the true one and that each state is the one of its clause.
+//! `go_coverage_e2e.rs` has the runs that measure coverage and
+//! `go_static_audit_e2e.rs` the ones that check the audit.
 
 mod support;
 
@@ -58,9 +63,13 @@ fn calc_project(test_source: &str) -> support::Fixture {
 /// Nothing a wrong outcome produced may stand as `PASS`: no `PASS` Evidence, and
 /// `target_binding` is the state of its clause: `FAIL` for the Evidence of a
 /// failing Test (DS-830) and `NO_EVIDENCE` with `NOT_EXECUTED` for a Test that
-/// has no Evidence (DS-825); `oracle_presence` is `NO_EVIDENCE` with
-/// `NOT_CHECKED`, the adapter having no static analysis (DS-614).
-fn assert_nothing_passes(result: &ExecutionResult, outcome: &VerifyOutcome) {
+/// has no Evidence (DS-825); `oracle_presence` is `oracle`, the state the static
+/// audit gives the text of the Test (it does not depend on the run).
+fn assert_nothing_passes(
+    result: &ExecutionResult,
+    outcome: &VerifyOutcome,
+    oracle: VerificationState,
+) {
     assert!(
         result
             .evidence
@@ -83,20 +92,18 @@ fn assert_nothing_passes(result: &ExecutionResult, outcome: &VerifyOutcome) {
     );
     assert_eq!(
         state_of(outcome, VerificationCheck::OraclePresence),
-        (
-            VerificationState::NoEvidence,
-            vec![DiagnosticLabel::NotChecked]
-        )
+        (oracle, Vec::new())
     );
 }
 
 /// DES-647 to DES-652, DS-1905 to DS-1907: a passing Test is run by `go test`
 /// and recorded as `PASS` Evidence bound to a complete Execution State, with the
-/// whole output kept in the log; target binding stays not checked.
+/// whole output kept in the log; target binding stays not checked, so the Test as
+/// a whole is not `PASS` although its `oracle_presence` is.
 /// @vtest.id TEST-CLI-GO-RUN-PASS-RECORDS-EVIDENCE-AND-TARGET-BINDING-STAYS-NOT-CHECKED
-/// @vtest.covers VO-ADAPTER-GO-RESULT-IS-READ-FROM-GO-TEST, VO-ADAPTER-GO-RUNNER-KIND-IS-GO-TEST, VO-ADAPTER-GO-RUNS-ONE-TEST-PER-INVOCATION, VO-ADAPTER-GO-OUTPUT-IS-KEPT-IN-THE-LOG-OF-THE-EVIDENCE, VO-ADAPTER-GO-JUDGEMENT-AUTHORITY-IS-GO-TEST, VO-VERIFY-TARGET-BINDING-NO-COVERAGE-CAPABILITY, VO-VERIFY-ORACLE-PRESENCE-NO-DA-NOT-PASS-NOT-UNKNOWN
+/// @vtest.covers VO-ADAPTER-GO-RESULT-IS-READ-FROM-GO-TEST, VO-ADAPTER-GO-RUNNER-KIND-IS-GO-TEST, VO-ADAPTER-GO-RUNS-ONE-TEST-PER-INVOCATION, VO-ADAPTER-GO-OUTPUT-IS-KEPT-IN-THE-LOG-OF-THE-EVIDENCE, VO-ADAPTER-GO-JUDGEMENT-AUTHORITY-IS-GO-TEST, VO-VERIFY-TARGET-BINDING-NO-COVERAGE-CAPABILITY, VO-ADAPTER-GO-AUDIT-ALL-NO-VIOLATION-IS-PASS
 /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
-/// @vtest.intent a passing Go Test run through vtest run records PASS Evidence of runner kind go-test with the go test command line and exit code 0, an unchecked target coverage and a complete go-execution-state, keeps the json output in its log, and verification reports target_binding and oracle_presence as NO_EVIDENCE with NOT_CHECKED while chain_integrity and orphan_detection pass
+/// @vtest.intent a passing Go Test that checks its target result, run through vtest run with fast, records PASS Evidence of runner kind go-test with the go test command line and exit code 0, an unchecked target coverage and a complete go-execution-state, keeps the json output in its log, and verification reports target_binding as NO_EVIDENCE with NOT_CHECKED and oracle_presence as PASS while chain_integrity and orphan_detection pass
 #[test]
 fn a_passing_go_test_records_pass_evidence_and_target_binding_stays_not_checked() {
     let fixture = calc_project(&test_file(
@@ -155,10 +162,7 @@ fn a_passing_go_test_records_pass_evidence_and_target_binding_stays_not_checked(
     );
     assert_eq!(
         state_of(&outcome, VerificationCheck::OraclePresence),
-        (
-            VerificationState::NoEvidence,
-            vec![DiagnosticLabel::NotChecked]
-        )
+        (VerificationState::Pass, Vec::new())
     );
 
     // `vtest test show` reads the Evidence on its own: it shows the runner's
@@ -221,7 +225,7 @@ fn a_go_test_is_run_without_coverage_with_fast_and_with_it_by_default() {
 /// @vtest.id TEST-CLI-GO-FAILING-TEST-IS-FAIL-EVIDENCE
 /// @vtest.covers VO-ADAPTER-GO-RESULT-IS-READ-FROM-GO-TEST, VO-ADAPTER-GO-RESULT-IS-THE-EXACT-NAME-EVENT, VO-ADAPTER-GO-JUDGEMENT-AUTHORITY-IS-GO-TEST
 /// @vtest.target crates/vtest-exec/src/lib.rs::run_tests_with_runner
-/// @vtest.intent a Go Test that fails is recorded as FAIL Evidence with exit code 1 and no diagnostic, and verification reports no PASS for target_binding or oracle_presence
+/// @vtest.intent a Go Test that fails is recorded as FAIL Evidence with exit code 1 and no diagnostic, and verification reports target_binding FAIL and oracle_presence FAIL, since its only failure report has no deciding position and the target is not called
 #[test]
 fn a_failing_go_test_is_fail_evidence_and_nothing_passes() {
     let fixture = calc_project(&test_file(
@@ -233,7 +237,7 @@ fn a_failing_go_test_is_fail_evidence_and_nothing_passes() {
     assert_eq!(record.result, TestResult::Fail);
     assert_eq!(record.runner.exit_code, 1);
     assert!(codes(&result).is_empty(), "{:?}", result.diagnostics);
-    assert_nothing_passes(&result, &outcome);
+    assert_nothing_passes(&result, &outcome, VerificationState::Fail);
 }
 
 /// DS-1933 is a static-analysis clause; what the runner owes subtests is DES-649:
@@ -257,7 +261,7 @@ fn a_failing_subtest_fails_its_parent_test() {
     let failing = calc_project(&test_file(&["testing"], &sub("t.Fatal(\"x\")")));
     let (result, outcome) = run_and_verify(&failing, true);
     assert_eq!(only_evidence(&result).result, TestResult::Fail);
-    assert_nothing_passes(&result, &outcome);
+    assert_nothing_passes(&result, &outcome, VerificationState::Fail);
     let passing = calc_project(&test_file(&["testing"], &sub("")));
     assert_eq!(
         only_evidence(&run_and_verify(&passing, true).0).result,
@@ -282,7 +286,7 @@ fn a_package_that_does_not_build_is_e_exec_001_and_records_no_evidence() {
     let (result, outcome) = run_and_verify(&fixture, true);
     assert!(result.evidence.is_empty());
     assert_eq!(codes(&result), ["E-EXEC-001"]);
-    assert_nothing_passes(&result, &outcome);
+    assert_nothing_passes(&result, &outcome, VerificationState::Fail);
 }
 
 /// DES-678, DS-1911, DS-750: the exit status of `go test` contradicting the
@@ -311,7 +315,7 @@ fn an_exit_status_that_contradicts_the_result_is_e_exec_003_in_both_directions()
         let (result, outcome) = run_and_verify(&fixture, true);
         assert!(result.evidence.is_empty(), "{name}");
         assert_eq!(codes(&result), ["E-EXEC-003"], "{name}");
-        assert_nothing_passes(&result, &outcome);
+        assert_nothing_passes(&result, &outcome, VerificationState::Fail);
     }
 }
 
@@ -330,7 +334,7 @@ fn a_skipped_go_test_records_no_evidence() {
     let (result, outcome) = run_and_verify(&fixture, true);
     assert!(result.evidence.is_empty());
     assert!(codes(&result).is_empty(), "{:?}", result.diagnostics);
-    assert_nothing_passes(&result, &outcome);
+    assert_nothing_passes(&result, &outcome, VerificationState::Fail);
 }
 
 /// DES-651, DS-1909: a run that reports no result for the Test, though `go test`
@@ -351,7 +355,7 @@ fn a_run_that_reports_no_result_is_e_exec_002() {
     let (result, outcome) = run_and_verify(&fixture, true);
     assert!(result.evidence.is_empty());
     assert_eq!(codes(&result), ["E-EXEC-002"]);
-    assert_nothing_passes(&result, &outcome);
+    assert_nothing_passes(&result, &outcome, VerificationState::Fail);
 }
 
 /// DES-651, DS-1930, DS-1931: two results for one name, with one Test construct
@@ -372,7 +376,7 @@ fn two_results_for_one_name_are_e_exec_005_and_record_no_evidence() {
     let (result, outcome) = run_and_verify(&fixture, true);
     assert!(result.evidence.is_empty());
     assert_eq!(codes(&result), ["E-EXEC-005"]);
-    assert_nothing_passes(&result, &outcome);
+    assert_nothing_passes(&result, &outcome, VerificationState::Fail);
 }
 
 /// DS-1930, DS-2011: two Test constructs with one name in one package directory
@@ -396,7 +400,7 @@ fn tests_that_share_a_name_record_no_evidence() {
         let (result, outcome) = run_and_verify(&fixture, true);
         assert!(result.evidence.is_empty(), "{name}: {:?}", result.evidence);
         assert_eq!(codes(&result), ["E-EXEC-005"], "{name}");
-        assert_nothing_passes(&result, &outcome);
+        assert_nothing_passes(&result, &outcome, VerificationState::Fail);
     }
     // The control: the second Test under a name of its own.
     let renamed = external.replace("TestAdd", "TestOther");
@@ -449,7 +453,7 @@ fn a_test_file_outside_discovery_is_counted_and_an_unreadable_one_blocks_the_dir
     let (result, outcome) = run_and_verify(&fixture, true);
     assert!(result.evidence.is_empty());
     assert!(codes(&result).is_empty(), "{:?}", result.diagnostics);
-    assert_nothing_passes(&result, &outcome);
+    assert_nothing_passes(&result, &outcome, VerificationState::Fail);
 
     fs::write(
         fixture.root.join("app/b_test.go"),
@@ -543,7 +547,7 @@ fn a_test_construct_of_a_shape_go_test_does_not_run_is_w_exec_102() {
     let (result, outcome) = run_and_verify(&fixture, true);
     assert!(result.evidence.is_empty());
     assert_eq!(codes(&result), ["W-EXEC-102"]);
-    assert_nothing_passes(&result, &outcome);
+    assert_nothing_passes(&result, &outcome, VerificationState::Fail);
 }
 
 /// DES-643, DES-644, DES-684: a Test below a nested go.mod runs in that module,
@@ -642,7 +646,9 @@ fn a_test_that_writes_into_the_project_is_e_exec_004_and_records_no_evidence() {
     let (result, outcome) = run_and_verify(&fixture, true);
     assert!(result.evidence.is_empty());
     assert_eq!(codes(&result), ["E-EXEC-004"]);
-    assert_nothing_passes(&result, &outcome);
+    // The Test reports a failure on an error that is not the target's, and never
+    // calls the target: the result of the audit is UNKNOWN (DS-634).
+    assert_nothing_passes(&result, &outcome, VerificationState::Unknown);
     // The file is there now, the second run writes the same bytes, and the
     // snapshot around the run is stable.
     assert_eq!(

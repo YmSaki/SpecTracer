@@ -72,7 +72,11 @@ const OPERATORS: &[&str] = &[
 /// The `'static` spelling of the operator `text`, or `""` for a text that is
 /// not one.
 pub(crate) fn static_operator(text: &str) -> &'static str {
-    OPERATORS.iter().find(|op| **op == text).copied().unwrap_or("")
+    OPERATORS
+        .iter()
+        .find(|op| **op == text)
+        .copied()
+        .unwrap_or("")
 }
 
 fn is_letter(c: char) -> bool {
@@ -286,7 +290,14 @@ fn scan_number(src: &str, start: usize) -> Result<(Tok, usize), ParseError> {
             _ => {}
         }
     }
-    let is_digit_here = |b: u8| b == b'_' || if hex { b.is_ascii_hexdigit() } else { b.is_ascii_digit() };
+    let is_digit_here = |b: u8| {
+        b == b'_'
+            || if hex {
+                b.is_ascii_hexdigit()
+            } else {
+                b.is_ascii_digit()
+            }
+    };
     while is_digit_here(at(i)) {
         i += 1;
     }

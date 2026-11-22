@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-ABSORBED-OPERAND-NOT-FLOWING
+parent: null
+derives_from:
+- doc: DS-1948
+claim: 'DA-003で、演算の結果が真偽値になる演算子（adapterごとの条項が定める）について、リテラルに吸収されるオペランドの位置（`X || true`、`true || X`、`X && false`、`false && X`、`X | true`、`true | X`、`X & false`、`false & X`の`X`）は、値が流れる位置に数えない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

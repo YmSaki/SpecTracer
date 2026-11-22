@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-ONLY-SYNTAX-FIXED-PATHS-ARE-DERIVED
+parent: null
+derives_from:
+- doc: DS-629
+claim: 'DA-002 / DA-003のデータフロー解析は、値がその経路を流れることをadapterが構文から確定できる経路だけを派生として数え、それ以外の経路を通って値が届きうる場合はUNKNOWNとする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

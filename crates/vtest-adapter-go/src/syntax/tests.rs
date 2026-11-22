@@ -7,13 +7,7 @@ use super::*;
 /// The tree of an expression as an S-expression, so a test states the shape
 /// it expects and not only that the text was accepted.
 fn show_expr(x: &Expr) -> String {
-    let list = |items: &[Expr]| {
-        items
-            .iter()
-            .map(show_expr)
-            .collect::<Vec<_>>()
-            .join(" ")
-    };
+    let list = |items: &[Expr]| items.iter().map(show_expr).collect::<Vec<_>>().join(" ");
     match &x.kind {
         ExprKind::Ident(name) => name.clone(),
         ExprKind::BasicLit { text, .. } => text.clone(),
@@ -49,7 +43,11 @@ fn show_expr(x: &Expr) -> String {
             show_expr(x),
             t.as_ref().map_or("type".to_owned(), |t| show_expr(t))
         ),
-        ExprKind::Call { fun, args, ellipsis } => format!(
+        ExprKind::Call {
+            fun,
+            args,
+            ellipsis,
+        } => format!(
             "(call {} {}{})",
             show_expr(fun),
             list(args),
@@ -93,7 +91,11 @@ fn show_fields(fields: &[Field]) -> String {
 }
 
 fn show_sig(sig: &FuncType) -> String {
-    format!("({})->({})", show_fields(&sig.params), show_fields(&sig.results))
+    format!(
+        "({})->({})",
+        show_fields(&sig.params),
+        show_fields(&sig.results)
+    )
 }
 
 fn show_block(stmts: &[Stmt]) -> String {
@@ -108,13 +110,7 @@ fn show_opt(stmt: Option<&Stmt>) -> String {
 }
 
 fn show_stmt(s: &Stmt) -> String {
-    let exprs = |items: &[Expr]| {
-        items
-            .iter()
-            .map(show_expr)
-            .collect::<Vec<_>>()
-            .join(" ")
-    };
+    let exprs = |items: &[Expr]| items.iter().map(show_expr).collect::<Vec<_>>().join(" ");
     match &s.kind {
         StmtKind::Empty => "empty".to_owned(),
         StmtKind::Decl(specs) => format!("(decl {})", specs.len()),
@@ -254,11 +250,14 @@ fn rejects(src: &str) -> bool {
 /// deciders (DS-1887) and the absorption rule (DS-1948) expect.
 /// @vtest.id TEST-ADAPTER-GO-SYNTAX-OPERATOR-PRECEDENCE
 /// @vtest.covers VO-ADAPTER-GO-STATIC-AUDIT-IS-DETERMINISTIC
-/// @vtest.target crates/vtest-adapter-go/src/syntax/parser.rs::parse_binary
+/// @vtest.target crates/vtest-adapter-go/src/syntax/parser.rs::Parser::parse_binary
 /// @vtest.intent operators group with the five Go precedence levels, left to right, with unary operators binding tightest and the receive and address-of operators as unary operators
 #[test]
 fn operators_group_by_the_five_precedence_levels() {
-    assert_eq!(expr_of("a + b*c == d && e || f"), "(|| (&& (== (+ a (* b c)) d) e) f)");
+    assert_eq!(
+        expr_of("a + b*c == d && e || f"),
+        "(|| (&& (== (+ a (* b c)) d) e) f)"
+    );
     assert_eq!(expr_of("a - b - c"), "(- (- a b) c)");
     assert_eq!(expr_of("a < b == c"), "(== (< a b) c)");
     assert_eq!(expr_of("a | b ^ c & d"), "(^ (| a b) (& c d))");
@@ -266,7 +265,10 @@ fn operators_group_by_the_five_precedence_levels() {
     assert_eq!(expr_of("-a * !b"), "(* (- a) (! b))");
     assert_eq!(expr_of("*p + <-ch"), "(+ (* p) (<- ch))");
     assert_eq!(expr_of("&x.f"), "(& (. x f))");
-    assert_eq!(expr_of("f(a)(b)[c].d"), "(. (index (call (call f a) b) c) d)");
+    assert_eq!(
+        expr_of("f(a)(b)[c].d"),
+        "(. (index (call (call f a) b) c) d)"
+    );
 }
 
 /// DES-619: a composite literal is told from a block in a statement header the
@@ -274,14 +276,11 @@ fn operators_group_by_the_five_precedence_levels() {
 /// `[]int{..}` and a parenthesized `T{..}` are values.
 /// @vtest.id TEST-ADAPTER-GO-SYNTAX-COMPOSITE-LITERAL-AGAINST-BLOCK
 /// @vtest.covers VO-ADAPTER-GO-STATIC-AUDIT-IS-DETERMINISTIC
-/// @vtest.target crates/vtest-adapter-go/src/syntax/parser.rs::parse_primary
+/// @vtest.target crates/vtest-adapter-go/src/syntax/parser.rs::Parser::parse_primary
 /// @vtest.intent a type name before an open brace in an if, for or switch header is the end of the header, an array, slice, map or struct type before it is a composite literal, a parenthesized one is a composite literal, and outside a header a type name before the brace is a composite literal
 #[test]
 fn a_composite_literal_is_told_from_a_block_in_a_header() {
-    assert_eq!(
-        body_of("if x == T {\n}"),
-        "(if _ (== x T) {} _)"
-    );
+    assert_eq!(body_of("if x == T {\n}"), "(if _ (== x T) {} _)");
     assert_eq!(
         body_of("if x == (T{1}) {\n}"),
         "(if _ (== x (paren (lit T 1))) {} _)"
@@ -302,10 +301,7 @@ fn a_composite_literal_is_told_from_a_block_in_a_header() {
         body_of("v := T{1}\n_ = v"),
         "(assign := [v] [(lit T 1)]) (assign = [_] [v])"
     );
-    assert_eq!(
-        body_of("if m[k] {\n}"),
-        "(if _ (index m k) {} _)"
-    );
+    assert_eq!(body_of("if m[k] {\n}"), "(if _ (index m k) {} _)");
     assert_eq!(
         body_of("_ = struct{ a int }{a: 1}"),
         "(assign = [_] [(lit struct (: a 1))])"
@@ -347,11 +343,11 @@ fn a_line_end_ends_a_statement_where_the_language_says() {
         body_of("s := []int{\n\t1,\n\t2,\n}"),
         "(assign := [s] [(lit (array _ int) 1 2)])"
     );
+    assert_eq!(body_of("for {\n\tbreak\n}"), "(for _ _ _ {(Break _)})");
     assert_eq!(
-        body_of("for {\n\tbreak\n}"),
-        "(for _ _ _ {(Break _)})"
+        body_of("x := `raw\nstring`\n_ = x"),
+        "(assign := [x] [`raw\nstring`]) (assign = [_] [x])"
     );
-    assert_eq!(body_of("x := `raw\nstring`\n_ = x"), "(assign := [x] [`raw\nstring`]) (assign = [_] [x])");
     assert!(rejects("func f() {\n\tx :=\n}"));
     assert!(rejects("func f() {\n\tx := 1 2\n}"));
 }
@@ -361,7 +357,7 @@ fn a_line_end_ends_a_statement_where_the_language_says() {
 /// the order of its clauses and the `fallthrough` that ends one.
 /// @vtest.id TEST-ADAPTER-GO-SYNTAX-ELSE-IF-AND-SWITCH-CLAUSES
 /// @vtest.covers VO-ADAPTER-GO-STATIC-AUDIT-IS-DETERMINISTIC
-/// @vtest.target crates/vtest-adapter-go/src/syntax/parser.rs::parse_if
+/// @vtest.target crates/vtest-adapter-go/src/syntax/parser.rs::Parser::parse_if
 /// @vtest.intent an else if chain reads as an if in the else branch of the earlier if with the final else last, a switch with an init and a tag, a tagless switch and a type switch with a bound name read their clauses in source order, and a clause that ends with fallthrough keeps it
 #[test]
 fn an_else_if_chain_and_the_clauses_of_a_switch_are_read_in_order() {
@@ -397,7 +393,7 @@ fn an_else_if_chain_and_the_clauses_of_a_switch_are_read_in_order() {
 /// which names a scope holds.
 /// @vtest.id TEST-ADAPTER-GO-SYNTAX-FUNCTION-LITERAL-PARAMETERS-AND-TYPE-ARGUMENTS
 /// @vtest.covers VO-ADAPTER-GO-STATIC-AUDIT-IS-DETERMINISTIC
-/// @vtest.target crates/vtest-adapter-go/src/syntax/parser.rs::parse_params
+/// @vtest.target crates/vtest-adapter-go/src/syntax/parser.rs::Parser::parse_params
 /// @vtest.intent a func followed by a body is a function literal and one without is a type, grouped parameter names share the type that follows them, unnamed parameters are types, a variadic parameter keeps its ellipsis, a slice or array parameter type after a name is read as that type and not as an index, and f[T](x) is an index of f called
 #[test]
 fn function_literals_parameters_and_type_arguments_are_told_apart() {
@@ -422,7 +418,10 @@ fn function_literals_parameters_and_type_arguments_are_told_apart() {
         "(funclit ([xs:(array _ int)][ys:(array 3 int)][m:(map string int)][p:(* T)][c:(chan int)])->() )"
     );
     assert_eq!(expr_of("f[int](x)"), "(call (index f int) x)");
-    assert_eq!(expr_of("Map[int, string](x)"), "(call (index Map int string) x)");
+    assert_eq!(
+        expr_of("Map[int, string](x)"),
+        "(call (index Map int string) x)"
+    );
     assert_eq!(expr_of("a[i:j:k]"), "(slice a i j k)");
     assert_eq!(expr_of("a[:]"), "(slice a _ _ _)");
     assert_eq!(expr_of("x.(T)"), "(assert x T)");
@@ -434,7 +433,7 @@ fn function_literals_parameters_and_type_arguments_are_told_apart() {
 /// DES-619: statements the audit reads as exits and as scopes keep their parts.
 /// @vtest.id TEST-ADAPTER-GO-SYNTAX-LOOPS-LABELS-AND-DEFERS
 /// @vtest.covers VO-ADAPTER-GO-STATIC-AUDIT-IS-DETERMINISTIC
-/// @vtest.target crates/vtest-adapter-go/src/syntax/parser.rs::parse_for
+/// @vtest.target crates/vtest-adapter-go/src/syntax/parser.rs::Parser::parse_for
 /// @vtest.intent three-clause, condition-only, infinite and range for statements read their parts, range reads its variables and whether it defines them, a labeled statement keeps its label, break continue and goto keep a label, and go and defer keep the call they start
 #[test]
 fn loops_labels_exits_and_goroutines_keep_their_parts() {
@@ -445,10 +444,7 @@ fn loops_labels_exits_and_goroutines_keep_their_parts() {
     assert_eq!(body_of("for ; ; {\n}"), "(for _ _ _ {})");
     assert_eq!(body_of("for x < 3 {\n}"), "(for _ (< x 3) _ {})");
     assert_eq!(body_of("for {\n}"), "(for _ _ _ {})");
-    assert_eq!(
-        body_of("for k, v := range m {\n}"),
-        "(range k v true m {})"
-    );
+    assert_eq!(body_of("for k, v := range m {\n}"), "(range k v true m {})");
     assert_eq!(body_of("for range ch {\n}"), "(range _ _ false ch {})");
     assert_eq!(body_of("for i := range 10 {\n}"), "(range i _ true 10 {})");
     assert_eq!(body_of("for k = range m {\n}"), "(range k _ false m {})");

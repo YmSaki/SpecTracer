@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-NO-DECIDING-POSITION-IS-CONSTANT
+parent: null
+derives_from:
+- doc: DS-1928
+claim: '`go`の失敗の報告または`panic(...)`を囲む`if`文・`switch`文がなく、DS-1983により加わる条件式も無い場合、そのassert相当の引数は無く、DA-001はそのassert相当を定数アサーションとして扱う。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

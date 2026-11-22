@@ -7,6 +7,15 @@
 //! kept as an opaque node, so the tree never claims more than the parser read.
 //! Realizes DES-619.
 
+// The tree is the shape of the Go source as the parser reads it, and the parser's
+// tests pin the whole shape. The audit reads the parts its rules need, so the
+// rest is read only by the tests, or by nothing yet (a function's name, the
+// spans of statements).
+#![expect(
+    dead_code,
+    reason = "the whole tree is built; the audit reads part of it"
+)]
+
 /// A byte range of the scanned text.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct Span {

@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-RECOVERED-PANIC-DOES-NOT-COUNT
+parent: null
+derives_from:
+- doc: DS-1982
+claim: '`go`で、`panic(...)`を直接含む関数本体（Test関数の本体と、DS-1933により本体の続きとして読む関数リテラルの本体は、それぞれ別の関数本体とする）に、`recover()`を呼ぶ関数リテラルを渡す`defer`文、または関数リテラル以外を呼ぶ`defer`文がある場合、その`panic(...)`は失敗としての発散（DS-1973）にも、DA-001〜DA-006で数えるassert相当にも、DA-003の到達先にも数えない。派生した値がそれらにだけ到達する場合はDA-003を、関数内のassert相当がそれらだけである場合はDA-001とDA-006を、FAILではなくUNKNOWNとする。失敗の報告（DS-1884）は本条の対象としない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

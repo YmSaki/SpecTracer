@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-ALIASING-FORMS-MAKE-DERIVATION-UNKNOWN
+parent: null
+derives_from:
+- doc: DS-1976
+claim: '`go`で、派生した値を束縛した`x`について、`&x`または`&x.p`（`x`の射影へのポインタ）を作る式、`x`を受け手とするメソッド呼出し、`x`を別の変数・フィールド・要素へ代入する式、`x`を関数・メソッドの引数（assert相当の引数を除く）に渡す式、`x`を参照する関数リテラル（DS-1933によりTest関数の本体の続きとして読むもの以外）のいずれかを経た後の`x`の派生はUNKNOWNとする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

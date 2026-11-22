@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-INCOMPLETE-ANALYSIS-IS-UNKNOWN
+parent: null
+derives_from:
+- doc: DS-615
+claim: 'adapterが不完全、解析限界、または解析入力集合の不完全性を報告した場合は`UNKNOWN`とし、違反なしと推測しない。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

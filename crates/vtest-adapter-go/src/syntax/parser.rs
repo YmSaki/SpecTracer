@@ -8,11 +8,11 @@
 //! text. Boundary: no meaning (`static_audit` owns that); a text it does not
 //! read is a [`ParseError`], never a partial tree. Realizes DES-619.
 
+use super::ast::Block;
 use super::ast::{
     BranchKind, CaseClause, CommClause, DeclSpec, Expr, ExprKind, Field, FileHeader, FuncDecl,
     FuncLit, FuncType, Ident, Import, LitKind, Span, Stmt, StmtKind,
 };
-use super::ast::Block;
 use super::lexer::{static_operator, tokenize, Tok, Token};
 use super::ParseError;
 
@@ -463,7 +463,9 @@ impl<'a> Parser<'a> {
             }
         }
         self.expect_op(")")?;
-        let named = entries.iter().any(|entry| matches!(entry, Entry::Named(..)));
+        let named = entries
+            .iter()
+            .any(|entry| matches!(entry, Entry::Named(..)));
         let mut fields = Vec::new();
         if !named {
             for entry in entries {
@@ -502,7 +504,9 @@ impl<'a> Parser<'a> {
         if self.at_op("...") {
             self.advance();
             let t = self.parse_type()?;
-            return Ok(Entry::Lone(self.make(start, ExprKind::Ellipsis(Some(Box::new(t))))));
+            return Ok(Entry::Lone(
+                self.make(start, ExprKind::Ellipsis(Some(Box::new(t)))),
+            ));
         }
         if self.kind() != Tok::Ident {
             return Ok(Entry::Lone(self.parse_type()?));
@@ -566,7 +570,13 @@ impl<'a> Parser<'a> {
             }
             let elt = self.parse_type()?;
             let len = args.pop().map(Box::new);
-            let ty = self.make(bracket, ExprKind::ArrayType { len, elt: Box::new(elt) });
+            let ty = self.make(
+                bracket,
+                ExprKind::ArrayType {
+                    len,
+                    elt: Box::new(elt),
+                },
+            );
             return Ok(Entry::Named(id, ty));
         }
         let ty = self.parse_type()?;
@@ -661,10 +671,8 @@ impl<'a> Parser<'a> {
                         } else {
                             let t = self.parse_type()?;
                             self.expect_op(")")?;
-                            x = self.make(
-                                start,
-                                ExprKind::TypeAssert(Box::new(x), Some(Box::new(t))),
-                            );
+                            x = self
+                                .make(start, ExprKind::TypeAssert(Box::new(x), Some(Box::new(t))));
                         }
                     } else {
                         return self.fail("expected a selector or a type assertion");
@@ -1544,7 +1552,8 @@ pub(crate) fn parse_file_header(src: &str) -> PResult<FileHeader> {
 
 /// A whole Go source file: its header and its function declarations. Other
 /// top-level declarations are read (so the file is known to be valid) and
-/// dropped.
+/// dropped. The tests read the standard library with it.
+#[cfg(test)]
 pub(crate) fn parse_file(src: &str) -> PResult<(FileHeader, Vec<FuncDecl>)> {
     let mut parser = Parser::new(src)?;
     let package = parser.parse_package()?;

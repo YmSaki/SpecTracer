@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-SELF-COMPARISON-IN-ENCLOSING-CONDITION
+parent: null
+derives_from:
+- doc: DS-1889
+claim: '`go`で2つの値を照合するassert相当（DA-004）は、失敗の報告または`panic(...)`を囲む条件式に現れる`==` / `!=`の比較であり、照合する2つの値はその比較の両辺とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

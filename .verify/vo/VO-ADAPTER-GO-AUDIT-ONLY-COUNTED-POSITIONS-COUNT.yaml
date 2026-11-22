@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-ONLY-COUNTED-POSITIONS-COUNT
+parent: null
+derives_from:
+- doc: DS-1970
+claim: '`go`で、DA-002の呼出の存在として数えるtarget呼出と、DA-003の到達先として数えるassert相当は、数える位置にあるものに限る。数える位置とは、Test関数の本体（DS-1933によりTest関数の本体の続きとして読む関数リテラルの本体を含む）の中で、それ以外の関数リテラル（変数に束縛したもの、その場で呼ぶもの、関数・メソッドへ渡すもの、一度も呼ばないものを含む）の外にあり、`go`文・`defer`文で呼ぶ呼出しの中にない位置をいう。DS-622の探索で到達する呼出先helperは、同じファイルの関数宣言に限り（メソッド宣言を含めない）、その本体の中で同じ条件を満たす位置は、そのhelperを数える位置で呼ぶ場合に限り数える位置に含める。helperの本体からさらに探索する呼出先にも同じ条件を当てる。`go`文・`defer`文で呼ぶ呼出し（`go Double(2)`、`go h()`）と、メソッド宣言の本体の中の位置は、数える位置にない。Test関数の本体とDS-622の探索で到達した呼出先の本体の中で、数える位置にない位置にあるtarget呼出を、数える位置にないtarget呼出という。数える位置にない位置の値の経路は派生として数えず、そこにあるtarget呼出は、DA-002で「呼出なし」の根拠にしない。数える位置にあるtarget呼出が無く、数える位置にないtarget呼出だけがある場合はDA-002とDA-003をどちらもUNKNOWNとし、数える位置にあるtarget呼出の結果がどれもassert相当に到達せず、数える位置にないtarget呼出がある場合と、派生した値が数える位置にないassert相当へ流れ、他のどのassert相当にも到達しない場合は、DA-003をFAILではなくUNKNOWNとする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

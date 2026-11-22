@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-A-CALL-OUTSIDE-THE-TEST-IS-A-DELEGATION
+parent: null
+derives_from:
+- doc: DS-1936
+claim: 'DA-003で、Test constructの外にある関数の呼出（adapterごとの条項が値の変換・比較とする呼出を除く）を通る経路は、照合の委譲先として§7.2.1で判定し、終端を確認できない場合はUNKNOWNとする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-ASSERT-EQUIVALENT-IS-COMMON-TO-ALL-RULES
+parent: null
+derives_from:
+- doc: DS-1883
+claim: '`go`のassert相当の構文はDA-001〜DA-006で共通に用いる。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

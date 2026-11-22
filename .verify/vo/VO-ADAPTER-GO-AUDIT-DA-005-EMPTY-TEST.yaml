@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-DA-005-EMPTY-TEST
+parent: null
+derives_from:
+- doc: DS-625
+claim: 'DA-005（空テスト）はoracle_presenceへ供給する検査であり、Test constructの本体（adapterごとの条項が定める）に文が存在しないことを内容とし、該当することをFAIL条件とし、UNKNOWNへ退避する例は無い。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

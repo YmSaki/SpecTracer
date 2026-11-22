@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-DA-006-DELEGATION-TARGET-OF-A-BODY-WITHOUT-ASSERTIONS
+parent: null
+derives_from:
+- doc: DS-642
+claim: '関数内にassert相当が1つも存在しないTest本体に現れる関数呼出は当該Testの照合の委譲先とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-DELEGATION-WITHOUT-A-DECLARING-TEST-IS-UNKNOWN
+parent: null
+derives_from:
+- doc: DS-648
+claim: '委譲先を同定できるが、それを宣言targetとするTestが0件の場合、DA-003 / DA-006は`UNKNOWN`とする。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

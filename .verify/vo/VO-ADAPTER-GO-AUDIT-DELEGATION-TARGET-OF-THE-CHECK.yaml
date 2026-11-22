@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-DELEGATION-TARGET-OF-THE-CHECK
+parent: null
+derives_from:
+- doc: DS-641
+claim: 'assert相当の引数、または引数へ到達する束縛（§7.2のデータフロー解析の範囲内）に現れる関数呼出は当該Testの照合の委譲先とする（関数呼出に数える範囲は、adapterごとの条項が定める）。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z

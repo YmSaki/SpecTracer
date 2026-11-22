@@ -1,0 +1,11 @@
+id: VO-ADAPTER-GO-AUDIT-LITERAL-FIXED-LOGIC-IS-CONSTANT
+parent: null
+derives_from:
+- doc: DS-1949
+claim: 'DA-001の定数式は、演算の結果が真偽値になる演算子（DS-1948と同じ）について、オペランドの値にかかわらずリテラルによって値が確定する論理式（`X || true`、`true || X`、`X && false`、`false && X`、`X | true`、`true | X`、`X & false`、`false & X`と、それらの否定）を含む。'
+dimensions: []
+coverage_policy: null
+combinations: []
+representative_cases: []
+created: 2026-11-22T00:49:31Z
+updated: 2026-11-22T00:49:31Z
