@@ -369,3 +369,61 @@ fn the_binary_verify_is_ok_only_for_tests_that_check_their_result() {
         );
     }
 }
+
+/// SPEC-387, DS-1208, DES-408: `vtest audit static` reports the rules of a Go
+/// Test, DA-001, DA-004, DA-005 and DA-006 once and DA-002 and DA-003 for each
+/// declared target, from the same audit `vtest verify` reads, and DA-002 is
+/// UNKNOWN for a Go target, which leaves its reach to coverage.
+/// @vtest.id TEST-CLI-GO-AUDIT-AUDIT-STATIC-REPORTS-THE-RULES-OF-A-GO-TEST
+/// @vtest.covers VO-ADAPTER-GO-AUDIT-DA-002-UNKNOWN-IS-NOT-UNREACHED, VO-ADAPTER-GO-AUDIT-PER-TARGET-INDIVIDUAL-APPLICATION, VO-ADAPTER-GO-AUDIT-DA-003-RESULT-UNVERIFIED, VO-ADAPTER-GO-AUDIT-DA-006-NO-VERIFICATION-SYNTAX
+/// @vtest.target crates/vtest-adapter-go/src/static_audit.rs::rule_verdict
+/// @vtest.intent vtest audit static --all through the binary on a Go project reports for a Test that checks its target's result DA-003 NO_VIOLATION on the target and DA-001, DA-004, DA-005 and DA-006 NO_VIOLATION, for one that only calls its target DA-003 FAIL and DA-006 FAIL, for one whose check is in a goroutine DA-003 UNKNOWN, and DA-002 UNKNOWN on every target
+#[test]
+fn audit_static_reports_the_rules_of_a_go_test() {
+    let fixture = project(&[
+        ("go.mod", GO_MOD),
+        ("app/calc.go", CALC),
+        ("app/helpers_test.go", HELPERS),
+        ("app/calc_test.go", &test_file()),
+    ]);
+    fs::write(fixture.root.join(".verify/config.yaml"), CONFIG).expect("write the config");
+    let output = Command::new(env!("CARGO_BIN_EXE_vtest"))
+        .arg("--project")
+        .arg(&fixture.root)
+        .args(["--format", "json", "audit", "static", "--all"])
+        .output()
+        .expect("run the vtest binary");
+    let envelope: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("an audit envelope");
+    assert_eq!(output.status.code(), Some(0), "{envelope}");
+    let tests = envelope["data"]["tests"].as_array().expect("tests");
+    assert_eq!(tests.len(), CASES.len(), "{envelope}");
+    let verdict = |test: &str, rule: &str, target: Option<&str>| -> String {
+        let id = format!("TEST-AUDIT-{}", test.to_ascii_uppercase());
+        let entry = tests
+            .iter()
+            .find(|entry| entry["test"] == id.as_str())
+            .unwrap_or_else(|| panic!("no {id} in {envelope}"));
+        entry["rules"]
+            .as_array()
+            .expect("rules")
+            .iter()
+            .find(|row| row["rule"] == rule && row["target"].as_str() == target)
+            .and_then(|row| row["verdict"].as_str())
+            .unwrap_or_else(|| panic!("no {rule} {target:?} of {id} in {entry}"))
+            .to_owned()
+    };
+    for rule in ["DA-001", "DA-004", "DA-005", "DA-006"] {
+        assert_eq!(verdict("TestCorrect", rule, None), "NO_VIOLATION", "{rule}");
+    }
+    assert_eq!(verdict("TestCorrect", "DA-003", Some(ADD)), "NO_VIOLATION");
+    assert_eq!(verdict("TestCorrect", "DA-002", Some(ADD)), "UNKNOWN");
+    assert_eq!(verdict("TestNoAssertion", "DA-003", Some(ADD)), "FAIL");
+    assert_eq!(verdict("TestNoAssertion", "DA-006", None), "FAIL");
+    assert_eq!(verdict("TestInAGoroutine", "DA-003", Some(ADD)), "UNKNOWN");
+    assert_eq!(verdict("TestSelfComparison", "DA-004", None), "FAIL");
+    assert_eq!(
+        verdict("TestMethod", "DA-003", Some(CALC_ADD)),
+        "NO_VIOLATION"
+    );
+}
